@@ -1,11 +1,16 @@
 # EAS Build ignore — prevents upload of non-essential files
 # EAS does NOT use .gitignore, so we need this separately
 
-# AI agent configs (may contain symlinks that break EAS tarball)
+# AI agent configs (contain symlinks that break EAS tarball on Windows)
 .agents/
 .agent/
 .claude/
 .gemini/
+
+# Locally-generated native dirs — EAS must run expo prebuild itself
+# so Gradle paths match the Linux build server, not our Windows machine
+apps/mobile/android/
+apps/mobile/ios/
 
 # IDE
 .vscode/
