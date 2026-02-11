@@ -1,0 +1,28 @@
+# EAS Build ignore — prevents upload of non-essential files
+# EAS does NOT use .gitignore, so we need this separately
+
+# AI agent configs (may contain symlinks that break EAS tarball)
+.agents/
+.agent/
+.claude/
+.gemini/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+
+# Anchor (not needed for mobile build)
+programs/
+
+# Server (not needed for mobile build)
+apps/server/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
