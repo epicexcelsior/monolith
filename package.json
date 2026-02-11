@@ -1,0 +1,19 @@
+{
+  "name": "monolith",
+  "private": true,
+  "scripts": {
+    "mobile": "pnpm --filter @monolith/mobile start",
+    "mobile:android": "pnpm --filter @monolith/mobile android",
+    "server": "pnpm --filter @monolith/server dev",
+    "build:mobile": "pnpm --filter @monolith/mobile build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r exec rm -rf node_modules && rm -rf node_modules"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "expo": "^54.0.33"
+  }
+}
