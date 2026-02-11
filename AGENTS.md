@@ -1,47 +1,113 @@
-# AGENTS.md — Developer Notes & Lessons Learned
+# AGENTS.md — Agent Onboarding Guide
 
-## Recent Lessons Learned
+> **Audience:** AI coding agents. Read this first when dropped into this repo.
 
-- **2026-02-10**: pnpm's default symlinked `node_modules` layout creates deeply nested `.pnpm` paths that exceed Windows' 250-char `CMAKE_OBJECT_PATH_MAX`. Fix: add `node-linker=hoisted` and `shamefully-hoist=true` to `.npmrc`. This is also recommended by Expo for monorepo setups.
+## Project in One Sentence
 
-- **2026-02-10**: Expo Go cannot run native modules like MWA (Mobile Wallet Adapter). You MUST use a development build (`expo-dev-client`) for any Solana Mobile features. The `expo-dev-client` package must be both installed AND listed in `app.json` plugins.
+**The Monolith** is a multiplayer 3D staking game on Solana — stake crypto, own a glowing block on a massive shared tower, compete for status. Think r/Place meets DeFi, in 3D, on mobile.
 
-- **2026-02-10**: The Solana Mobile MWA protocol works via Android intents (`solana-wallet://`). The dApp never touches private keys — it dispatches an intent, the wallet app signs, and returns the signed transaction. Seed Vault is wallet-level security, not something dApps integrate directly.
+## Environment
 
-- **2026-02-10**: For Anchor integration on mobile, you need a custom wallet adapter that wraps MWA's `transact()` function. The adapter must implement `signTransaction`, `signAllTransactions`, and expose a `publicKey` getter. See `docs/SOLANA_MOBILE.md` for the exact pattern.
+| Item           | Detail                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| **OS**         | Windows (WSL2 → Ubuntu) — agent tools run from Windows but the repo lives in WSL at `~/monolith` |
+| **Runtime**    | Node ≥22, pnpm 10 (hoisted mode — see `.npmrc`)                                                  |
+| **Platform**   | Android-only mobile app, tested on **physical Solana Seeker device** via Android Studio + ADB    |
+| **Blockchain** | Solana Devnet, smart contracts in **Rust** (Anchor framework)                                    |
+| **Build**      | Expo SDK 54 with `expo-dev-client` (NOT Expo Go — native modules required)                       |
 
-- **2026-02-10**: Auth token caching is critical for MWA UX. Without it, users must re-authorize with their wallet on every interaction. Use `expo-secure-store` (encrypted) instead of `AsyncStorage` for storing `auth_token` and `base64Address`.
+> ⚠️ **WSL gotcha:** The repo is at `\\wsl.localhost\Ubuntu\home\epic\monolith` from Windows, but `/home/epic/monolith` from WSL. All build commands run inside WSL. ADB and Android Studio run from Windows. Be aware of path translation between the two.
 
-- **2026-02-10**: `InstancedMesh` in R3F is the correct approach for rendering 1000+ blocks — it reduces draw calls from 1000 to 1, achieving 60 FPS vs ~5 FPS with individual meshes.
+> ⚠️ **Solana + Rust:** The `programs/monolith/` directory contains Anchor/Rust code. Do NOT assume JavaScript tooling works here — use `anchor build`, `anchor test`, etc. Rust toolchain must be installed in WSL.
 
-- **2026-02-10**: When using `adb exec-out screencap -p > file.png` in PowerShell, the `>` operator outputs in UTF-16LE encoding, corrupting the binary PNG. Use `adb shell screencap -p /sdcard/screen.png; adb pull /sdcard/screen.png output.png` instead.
+## Tech Stack
 
-- **2026-02-10**: `gh repo create --push` requires at least one commit to exist before it can push. Always `git commit` first, then create the repo with `--push`.
+| Layer          | Technology                                                 |
+| -------------- | ---------------------------------------------------------- |
+| Mobile app     | Expo 54, React Native 0.81, React 19, Expo Router          |
+| 3D rendering   | React Three Fiber v9, Three.js 0.170, expo-gl              |
+| Wallet         | Solana Mobile Wallet Adapter (MWA) → Seed Vault            |
+| Smart contract | Anchor (Rust), deployed on Devnet                          |
+| State          | Zustand                                                    |
+| Backend        | Supabase (DB + realtime), Game Server (Colyseus/WebSocket) |
+| Monorepo       | pnpm workspaces, hoisted `node_modules`                    |
 
-- **2026-02-10**: EAS Build defaults to **yarn** if no `packageManager` field exists in root `package.json`. For pnpm monorepos, you MUST add `"packageManager": "pnpm@<version>"` or EAS won't resolve workspace packages.
+## Monorepo Layout
 
-- **2026-02-10**: EAS Build does NOT use `.gitignore`. You need a separate `.easignore` file. Critical exclusions for monorepos: `.agents/` (symlinks cause `EPERM` on Windows), `apps/mobile/android/` and `apps/mobile/ios/` (locally-generated native dirs have Windows paths baked in — EAS must run `expo prebuild` itself on Linux).
+```
+monolith/
+├── apps/
+│   ├── mobile/          # Expo React Native app (the product)
+│   │   ├── app/         # Expo Router screens
+│   │   ├── components/  # React + R3F components
+│   │   ├── services/    # Solana, Supabase clients
+│   │   ├── stores/      # Zustand stores
+│   │   └── constants/   # Theme, config
+│   └── server/          # Game server (Colyseus/WebSocket)
+│       └── src/         # Rooms, simulation, entropy
+├── packages/
+│   └── common/          # Shared types, constants, utils
+├── programs/
+│   └── monolith/        # Anchor Solana program (Rust)
+├── docs/                # Deep docs (ARCHITECTURE, SOLANA_MOBILE, LESSONS, etc.)
+└── .agent/              # Agent skills & workflows
+```
 
-- **2026-02-10**: With `node-linker=hoisted`, Metro needs `nodeModulesPaths` pointing to both the monorepo root `node_modules/` AND the app-level `node_modules/`. Without this, Metro can't resolve hoisted dependencies on EAS or in release builds.
+## Quick Commands
 
-- **2026-02-10**: `npx expo run:android --variant release` fails in monorepos because Gradle's `createBundleReleaseJsAndAssets` resolves `index.js` from the monorepo root (due to hoisted deps) instead of `apps/mobile/`. Fix: run `expo prebuild --clean` to regenerate native project, or just use **debug APK** for device testing — it works identically on physical devices.
+```bash
+# From monorepo root (inside WSL)
+pnpm install                              # Install all deps
+pnpm mobile                               # Start Metro bundler
+pnpm mobile:android                       # Build & run on connected device
 
-- **2026-02-10**: For rapid iteration: use debug APK (`npx expo run:android`) + `npx expo start --dev-client` for hot reload on physical devices. No need for EAS during active development. Save EAS for CI/CD and dApp Store distribution.
+# From apps/mobile/
+npx expo start --dev-client --localhost    # Dev server with hot reload
+npx expo run:android                      # Build debug APK + install
+npx expo prebuild --platform android --clean  # Regenerate native project
 
-## Ubuntu Transition Notes
+# EAS (cloud builds)
+eas build --profile preview --platform android
 
-When switching to Ubuntu, the following Windows-specific issues will disappear:
+# Anchor (from programs/monolith/, in WSL)
+anchor build
+anchor test
+anchor deploy
+```
 
-- CMake `CMAKE_OBJECT_PATH_MAX` warnings (shorter Linux paths)
-- PowerShell UTF-16LE binary output corruption
-- Symlink `EPERM` errors (Linux handles symlinks natively)
-- ADB instability (Linux USB is more reliable)
+## Key Conventions
 
-Steps to set up on Ubuntu:
+- **Package names:** `@monolith/mobile`, `@monolith/server`, `@monolith/common`
+- **Routing:** File-based via Expo Router (`app/` directory)
+- **State:** One Zustand store per domain (e.g., `stores/gameStore.ts`)
+- **Secrets:** Never commit. Use `.env` files (see `.env.example`)
+- **Native modules:** Always use `expo-dev-client`, never Expo Go
+- **Device testing:** Debug APK on physical device is the primary workflow. Release builds are for CI/CD only.
 
-1. `git clone https://github.com/epicexcelsior/monolith.git`
-2. Install pnpm: `corepack enable && corepack prepare pnpm@10.13.1 --activate`
-3. `pnpm install`
-4. Install Android SDK + NDK via Android Studio or `sdkmanager`
-5. `cd apps/mobile && npx expo prebuild --platform android --clean`
-6. `npx expo run:android`
+## Testing Strategy
+
+### Current: Manual on Physical Device
+
+Build debug APK → install via ADB → test on Solana Seeker device.
+
+### Future: Automated E2E via Maestro
+
+[Maestro](https://maestro.mobile.dev/) is the recommended path for agent-driven E2E testing:
+
+- Tests are written in **simple YAML** — perfect for AI agents to generate and iterate on
+- Runs on real devices and emulators
+- Can tap, swipe, assert text, take screenshots — full UI automation
+- No app code changes required (uses accessibility layer)
+- Agents can: write tests → run them → read output → fix bugs → re-run, fully autonomously
+
+This unlocks a workflow where AI agents can **own the full test-debug loop** without human intervention for UI testing.
+
+## Deep Docs
+
+| Document                                  | What's Inside                                                                                   |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)   | Full design bible — game mechanics, on-chain vs off-chain, LOD strategy, real-time architecture |
+| [SOLANA_MOBILE.md](docs/SOLANA_MOBILE.md) | MWA integration, wallet adapter pattern, Seed Vault details                                     |
+| [SETUP.md](docs/SETUP.md)                 | Developer environment setup                                                                     |
+| [LESSONS.md](docs/LESSONS.md)             | Battle-tested gotchas & lessons learned (regularly updated)                                     |
+| [APK_INSTALL.md](docs/APK_INSTALL.md)     | How to install APKs on device                                                                   |
