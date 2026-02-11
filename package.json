@@ -1,6 +1,7 @@
 {
   "name": "monolith",
   "private": true,
+  "packageManager": "pnpm@10.13.1",
   "scripts": {
     "mobile": "pnpm --filter @monolith/mobile start",
     "mobile:android": "pnpm --filter @monolith/mobile android",
