@@ -1,49 +1,50 @@
 # Installing the APK on a Physical Device
 
-## From EAS Cloud Build
+## Recommended: Debug APK (fastest pipeline)
 
-1. **Build** (already running):
+```bash
+# 1. Connect device via USB (USB debugging ON)
+adb devices                          # verify device shows up
 
-   ```bash
-   cd apps/mobile
-   eas build --profile preview --platform android
-   ```
+# 2. Build + install in one command (~3-5 min first time, cached after)
+cd apps/mobile
+npx expo run:android                 # builds debug APK + installs on device
 
-2. **Download**: Once build completes (~10 min), download the `.apk` from the
-   link printed in terminal, or from [expo.dev/accounts](https://expo.dev/accounts)
-   → your project → Builds.
+# 3. For subsequent code changes — instant hot reload:
+npx expo start --dev-client          # device auto-connects, changes appear instantly
+```
 
-3. **Transfer to Seeker** (choose one):
+**Debug APK location**: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-   | Method       | Steps                                                      |
-   | ------------ | ---------------------------------------------------------- |
-   | **USB**      | Connect Seeker via USB → `adb install path/to/app.apk`     |
-   | **Browser**  | Open the EAS download URL directly on the Seeker's browser |
-   | **QR Code**  | Scan the QR code from expo.dev on the Seeker               |
-   | **ADB WiFi** | `adb connect <seeker-ip>:5555` → `adb install app.apk`     |
+### Manual install (if device wasn't connected during build)
 
-4. **Run**: Open "The Monolith" app → it connects to your dev server automatically.
-   If running the dev server locally, ensure Seeker is on the same network and
-   update the bundler URL.
+```bash
+adb install apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+```
 
-## From Local Build
+### If native deps change (new packages with native modules)
+
+```bash
+npx expo prebuild --platform android --clean
+npx expo run:android
+```
+
+## Alternative: EAS Cloud Build (for distribution)
 
 ```bash
 cd apps/mobile
-npx expo run:android    # builds + installs on connected device
+eas build --profile preview --platform android
 ```
 
-For a connected Seeker, ensure USB debugging is enabled:
-**Settings → Developer Options → USB Debugging → ON**
+Download APK from expo.dev → install via browser on device or `adb install`.
 
-> **Tip**: If `adb devices` shows the Seeker, `expo run:android` will install directly.
+> **Note**: EAS requires `packageManager` in root `package.json` and `.easignore`
+> excluding `android/`, `ios/`, and `.agents/`. See `AGENTS.md` for details.
 
-## Development Build vs Preview Build
+## Build Profiles
 
-| Profile       | Purpose                            | Hot Reload? |
-| ------------- | ---------------------------------- | ----------- |
-| `development` | Dev client with bundler connection | ✅ Yes      |
-| `preview`     | Standalone APK for testing         | ❌ No       |
-
-For hardware testing of `expo-gl`, the **preview** build is sufficient.
-For active development, use the **development** build + `npx expo start --dev-client`.
+| Profile            | Purpose              | Hot Reload? | Use When              |
+| ------------------ | -------------------- | ----------- | --------------------- |
+| `debug` (local)    | Dev client + bundler | ✅ Yes      | Active development    |
+| `preview` (EAS)    | Standalone APK       | ❌ No       | Sharing with testers  |
+| `production` (EAS) | Store-ready AAB      | ❌ No       | dApp Store submission |
