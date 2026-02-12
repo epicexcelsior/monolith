@@ -75,3 +75,22 @@ Steps to set up on Ubuntu:
 4. Install Android SDK + NDK via Android Studio or `sdkmanager`
 5. `cd apps/mobile && npx expo prebuild --platform android --clean`
 6. `npx expo run:android`
+
+## 2026-02-12: USDC Vault Rewrite
+
+- **Anchor 0.31 SPL Token types**: Must use `InterfaceAccount<TokenAccount>`, `InterfaceAccount<Mint>`, and `Interface<TokenInterface>` — **not** plain `Account<TokenAccount>`. The old pattern causes silent IDL generation failures. Also add `idl-build` feature for `anchor-spl` in `Cargo.toml`.
+
+- **`transfer_checked` required**: Anchor 0.31 best practice for SPL token ops. Requires passing the mint account and decimals to prevent amount/decimal mismatches.
+
+- **ATA constraints**: All ATA accounts must include `associated_token::token_program = token_program` constraint. Anchor 0.31 requires this explicit constraint.
+
+- **Program ID sync**: After `anchor build`, the deployed keypair in `target/deploy/` may differ from `declare_id!()`. Run `anchor keys sync` to update `lib.rs` and `Anchor.toml` automatically. Prevents `DeclaredProgramIdMismatch` errors.
+
+- **Dynamic IDL TypeScript casts**: Anchor 0.31 TypeScript types don't expose account names from dynamically loaded IDLs. Use `(program.account as any).towerState` casts — works at runtime, just needs TS bypass.
+
+- **Gitignore for Anchor workspace**: When Anchor workspace root is at monorepo root, `.gitignore` must cover `target/` and `.anchor/` at root level (not just `programs/monolith/`).
+
+- **Expo Router typed routes**: New route files (e.g., `deposit.tsx`) cause TS errors until the generated type declarations regenerate. Use `pathname as any` cast or run `npx expo start` to regenerate types.
+
+- **MWA transaction signing**: All signing happens inside `transact()` sessions. Always try `reauthorize()` first (with cached `authToken`), fall back to `authorize()`. Set fee payer from `authResult.accounts[0].address` (base64). Fetch `recentBlockhash` inside session, send raw tx after closing.
+

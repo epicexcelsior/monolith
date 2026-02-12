@@ -2,7 +2,7 @@
 
 > **Living document. Single source of truth.** Update as project evolves.
 
-**Last Updated:** 2026-02-10 | **Solo Developer** | **Deadline: March 9, 2026** | **Target: Working demo in ~1 week**
+**Last Updated:** 2026-02-12 | **Solo Developer** | **Deadline: March 9, 2026** | **Target: Working demo in ~1 week**
 
 ---
 
@@ -72,9 +72,13 @@ monolith/
 ├── programs/
 │   └── monolith/            # Anchor Solana program
 │       ├── src/
-│       │   └── lib.rs       # initialize_block, stake, withdraw, etc
-│       ├── tests/
-│       └── Anchor.toml
+│       │   ├── lib.rs       # initialize_tower, deposit_stake, add_stake, withdraw
+│       │   ├── state.rs     # TowerState, BlockAccount
+│       │   └── error.rs     # MonolithError enum
+│       └── Cargo.toml
+├── tests/                   # Anchor tests (monolith.ts)
+├── Anchor.toml              # Anchor workspace config (at root)
+├── Cargo.toml               # Rust workspace manifest
 ├── docs/
 │   ├── ARCHITECTURE.md      # This file
 │   └── SETUP.md             # Developer setup guide
