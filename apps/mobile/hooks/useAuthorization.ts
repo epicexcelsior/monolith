@@ -134,6 +134,10 @@ export function useAuthorization() {
       const pubkey = base64ToPublicKey(account.address);
 
       // Cache authorization details for next session
+      // NOTE: wallet_uri_base can be undefined on some devices (e.g. Seeker)
+      // despite the MWA type declaring it as `string`. Guard before storing
+      // since SecureStore only accepts string values.
+      const walletUriBase = result.wallet_uri_base ?? "";
       await Promise.all([
         SecureStore.setItemAsync(
           SECURE_STORE_KEYS.AUTH_TOKEN,
@@ -143,10 +147,12 @@ export function useAuthorization() {
           SECURE_STORE_KEYS.BASE64_ADDRESS,
           account.address,
         ),
-        SecureStore.setItemAsync(
-          SECURE_STORE_KEYS.WALLET_URI_BASE,
-          result.wallet_uri_base,
-        ),
+        walletUriBase
+          ? SecureStore.setItemAsync(
+            SECURE_STORE_KEYS.WALLET_URI_BASE,
+            walletUriBase,
+          )
+          : Promise.resolve(),
       ]);
 
       // Update global state
@@ -154,7 +160,7 @@ export function useAuthorization() {
         publicKey: pubkey,
         authToken: result.auth_token,
         base64Address: account.address,
-        walletUriBase: result.wallet_uri_base,
+        walletUriBase,
       });
 
       return pubkey;
