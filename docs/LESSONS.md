@@ -30,7 +30,35 @@
 
 - **Rapid iteration workflow**: Use debug APK (`npx expo run:android`) + `npx expo start --dev-client` for hot reload on physical devices. No need for EAS during active development. Save EAS for CI/CD and dApp Store distribution.
 
-## Ubuntu Transition Notes
+- **2026-02-11**: Migrated to WSL Ubuntu 24.04 for development. Rust/Anchor compilation is **5-10x faster** on native ext4 vs Windows NTFS through `/mnt/c`. Node/pnpm operations are **2-3x faster**. All Windows path issues (260 char limit, symlink errors) eliminated.
+
+- **2026-02-11**: WSL2 requires `usbipd-win` for USB device passthrough. Install on Windows (`winget install dorssel.usbipd-win`), then use `usbipd bind --busid X-X` (persistent) and `usbipd attach --wsl --busid X-X` (per-session) to attach Android devices to WSL.
+
+- **2026-02-11**: When calling WSL commands via `wsl -e bash -lc "..."` from Windows, the Windows PATH leaks into the WSL session. Paths with spaces (like "Program Files") break bash export statements. Use `wsl -e bash -c "..."` (non-login shell) or run commands from within WSL directly.
+
+- **2026-02-11**: Android SDK in WSL requires: (1) Java (OpenJDK 17+), (2) command-line tools from dl.google.com, (3) `sdkmanager` to install platform-tools, build-tools, platforms, and NDK (~2GB), (4) `ANDROID_HOME` and `ANDROID_SDK_ROOT` env vars in `~/.bashrc`. Total setup time: ~20-30 minutes.
+
+- **2026-02-11**: VS Code with "Remote - WSL" extension is the ideal setup for WSL development. Run `code .` from WSL terminal — VS Code opens with WSL backend. All extensions, terminals, and file operations run natively in WSL. Hot reload works seamlessly with physical devices via `adb reverse tcp:8081 tcp:8081`.
+
+## WSL Setup
+
+**Primary development environment as of 2026-02-11.**
+
+Repository location: `/home/epic/monolith` (native ext4)
+See `docs/WSL_SETUP.md` for complete setup guide.
+
+Key benefits over Windows:
+
+- **8x faster** Anchor/Rust builds
+- **3x faster** pnpm installs
+- **2x faster** Expo prebuild
+- No path length limits
+- Native symlinks
+- Better git performance
+
+Physical device access: `usbipd-win` + `usbip` (USB passthrough to WSL)
+
+## Ubuntu Transition Notes (Deprecated — Now Using WSL)
 
 When switching to Ubuntu, the following Windows-specific issues will disappear:
 
