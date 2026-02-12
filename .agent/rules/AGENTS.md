@@ -102,6 +102,33 @@ Build debug APK → install via ADB → test on Solana Seeker device.
 
 This unlocks a workflow where AI agents can **own the full test-debug loop** without human intervention for UI testing.
 
+## Anchor / Solana Patterns
+
+### Anchor 0.31 (Current Version)
+- **SPL tokens**: Use `InterfaceAccount<TokenAccount>`, `InterfaceAccount<Mint>`, `Interface<TokenInterface>` — not plain `Account<>` types. Required for IDL generation.
+- **Transfers**: Use `transfer_checked` (requires mint + decimals), not `transfer`.
+- **Cargo.toml**: Must include `idl-build` feature: `idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]`
+- **ATA constraints**: Include `associated_token::token_program = token_program` on all ATA accounts.
+
+### Program IDs
+- Must match across: `declare_id!()`, `Anchor.toml` (localnet + devnet), and `monolith-program.ts`.
+- Fix mismatches with `anchor keys sync`.
+
+### PDA Seeds
+- Tower: `[b"tower"]` — Block: `[b"block", block_id.to_le_bytes()]` (u32 LE)
+- Vault: ATA of tower PDA for USDC mint (`allowOwnerOffCurve: true`)
+
+### Devnet
+- **Program**: `Fu76EqtVLqX2LKCW5ZW8zWBqdgsQTbkvQ9nBDyykgwDh`
+- **USDC Mint**: `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`
+
+## MWA + Anchor on Mobile
+
+- All signing in `transact()` sessions — try `reauthorize()` first, fall back to `authorize()`.
+- Use a read-only `AnchorProvider` with dummy wallet — MWA handles signing separately.
+- Dynamic IDL: `(program.account as any).towerState` casts needed for TypeScript.
+- New Expo Router files need `pathname: "/route" as any` until types regenerate.
+
 ## Deep Docs
 
 | Document                                  | What's Inside                                                                                   |
@@ -112,39 +139,11 @@ This unlocks a workflow where AI agents can **own the full test-debug loop** wit
 | [LESSONS.md](docs/LESSONS.md)             | Battle-tested gotchas & lessons learned (regularly updated)                                     |
 | [APK_INSTALL.md](docs/APK_INSTALL.md)     | How to install APKs on device                                                                   |
 
-## Anchor 0.31 Patterns
+## Recent Lessons Learned
 
-- Use `InterfaceAccount<TokenAccount>`, `InterfaceAccount<Mint>`, `Interface<TokenInterface>` — **not** plain `Account<TokenAccount>`. Required for IDL generation.
-- Use `transfer_checked` (not `transfer`) for SPL token ops — requires mint account + decimals.
-- Add `idl-build` feature for `anchor-spl` in `Cargo.toml`:
-  ```toml
-  [features]
-  idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
-  ```
-- Include `associated_token::token_program = token_program` constraint on all ATA accounts.
-- Program IDs must match across `declare_id!()`, `Anchor.toml`, and `monolith-program.ts`. Run `anchor keys sync` to fix mismatches.
+- **2026-02-12**: Anchor 0.31 requires `InterfaceAccount` + `transfer_checked` for SPL tokens — older `Account<TokenAccount>` pattern silently breaks IDL generation.
+- **2026-02-12**: `DeclaredProgramIdMismatch` is fixed by `anchor keys sync`, not manual ID editing.
+- **2026-02-12**: Anchor 0.31 TS types don't expose account names from dynamic IDLs — use `(program.account as any)` casts.
+- **2026-02-12**: `.gitignore` must cover `target/` and `.anchor/` at monorepo root (Anchor puts build artifacts at workspace root, not under `programs/`).
 
-### PDA Seeds
-- Tower: `[b"tower"]` · Block: `[b"block", block_id.to_le_bytes()]` (u32 LE)
-- Vault: ATA of tower PDA for USDC mint (`allowOwnerOffCurve: true`)
 
-### Testing
-- Tests use a locally-created mock USDC mint (6 decimals), not the devnet one.
-- Create ATAs per player with `createAssociatedTokenAccount` + `mintTo`.
-
-## MWA Integration
-
-- All signing happens inside `transact()` sessions.
-- Try `reauthorize()` first (cached `authToken`), fall back to `authorize()`.
-- Set fee payer from `authResult.accounts[0].address` (base64).
-- Fetch `recentBlockhash` inside the session, send raw tx after session closes.
-- Use a read-only `AnchorProvider` with dummy wallet — MWA handles signing separately.
-- Dynamic IDL: `program.account.X` needs `(program.account as any).X` casts in TypeScript.
-
-## Lessons Learned
-
-- **2026-02-12**: Anchor 0.31 requires `InterfaceAccount` + `transfer_checked` for SPL tokens. Old `Account<TokenAccount>` pattern causes silent IDL generation failures.
-- **2026-02-12**: `DeclaredProgramIdMismatch` → fix with `anchor keys sync`.
-- **2026-02-12**: Anchor 0.31 TS types don't expose account names from dynamic IDLs — use `as any` casts.
-- **2026-02-12**: `.gitignore` must cover `target/` and `.anchor/` at monorepo root (not just `programs/monolith/`).
-- **2026-02-12**: New Expo Router route files (e.g., `deposit.tsx`) cause TS errors until types regenerate — use `pathname as any`.
