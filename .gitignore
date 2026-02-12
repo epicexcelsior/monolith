@@ -39,9 +39,9 @@ apps/mobile/ios/Pods/
 .DS_Store
 Thumbs.db
 
-# Anchor
-programs/monolith/target/
-programs/monolith/.anchor/
+# Anchor build artifacts
+target/
+.anchor/
 
 # AI agent configs
 .agents/

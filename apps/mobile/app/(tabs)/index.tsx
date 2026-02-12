@@ -1,3 +1,4 @@
+import { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,16 +9,35 @@ import {
 import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
+import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
+import { useStaking, type TowerInfo } from "@/hooks/useStaking";
 
 const { width, height } = Dimensions.get("window");
 
 /**
  * Main Tower screen — the heart of the app.
  * Full-screen 3D R3F canvas showing the tower.
- * Overlay HUD shows wallet status and key actions.
+ * Overlay HUD shows wallet status, on-chain stats, and key actions.
  */
 export default function TowerScreen() {
   const router = useRouter();
+  const isConnected = useWalletStore((s) => s.isConnected);
+  const truncatedAddress = useTruncatedAddress();
+  const { fetchTowerState } = useStaking();
+
+  const [towerInfo, setTowerInfo] = useState<TowerInfo | null>(null);
+
+  // Fetch on-chain tower stats on mount and periodically
+  const refreshStats = useCallback(async () => {
+    const info = await fetchTowerState();
+    if (info) setTowerInfo(info);
+  }, [fetchTowerState]);
+
+  useEffect(() => {
+    refreshStats();
+    const interval = setInterval(refreshStats, 15_000); // refresh every 15s
+    return () => clearInterval(interval);
+  }, [refreshStats]);
 
   return (
     <View style={styles.container}>
@@ -32,34 +52,73 @@ export default function TowerScreen() {
         <View style={styles.topBar}>
           <Text style={styles.title}>THE MONOLITH</Text>
           <TouchableOpacity
-            style={styles.connectButton}
+            style={[
+              styles.connectButton,
+              isConnected && styles.connectedButton,
+            ]}
             onPress={() => router.push("/connect")}
           >
-            <Text style={styles.connectText}>Connect Wallet</Text>
+            <Text
+              style={[
+                styles.connectText,
+                isConnected && styles.connectedText,
+              ]}
+            >
+              {isConnected && truncatedAddress
+                ? truncatedAddress
+                : "Connect Wallet"}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Stats bar */}
+        {/* Stats bar — live on-chain data */}
         <View style={styles.statsBar}>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>—</Text>
+            <Text style={styles.statValue}>
+              {towerInfo ? towerInfo.totalBlocksClaimed.toString() : "—"}
+            </Text>
             <Text style={styles.statLabel}>Blocks</Text>
           </View>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>—</Text>
+            <Text style={styles.statValue}>
+              {towerInfo ? `$${towerInfo.totalStaked.toFixed(2)}` : "—"}
+            </Text>
             <Text style={styles.statLabel}>Staked</Text>
           </View>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>—</Text>
-            <Text style={styles.statLabel}>Online</Text>
+            <Text style={[styles.statValue, styles.liveIndicator]}>
+              {isConnected ? "●" : "○"}
+            </Text>
+            <Text style={styles.statLabel}>
+              {isConnected ? "Live" : "Offline"}
+            </Text>
           </View>
         </View>
 
-        {/* Action Button hint */}
-        <View style={styles.bottomHint}>
-          <Text style={styles.hintText}>
-            Tap a block to inspect • Pinch to zoom
-          </Text>
+        {/* Bottom action area */}
+        <View style={styles.bottomArea}>
+          {isConnected ? (
+            <TouchableOpacity
+              style={styles.stakeButton}
+              onPress={() =>
+                router.push({
+                  pathname: "/deposit" as any,
+                  params: {
+                    blockId: "0",
+                    posX: "0",
+                    posY: "0",
+                    posZ: "0",
+                  },
+                })
+              }
+            >
+              <Text style={styles.stakeButtonText}>Stake USDC</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.hintText}>
+              Connect wallet to stake • Pinch to zoom
+            </Text>
+          )}
         </View>
       </View>
 
@@ -110,11 +169,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#00ffff",
   },
+  connectedButton: {
+    backgroundColor: "rgba(0, 255, 100, 0.15)",
+    borderColor: "#00ff64",
+  },
   connectText: {
     color: "#00ffff",
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 1,
+  },
+  connectedText: {
+    color: "#00ff64",
+    fontFamily: "monospace",
   },
   statsBar: {
     flexDirection: "row",
@@ -140,8 +207,25 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  bottomHint: {
+  liveIndicator: {
+    color: "#00ff64",
+  },
+  bottomArea: {
     alignItems: "center",
+  },
+  stakeButton: {
+    backgroundColor: "#00ffff",
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    width: "100%",
+    alignItems: "center",
+  },
+  stakeButtonText: {
+    color: "#0a0a0f",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 1,
   },
   hintText: {
     color: "#444466",
