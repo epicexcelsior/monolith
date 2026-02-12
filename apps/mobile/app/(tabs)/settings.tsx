@@ -4,12 +4,47 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
+import { useRouter } from "expo-router";
+import { useAuthorization } from "@/hooks/useAuthorization";
+import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
+import { getClusterName } from "@/services/mwa";
+import { getRpcUrl } from "@/services/solana";
 
 /**
  * Settings screen — wallet info, network config, and app preferences.
  */
 export default function SettingsScreen() {
+  const router = useRouter();
+  const { disconnect } = useAuthorization();
+  const isConnected = useWalletStore((s) => s.isConnected);
+  const isLoading = useWalletStore((s) => s.isLoading);
+  const truncatedAddress = useTruncatedAddress();
+  const cluster = getClusterName();
+  const rpcUrl = getRpcUrl();
+
+  const handleDisconnect = () => {
+    Alert.alert(
+      "Disconnect Wallet",
+      "Are you sure you want to disconnect your wallet?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Disconnect",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await disconnect();
+            } catch (err) {
+              console.error("Disconnect failed:", err);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Settings</Text>
@@ -17,25 +52,70 @@ export default function SettingsScreen() {
       {/* Wallet Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>WALLET</Text>
+
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Status</Text>
-          <Text style={styles.cardValue}>Not Connected</Text>
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.statusDot,
+                isConnected
+                  ? styles.statusDotConnected
+                  : styles.statusDotDisconnected,
+              ]}
+            />
+            <Text
+              style={[
+                styles.cardValue,
+                isConnected ? styles.cardValueCyan : undefined,
+              ]}
+            >
+              {isConnected ? "Connected" : "Not Connected"}
+            </Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Connect Wallet</Text>
-        </TouchableOpacity>
+
+        {isConnected && truncatedAddress && (
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Address</Text>
+            <Text style={styles.cardValueMono}>{truncatedAddress}</Text>
+          </View>
+        )}
+
+        {isConnected ? (
+          <TouchableOpacity
+            style={styles.disconnectButton}
+            onPress={handleDisconnect}
+            disabled={isLoading}
+          >
+            <Text style={styles.disconnectButtonText}>
+              {isLoading ? "Disconnecting..." : "Disconnect Wallet"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.connectButton}
+            onPress={() => router.push("/connect")}
+          >
+            <Text style={styles.connectButtonText}>Connect Wallet</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Network Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>NETWORK</Text>
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Network</Text>
-          <Text style={styles.cardValueCyan}>Devnet</Text>
+          <Text style={styles.cardLabel}>Cluster</Text>
+          <Text style={styles.cardValueCyan}>
+            {cluster.charAt(0).toUpperCase() + cluster.slice(1)}
+          </Text>
         </View>
         <View style={styles.card}>
           <Text style={styles.cardLabel}>RPC</Text>
-          <Text style={styles.cardValueMono}>api.devnet.solana.com</Text>
+          <Text style={styles.cardValueMono} numberOfLines={1}>
+            {rpcUrl.replace("https://", "")}
+          </Text>
         </View>
       </View>
 
@@ -112,7 +192,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "monospace",
   },
-  button: {
+  // Status indicator
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  statusDotConnected: {
+    backgroundColor: "#00ff88",
+    shadowColor: "#00ff88",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  statusDotDisconnected: {
+    backgroundColor: "#555566",
+  },
+  // Buttons
+  connectButton: {
     backgroundColor: "rgba(0, 255, 255, 0.1)",
     borderRadius: 10,
     padding: 14,
@@ -121,8 +224,23 @@ const styles = StyleSheet.create({
     borderColor: "#00ffff",
     marginTop: 8,
   },
-  buttonText: {
+  connectButtonText: {
     color: "#00ffff",
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  disconnectButton: {
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 59, 48, 0.4)",
+    marginTop: 8,
+  },
+  disconnectButtonText: {
+    color: "#ff6b6b",
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 1,
