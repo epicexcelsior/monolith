@@ -111,3 +111,40 @@ This unlocks a workflow where AI agents can **own the full test-debug loop** wit
 | [SETUP.md](docs/SETUP.md)                 | Developer environment setup                                                                     |
 | [LESSONS.md](docs/LESSONS.md)             | Battle-tested gotchas & lessons learned (regularly updated)                                     |
 | [APK_INSTALL.md](docs/APK_INSTALL.md)     | How to install APKs on device                                                                   |
+
+## Anchor 0.31 Patterns
+
+- Use `InterfaceAccount<TokenAccount>`, `InterfaceAccount<Mint>`, `Interface<TokenInterface>` — **not** plain `Account<TokenAccount>`. Required for IDL generation.
+- Use `transfer_checked` (not `transfer`) for SPL token ops — requires mint account + decimals.
+- Add `idl-build` feature for `anchor-spl` in `Cargo.toml`:
+  ```toml
+  [features]
+  idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+  ```
+- Include `associated_token::token_program = token_program` constraint on all ATA accounts.
+- Program IDs must match across `declare_id!()`, `Anchor.toml`, and `monolith-program.ts`. Run `anchor keys sync` to fix mismatches.
+
+### PDA Seeds
+- Tower: `[b"tower"]` · Block: `[b"block", block_id.to_le_bytes()]` (u32 LE)
+- Vault: ATA of tower PDA for USDC mint (`allowOwnerOffCurve: true`)
+
+### Testing
+- Tests use a locally-created mock USDC mint (6 decimals), not the devnet one.
+- Create ATAs per player with `createAssociatedTokenAccount` + `mintTo`.
+
+## MWA Integration
+
+- All signing happens inside `transact()` sessions.
+- Try `reauthorize()` first (cached `authToken`), fall back to `authorize()`.
+- Set fee payer from `authResult.accounts[0].address` (base64).
+- Fetch `recentBlockhash` inside the session, send raw tx after session closes.
+- Use a read-only `AnchorProvider` with dummy wallet — MWA handles signing separately.
+- Dynamic IDL: `program.account.X` needs `(program.account as any).X` casts in TypeScript.
+
+## Lessons Learned
+
+- **2026-02-12**: Anchor 0.31 requires `InterfaceAccount` + `transfer_checked` for SPL tokens. Old `Account<TokenAccount>` pattern causes silent IDL generation failures.
+- **2026-02-12**: `DeclaredProgramIdMismatch` → fix with `anchor keys sync`.
+- **2026-02-12**: Anchor 0.31 TS types don't expose account names from dynamic IDLs — use `as any` casts.
+- **2026-02-12**: `.gitignore` must cover `target/` and `.anchor/` at monorepo root (not just `programs/monolith/`).
+- **2026-02-12**: New Expo Router route files (e.g., `deposit.tsx`) cause TS errors until types regenerate — use `pathname as any`.
