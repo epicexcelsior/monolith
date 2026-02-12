@@ -145,5 +145,6 @@ This unlocks a workflow where AI agents can **own the full test-debug loop** wit
 - **2026-02-12**: `DeclaredProgramIdMismatch` is fixed by `anchor keys sync`, not manual ID editing.
 - **2026-02-12**: Anchor 0.31 TS types don't expose account names from dynamic IDLs — use `(program.account as any)` casts.
 - **2026-02-12**: `.gitignore` must cover `target/` and `.anchor/` at monorepo root (Anchor puts build artifacts at workspace root, not under `programs/`).
+- **2026-02-12**: `Anchor.toml` `[provider] cluster` must be `localnet` for `anchor test` to spin up a local validator. If set to `devnet`, `anchor test` deploys to devnet instead — switch to `localnet` before testing, switch to `devnet` before deploying.
 
 
