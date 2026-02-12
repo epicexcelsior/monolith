@@ -1,12 +1,23 @@
 import { create } from "zustand";
 import type {
   Block,
-  TowerState,
   TowerStats,
   TowerConfig,
   Player,
 } from "@monolith/common";
 import { DEFAULT_TOWER_CONFIG } from "@monolith/common";
+
+/** Lightweight block info for demo mode (no server needed) */
+export interface DemoBlock {
+  id: string;
+  layer: number;
+  index: number;
+  energy: number;
+  ownerColor: string;
+  owner: string | null;
+  stakedAmount: number;
+  position: { x: number; y: number; z: number };
+}
 
 /**
  * Zustand Tower Store — Global game state.
@@ -23,6 +34,7 @@ import { DEFAULT_TOWER_CONFIG } from "@monolith/common";
 interface TowerStore {
   // ─── State ────────────────────────────────
   blocks: Block[];
+  demoBlocks: DemoBlock[];
   config: TowerConfig;
   stats: TowerStats;
   currentPlayer: Player | null;
@@ -32,6 +44,7 @@ interface TowerStore {
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
+  setDemoBlocks: (blocks: DemoBlock[]) => void;
   updateBlock: (blockId: string, changes: Partial<Block>) => void;
   setCurrentPlayer: (player: Player | null) => void;
   setConnected: (connected: boolean) => void;
@@ -41,6 +54,7 @@ interface TowerStore {
 
   // ─── Computed ─────────────────────────────
   getBlockById: (id: string) => Block | undefined;
+  getDemoBlockById: (id: string) => DemoBlock | undefined;
   getBlocksByOwner: (owner: string) => Block[];
   getOccupiedCount: () => number;
 }
@@ -48,6 +62,7 @@ interface TowerStore {
 export const useTowerStore = create<TowerStore>((set, get) => ({
   // ─── Initial State ────────────────────────
   blocks: [],
+  demoBlocks: [],
   config: DEFAULT_TOWER_CONFIG,
   stats: {
     totalStaked: 0,
@@ -63,6 +78,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
+  setDemoBlocks: (demoBlocks) => set({ demoBlocks }),
 
   updateBlock: (blockId, changes) =>
     set((state) => ({
@@ -79,6 +95,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
 
   // ─── Computed ─────────────────────────────
   getBlockById: (id) => get().blocks.find((b) => b.id === id),
+  getDemoBlockById: (id) => get().demoBlocks.find((b) => b.id === id),
   getBlocksByOwner: (owner) => get().blocks.filter((b) => b.owner === owner),
   getOccupiedCount: () => get().blocks.filter((b) => b.owner !== null).length,
 }));

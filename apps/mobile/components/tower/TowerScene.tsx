@@ -1,96 +1,201 @@
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber/native";
-import { View, StyleSheet, PanResponder, Dimensions } from "react-native";
+import { View, StyleSheet, PanResponder } from "react-native";
 import * as THREE from "three";
 import TowerGrid from "./TowerGrid";
+import Particles from "./Particles";
+import { useTowerStore } from "@/stores/tower-store";
+
+/** How long (seconds) before auto-rotate kicks in */
+const IDLE_TIMEOUT = 3;
+/** Auto-rotate speed in radians per frame */
+const AUTO_ROTATE_SPEED = 0.001;
+/** Camera lerp factor (0 = no move, 1 = instant snap) */
+const CAMERA_LERP = 0.05;
+/** Threshold (px) to distinguish tap from pan */
+const TAP_THRESHOLD = 8;
+/** Tower center Y (approximate midpoint for lookAt) */
+const TOWER_CENTER_Y = 10;
+
+interface CameraState {
+  azimuth: number;
+  elevation: number;
+  zoom: number;
+  targetAzimuth: number;
+  targetElevation: number;
+  targetZoom: number;
+  lookAt: THREE.Vector3;
+  targetLookAt: THREE.Vector3;
+}
 
 /**
- * CameraRig — Handles camera movement based on user gestures.
- * Reads from a shared mutable ref to avoid React re-renders.
+ * SceneSetup — Adds fog and extra lighting inside the R3F Canvas.
+ */
+function SceneSetup() {
+  const { scene } = useThree();
+
+  useMemo(() => {
+    scene.fog = new THREE.FogExp2(0x0a0a0f, 0.012);
+  }, [scene]);
+
+  return null;
+}
+
+/**
+ * CameraRig — Smooth camera with auto-rotate and zoom-to-block.
  */
 function CameraRig({
   cameraState,
+  lastTouchTime,
 }: {
-  cameraState: React.MutableRefObject<{
-    azimuth: number;
-    elevation: number;
-    zoom: number;
-  }>;
+  cameraState: React.MutableRefObject<CameraState>;
+  lastTouchTime: React.MutableRefObject<number>;
 }) {
   const { camera } = useThree();
-  const vec = new THREE.Vector3();
+  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
+  const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
+  const prevSelectedRef = useRef<string | null>(null);
 
   useFrame(() => {
-    // 1. Convert spherical coords to Cartesian
-    // azimuth (theta) = horizontal rotation
-    // elevation (phi) = vertical angle (0 = top, PI/2 = horizon)
+    const cs = cameraState.current;
+    const now = performance.now() / 1000;
+    const idleTime = now - lastTouchTime.current;
 
-    // Clamp elevation to avoid flipping
-    const minElevation = 0.1;
-    const maxElevation = Math.PI / 2 - 0.1;
-    cameraState.current.elevation = Math.max(
-      minElevation,
-      Math.min(maxElevation, cameraState.current.elevation),
+    // Zoom-to-block when selection changes
+    if (selectedBlockId !== prevSelectedRef.current) {
+      prevSelectedRef.current = selectedBlockId;
+
+      if (selectedBlockId) {
+        const block = getDemoBlockById(selectedBlockId);
+        if (block) {
+          // Compute target camera position to face the block
+          const bx = block.position.x;
+          const by = block.position.y;
+          const bz = block.position.z;
+
+          cs.targetAzimuth = Math.atan2(bx, bz);
+          cs.targetElevation = 0.6;
+          cs.targetZoom = 25;
+          cs.targetLookAt.set(bx, by, bz);
+        }
+      } else {
+        // Deselect: return to default view
+        cs.targetZoom = 50;
+        cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
+      }
+    }
+
+    // Auto-rotate when idle
+    if (idleTime > IDLE_TIMEOUT && !selectedBlockId) {
+      cs.targetAzimuth += AUTO_ROTATE_SPEED;
+    }
+
+    // Smooth lerp toward targets
+    cs.azimuth += (cs.targetAzimuth - cs.azimuth) * CAMERA_LERP;
+    cs.elevation += (cs.targetElevation - cs.elevation) * CAMERA_LERP;
+    cs.zoom += (cs.targetZoom - cs.zoom) * CAMERA_LERP;
+    cs.lookAt.lerp(cs.targetLookAt, CAMERA_LERP);
+
+    // Clamp elevation
+    cs.elevation = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cs.elevation));
+
+    // Spherical to cartesian
+    const r = cs.zoom;
+    const theta = cs.azimuth;
+    const phi = cs.elevation;
+
+    const x = r * Math.sin(phi) * Math.sin(theta);
+    const y = r * Math.cos(phi);
+    const z = r * Math.sin(phi) * Math.cos(theta);
+
+    camera.position.set(
+      cs.lookAt.x + x,
+      cs.lookAt.y + y,
+      cs.lookAt.z + z,
     );
-
-    const radius = cameraState.current.zoom;
-    const theta = cameraState.current.azimuth;
-    const phi = cameraState.current.elevation;
-
-    // Standard spherical to cartesian conversion
-    // y is up
-    const x = radius * Math.sin(phi) * Math.sin(theta);
-    const y = radius * Math.cos(phi);
-    const z = radius * Math.sin(phi) * Math.cos(theta);
-
-    camera.position.set(x, y, z);
-    camera.lookAt(0, 10, 0); // Look at center of tower (approx height 10)
+    camera.lookAt(cs.lookAt);
   });
 
   return null;
 }
 
 /**
- * TowerScene — The main R3F Canvas wrapper.
- * Includes custom PanResponder for camera orbit controls.
+ * TowerScene — Main R3F Canvas wrapper.
+ * Includes PanResponder for camera orbit with tap detection.
  */
 export default function TowerScene() {
-  // Mutable state for camera orbit
-  // initial: looking from slightly above (elevation ~0.5 rad), zoom 50
-  const cameraState = useRef({
+  const cameraState = useRef<CameraState>({
     azimuth: Math.PI / 4,
     elevation: 0.8,
     zoom: 50,
+    targetAzimuth: Math.PI / 4,
+    targetElevation: 0.8,
+    targetZoom: 50,
+    lookAt: new THREE.Vector3(0, TOWER_CENTER_Y, 0),
+    targetLookAt: new THREE.Vector3(0, TOWER_CENTER_Y, 0),
   });
 
-  // Track previous touch for delta calculation
-  const touchState = useRef({ x: 0, y: 0 });
+  const lastTouchTime = useRef(performance.now() / 1000);
+  const touchStart = useRef({ x: 0, y: 0 });
+  const touchMoved = useRef(false);
+
+  const selectBlock = useTowerStore((s) => s.selectBlock);
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onPanResponderGrant: (evt) => {
-          touchState.current.x = evt.nativeEvent.pageX;
-          touchState.current.y = evt.nativeEvent.pageY;
+          const { pageX, pageY } = evt.nativeEvent;
+          touchStart.current = { x: pageX, y: pageY };
+          touchMoved.current = false;
+          lastTouchTime.current = performance.now() / 1000;
         },
         onPanResponderMove: (evt) => {
           const { pageX, pageY } = evt.nativeEvent;
-          const dx = pageX - touchState.current.x;
-          const dy = pageY - touchState.current.y;
+          const dx = pageX - touchStart.current.x;
+          const dy = pageY - touchStart.current.y;
 
-          touchState.current.x = pageX;
-          touchState.current.y = pageY;
+          // Check if we've moved enough to count as a pan
+          if (
+            Math.abs(dx) > TAP_THRESHOLD ||
+            Math.abs(dy) > TAP_THRESHOLD
+          ) {
+            touchMoved.current = true;
+          }
 
-          // Sensitivity
-          const SENSITIVITY = 0.005;
+          if (touchMoved.current) {
+            const SENSITIVITY = 0.005;
+            const cs = cameraState.current;
 
-          // Update rotation
-          cameraState.current.azimuth -= dx * SENSITIVITY;
-          cameraState.current.elevation -= dy * SENSITIVITY;
+            // Use delta from last frame, not from start
+            const prevX = touchStart.current.x;
+            const prevY = touchStart.current.y;
+
+            cs.targetAzimuth -= (pageX - prevX) * SENSITIVITY;
+            cs.targetElevation -= (pageY - prevY) * SENSITIVITY;
+
+            touchStart.current = { x: pageX, y: pageY };
+            lastTouchTime.current = performance.now() / 1000;
+          }
+        },
+        onPanResponderRelease: () => {
+          if (!touchMoved.current) {
+            // It was a tap — dismiss selection
+            // (Block selection is handled by R3F onClick in TowerGrid)
+            // If nothing was tapped in the 3D scene, deselect
+            // We use a small timeout to let the R3F click handler fire first
+            setTimeout(() => {
+              // Only deselect if no new selection was made
+              const current = useTowerStore.getState().selectedBlockId;
+              if (current !== null) {
+                // Selection was just made by TowerGrid click — keep it
+              }
+            }, 50);
+          }
         },
       }),
-    [],
+    [selectBlock],
   );
 
   return (
@@ -101,10 +206,13 @@ export default function TowerScene() {
           alpha: false,
           powerPreference: "high-performance",
         }}
-        // Initial camera (will be overridden by CameraRig immediately)
         camera={{ position: [0, 20, 50], fov: 50 }}
       >
-        <CameraRig cameraState={cameraState} />
+        <SceneSetup />
+        <CameraRig
+          cameraState={cameraState}
+          lastTouchTime={lastTouchTime}
+        />
 
         <ambientLight intensity={0.3} color="#6666ff" />
         <directionalLight
@@ -113,14 +221,22 @@ export default function TowerScene() {
           color="#ffffff"
         />
         <pointLight
-          position={[0, 10, 0]}
+          position={[0, 5, 0]}
           intensity={0.8}
           color="#00ffff"
           distance={60}
           decay={2}
         />
+        <pointLight
+          position={[0, 20, 0]}
+          intensity={0.5}
+          color="#6600ff"
+          distance={40}
+          decay={2}
+        />
 
         <TowerGrid />
+        <Particles />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]}>
           <planeGeometry args={[100, 100]} />

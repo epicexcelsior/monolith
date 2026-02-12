@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
+import BlockInspector from "@/components/ui/BlockInspector";
 
 const { width, height } = Dimensions.get("window");
 
@@ -61,6 +62,9 @@ export default function TowerScreen() {
           </Text>
         </View>
       </View>
+
+      {/* Block Inspector panel */}
+      <BlockInspector />
     </View>
   );
 }
