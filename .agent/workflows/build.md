@@ -31,6 +31,9 @@ npx expo run:android
 
 ```bash
 cd apps/mobile
+# Kill any lingering dev servers from previous sessions
+lsof -ti:8081 | xargs kill -9 2>/dev/null || true
+sleep 1
 npx expo start --dev-client
 ```
 
