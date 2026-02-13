@@ -10,7 +10,8 @@ Before committing, run relevant automated checks to catch issues:
 
 **TypeScript/JavaScript projects:**
 ```bash
-timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
+# Increased timeout to 90s for monorepo first-run compilation
+timeout 90 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 ```
 
 **Rust/Anchor projects:**
@@ -27,9 +28,17 @@ If any checks fail, fix the issues before proceeding. Skip checks that aren't re
 
 ## 2. Review Changes
 
+First, get a compact summary of what's changing:
+
 ```bash
 git status
 git diff --stat
+```
+
+Then review the actual changes if needed:
+
+```bash
+git diff
 ```
 
 Ensure:
