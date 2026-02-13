@@ -4,23 +4,25 @@
     "name": "monolith",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "The Monolith — on-chain block ownership and staking program"
+    "description": "The Monolith — USDC vault for on-chain staking"
   },
   "instructions": [
     {
-      "name": "add_stake",
+      "name": "deposit",
       "docs": [
-        "Adds more USDC stake to an already-owned block."
+        "Deposit USDC into the vault.",
+        "Creates a UserDeposit PDA on first call (init_if_needed).",
+        "Subsequent deposits add to the existing balance."
       ],
       "discriminator": [
-        58,
-        135,
-        189,
-        105,
-        160,
-        120,
-        165,
-        224
+        242,
+        35,
+        198,
+        137,
+        82,
+        225,
+        242,
+        182
       ],
       "accounts": [
         {
@@ -42,228 +44,36 @@
           }
         },
         {
-          "name": "vault_token_account",
+          "name": "user_deposit",
           "docs": [
-            "The shared vault — receives additional USDC"
+            "User's deposit record — created on first deposit via init_if_needed"
           ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "tower_state"
-              },
-              {
-                "kind": "account",
-                "path": "token_program"
-              },
-              {
-                "kind": "account",
-                "path": "usdc_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "block_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  98,
-                  108,
-                  111,
-                  99,
-                  107
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "block_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "usdc_mint",
-          "docs": [
-            "USDC mint — must match tower's stored mint"
-          ]
-        },
-        {
-          "name": "player_token_account",
-          "docs": [
-            "Player's USDC token account (source of additional funds)"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "player"
-              },
-              {
-                "kind": "account",
-                "path": "token_program"
-              },
-              {
-                "kind": "account",
-                "path": "usdc_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "owner",
-          "relations": [
-            "block_account"
-          ]
-        },
-        {
-          "name": "player",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "token_program"
-        },
-        {
-          "name": "associated_token_program",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "_block_id",
-          "type": "u32"
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "deposit_stake",
-      "docs": [
-        "Deposits USDC to claim a new block on the tower.",
-        "",
-        "Creates a new BlockAccount PDA and transfers USDC from the player's",
-        "associated token account to the shared vault."
-      ],
-      "discriminator": [
-        160,
-        167,
-        9,
-        220,
-        74,
-        243,
-        228,
-        43
-      ],
-      "accounts": [
-        {
-          "name": "tower_state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  111,
-                  119,
+                  100,
                   101,
-                  114
+                  112,
+                  111,
+                  115,
+                  105,
+                  116
                 ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
               }
             ]
           }
         },
         {
-          "name": "vault_token_account",
+          "name": "vault",
           "docs": [
-            "The shared vault — receives USDC deposits"
+            "The vault token account (USDC ATA owned by tower PDA)"
           ],
           "writable": true,
           "pda": {
@@ -273,98 +83,43 @@
                 "path": "tower_state"
               },
               {
-                "kind": "account",
-                "path": "token_program"
-              },
-              {
-                "kind": "account",
-                "path": "usdc_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "block_account",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
                 "kind": "const",
                 "value": [
-                  98,
-                  108,
-                  111,
-                  99,
-                  107
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
                 ]
               },
               {
-                "kind": "arg",
-                "path": "block_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "usdc_mint",
-          "docs": [
-            "USDC mint — must match tower's stored mint"
-          ]
-        },
-        {
-          "name": "player_token_account",
-          "docs": [
-            "Player's USDC token account (source of funds)"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "player"
-              },
-              {
-                "kind": "account",
-                "path": "token_program"
-              },
-              {
                 "kind": "account",
                 "path": "usdc_mint"
               }
@@ -409,7 +164,17 @@
           }
         },
         {
-          "name": "player",
+          "name": "user_token_account",
+          "docs": [
+            "User's USDC token account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "user",
           "writable": true,
           "signer": true
         },
@@ -418,53 +183,32 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "token_program"
-        },
-        {
-          "name": "associated_token_program",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
         {
-          "name": "block_id",
-          "type": "u32"
-        },
-        {
           "name": "amount",
           "type": "u64"
-        },
-        {
-          "name": "position_x",
-          "type": "i16"
-        },
-        {
-          "name": "position_y",
-          "type": "i16"
-        },
-        {
-          "name": "position_z",
-          "type": "i16"
         }
       ]
     },
     {
-      "name": "initialize_tower",
+      "name": "initialize",
       "docs": [
-        "Initializes the global tower state and creates the shared USDC vault.",
-        "",
-        "Called once by the deployer. The vault is an ATA owned by the tower PDA,",
-        "holding all staked USDC from all blocks."
+        "Initialize the tower — creates global state PDA + USDC vault ATA.",
+        "Called once by the program authority."
       ],
       "discriminator": [
-        143,
-        163,
-        227,
-        43,
-        204,
-        80,
-        193,
-        3
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
       ],
       "accounts": [
         {
@@ -486,10 +230,15 @@
           }
         },
         {
-          "name": "vault_token_account",
+          "name": "usdc_mint",
           "docs": [
-            "The shared vault token account — ATA owned by the tower PDA.",
-            "All staked USDC from all blocks is pooled here."
+            "The USDC mint this vault will accept"
+          ]
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "Vault token account — ATA owned by the tower PDA"
           ],
           "writable": true,
           "pda": {
@@ -499,8 +248,41 @@
                 "path": "tower_state"
               },
               {
-                "kind": "account",
-                "path": "token_program"
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
               },
               {
                 "kind": "account",
@@ -545,12 +327,6 @@
               ]
             }
           }
-        },
-        {
-          "name": "usdc_mint",
-          "docs": [
-            "The USDC mint address (validated at init, stored in tower state)"
-          ]
         },
         {
           "name": "authority",
@@ -562,7 +338,8 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "associated_token_program",
@@ -574,10 +351,7 @@
     {
       "name": "withdraw",
       "docs": [
-        "Withdraws all USDC stake and releases the block (closes the account).",
-        "",
-        "USDC is transferred from the vault back to the player's ATA.",
-        "The block PDA is closed and rent is returned to the owner."
+        "Withdraw USDC from the vault back to the user."
       ],
       "discriminator": [
         183,
@@ -609,9 +383,36 @@
           }
         },
         {
-          "name": "vault_token_account",
+          "name": "user_deposit",
           "docs": [
-            "The shared vault — USDC is returned from here to the player"
+            "User's deposit record — must exist (they deposited before)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  112,
+                  111,
+                  115,
+                  105,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "The vault token account"
           ],
           "writable": true,
           "pda": {
@@ -621,98 +422,43 @@
                 "path": "tower_state"
               },
               {
-                "kind": "account",
-                "path": "token_program"
-              },
-              {
-                "kind": "account",
-                "path": "usdc_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "block_account",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
                 "kind": "const",
                 "value": [
-                  98,
-                  108,
-                  111,
-                  99,
-                  107
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
                 ]
               },
               {
-                "kind": "arg",
-                "path": "block_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "usdc_mint",
-          "docs": [
-            "USDC mint — must match tower's stored mint"
-          ]
-        },
-        {
-          "name": "player_token_account",
-          "docs": [
-            "Player's USDC token account (receives returned funds)"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "owner"
-              },
-              {
-                "kind": "account",
-                "path": "token_program"
-              },
-              {
                 "kind": "account",
                 "path": "usdc_mint"
               }
@@ -757,54 +503,34 @@
           }
         },
         {
-          "name": "owner",
+          "name": "user_token_account",
           "docs": [
-            "Receives the rent when the block account is closed."
+            "User's USDC token account — receives the withdrawal"
           ],
-          "writable": true,
-          "relations": [
-            "block_account"
-          ]
+          "writable": true
         },
         {
-          "name": "player",
+          "name": "usdc_mint"
+        },
+        {
+          "name": "user",
           "writable": true,
           "signer": true
         },
         {
-          "name": "token_program"
-        },
-        {
-          "name": "associated_token_program",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
         {
-          "name": "_block_id",
-          "type": "u32"
+          "name": "amount",
+          "type": "u64"
         }
       ]
     }
   ],
   "accounts": [
-    {
-      "name": "BlockAccount",
-      "discriminator": [
-        248,
-        32,
-        54,
-        231,
-        74,
-        7,
-        56,
-        174
-      ]
-    },
     {
       "name": "TowerState",
       "discriminator": [
@@ -817,118 +543,43 @@
         239,
         223
       ]
+    },
+    {
+      "name": "UserDeposit",
+      "discriminator": [
+        69,
+        238,
+        23,
+        217,
+        255,
+        137,
+        185,
+        35
+      ]
     }
   ],
   "errors": [
     {
       "code": 6000,
-      "name": "BlockAlreadyOwned",
-      "msg": "This block is already owned by another player"
+      "name": "InsufficientDeposit",
+      "msg": "Deposit amount must be greater than zero"
     },
     {
       "code": 6001,
-      "name": "InsufficientStake",
-      "msg": "Stake amount must meet the minimum (0.10 USDC)"
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance for withdrawal"
     },
     {
       "code": 6002,
-      "name": "Unauthorized",
-      "msg": "You are not the owner of this block"
-    },
-    {
-      "code": 6003,
-      "name": "InvalidBlockId",
-      "msg": "Block ID must be between 0 and 999"
-    },
-    {
-      "code": 6004,
-      "name": "InvalidPosition",
-      "msg": "Block position coordinates are out of bounds"
-    },
-    {
-      "code": 6005,
       "name": "InvalidMint",
-      "msg": "The provided mint does not match the tower's USDC mint"
-    },
-    {
-      "code": 6006,
-      "name": "InsufficientVaultBalance",
-      "msg": "Vault does not have sufficient balance for this withdrawal"
+      "msg": "Invalid USDC mint address"
     }
   ],
   "types": [
     {
-      "name": "BlockAccount",
-      "docs": [
-        "Individual block on the tower — one PDA per block.",
-        "Seeds: [b\"block\", block_id.to_le_bytes()]"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "owner",
-            "docs": [
-              "Owner of this block (the staker's wallet)"
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "block_id",
-            "docs": [
-              "Unique block identifier (0–999)"
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "stake_amount",
-            "docs": [
-              "Amount of USDC staked on this block (6 decimals, e.g. 100_000 = 0.10 USDC)"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "position_x",
-            "docs": [
-              "Block position on the tower — X coordinate"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "position_y",
-            "docs": [
-              "Block position on the tower — Y coordinate (layer/height)"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "position_z",
-            "docs": [
-              "Block position on the tower — Z coordinate"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "created_at",
-            "docs": [
-              "Unix timestamp when the block was claimed"
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "docs": [
-              "Bump seed for PDA derivation"
-            ],
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
       "name": "TowerState",
       "docs": [
-        "Global tower state — singleton PDA tracking tower-level metadata.",
+        "Global tower state — single PDA tracking the vault and aggregate stats.",
         "Seeds: [b\"tower\"]"
       ],
       "type": {
@@ -937,35 +588,82 @@
           {
             "name": "authority",
             "docs": [
-              "Authority who initialized the tower (admin)"
+              "Authority who initialized the tower"
             ],
             "type": "pubkey"
           },
           {
             "name": "usdc_mint",
             "docs": [
-              "The USDC mint address this tower accepts for staking"
+              "The USDC mint this vault accepts"
             ],
             "type": "pubkey"
           },
           {
-            "name": "total_blocks_claimed",
+            "name": "vault",
             "docs": [
-              "Total number of blocks currently claimed"
+              "The vault token account address (ATA owned by this PDA)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "total_deposited",
+            "docs": [
+              "Total USDC deposited across all users (in smallest units)"
             ],
             "type": "u64"
           },
           {
-            "name": "total_staked",
+            "name": "total_users",
             "docs": [
-              "Total USDC staked across all blocks (in token smallest units, 6 decimals)"
+              "Number of unique depositors"
             ],
-            "type": "u64"
+            "type": "u32"
           },
           {
             "name": "bump",
             "docs": [
-              "Bump seed for PDA derivation"
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserDeposit",
+      "docs": [
+        "Per-user deposit record — tracks how much each user has in the vault.",
+        "Seeds: [b\"deposit\", user.key()]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "docs": [
+              "The user who owns this deposit"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "Amount of USDC deposited (in smallest units, 6 decimals)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_deposit_at",
+            "docs": [
+              "Timestamp of last deposit"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
             ],
             "type": "u8"
           }

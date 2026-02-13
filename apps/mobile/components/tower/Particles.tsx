@@ -1,42 +1,49 @@
 import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber/native";
 import * as THREE from "three";
-import { BASE_RADIUS, LAYER_HEIGHT } from "@monolith/common";
+import {
+  MONOLITH_HALF_W,
+  MONOLITH_HALF_D,
+  LAYER_HEIGHT,
+  DEFAULT_TOWER_CONFIG,
+} from "@monolith/common";
 
-const PARTICLE_COUNT = 150;
-const PARTICLE_SIZE = 0.15;
-const TOWER_HEIGHT = 10 * LAYER_HEIGHT; // 10 layers
-const SPAWN_RADIUS = BASE_RADIUS + 5;
-const DRIFT_SPEED = 0.4;
+const PARTICLE_COUNT = 120;
+const PARTICLE_SIZE = 0.12;
+const TOWER_HEIGHT = DEFAULT_TOWER_CONFIG.layerCount * LAYER_HEIGHT;
+const MARGIN = 4; // extra space around the monolith
+const DRIFT_SPEED = 0.3;
 
 const particleVertexShader = /* glsl */ `
   precision highp float;
 
   uniform float uTime;
 
-  // Per-instance seed for variation
   attribute float aSeed;
 
   varying float vAlpha;
+  varying float vHeight;
 
   void main() {
-    // Apply instance transform (position from JS)
     vec4 worldPos = instanceMatrix * vec4(position, 1.0);
 
-    // Animate: slow upward drift + sine-wave sway
+    // Animate: slow upward drift + gentle sway
     float t = uTime * ${DRIFT_SPEED.toFixed(1)} + aSeed * 100.0;
-    float yOffset = mod(t, ${(TOWER_HEIGHT + 10).toFixed(1)});
-    worldPos.y += yOffset - 5.0; // Start below tower base
-    worldPos.x += sin(t * 0.7 + aSeed * 50.0) * 1.5;
-    worldPos.z += cos(t * 0.5 + aSeed * 30.0) * 1.5;
+    float yOffset = mod(t, ${(TOWER_HEIGHT + 12).toFixed(1)});
+    worldPos.y += yOffset - 4.0;
+    worldPos.x += sin(t * 0.5 + aSeed * 40.0) * 1.2;
+    worldPos.z += cos(t * 0.4 + aSeed * 25.0) * 1.0;
 
     vec4 mvPosition = modelViewMatrix * worldPos;
     gl_Position = projectionMatrix * mvPosition;
 
-    // Fade based on height (fade in at bottom, fade out at top)
-    float normalizedY = (worldPos.y + 5.0) / ${(TOWER_HEIGHT + 10).toFixed(1)};
-    vAlpha = smoothstep(0.0, 0.1, normalizedY) * smoothstep(1.0, 0.8, normalizedY);
-    vAlpha *= 0.4 + 0.3 * sin(uTime * 2.0 + aSeed * 20.0);
+    // Height-normalized for color shift
+    float normalizedY = (worldPos.y + 4.0) / ${(TOWER_HEIGHT + 12).toFixed(1)};
+    vHeight = normalizedY;
+
+    // Fade at edges
+    vAlpha = smoothstep(0.0, 0.1, normalizedY) * smoothstep(1.0, 0.85, normalizedY);
+    vAlpha *= 0.3 + 0.25 * sin(uTime * 1.5 + aSeed * 15.0);
   }
 `;
 
@@ -44,16 +51,27 @@ const particleFragmentShader = /* glsl */ `
   precision highp float;
 
   varying float vAlpha;
+  varying float vHeight;
 
   void main() {
-    vec3 color = vec3(0.0, 0.8, 1.0); // Cyan-ish
+    // Color shifts from deep blue at base to bright cyan near spire
+    vec3 baseColor = vec3(0.1, 0.15, 0.6);
+    vec3 topColor = vec3(0.0, 0.85, 1.0);
+    vec3 color = mix(baseColor, topColor, vHeight);
+
     gl_FragColor = vec4(color, vAlpha);
   }
 `;
 
 /**
- * Particles — ~150 floating particles around the tower.
- * Uses a second InstancedMesh with additive blending.
+ * Particles — ~120 floating particles around the monolith.
+ *
+ * PERFORMANCE:
+ * - InstancedMesh: 1 draw call for all particles
+ * - Additive blending, depth write off (no sorting needed)
+ * - Particle positions are STATIC; animation is fully in the vertex shader
+ *   (zero JS work per frame except bumping uTime)
+ * - Spawn area matches monolith rectangular footprint + margin
  */
 export default function Particles() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -75,7 +93,7 @@ export default function Particles() {
     return mat;
   }, []);
 
-  // Position particles in a cylinder
+  // Position particles in a rectangular volume around the monolith
   useEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
@@ -83,11 +101,33 @@ export default function Particles() {
     const tempObj = new THREE.Object3D();
     const seeds = new Float32Array(PARTICLE_COUNT);
 
+    const spawnW = MONOLITH_HALF_W + MARGIN;
+    const spawnD = MONOLITH_HALF_D + MARGIN;
+
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = (Math.random() * 0.6 + 0.4) * SPAWN_RADIUS;
-      const x = Math.cos(angle) * r;
-      const z = Math.sin(angle) * r;
+      // Spawn on the perimeter of the rectangular footprint (+ some depth)
+      const face = Math.floor(Math.random() * 4);
+      let x: number, z: number;
+
+      switch (face) {
+        case 0: // Front
+          x = (Math.random() - 0.5) * 2 * spawnW;
+          z = spawnD + Math.random() * 3;
+          break;
+        case 1: // Back
+          x = (Math.random() - 0.5) * 2 * spawnW;
+          z = -(spawnD + Math.random() * 3);
+          break;
+        case 2: // Right
+          x = spawnW + Math.random() * 3;
+          z = (Math.random() - 0.5) * 2 * spawnD;
+          break;
+        default: // Left
+          x = -(spawnW + Math.random() * 3);
+          z = (Math.random() - 0.5) * 2 * spawnD;
+          break;
+      }
+
       const y = Math.random() * TOWER_HEIGHT - 2;
 
       tempObj.position.set(x, y, z);
@@ -106,6 +146,7 @@ export default function Particles() {
     );
   }, []);
 
+  // Only update uTime — zero matrix updates per frame
   useFrame((_state, delta) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += delta;

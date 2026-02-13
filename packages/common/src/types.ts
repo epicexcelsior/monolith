@@ -110,7 +110,7 @@ export interface TowerConfig {
   totalBlocks: number;
 
   /** Shape type for rendering */
-  shape: "cylinder" | "hexagonal" | "ziggurat" | "custom";
+  shape: "cylinder" | "hexagonal" | "ziggurat" | "monolith" | "custom";
 }
 
 /**
@@ -152,9 +152,9 @@ export type GameEvent =
   | { type: "block_updated"; blockId: string; changes: Partial<Block> }
   | { type: "block_died"; blockId: string }
   | {
-      type: "entropy_tick";
-      updates: Array<{ blockId: string; energy: number; state: BlockState }>;
-    }
+    type: "entropy_tick";
+    updates: Array<{ blockId: string; energy: number; state: BlockState }>;
+  }
   | { type: "sonar_pulse"; originBlockId: string; dyingBlockIds: string[] }
   | { type: "player_joined"; player: Player }
   | { type: "stats_updated"; stats: TowerStats };

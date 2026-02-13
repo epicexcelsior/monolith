@@ -24,7 +24,7 @@ import {
 
 import {
   APP_IDENTITY,
-  getMwaCluster,
+  getMwaChain,
   base64ToPublicKey,
   SECURE_STORE_KEYS,
 } from "@/services/mwa";
@@ -119,7 +119,7 @@ export function useAuthorization() {
         async (wallet: Web3MobileWallet) => {
           const authResult = await wallet.authorize({
             identity: APP_IDENTITY,
-            chain: getMwaCluster(),
+            chain: getMwaChain(),
             auth_token: cachedAuthToken ?? undefined,
           });
           return authResult;

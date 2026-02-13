@@ -7,53 +7,103 @@ import {
   DEFAULT_TOWER_CONFIG,
   BLOCK_SIZE,
   LAYER_HEIGHT,
-  BASE_RADIUS,
-  TOP_RADIUS,
+  MONOLITH_HALF_W,
+  MONOLITH_HALF_D,
+  SPIRE_START_LAYER,
+  BLOCK_SCALE_PER_LAYER,
   ENERGY_THRESHOLDS,
+  generateTowerConfig,
 } from "@monolith/common";
 import { ENERGY_COLOR_STOPS } from "@/components/tower/BlockShader";
 
-describe("Block position calculation", () => {
+describe("Monolith tower config", () => {
   const config = DEFAULT_TOWER_CONFIG;
 
+  it("should have 18 layers by default", () => {
+    expect(config.layerCount).toBe(18);
+  });
+
+  it("should have shape set to 'monolith'", () => {
+    expect(config.shape).toBe("monolith");
+  });
+
+  it("should produce at least 400 total blocks", () => {
+    expect(config.totalBlocks).toBeGreaterThanOrEqual(400);
+  });
+
+  it("should produce fewer than 1500 total blocks (mobile perf)", () => {
+    expect(config.totalBlocks).toBeLessThan(1500);
+  });
+
+  it("should have consistent body layer block count for layers below spire", () => {
+    const bodyCount = config.blocksPerLayer[0];
+    for (let i = 1; i < SPIRE_START_LAYER; i++) {
+      expect(config.blocksPerLayer[i]).toBe(bodyCount);
+    }
+  });
+
+  it("should have spire layers with fewer or equal blocks than body", () => {
+    const bodyCount = config.blocksPerLayer[0];
+    for (let i = SPIRE_START_LAYER; i < config.layerCount; i++) {
+      expect(config.blocksPerLayer[i]).toBeLessThanOrEqual(bodyCount);
+    }
+  });
+
+  it("should have the very top layer with just 1-3 blocks (penthouse)", () => {
+    const topCount = config.blocksPerLayer[config.layerCount - 1];
+    expect(topCount).toBeGreaterThanOrEqual(1);
+    expect(topCount).toBeLessThanOrEqual(5);
+  });
+
+  it("should have blocksPerLayer array length matching layerCount", () => {
+    expect(config.blocksPerLayer.length).toBe(config.layerCount);
+  });
+
+  it("totalBlocks should equal sum of blocksPerLayer", () => {
+    const sum = config.blocksPerLayer.reduce((s, n) => s + n, 0);
+    expect(sum).toBe(config.totalBlocks);
+  });
+});
+
+describe("Tower layer Y positions", () => {
   it("should produce correct Y for each layer", () => {
-    for (let layer = 0; layer < config.layerCount; layer++) {
+    for (let layer = 0; layer < DEFAULT_TOWER_CONFIG.layerCount; layer++) {
       const y = layer * LAYER_HEIGHT;
-      expect(y).toBeCloseTo(layer * 1.2, 5);
+      expect(y).toBeCloseTo(layer * 1.3, 5);
     }
   });
+});
 
-  it("should produce correct radius interpolation between base and top", () => {
-    // Layer 0 should be at BASE_RADIUS
-    const t0 = 0 / (config.layerCount - 1);
-    const r0 = BASE_RADIUS - t0 * (BASE_RADIUS - TOP_RADIUS);
-    expect(r0).toBe(BASE_RADIUS);
-
-    // Last layer should be at TOP_RADIUS
-    const tLast = (config.layerCount - 1) / (config.layerCount - 1);
-    const rLast = BASE_RADIUS - tLast * (BASE_RADIUS - TOP_RADIUS);
-    expect(rLast).toBe(TOP_RADIUS);
+describe("Monolith dimensions", () => {
+  it("MONOLITH_HALF_W should be a positive number", () => {
+    expect(MONOLITH_HALF_W).toBeGreaterThan(0);
   });
 
-  it("should produce positions on a circle for each layer", () => {
-    const layer = 0;
-    const count = config.blocksPerLayer[layer];
-    const radius = BASE_RADIUS;
-
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-
-      // Distance from center should equal radius
-      const dist = Math.sqrt(x * x + z * z);
-      expect(dist).toBeCloseTo(radius, 5);
-    }
+  it("MONOLITH_HALF_D should be a positive number", () => {
+    expect(MONOLITH_HALF_D).toBeGreaterThan(0);
   });
 
-  it("should have total blocks matching config", () => {
-    const total = config.blocksPerLayer.reduce((sum, n) => sum + n, 0);
-    expect(total).toBe(config.totalBlocks);
+  it("SPIRE_START_LAYER should be between 0 and layerCount", () => {
+    expect(SPIRE_START_LAYER).toBeGreaterThan(0);
+    expect(SPIRE_START_LAYER).toBeLessThan(DEFAULT_TOWER_CONFIG.layerCount);
+  });
+
+  it("BLOCK_SCALE_PER_LAYER should be a small positive value", () => {
+    expect(BLOCK_SCALE_PER_LAYER).toBeGreaterThan(0);
+    expect(BLOCK_SCALE_PER_LAYER).toBeLessThan(0.1);
+  });
+
+  it("BLOCK_SIZE should be positive", () => {
+    expect(BLOCK_SIZE).toBeGreaterThan(0);
+  });
+});
+
+describe("Custom layer count", () => {
+  it("should support generating configs with different layer counts", () => {
+    const cfg = generateTowerConfig(20);
+    expect(cfg.layerCount).toBe(20);
+    expect(cfg.blocksPerLayer.length).toBe(20);
+    expect(cfg.totalBlocks).toBeGreaterThan(0);
   });
 });
 
@@ -132,7 +182,6 @@ describe("Camera spherical to cartesian", () => {
   it("should have Y = zoom when elevation = 0 (looking from top)", () => {
     const zoom = 50;
     const { x, y, z } = sphericalToCartesian(0, 0.001, zoom);
-    // At near-zero elevation, y should be ~zoom
     expect(y).toBeCloseTo(zoom, 0);
   });
 
@@ -140,24 +189,5 @@ describe("Camera spherical to cartesian", () => {
     const zoom = 50;
     const { y } = sphericalToCartesian(0, Math.PI / 2, zoom);
     expect(y).toBeCloseTo(0, 5);
-  });
-});
-
-describe("Demo data generation", () => {
-  it("should produce expected block count from default config", () => {
-    const config = DEFAULT_TOWER_CONFIG;
-    expect(config.totalBlocks).toBeGreaterThan(500);
-    expect(config.totalBlocks).toBeLessThan(2000);
-  });
-
-  it("should have 10 layers by default", () => {
-    expect(DEFAULT_TOWER_CONFIG.layerCount).toBe(10);
-  });
-
-  it("should have more blocks at base than top", () => {
-    const config = DEFAULT_TOWER_CONFIG;
-    const baseCount = config.blocksPerLayer[0];
-    const topCount = config.blocksPerLayer[config.layerCount - 1];
-    expect(baseCount).toBeGreaterThan(topCount);
   });
 });

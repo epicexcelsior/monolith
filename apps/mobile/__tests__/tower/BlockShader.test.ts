@@ -28,7 +28,17 @@ describe("createBlockMaterial", () => {
 
   it("should have uFogDensity uniform", () => {
     expect(material.uniforms.uFogDensity).toBeDefined();
-    expect(material.uniforms.uFogDensity.value).toBeCloseTo(0.012);
+    expect(material.uniforms.uFogDensity.value).toBeCloseTo(0.008);
+  });
+
+  it("should have uSpireThreshold uniform", () => {
+    expect(material.uniforms.uSpireThreshold).toBeDefined();
+    expect(material.uniforms.uSpireThreshold.value).toBeCloseTo(14 / 18);
+  });
+
+  it("should have uTowerHeight uniform", () => {
+    expect(material.uniforms.uTowerHeight).toBeDefined();
+    expect(material.uniforms.uTowerHeight.value).toBeGreaterThan(0);
   });
 
   it("should have fog disabled (manual fog in shader)", () => {
@@ -57,6 +67,10 @@ describe("createBlockMaterial", () => {
     expect(material.vertexShader).toContain("aOwnerColor");
   });
 
+  it("vertex shader should declare aLayerNorm attribute", () => {
+    expect(material.vertexShader).toContain("aLayerNorm");
+  });
+
   it("fragment shader should contain smoothstep for color ramp", () => {
     expect(material.fragmentShader).toContain("smoothstep");
   });
@@ -72,6 +86,14 @@ describe("createBlockMaterial", () => {
   it("fragment shader should contain fog calculation", () => {
     expect(material.fragmentShader).toContain("uFogDensity");
     expect(material.fragmentShader).toContain("uFogColor");
+  });
+
+  it("fragment shader should reference spire threshold", () => {
+    expect(material.fragmentShader).toContain("uSpireThreshold");
+  });
+
+  it("fragment shader should reference tower height for scanline", () => {
+    expect(material.fragmentShader).toContain("uTowerHeight");
   });
 });
 

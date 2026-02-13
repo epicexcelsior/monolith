@@ -25,7 +25,7 @@ import {
   Web3MobileWallet,
 } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 
-import { APP_IDENTITY, getMwaCluster, SECURE_STORE_KEYS } from "@/services/mwa";
+import { APP_IDENTITY, getMwaChain, SECURE_STORE_KEYS } from "@/services/mwa";
 import { useWalletStore } from "@/stores/wallet-store";
 
 export function useAnchorWallet(): anchor.Wallet | null {
@@ -43,7 +43,7 @@ export function useAnchorWallet(): anchor.Wallet | null {
           );
           await wallet.authorize({
             identity: APP_IDENTITY,
-            chain: getMwaCluster(),
+            chain: getMwaChain(),
             auth_token: cachedToken ?? undefined,
           });
 
@@ -63,7 +63,7 @@ export function useAnchorWallet(): anchor.Wallet | null {
           );
           await wallet.authorize({
             identity: APP_IDENTITY,
-            chain: getMwaCluster(),
+            chain: getMwaChain(),
             auth_token: cachedToken ?? undefined,
           });
 

@@ -1,8 +1,8 @@
 /**
- * Deposit Screen — Deposit USDC into the Monolith vault.
+ * Withdraw Screen — Withdraw USDC from the Monolith vault.
  *
- * Simple amount input → confirms via MWA → updates vault balance.
- * Route: app/deposit.tsx (modal via expo-router)
+ * Shows vault balance, amount input, confirms via MWA.
+ * Route: app/withdraw.tsx (modal via expo-router)
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -18,55 +18,44 @@ import {
     Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useStaking } from "@/hooks/useStaking";
+import { useStaking, type UserDepositInfo } from "@/hooks/useStaking";
 import { useWalletStore } from "@/stores/wallet-store";
-import { MIN_STAKE_UNITS, unitsToUsdc } from "@/services/monolith-program";
-import {
-    getAssociatedTokenAddress,
-    getAccount,
-} from "@solana/spl-token";
-import { DEVNET_USDC_MINT } from "@/services/monolith-program";
-import { connection } from "@/services/solana";
 
-const MIN_USDC = unitsToUsdc(MIN_STAKE_UNITS); // 0.10
-
-export default function DepositScreen() {
+export default function WithdrawScreen() {
     const router = useRouter();
     const isConnected = useWalletStore((s) => s.isConnected);
-    const publicKey = useWalletStore((s) => s.publicKey);
-    const { deposit, isLoading, error, lastTxSignature } = useStaking();
+    const { withdraw, fetchUserDeposit, isLoading, error, lastTxSignature } =
+        useStaking();
 
-    const [amount, setAmount] = useState("1.00");
-    const [walletBalance, setWalletBalance] = useState<number | null>(null);
+    const [amount, setAmount] = useState("");
+    const [depositInfo, setDepositInfo] = useState<UserDepositInfo | null>(null);
 
     const parsedAmount = parseFloat(amount) || 0;
-    const isValidAmount = parsedAmount >= MIN_USDC;
+    const vaultBalance = depositInfo?.amount ?? 0;
+    const isValidAmount = parsedAmount > 0 && parsedAmount <= vaultBalance;
 
-    // Fetch wallet USDC balance
-    const refreshBalance = useCallback(async () => {
-        if (!publicKey) return;
-        try {
-            const ata = await getAssociatedTokenAddress(DEVNET_USDC_MINT, publicKey);
-            const account = await getAccount(connection, ata);
-            setWalletBalance(Number(account.amount) / 1_000_000);
-        } catch {
-            setWalletBalance(0);
+    // Fetch user's vault balance
+    const refreshDeposit = useCallback(async () => {
+        const info = await fetchUserDeposit();
+        setDepositInfo(info);
+        if (info && !amount) {
+            // Default to full withdraw
+            setAmount(info.amount.toFixed(2));
         }
-    }, [publicKey]);
+    }, [fetchUserDeposit]);
 
     useEffect(() => {
-        refreshBalance();
-    }, [refreshBalance]);
+        refreshDeposit();
+    }, [refreshDeposit]);
 
-    const handleDeposit = async () => {
+    const handleWithdraw = async () => {
         if (!isValidAmount) return;
-        console.log("[DepositScreen] Starting deposit of", parsedAmount, "USDC");
-        const sig = await deposit(parsedAmount);
+        console.log("[WithdrawScreen] Starting withdraw of", parsedAmount, "USDC");
+        const sig = await withdraw(parsedAmount);
         if (sig) {
-            console.log("[DepositScreen] ✅ Deposit success:", sig);
-            refreshBalance();
+            console.log("[WithdrawScreen] ✅ Withdraw success:", sig);
         } else {
-            console.log("[DepositScreen] ❌ Deposit returned null (failed)");
+            console.log("[WithdrawScreen] ❌ Withdraw returned null (failed)");
         }
     };
 
@@ -74,19 +63,17 @@ export default function DepositScreen() {
         Linking.openURL(`https://explorer.solana.com/tx/${sig}?cluster=devnet`);
     };
 
-    const quickAmounts = [0.1, 0.5, 1.0, 5.0];
-
     // Success state
     if (lastTxSignature) {
         return (
             <View style={styles.container}>
                 <View style={styles.content}>
                     <Text style={styles.icon}>✅</Text>
-                    <Text style={styles.title}>Deposited!</Text>
+                    <Text style={styles.title}>Withdrawn!</Text>
                     <Text style={styles.subtitle}>
-                        You deposited {parsedAmount.toFixed(2)} USDC into the vault.
+                        {parsedAmount.toFixed(2)} USDC returned to your wallet.
                     </Text>
-                    <TouchableOpacity onPress={() => openExplorer(lastTxSignature)}>
+                    <TouchableOpacity onPress={() => openExplorer(lastTxSignature!)}>
                         <Text style={styles.txLink} numberOfLines={1} ellipsizeMode="middle">
                             🔗 {lastTxSignature}
                         </Text>
@@ -110,7 +97,7 @@ export default function DepositScreen() {
                     <Text style={styles.icon}>🔐</Text>
                     <Text style={styles.title}>Wallet Required</Text>
                     <Text style={styles.subtitle}>
-                        Connect your wallet before depositing USDC.
+                        Connect your wallet to withdraw USDC.
                     </Text>
                     <TouchableOpacity
                         style={styles.primaryButton}
@@ -123,32 +110,60 @@ export default function DepositScreen() {
         );
     }
 
+    // No deposit guard
+    if (depositInfo && vaultBalance === 0) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.content}>
+                    <Text style={styles.icon}>📭</Text>
+                    <Text style={styles.title}>No Deposit</Text>
+                    <Text style={styles.subtitle}>
+                        You haven't deposited any USDC yet.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.primaryButton}
+                        onPress={() => {
+                            router.back();
+                            setTimeout(() => router.push("/deposit" as any), 100);
+                        }}
+                    >
+                        <Text style={styles.primaryText}>Deposit USDC</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.cancelButton}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={styles.cancelText}>Back</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
     return (
         <KeyboardAvoidingView
             style={styles.container}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
             <View style={styles.content}>
-                <Text style={styles.icon}>💰</Text>
-                <Text style={styles.title}>Deposit USDC</Text>
+                <Text style={styles.icon}>🏦</Text>
+                <Text style={styles.title}>Withdraw USDC</Text>
                 <Text style={styles.subtitle}>
-                    Deposit USDC into the Monolith vault.{"\n"}
-                    Your funds earn yield while staked.
+                    Withdraw your USDC from the Monolith vault{"\n"}
+                    back to your wallet.
                 </Text>
 
-                {/* Wallet Balance */}
-                {walletBalance !== null && (
-                    <View style={styles.balanceRow}>
-                        <Text style={styles.balanceLabel}>Wallet Balance</Text>
-                        <Text style={styles.balanceValue}>
-                            {walletBalance.toFixed(2)} USDC
-                        </Text>
-                    </View>
-                )}
+                {/* Vault balance */}
+                <View style={styles.balanceRow}>
+                    <Text style={styles.balanceLabel}>Vault Balance</Text>
+                    <Text style={styles.balanceValue}>
+                        {vaultBalance.toFixed(2)} USDC
+                    </Text>
+                </View>
 
                 {/* Amount Input */}
                 <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>DEPOSIT AMOUNT</Text>
+                    <Text style={styles.inputLabel}>WITHDRAW AMOUNT</Text>
                     <View style={styles.inputRow}>
                         <Text style={styles.currencyPrefix}>$</Text>
                         <TextInput
@@ -163,68 +178,98 @@ export default function DepositScreen() {
                         />
                         <Text style={styles.currencySuffix}>USDC</Text>
                     </View>
-                    {!isValidAmount && amount.length > 0 && (
+                    {parsedAmount > vaultBalance && (
                         <Text style={styles.inputHint}>
-                            Minimum: {MIN_USDC.toFixed(2)} USDC
+                            Maximum: {vaultBalance.toFixed(2)} USDC
                         </Text>
                     )}
                 </View>
 
                 {/* Quick amount buttons */}
                 <View style={styles.quickRow}>
-                    {quickAmounts.map((qa) => (
-                        <TouchableOpacity
-                            key={qa}
-                            style={[
-                                styles.quickButton,
-                                parsedAmount === qa && styles.quickButtonActive,
-                            ]}
-                            onPress={() => setAmount(qa.toFixed(2))}
-                            disabled={isLoading}
-                        >
-                            <Text
+                    {vaultBalance > 0 && (
+                        <>
+                            {vaultBalance >= 0.5 && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.quickButton,
+                                        parsedAmount === vaultBalance * 0.25 &&
+                                        styles.quickButtonActive,
+                                    ]}
+                                    onPress={() =>
+                                        setAmount((vaultBalance * 0.25).toFixed(2))
+                                    }
+                                    disabled={isLoading}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.quickText,
+                                            parsedAmount === vaultBalance * 0.25 &&
+                                            styles.quickTextActive,
+                                        ]}
+                                    >
+                                        25%
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                            {vaultBalance >= 0.2 && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.quickButton,
+                                        parsedAmount === vaultBalance * 0.5 &&
+                                        styles.quickButtonActive,
+                                    ]}
+                                    onPress={() =>
+                                        setAmount((vaultBalance * 0.5).toFixed(2))
+                                    }
+                                    disabled={isLoading}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.quickText,
+                                            parsedAmount === vaultBalance * 0.5 &&
+                                            styles.quickTextActive,
+                                        ]}
+                                    >
+                                        50%
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
                                 style={[
-                                    styles.quickText,
-                                    parsedAmount === qa && styles.quickTextActive,
+                                    styles.quickButton,
+                                    parsedAmount === vaultBalance &&
+                                    styles.quickButtonActive,
                                 ]}
+                                onPress={() => setAmount(vaultBalance.toFixed(2))}
+                                disabled={isLoading}
                             >
-                                {qa < 1 ? `$${qa}` : `$${qa.toFixed(0)}`}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                    {walletBalance !== null && walletBalance > 0 && (
-                        <TouchableOpacity
-                            style={[
-                                styles.quickButton,
-                                parsedAmount === walletBalance && styles.quickButtonActive,
-                            ]}
-                            onPress={() => setAmount(walletBalance.toFixed(2))}
-                            disabled={isLoading}
-                        >
-                            <Text
-                                style={[
-                                    styles.quickText,
-                                    parsedAmount === walletBalance && styles.quickTextActive,
-                                ]}
-                            >
-                                MAX
-                            </Text>
-                        </TouchableOpacity>
+                                <Text
+                                    style={[
+                                        styles.quickText,
+                                        parsedAmount === vaultBalance &&
+                                        styles.quickTextActive,
+                                    ]}
+                                >
+                                    MAX
+                                </Text>
+                            </TouchableOpacity>
+                        </>
                     )}
                 </View>
 
-                {/* Summary card */}
+                {/* Summary */}
                 <View style={styles.infoCard}>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>You deposit</Text>
+                        <Text style={styles.infoLabel}>You receive</Text>
                         <Text style={styles.infoValue}>
                             {parsedAmount.toFixed(2)} USDC
                         </Text>
                     </View>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>To vault</Text>
-                        <Text style={[styles.infoValue, { color: "#00ffff" }]}>
-                            Monolith Vault
+                        <Text style={styles.infoLabel}>Remaining in vault</Text>
+                        <Text style={styles.infoValue}>
+                            {(vaultBalance - parsedAmount).toFixed(2)} USDC
                         </Text>
                     </View>
                 </View>
@@ -237,25 +282,25 @@ export default function DepositScreen() {
                     </View>
                 )}
 
-                {/* Deposit button */}
+                {/* Withdraw button */}
                 <TouchableOpacity
                     style={[
-                        styles.primaryButton,
-                        (!isValidAmount || isLoading) && styles.primaryButtonDisabled,
+                        styles.withdrawButton,
+                        (!isValidAmount || isLoading) && styles.buttonDisabled,
                     ]}
-                    onPress={handleDeposit}
+                    onPress={handleWithdraw}
                     disabled={!isValidAmount || isLoading}
                 >
                     {isLoading ? (
                         <View style={styles.loadingRow}>
                             <ActivityIndicator size="small" color="#0a0a0f" />
-                            <Text style={[styles.primaryText, styles.loadingText]}>
+                            <Text style={[styles.withdrawText, styles.loadingText]}>
                                 Confirming...
                             </Text>
                         </View>
                     ) : (
-                        <Text style={styles.primaryText}>
-                            Deposit {parsedAmount.toFixed(2)} USDC
+                        <Text style={styles.withdrawText}>
+                            Withdraw {parsedAmount.toFixed(2)} USDC
                         </Text>
                     )}
                 </TouchableOpacity>
@@ -306,19 +351,19 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         width: "100%",
-        backgroundColor: "rgba(0,255,100,0.06)",
+        backgroundColor: "rgba(0,255,255,0.06)",
         borderRadius: 10,
         padding: 14,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: "rgba(0,255,100,0.15)",
+        borderColor: "rgba(0,255,255,0.15)",
     },
     balanceLabel: {
         color: "#888899",
         fontSize: 14,
     },
     balanceValue: {
-        color: "#00ff64",
+        color: "#00ffff",
         fontSize: 14,
         fontWeight: "700",
         fontFamily: "monospace",
@@ -329,7 +374,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     inputLabel: {
-        color: "#00ffff",
+        color: "#ff9500",
         fontSize: 11,
         fontWeight: "700",
         letterSpacing: 2,
@@ -341,12 +386,12 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.05)",
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: "rgba(0,255,255,0.2)",
+        borderColor: "rgba(255,149,0,0.3)",
         paddingHorizontal: 16,
         paddingVertical: 4,
     },
     currencyPrefix: {
-        color: "#00ffff",
+        color: "#ff9500",
         fontSize: 28,
         fontWeight: "300",
         marginRight: 4,
@@ -387,8 +432,8 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.1)",
     },
     quickButtonActive: {
-        backgroundColor: "rgba(0,255,255,0.15)",
-        borderColor: "#00ffff",
+        backgroundColor: "rgba(255,149,0,0.15)",
+        borderColor: "#ff9500",
     },
     quickText: {
         color: "#888899",
@@ -396,7 +441,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     quickTextActive: {
-        color: "#00ffff",
+        color: "#ff9500",
     },
     // Info card
     infoCard: {
@@ -445,6 +490,24 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     // Buttons
+    withdrawButton: {
+        backgroundColor: "#ff9500",
+        paddingHorizontal: 32,
+        paddingVertical: 16,
+        borderRadius: 12,
+        width: "100%",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    buttonDisabled: {
+        opacity: 0.5,
+    },
+    withdrawText: {
+        color: "#0a0a0f",
+        fontSize: 16,
+        fontWeight: "800",
+        letterSpacing: 1,
+    },
     primaryButton: {
         backgroundColor: "#00ffff",
         paddingHorizontal: 32,
@@ -453,9 +516,6 @@ const styles = StyleSheet.create({
         width: "100%",
         alignItems: "center",
         marginBottom: 16,
-    },
-    primaryButtonDisabled: {
-        opacity: 0.5,
     },
     primaryText: {
         color: "#0a0a0f",

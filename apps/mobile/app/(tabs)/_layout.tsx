@@ -28,9 +28,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="blocks"
         options={{
-          title: "My Blocks",
+          title: "Vault",
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>💎</Text>
+            <Text style={[styles.tabIcon, { color }]}>🏦</Text>
           ),
         }}
       />

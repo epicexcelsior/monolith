@@ -8,7 +8,7 @@
  */
 
 import { PublicKey } from "@solana/web3.js";
-import type { Cluster } from "@solana-mobile/mobile-wallet-adapter-protocol";
+import type { Cluster, Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 
 // ---------------------------------------------------------------------------
 // App Identity — shown to the user in the wallet approval dialog
@@ -22,16 +22,26 @@ export const APP_IDENTITY = {
 // ---------------------------------------------------------------------------
 // Cluster / Network configuration
 // ---------------------------------------------------------------------------
-// MWA 2.0 uses the `chain` param in authorize() which accepts `Cluster` type.
-// Cluster is "devnet" | "testnet" | "mainnet-beta" — matches web3.js names.
-// The MWA protocol handles the "solana:" prefix internally.
+// MWA 2.0 `authorize()` has two overloads:
+//   - DEPRECATED: authorize({ cluster: Cluster })  where Cluster = "devnet" | "testnet" | "mainnet-beta"
+//   - MWA 2.0:   authorize({ chain?: Chain })       where Chain = IdentifierString (e.g. "solana:devnet")
+//
+// The new `chain` parameter requires the "solana:" prefix.
 // See: https://docs.solanamobile.com/react-native/using_mobile_wallet_adapter#connecting-to-a-wallet
 
 const NETWORK = (process.env.EXPO_PUBLIC_SOLANA_NETWORK || "devnet") as Cluster;
 
 /**
- * Returns the MWA Cluster for use in wallet.authorize({ chain }).
- * Uses the Cluster type from MWA protocol for type safety.
+ * Returns the MWA Chain identifier for use in wallet.authorize({ chain }).
+ * MWA 2.0 requires the "solana:" prefix (e.g. "solana:devnet").
+ */
+export function getMwaChain(): Chain {
+  return `solana:${NETWORK}` as Chain;
+}
+
+/**
+ * Returns the deprecated MWA Cluster for backward compatibility.
+ * @deprecated Use getMwaChain() for MWA 2.0's authorize({ chain }) param.
  */
 export function getMwaCluster(): Cluster {
   return NETWORK;

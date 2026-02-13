@@ -1,56 +1,130 @@
-# THE MONOLITH: Vision Constitution & Game Mechanics
+# THE MONOLITH: Vision Constitution & Project North Star
 
-> **"The Monolith is r/Place meets DeFi — in 3D."**
+> **"A living digital monument, built by humans, powered by agents, and immortalized on Solana."**
+
+---
 
 ## 1. The Core Identity
-The Monolith is a massive, shared, 3D AR tower on Solana. It is a living economy where every block represents a real user's staked capital. It is visually stunning, tactile, and driven by the fear of loss.
 
-* **Platform:** Android (Solana Seeker Exclusive).
-* **Aesthetic:** Cyber-Industrial, Brutalist, Glowing Neon. "Blade Runner meets Monument Valley."
-* **Key Emotion:** **Loss Aversion.** "I built this. I own this. I won't let the light go out."
-* **The User Promise:** "I stake $10 → my block appears → it glows → I customize it → others see it live."
+**The Monolith** is a massively multiplayer mobile game built for the **Solana Seeker**. It is a massive, collaborative, 3D obelisk tower where every block represents a player's staked capital and digital presence.
 
-## 2. The User Experience (The Human Loop)
-The experience is designed for the **Solana Seeker** hardware. It is not just a web app; it is a physical interaction.
+* **Genre:** Massively Multiplayer Idle Economy / Spatial Status Game
+* **Platform:** Android (Solana Seeker native) + Agent REST API
+* **Aesthetic:** Cyber-Industrial, Solarpunk, Glowing Neon — a "Cathedral of Code" that feels ancient yet futuristic
+* **Key Emotion:** **Ownership & Status.** Players are the keepers of a living digital tower. Their blocks are their mark on the skyline.
+* **The Promise:** *"I stake capital to claim my place on the tower. I keep it Charged to stay bright. I customize it to stand out. I am part of the skyline."*
 
-### Phase 1: The "Aha!" Moment (First 60 Seconds)
-1.  **The Hook:** The user opens the app and sees a towering, spinning grid of 1,000+ blocks. Most are dark stone. Some are blazing neon.
-2.  **The Action:** They tap a dead, grey block. They press "Stake".
-3.  **The Feel:** The **Seed Vault** requests a fingerprint. They sign.
-4.  **The Reward:** **HAPTIC THUD.** The block *ignites* with bloom. A sound hums. They are now "Alive" on the tower.
+### What It's NOT
+- It's NOT a DeFi dashboard with a 3D skin
+- It's NOT a passive investment tool
+- It's a **game first** — fun, satisfying, and sticky. The DeFi mechanics are the engine under the hood.
 
-### Phase 2: The Maintenance (Daily Retention)
-* **The Problem:** The tower runs on **Entropy**. Energy drains over time (4-hour ticks).
-* **The Anxiety:** If Energy hits 0, the block dies (turns black/claimable) and the user loses their spot (but keeps their principal).
-* **The Fix:** Users must return to "Recharge" (Top-up) or rely on Yield (future) to keep the lights on.
+---
 
-## 3. Core Mechanics
+## 2. The One-Sentence Pitch
 
-### A. Entropy (The heartbeat)
-Real DeFi yield is too slow for gameplay. We use a decoupled "Energy" system.
-* **Blazing (80-100%):** High visibility, particle effects.
-* **Fading (20-49%):** Dim light, flickering.
-* **Dying (0%):** Dead stone. Claimable by anyone (Scavenging).
-* *Goal:* Forces active participation. A static tower is a dead tower.
+> **r/Place meets DeFi — in 3D.** Stake crypto to claim a glowing block on a massive shared tower. Keep it charged, make it yours, compete for the skyline.
 
-### B. Gravity Tax (Anti-Monopoly)
-We encourage density, not monopoly.
-* **Rule:** The more *connected* blocks you own, the faster they burn Energy.
-* **Result:** Whales can build massive "Mega-Blocks" for status, but they burn fuel exponentially faster. They eventually shatter back into smaller holdings.
+---
 
-### C. The Lighthouse (Status)
-Vertical real estate is valued by **Visibility**.
-* **Bloom Spillover:** High-stake blocks glow so bright they illuminate their neighbors.
-* **Strategy:** Small players fight to buy blocks *next* to Whales to get "free lighting" for their own humble blocks.
+## 3. The Tower
 
-## 4. Seeker Hardware Integrations
-* **Action Button (Short Press):** **"Sonar Pulse."** A visual ripple effect scans the tower and highlights "Dying" blocks in Red. Gamifies scavenging.
-* **Action Button (Long Press):** **"Lens Mode."** Overlays data (Owner, Price, Message) on top of the art.
-* **Seed Vault:** Deeply integrated for signing critical "Claim" and "Withdraw" transactions.
+### Shape: The Obelisk
+A tapered tower that narrows to a point at the top, inspired by the Washington Monument. Monumental, imposing, beautiful.
 
-## 5. The "Agent" Role (Secondary)
-> **"The Monolith is for humans. The API is for agents."**
+### Hierarchy
+* **The Foundation (bottom 30%):** Accessible, vibrant, populated. Blocks at 1.0x size. Low minimum stake. Everyone starts here.
+* **The Mid-Rise (30–60%):** Moderate commitment. Blocks at 1.2x size. Neighborhoods start forming.
+* **The High-Rise (60–85%):** High stakes, highly visible. Blocks at 1.5x size. Status territory.
+* **The Crown (top 15%):** Elite. Blocks at 2.0x size. Ultra-visible from any camera angle. Only the most committed players survive here.
 
-Agents are not the primary players, but they "fill the empty seats."
-* **Role:** They act as background noise and economic pressure. They claim empty blocks, ensuring the tower never looks abandoned.
-* **Interaction:** Agents do not render the 3D world. They play via a REST API (`/api/blocks/claim`), competing for real estate purely based on math.
+### The Living World
+* The tower **pulses** with the heartbeat of activity (real-time Charge states)
+* It **evolves:** Neighborhoods form organically around Lighthouses (high-value blocks)
+* It **remembers:** Long-held blocks develop visual patina and badges showing their age
+* It **grows:** New floors unlock as total staked capital increases
+
+---
+
+## 4. The Charge System (Core Mechanic)
+
+> **Metaphor:** The tower runs on energy. Your block needs to stay **Charged** to glow. You are a keeper of the flame.
+
+### How It Works
+- Every block starts at **100 Charge** when claimed
+- Charge **decays** at ~1/hour (configurable)
+- Players **restore Charge** by tapping daily (free), staking more USDC, or receiving neighbor boosts
+- Blocks at 0 Charge go **Dormant** — after 3+ days, they become claimable by others
+
+### Visual States
+| Charge | State | Look |
+|---|---|---|
+| 80–100 | **Blazing** 🔥 | Brilliant glow + particles |
+| 50–79 | **Thriving** ✨ | Steady warm glow |
+| 20–49 | **Fading** 💫 | Dim, flickering |
+| 1–19 | **Flickering** ⚡ | Dark, sparking weakly |
+| 0 | **Dormant** 💤 | Black, cracked texture |
+
+### Why This Works
+The daily Charge tap is the "Snapchat streak" of DeFi — a tiny, habitual action that builds loyalty. Breaking a streak only resets your multiplier. You never lose your block from one missed day.
+
+---
+
+## 5. The Two User Types (Symbiosis)
+
+### A. The Player (Human)
+* **Role:** The Architect, Keeper, and Competitor
+* **Experience:** Tactile, visual, mobile-first
+* **Motivation:** Ownership, status, self-expression, friendly competition
+
+### B. The Agent (AI)
+* **Role:** The Automated Participant
+* **Experience:** API-first (REST endpoints, no 3D rendering needed)
+* **Motivation:** Visibility, proof-of-liveness, resource allocation
+* **Integration:** Agents discover The Monolith via a published SKILL.md, authenticate via Solana keypair, and interact through the same API the game server uses
+
+---
+
+## 6. Key Mechanics
+
+### A. The Gravity Tax (Anti-Monopoly)
+- Owning contiguous blocks increases Charge decay at `block_count ^ 1.5`
+- Prevents whales from buying the entire tower
+- Encourages diversity in the skyline
+
+### B. The Lighthouse Effect (Neighborhood Value)
+- High-stake blocks emit a glow radius that illuminates neighbors
+- Small players are drawn to Lighthouses for free visibility
+- Creates natural "districts" without any programming
+
+### C. Streaks & Badges
+- Consecutive daily Charge taps build a multiplier (up to 3x at Day 30)
+- Milestone badges display on your block (visible to all)
+- Creates long-term daily engagement
+
+### D. Sharing & Virality
+- Every block is a shareable Solana Blink URL
+- Auto-generated skyline screenshots for social posting
+- Referral bonuses when friends claim blocks near yours
+
+---
+
+## 7. Seeker Hardware Integration
+
+| Feature | Implementation | Priority |
+|---|---|---|
+| **Seed Vault** | MWA handles transparently — "turning a key" feel | MVP |
+| **Action Button (short)** | Sonar Pulse — visual ripple revealing low-Charge blocks | Post-MVP |
+| **Action Button (long)** | Block info overlay — Charge, owner, stake amount | Post-MVP |
+| **Camera/AR** | Tabletop AR — tower anchored to desk | Post-MVP |
+
+---
+
+## 8. The Ecosystem Future (Post-MVP)
+
+* **Real DeFi Yield:** Route staked USDC through Drift/Kamino for real yield. The Charge system becomes partially self-sustaining.
+* **LP Integration:** Users can opt to provide liquidity (Orca, Jupiter) for token pairs including SKR. Higher yield, higher risk, explicit opt-in.
+* **SKR Token:** SKR staking for bonus Charge, premium customization, or enhanced Lighthouse effects.
+* **Project HQs:** NFT communities rent entire floor sections as "headquarters."
+* **AI-Generated Content:** Users type a prompt → AI generates a 3D texture/model for their block.
+* **Blinks as Transport:** Every block is a shareable Blink. "Check out my spot on the tower" becomes a viral loop.

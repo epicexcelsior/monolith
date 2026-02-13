@@ -38,49 +38,90 @@ export const ENERGY_THRESHOLDS = {
   dead: 0, // 0:      Black/cracked, claimable
 } as const;
 
-// ─── Tower Configuration ──────────────────────────────────
+// ─── Monolith Tower Configuration ─────────────────────────
 /**
- * Generate a cylindrical tower config.
- * Base has the most blocks, top has the fewest.
- * Total capacity scales to ~1000+ blocks.
+ * Monolith tower: a rectangular skyscraper with 4 block-covered faces
+ * topped by a converging spire (the "Penthouse" crown).
+ *
+ * Layout:
+ *   - Body layers: Blocks arranged in a rectangular grid on each face
+ *   - Spire layers: Progressively fewer blocks, converging to be a point
+ *
+ * Optimized for Seeker (Dimensity 7300): ~600-800 blocks via InstancedMesh (1 draw call)
  */
-export function generateTowerConfig(layerCount: number = 10): TowerConfig {
+
+/** Half-width of the monolith on X axis (total width = 2 * MONOLITH_HALF_W) */
+export const MONOLITH_HALF_W = 6;
+
+/** Half-depth of the monolith on Z axis (total depth = 2 * MONOLITH_HALF_D) */
+export const MONOLITH_HALF_D = 3.5;
+
+/** Height of each tower layer in world units */
+export const LAYER_HEIGHT = 1.3;
+
+/** Block size at layer 0 */
+export const BLOCK_SIZE = 0.85;
+
+/** Gap between blocks */
+export const BLOCK_GAP = 0.06;
+
+/** Extra scale multiplier per layer (higher = slightly bigger blocks) */
+export const BLOCK_SCALE_PER_LAYER = 0.01;
+
+/** Layer index where the spire (converging crown) begins */
+export const SPIRE_START_LAYER = 14;
+
+// Legacy aliases (kept for any external references)
+export const BASE_RADIUS = MONOLITH_HALF_W;
+export const TOP_RADIUS = 1;
+
+/**
+ * Generate a monolith tower config.
+ *
+ * Body layers (0 to spireStart-1): consistent block count per layer
+ * Spire layers (spireStart to layerCount-1): tapering to 1 block at the top
+ *
+ * Each "body" layer has blocks on 4 rectangular faces:
+ *   Front/Back faces: blocksWide per face
+ *   Left/Right faces: blocksDeep per face
+ *   (blocks sit ON the surface, not inside)
+ *
+ * Target: ~600-800 total blocks (single InstancedMesh = 1 draw call)
+ */
+export function generateTowerConfig(layerCount: number = 18): TowerConfig {
   const blocksPerLayer: number[] = [];
-  const baseBlocks = 160;
-  const topBlocks = 20;
+
+  // Body: each layer has blocks on 4 faces
+  const bodyBlocksWide = 12; // blocks along width face (front & back)
+  const bodyBlocksDeep = 8;  // blocks along depth face (left & right)
+  const bodyBlocksPerLayer = 2 * bodyBlocksWide + 2 * bodyBlocksDeep; // 40
 
   for (let i = 0; i < layerCount; i++) {
-    const t = i / (layerCount - 1); // 0 (base) → 1 (top)
-    const count = Math.round(baseBlocks - t * (baseBlocks - topBlocks));
-    blocksPerLayer.push(count);
+    if (i < SPIRE_START_LAYER) {
+      // Body layer — consistent rectangular ring
+      blocksPerLayer.push(bodyBlocksPerLayer);
+    } else {
+      // Spire layer — taper down
+      const spireProgress =
+        (i - SPIRE_START_LAYER) / (layerCount - 1 - SPIRE_START_LAYER); // 0→1
+      const spireBlocks = Math.max(
+        1,
+        Math.round(bodyBlocksPerLayer * (1 - spireProgress * 0.88)),
+      );
+      blocksPerLayer.push(spireBlocks);
+    }
   }
 
   return {
     layerCount,
     blocksPerLayer,
     totalBlocks: blocksPerLayer.reduce((sum, n) => sum + n, 0),
-    shape: "cylinder",
+    shape: "monolith",
   };
 }
 
-/** Default tower: 10 layers, ~1000 blocks */
-export const DEFAULT_TOWER_CONFIG = generateTowerConfig(10);
-
-// ─── Visual / 3D Constants ────────────────────────────────
-/** Spacing between block centers */
-export const BLOCK_SIZE = 1.0;
-
-/** Gap between blocks */
-export const BLOCK_GAP = 0.05;
-
-/** Height of each tower layer */
-export const LAYER_HEIGHT = 1.2;
-
-/** Radius of the cylinder at the base layer */
-export const BASE_RADIUS = 25;
-
-/** Radius of the cylinder at the top layer */
-export const TOP_RADIUS = 5;
+/** Default tower: 18 layers, ~650+ blocks */
+export const DEFAULT_TOWER_CONFIG = generateTowerConfig(18);
 
 // ─── LOD Distances ────────────────────────────────────────
 /** Distance thresholds for Level of Detail tiers */

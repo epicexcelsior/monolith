@@ -19,6 +19,7 @@ const vertexShader = /* glsl */ `
   // Per-instance attributes
   attribute float aEnergy;
   attribute vec3 aOwnerColor;
+  attribute float aLayerNorm;
 
   // Passed to fragment
   varying float vEnergy;
@@ -27,6 +28,8 @@ const vertexShader = /* glsl */ `
   varying vec3 vViewDir;
   varying float vDist;
   varying float vInstanceOffset;
+  varying float vLayerNorm;
+  varying float vWorldY;
 
   void main() {
     // Apply instance transform
@@ -38,6 +41,8 @@ const vertexShader = /* glsl */ `
     // Pass to fragment
     vEnergy = aEnergy;
     vOwnerColor = aOwnerColor;
+    vLayerNorm = aLayerNorm;
+    vWorldY = worldPos.y;
 
     // View-space normal for fresnel (transform normal by instance rotation)
     mat3 normalMat = mat3(instanceMatrix);
@@ -50,7 +55,6 @@ const vertexShader = /* glsl */ `
     vDist = length(mvPosition.xyz);
 
     // Unique offset per instance for pulse variation
-    // Use world position as a seed
     vInstanceOffset = worldPos.x * 0.3 + worldPos.y * 0.7 + worldPos.z * 0.5;
   }
 `;
@@ -61,6 +65,8 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec3 uFogColor;
   uniform float uFogDensity;
+  uniform float uSpireThreshold;
+  uniform float uTowerHeight;
 
   varying float vEnergy;
   varying vec3 vOwnerColor;
@@ -68,15 +74,16 @@ const fragmentShader = /* glsl */ `
   varying vec3 vViewDir;
   varying float vDist;
   varying float vInstanceOffset;
+  varying float vLayerNorm;
+  varying float vWorldY;
 
   // Energy → color ramp (branchless via smoothstep/mix)
   vec3 energyColor(float e) {
-    // Dead → dying → fading → thriving → blazing
-    vec3 dead    = vec3(0.1, 0.1, 0.18);
-    vec3 dying   = vec3(1.0, 0.0, 0.4);
-    vec3 fading  = vec3(0.4, 0.0, 1.0);
-    vec3 thriving = vec3(0.0, 0.4, 1.0);
-    vec3 blazing = vec3(0.0, 1.0, 1.0);
+    vec3 dead    = vec3(0.08, 0.06, 0.14);
+    vec3 dying   = vec3(0.7, 0.0, 0.3);
+    vec3 fading  = vec3(0.3, 0.0, 0.8);
+    vec3 thriving = vec3(0.0, 0.35, 0.9);
+    vec3 blazing = vec3(0.0, 0.9, 1.0);
 
     vec3 col = dead;
     col = mix(col, dying,    smoothstep(0.0,  0.05, e));
@@ -90,29 +97,50 @@ const fragmentShader = /* glsl */ `
   void main() {
     float energy = clamp(vEnergy, 0.0, 1.0);
 
-    // Base color: 70% energy ramp + 30% owner color
+    // Base color: blend energy ramp with owner color
     vec3 eCol = energyColor(energy);
-    vec3 baseColor = mix(vOwnerColor, eCol, 0.7);
+    vec3 baseColor = mix(vOwnerColor * 0.6, eCol, 0.65);
 
-    // Fresnel rim glow — neon edge highlight
-    float fresnel = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewDir)), 0.0), 3.0);
-    vec3 rimColor = eCol * 1.5;
-    float rimStrength = fresnel * energy * 0.8;
+    // ─── Height-based tint ───────────────────────────
+    // Subtle gradient: dark indigo at base → brighter cyan/white at top
+    vec3 baseTint = vec3(0.04, 0.02, 0.1);
+    vec3 topTint = vec3(0.1, 0.2, 0.45);
+    vec3 heightTint = mix(baseTint, topTint, vLayerNorm);
+    baseColor += heightTint * 0.3;
 
-    // Pulse: sin wave modulating emissive, faster for higher energy
-    float pulseSpeed = 1.0 + energy * 3.0;
+    // ─── Fresnel rim glow ────────────────────────────
+    // Strong glass-panel edge glow
+    float fresnel = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewDir)), 0.0), 2.5);
+    vec3 rimColor = mix(eCol, vec3(0.3, 0.6, 1.0), 0.3) * 1.8;
+    float rimStrength = fresnel * (0.4 + energy * 0.6);
+
+    // ─── Pulse animation ─────────────────────────────
+    float pulseSpeed = 1.0 + energy * 2.5;
     float pulse = 0.5 + 0.5 * sin(uTime * pulseSpeed + vInstanceOffset);
-    float pulseIntensity = 0.3 + energy * 0.7;
+    float pulseIntensity = 0.2 + energy * 0.6;
 
-    // Combine: base + rim + pulse glow
-    vec3 color = baseColor * (0.6 + pulse * pulseIntensity * 0.4);
+    // ─── Vertical scanline ───────────────────────────
+    // Faint sweeping light line moving up the building
+    float scanY = mod(uTime * 0.8, uTowerHeight + 8.0) - 4.0;
+    float scanDist = abs(vWorldY - scanY);
+    float scanLine = smoothstep(2.0, 0.0, scanDist) * 0.15;
+
+    // ─── Spire glow boost ────────────────────────────
+    float spireBoost = smoothstep(uSpireThreshold - 0.05, uSpireThreshold + 0.15, vLayerNorm);
+    float spireGlow = spireBoost * (0.3 + 0.4 * sin(uTime * 1.5 + vInstanceOffset * 2.0));
+
+    // ─── Combine ─────────────────────────────────────
+    vec3 color = baseColor * (0.55 + pulse * pulseIntensity * 0.45);
     color += rimColor * rimStrength;
+    color += vec3(0.2, 0.5, 1.0) * scanLine * energy;
+    color += eCol * spireGlow * 0.6;
 
-    // Dead blocks: minimal glow
-    float deadMask = smoothstep(0.0, 0.05, energy);
-    color = mix(vec3(0.08, 0.08, 0.12), color, deadMask);
+    // Dead blocks: nearly black with faint structure lines
+    float deadMask = smoothstep(0.0, 0.06, energy);
+    vec3 deadColor = vec3(0.05, 0.04, 0.08) + vec3(0.03) * fresnel;
+    color = mix(deadColor, color, deadMask);
 
-    // Manual fog: exponential squared
+    // ─── Fog ─────────────────────────────────────────
     float fogFactor = exp(-uFogDensity * uFogDensity * vDist * vDist);
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     color = mix(uFogColor, color, fogFactor);
@@ -123,7 +151,8 @@ const fragmentShader = /* glsl */ `
 
 /**
  * Creates the custom ShaderMaterial for tower blocks.
- * Supports instanced rendering with per-block energy and owner color.
+ * Supports instanced rendering with per-block energy, owner color,
+ * and layer-normalized height for gradient + spire effects.
  */
 export function createBlockMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -131,10 +160,12 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
     fragmentShader,
     uniforms: {
       uTime: { value: 0 },
-      uFogColor: { value: new THREE.Color(0x0a0a0f) },
-      uFogDensity: { value: 0.012 },
+      uFogColor: { value: new THREE.Color(0x060610) },
+      uFogDensity: { value: 0.008 },
+      uSpireThreshold: { value: 14 / 18 }, // SPIRE_START_LAYER / layerCount
+      uTowerHeight: { value: 18 * 1.3 }, // layerCount * LAYER_HEIGHT
     },
-    fog: false, // We handle fog manually in the shader
+    fog: false,
     toneMapped: false,
   });
 }

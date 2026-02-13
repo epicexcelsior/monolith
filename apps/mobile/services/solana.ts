@@ -9,7 +9,8 @@ import { Connection, clusterApiUrl } from "@solana/web3.js";
 
 const NETWORK = process.env.EXPO_PUBLIC_SOLANA_NETWORK || "devnet";
 const RPC_URL =
-  process.env.EXPO_PUBLIC_SOLANA_RPC_URL || clusterApiUrl("devnet");
+  process.env.EXPO_PUBLIC_SOLANA_RPC_URL ||
+  "https://solana-devnet.g.alchemy.com/v2/iZggasNITBS_glMXEkk8u";
 
 /**
  * Singleton Solana connection.

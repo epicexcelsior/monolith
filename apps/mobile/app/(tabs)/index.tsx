@@ -11,28 +11,31 @@ import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
 import LayerIndicator from "@/components/ui/LayerIndicator";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
-import { useStaking, type TowerInfo } from "@/hooks/useStaking";
+import { useStaking, type TowerInfo, type UserDepositInfo } from "@/hooks/useStaking";
 
 const { width, height } = Dimensions.get("window");
 
 /**
  * Main Tower screen — the heart of the app.
  * Full-screen 3D R3F canvas showing the tower.
- * Overlay HUD shows wallet status, on-chain stats, and key actions.
+ * Overlay HUD shows wallet status, on-chain stats, and deposit/withdraw actions.
  */
 export default function TowerScreen() {
   const router = useRouter();
   const isConnected = useWalletStore((s) => s.isConnected);
   const truncatedAddress = useTruncatedAddress();
-  const { fetchTowerState } = useStaking();
+  const { fetchTowerState, fetchUserDeposit } = useStaking();
 
   const [towerInfo, setTowerInfo] = useState<TowerInfo | null>(null);
+  const [userDeposit, setUserDeposit] = useState<UserDepositInfo | null>(null);
 
-  // Fetch on-chain tower stats on mount and periodically
+  // Fetch on-chain tower stats + user deposit on mount and periodically
   const refreshStats = useCallback(async () => {
     const info = await fetchTowerState();
     if (info) setTowerInfo(info);
-  }, [fetchTowerState]);
+    const deposit = await fetchUserDeposit();
+    if (deposit) setUserDeposit(deposit);
+  }, [fetchTowerState, fetchUserDeposit]);
 
   useEffect(() => {
     refreshStats();
@@ -76,15 +79,27 @@ export default function TowerScreen() {
         <View style={styles.statsBar}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>
-              {towerInfo ? towerInfo.totalBlocksClaimed.toString() : "—"}
+              {towerInfo
+                ? `$${towerInfo.totalDeposited.toFixed(2)}`
+                : "—"}
             </Text>
-            <Text style={styles.statLabel}>Blocks</Text>
+            <Text style={styles.statLabel}>TVL</Text>
           </View>
           <View style={styles.stat}>
             <Text style={styles.statValue}>
-              {towerInfo ? `$${towerInfo.totalStaked.toFixed(2)}` : "—"}
+              {towerInfo ? towerInfo.totalUsers.toString() : "—"}
             </Text>
-            <Text style={styles.statLabel}>Staked</Text>
+            <Text style={styles.statLabel}>Users</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={[styles.statValue, { color: "#00ff64" }]}>
+              {userDeposit
+                ? `$${userDeposit.amount.toFixed(2)}`
+                : isConnected
+                  ? "$0.00"
+                  : "—"}
+            </Text>
+            <Text style={styles.statLabel}>My Vault</Text>
           </View>
           <View style={styles.stat}>
             <Text style={[styles.statValue, styles.liveIndicator]}>
@@ -99,22 +114,20 @@ export default function TowerScreen() {
         {/* Bottom action area */}
         <View style={styles.bottomArea}>
           {isConnected ? (
-            <TouchableOpacity
-              style={styles.stakeButton}
-              onPress={() =>
-                router.push({
-                  pathname: "/deposit" as any,
-                  params: {
-                    blockId: "0",
-                    posX: "0",
-                    posY: "0",
-                    posZ: "0",
-                  },
-                })
-              }
-            >
-              <Text style={styles.stakeButtonText}>Stake USDC</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={styles.depositButton}
+                onPress={() => router.push("/deposit" as any)}
+              >
+                <Text style={styles.depositButtonText}>Deposit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.withdrawButton}
+                onPress={() => router.push("/withdraw" as any)}
+              >
+                <Text style={styles.withdrawButtonText}>Withdraw</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <Text style={styles.hintText}>
               Drag to orbit • Pinch to zoom • Double-tap to reset
@@ -201,7 +214,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: "#ffffff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
   },
   statLabel: {
@@ -217,16 +230,35 @@ const styles = StyleSheet.create({
   bottomArea: {
     alignItems: "center",
   },
-  stakeButton: {
+  buttonRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  depositButton: {
+    flex: 1,
     backgroundColor: "#00ffff",
-    paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    width: "100%",
     alignItems: "center",
   },
-  stakeButtonText: {
+  depositButtonText: {
     color: "#0a0a0f",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  withdrawButton: {
+    flex: 1,
+    backgroundColor: "transparent",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ff9500",
+  },
+  withdrawButtonText: {
+    color: "#ff9500",
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 1,

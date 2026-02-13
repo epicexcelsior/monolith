@@ -22,7 +22,7 @@ export const DEVNET_USDC_MINT = new PublicKey(
 // USDC has 6 decimals
 export const USDC_DECIMALS = 6;
 
-// Minimum stake in USDC smallest units (0.10 USDC = 100_000)
+// Minimum deposit in USDC smallest units (0.10 USDC = 100_000)
 export const MIN_STAKE_UNITS = 100_000;
 
 /**
