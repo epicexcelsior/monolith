@@ -11,6 +11,7 @@ import { COLORS, SPACING } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { ENERGY_THRESHOLDS } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
+import { hapticBlockDeselect } from "@/utils/haptics";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const PANEL_HEIGHT = 260;
@@ -73,7 +74,10 @@ export default function BlockInspector() {
       {/* Close button */}
       <TouchableOpacity
         style={styles.closeButton}
-        onPress={() => selectBlock(null)}
+        onPress={() => {
+          hapticBlockDeselect();
+          selectBlock(null);
+        }}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
         <Text style={styles.closeText}>X</Text>

@@ -41,6 +41,8 @@ interface TowerStore {
   isConnected: boolean;
   isLoading: boolean;
   selectedBlockId: string | null;
+  focusedLayer: number;
+  zoomTier: "overview" | "neighborhood" | "block";
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -51,6 +53,8 @@ interface TowerStore {
   setLoading: (loading: boolean) => void;
   selectBlock: (blockId: string | null) => void;
   updateStats: (stats: TowerStats) => void;
+  setFocusedLayer: (layer: number) => void;
+  setZoomTier: (tier: "overview" | "neighborhood" | "block") => void;
 
   // ─── Computed ─────────────────────────────
   getBlockById: (id: string) => Block | undefined;
@@ -75,6 +79,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   isConnected: false,
   isLoading: false,
   selectedBlockId: null,
+  focusedLayer: Math.floor(DEFAULT_TOWER_CONFIG.layerCount / 2),
+  zoomTier: "overview" as const,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
@@ -92,6 +98,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   selectBlock: (blockId) => set({ selectedBlockId: blockId }),
   updateStats: (stats) => set({ stats }),
+  setFocusedLayer: (layer) => set({ focusedLayer: layer }),
+  setZoomTier: (tier) => set({ zoomTier: tier }),
 
   // ─── Computed ─────────────────────────────
   getBlockById: (id) => get().blocks.find((b) => b.id === id),

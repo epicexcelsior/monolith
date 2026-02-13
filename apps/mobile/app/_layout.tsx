@@ -1,7 +1,8 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { View, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
 import { useAuthorization } from "@/hooks/useAuthorization";
 
@@ -42,7 +43,7 @@ export default function RootLayout() {
   }, [hydrateCachedAuth]);
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -60,7 +61,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 

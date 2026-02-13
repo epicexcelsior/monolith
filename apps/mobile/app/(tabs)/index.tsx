@@ -9,6 +9,7 @@ import {
 import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
+import LayerIndicator from "@/components/ui/LayerIndicator";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useStaking, type TowerInfo } from "@/hooks/useStaking";
 
@@ -116,11 +117,14 @@ export default function TowerScreen() {
             </TouchableOpacity>
           ) : (
             <Text style={styles.hintText}>
-              Connect wallet to stake • Pinch to zoom
+              Drag to orbit • Pinch to zoom • Double-tap to reset
             </Text>
           )}
         </View>
       </View>
+
+      {/* Layer Indicator */}
+      <LayerIndicator />
 
       {/* Block Inspector panel */}
       <BlockInspector />
