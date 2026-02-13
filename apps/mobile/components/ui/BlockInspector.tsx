@@ -24,8 +24,18 @@ function getBlockState(energy: number): BlockState {
   return "dead";
 }
 
+/** Map common block state names to theme colors. */
 function stateColor(state: BlockState): string {
-  return COLORS[state];
+  const map: Record<string, string> = {
+    blazing: COLORS.blazing,
+    thriving: COLORS.thriving,
+    fading: COLORS.fading,
+    dying: COLORS.flickering,
+    dead: COLORS.dormant,
+    flickering: COLORS.flickering,
+    dormant: COLORS.dormant,
+  };
+  return map[state] ?? COLORS.textMuted;
 }
 
 function truncateAddress(addr: string): string {

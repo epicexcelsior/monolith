@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
         flex: 1,
         width: BAR_WIDTH,
         borderRadius: 1,
-        backgroundColor: COLORS.cyan,
+        backgroundColor: COLORS.gold,
         opacity: 0.25,
     },
     dotContainer: {
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
         alignItems: "flex-end",
     },
     layerNumber: {
-        color: COLORS.cyan,
+        color: COLORS.gold,
         fontSize: 11,
         fontWeight: "700",
         fontVariant: ["tabular-nums"],
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
         width: DOT_SIZE,
         height: DOT_SIZE,
         borderRadius: DOT_SIZE / 2,
-        backgroundColor: COLORS.cyan + "44",
+        backgroundColor: COLORS.gold + "44",
         alignItems: "center",
         justifyContent: "center",
     },
@@ -181,6 +181,6 @@ const styles = StyleSheet.create({
         width: DOT_SIZE - 4,
         height: DOT_SIZE - 4,
         borderRadius: (DOT_SIZE - 4) / 2,
-        backgroundColor: COLORS.cyan,
+        backgroundColor: COLORS.gold,
     },
 });
