@@ -4,6 +4,34 @@ This file documents important lessons, gotchas, and discoveries for future devel
 
 ## Recent Lessons Learned
 
+### 2026-02-13: Design System Work Should Follow Interview → Plan → Build → Migrate
+
+**Pattern**: Instead of jumping into code, run a structured design interview first (10 questions covering aesthetic, typography, components, navigation, animations). This produces a specification that makes the build phase trivial.
+
+**Workflow**: Interview → `UI_SYSTEM.md` spec → `theme.ts` overhaul → Component library → `AGENTS.md` agent rules → `UI_MIGRATION_PLAN.md` for screen-by-screen conversion.
+
+**Key Insight**: Building the component library and theme tokens BEFORE migrating existing screens is safer. New components compile and type-check independently, and screens can be migrated one at a time without breaking the app.
+
+### 2026-02-13: Use AGENTS.md + Barrel Exports to Prevent Component Drift
+
+**Problem**: Without guardrails, every new screen creates ad-hoc buttons, cards, and inputs with inconsistent styling. AI agents are especially prone to this because they don't remember previous styling decisions.
+
+**Solution**:
+1. Create `components/ui/index.ts` barrel export for clean imports
+2. Create per-app `AGENTS.md` with explicit rules: "always use `<Button>`, never create raw `<TouchableOpacity>`"
+3. Include a component table, typography rules, and a new screen template
+
+**Result**: Future agents (and humans) see the component catalog before writing any code. The barrel index makes the import path obvious.
+
+### 2026-02-13: Theme Migration Requires Explicit Color Mapping Tables
+
+**Gotcha**: Overhauling a theme file (e.g., removing `COLORS.cyan`) causes TypeScript errors in every file that referenced the old token. Simply renaming tokens isn't enough — you need a migration plan with exact `old → new` mappings for every screen.
+
+**Solution**: After any theme overhaul, immediately:
+1. Run `npx tsc --noEmit` to find all broken references
+2. Fix type errors in existing code (map old names to new ones)
+3. Create a migration plan doc listing every file + exact color/component substitutions
+
 ### 2026-02-13: `tsc --noEmit` Hangs in Monorepos — Always Use `timeout`
 
 **Problem**: `npx tsc --noEmit --skipLibCheck` can hang indefinitely in monorepo workspaces (30+ minutes), blocking the entire workflow. This happened repeatedly in this project.
