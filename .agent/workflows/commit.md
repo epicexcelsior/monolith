@@ -10,7 +10,7 @@ Before committing, run relevant automated checks to catch issues:
 
 **TypeScript/JavaScript projects:**
 ```bash
-npx tsc --noEmit --skipLibCheck 2>&1 | head -20
+timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 ```
 
 **Rust/Anchor projects:**
@@ -52,6 +52,19 @@ git commit -m "<type>: <concise description>
 Use conventional commit types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`.
 
 Write adequate descriptions — the commit message should explain **what** changed and **why** at a glance.
+
+## 3.5. Verify Commit Succeeded
+
+After attempting commit, verify it succeeded even if the terminal hung:
+
+```bash
+git log --oneline -1
+git status --short
+```
+
+If `git log` shows the new commit but terminal hung:
+- Inform user commit succeeded despite hang
+- Proceed to push step
 
 ## 4. Push
 

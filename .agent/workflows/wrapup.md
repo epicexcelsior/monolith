@@ -19,8 +19,8 @@ Run all relevant automated checks. Detect what applies to this project and run a
 
 **TypeScript/JavaScript projects:**
 ```bash
-# Find the right tsconfig and run type check
-npx tsc --noEmit --skipLibCheck 2>&1 | head -30
+# Wrap with timeout to prevent monorepo hangs
+timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 ```
 
 **Rust/Anchor projects:**
@@ -58,3 +58,15 @@ Remove any dead code or leftover artifacts:
 ## 5. Report
 
 If there are any issues, blockers, or things the user should be aware of, surface them now before committing.
+
+## 5.5. Verify Git Status
+
+Before declaring wrapup complete, check if changes are properly staged/committed:
+
+```bash
+git status --short
+git log --oneline -1
+```
+
+If files are staged but not committed, attempt commit. If the commit command hangs for >10 seconds, verify it succeeded anyway by checking `git log -1` — git commits can succeed even when the terminal doesn't return to prompt.
+

@@ -162,3 +162,35 @@ eas build -p ios --profile development --clear-cache
 eas --version
 eas update
 ```
+
+## Platform Compatibility Gotchas
+
+React Native has a limited polyfill environment compared to Node.js. Be aware of these limitations when using native libraries:
+
+### Node.js API Limitations
+
+1. **Buffer methods**: `Buffer.readUInt*()`, `Buffer.writeUInt*()`, and similar methods don't exist in React Native's Buffer polyfill
+   - **Solution**: Use `DataView` + `Uint8Array` for byte-level operations
+   - **Example**: Reading a u64 from bytes
+     ```typescript
+     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+     const lo = view.getUint32(offset, true);      // low 32 bits
+     const hi = view.getUint32(offset + 4, true);  // high 32 bits
+     const value = hi * 0x100000000 + lo;
+     ```
+
+2. **Crypto module**: Node `crypto` module is partially polyfilled
+   - **Solution**: Use `expo-crypto` or `react-native-quick-crypto`
+
+3. **File system**: `fs` module doesn't exist
+   - **Solution**: Use `expo-file-system`
+
+### Solana Development
+
+When working with Solana in React Native:
+
+- **Avoid `BorshAccountsCoder`**: Anchor's account decoder uses `Buffer.readUIntLE()` which crashes in RN
+  - **Solution**: Manually decode account data using `DataView` at exact byte offsets matching your Rust structs
+- **Test early on device/dev client**: Many incompatibilities only appear on native, not web
+- **IDL field names**: `BorshAccountsCoder` returns `snake_case` field names (e.g., `usdc_mint`, `total_deposited`), not `camelCase`
+
