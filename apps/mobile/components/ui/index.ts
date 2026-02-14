@@ -15,3 +15,6 @@ export { default as BottomPanel } from "./BottomPanel";
 export { default as Input } from "./Input";
 export { default as Chip } from "./Chip";
 export { default as ScreenLayout } from "./ScreenLayout";
+export { default as ColorPicker } from "./ColorPicker";
+export { default as ClaimModal } from "./ClaimModal";
+export { default as OnboardingOverlay } from "./OnboardingOverlay";

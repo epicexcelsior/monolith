@@ -48,15 +48,15 @@ describe("services/mwa", () => {
   });
 
   describe("getMwaCluster", () => {
-    it("should return a solana: prefixed cluster string", () => {
+    it("should return a valid cluster string", () => {
       const cluster = getMwaCluster();
-      expect(cluster).toMatch(/^solana:(devnet|mainnet-beta|testnet)$/);
+      expect(cluster).toMatch(/^(devnet|mainnet-beta|testnet)$/);
     });
 
-    it("should default to solana:devnet", () => {
+    it("should default to devnet", () => {
       // In test environment, EXPO_PUBLIC_SOLANA_NETWORK is not set
       const cluster = getMwaCluster();
-      expect(cluster).toBe("solana:devnet");
+      expect(cluster).toBe("devnet");
     });
   });
 

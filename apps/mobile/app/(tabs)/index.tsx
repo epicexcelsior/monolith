@@ -4,36 +4,45 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
 import LayerIndicator from "@/components/ui/LayerIndicator";
+import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
+import { useTowerStore } from "@/stores/tower-store";
 import { useStaking, type TowerInfo, type UserDepositInfo } from "@/hooks/useStaking";
 import { COLORS, SPACING, FONT_FAMILY, TEXT, RADIUS } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 
-/**
- * Main Tower screen — the heart of the app.
- * Full-screen 3D R3F canvas showing the tower.
- * Overlay HUD shows wallet status, on-chain stats.
- *
- * NOTE: The Tower scene keeps a dark atmospheric background.
- * HUD overlays use translucent backgrounds and `textOnDark` colors.
- * Do NOT use the cream/light theme colors here.
- */
 export default function TowerScreen() {
   const router = useRouter();
   const isConnected = useWalletStore((s) => s.isConnected);
   const truncatedAddress = useTruncatedAddress();
   const { fetchTowerState, fetchUserDeposit } = useStaking();
 
+  const initTower = useTowerStore((s) => s.initTower);
+  const startDecayLoop = useTowerStore((s) => s.startDecayLoop);
+  const initialized = useTowerStore((s) => s.initialized);
+  const onboardingDone = useTowerStore((s) => s.onboardingDone);
+
   const [towerInfo, setTowerInfo] = useState<TowerInfo | null>(null);
   const [userDeposit, setUserDeposit] = useState<UserDepositInfo | null>(null);
 
-  // Fetch on-chain tower stats + user deposit on mount and periodically
+  // Initialize tower (load from storage or seed)
+  useEffect(() => {
+    initTower();
+  }, [initTower]);
+
+  // Start decay loop once tower is initialized
+  useEffect(() => {
+    if (!initialized) return;
+    const cleanup = startDecayLoop();
+    return cleanup;
+  }, [initialized, startDecayLoop]);
+
+  // Fetch on-chain tower stats + user deposit periodically
   const refreshStats = useCallback(async () => {
     const info = await fetchTowerState();
     if (info) setTowerInfo(info);
@@ -43,7 +52,7 @@ export default function TowerScreen() {
 
   useEffect(() => {
     refreshStats();
-    const interval = setInterval(refreshStats, 15_000); // refresh every 15s
+    const interval = setInterval(refreshStats, 15_000);
     return () => clearInterval(interval);
   }, [refreshStats]);
 
@@ -88,13 +97,13 @@ export default function TowerScreen() {
             <Text style={styles.statValue}>
               {towerInfo
                 ? `$${towerInfo.totalDeposited.toFixed(2)}`
-                : "—"}
+                : "\u2014"}
             </Text>
             <Text style={styles.statLabel}>TVL</Text>
           </View>
           <View style={styles.stat}>
             <Text style={styles.statValue}>
-              {towerInfo ? towerInfo.totalUsers.toString() : "—"}
+              {towerInfo ? towerInfo.totalUsers.toString() : "\u2014"}
             </Text>
             <Text style={styles.statLabel}>Users</Text>
           </View>
@@ -104,13 +113,13 @@ export default function TowerScreen() {
                 ? `$${userDeposit.amount.toFixed(2)}`
                 : isConnected
                   ? "$0.00"
-                  : "—"}
+                  : "\u2014"}
             </Text>
             <Text style={styles.statLabel}>My Vault</Text>
           </View>
           <View style={styles.stat}>
             <Text style={[styles.statValue, { color: isConnected ? COLORS.success : COLORS.textMuted }]}>
-              {isConnected ? "●" : "○"}
+              {isConnected ? "\u25CF" : "\u25CB"}
             </Text>
             <Text style={styles.statLabel}>
               {isConnected ? "Live" : "Offline"}
@@ -118,10 +127,10 @@ export default function TowerScreen() {
           </View>
         </View>
 
-        {/* Bottom hint area — no persistent buttons per GDD */}
+        {/* Bottom hint */}
         <View style={styles.bottomArea}>
           <Text style={styles.hintText}>
-            Drag to orbit • Pinch to zoom • Double-tap to reset
+            Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Double-tap to reset
           </Text>
         </View>
       </View>
@@ -131,6 +140,9 @@ export default function TowerScreen() {
 
       {/* Block Inspector panel */}
       <BlockInspector />
+
+      {/* Onboarding overlay (first launch only) */}
+      {initialized && !onboardingDone && <OnboardingOverlay />}
     </View>
   );
 }

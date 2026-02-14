@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect } from "react";
+import React, { useRef, useMemo, useEffect, useCallback } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber/native";
 import * as THREE from "three";
 import {
@@ -13,7 +13,7 @@ import {
   BLOCK_COLORS,
 } from "@monolith/common";
 import { createBlockMaterial } from "./BlockShader";
-import { useTowerStore } from "@/stores/tower-store";
+import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 
 export interface BlockMeta {
   id: string;
@@ -28,16 +28,6 @@ export interface BlockMeta {
 
 // ─── Monolith Geometry Helpers ────────────────────────────
 
-/**
- * Positions blocks on the 4 rectangular faces of the monolith body.
- * Returns world positions for a single body layer.
- *
- * Face layout (top-down view):
- *   Front (Z+): blocks along X axis
- *   Back  (Z-): blocks along X axis
- *   Left  (X-): blocks along Z axis
- *   Right (X+): blocks along Z axis
- */
 function computeBodyLayerPositions(
   layer: number,
   blockCount: number,
@@ -49,20 +39,17 @@ function computeBodyLayerPositions(
   const step = BLOCK_SIZE + BLOCK_GAP;
   const layerScale = 1 + layer * BLOCK_SCALE_PER_LAYER;
 
-  // How many blocks fit on each face (split evenly)
   const perimeterUnits = 2 * halfW + 2 * halfD;
   const frontBack = Math.round((halfW / perimeterUnits) * blockCount);
   const leftRight = Math.round((halfD / perimeterUnits) * blockCount);
 
-  // Adjust so total matches blockCount
   const totalCalc = 2 * frontBack + 2 * leftRight;
   let fCount = frontBack;
-  let sCount = leftRight;
   if (totalCalc !== blockCount) {
     fCount = frontBack + Math.round((blockCount - totalCalc) / 4);
   }
+  const sCount = leftRight;
 
-  // Front face (Z = +halfD, facing +Z)
   for (let i = 0; i < fCount; i++) {
     const x = (i - (fCount - 1) / 2) * step * layerScale;
     results.push({
@@ -70,8 +57,6 @@ function computeBodyLayerPositions(
       rotY: 0,
     });
   }
-
-  // Back face (Z = -halfD, facing -Z)
   for (let i = 0; i < fCount; i++) {
     const x = (i - (fCount - 1) / 2) * step * layerScale;
     results.push({
@@ -79,8 +64,6 @@ function computeBodyLayerPositions(
       rotY: Math.PI,
     });
   }
-
-  // Right face (X = +halfW, facing +X)
   for (let i = 0; i < sCount; i++) {
     const z = (i - (sCount - 1) / 2) * step * layerScale;
     results.push({
@@ -88,8 +71,6 @@ function computeBodyLayerPositions(
       rotY: Math.PI / 2,
     });
   }
-
-  // Left face (X = -halfW, facing -X)
   for (let i = 0; i < sCount; i++) {
     const z = (i - (sCount - 1) / 2) * step * layerScale;
     results.push({
@@ -101,10 +82,6 @@ function computeBodyLayerPositions(
   return results;
 }
 
-/**
- * Positions blocks for a spire layer — same 4-face approach but
- * width and depth shrink as we approach the peak.
- */
 function computeSpireLayerPositions(
   layer: number,
   blockCount: number,
@@ -112,13 +89,11 @@ function computeSpireLayerPositions(
 ): { pos: THREE.Vector3; rotY: number }[] {
   const spireProgress =
     (layer - SPIRE_START_LAYER) / (totalLayers - 1 - SPIRE_START_LAYER);
-  // Lerp from full size to near-zero
   const shrink = 1 - spireProgress * 0.9;
   const hw = MONOLITH_HALF_W * shrink;
   const hd = MONOLITH_HALF_D * shrink;
 
   if (blockCount <= 1) {
-    // Penthouse — single block at the apex
     const y = layer * LAYER_HEIGHT;
     return [{ pos: new THREE.Vector3(0, y, 0), rotY: 0 }];
   }
@@ -129,13 +104,9 @@ function computeSpireLayerPositions(
 /**
  * TowerGrid — Renders 600+ blocks using a single InstancedMesh.
  *
- * PERFORMANCE NOTES (Seeker / Dimensity 7300):
- * - Single InstancedMesh = 1 draw call for ALL blocks
- * - Per-instance attributes (aEnergy, aOwnerColor, aLayerNorm) baked at init
- * - No per-frame JS updates to instance matrices (static tower)
- * - useFrame only updates the single uTime uniform
- * - boxGeometry shared across all instances (no geometry duplication)
- * - frustumCulled=true lets Three.js skip off-screen instances
+ * Now loads block data from the tower store (seeded/persisted)
+ * instead of generating random data. Supports dynamic attribute
+ * updates when blocks change (claim, charge, customize).
  */
 export default function TowerGrid() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -145,27 +116,29 @@ export default function TowerGrid() {
   const config = DEFAULT_TOWER_CONFIG;
 
   const selectBlock = useTowerStore((s) => s.selectBlock);
-  const setDemoBlocks = useTowerStore((s) => s.setDemoBlocks);
+  const demoBlocks = useTowerStore((s) => s.demoBlocks);
+  const recentlyClaimedId = useTowerStore((s) => s.recentlyClaimedId);
+  const clearRecentlyClaimed = useTowerStore((s) => s.clearRecentlyClaimed);
 
-  // Stable custom material (created once, never recreated)
+  // Track claim flash animation
+  const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
+
   const material = useMemo(() => {
     const mat = createBlockMaterial();
     materialRef.current = mat;
     return mat;
   }, []);
 
-  // Invisible material for the hit-test mesh (no GPU draw cost)
   const hitMaterial = useMemo(
     () => new THREE.MeshBasicMaterial({ visible: false }),
     [],
   );
 
-  /** Hit area inflation factor — 40% larger than visual blocks */
   const HIT_SCALE = 1.4;
 
-  // Pre-compute all block positions (runs once, memoized)
-  const blockData = useMemo(() => {
-    const data: BlockMeta[] = [];
+  // Build position layout (stable, config-based)
+  const layoutData = useMemo(() => {
+    const layout: { pos: THREE.Vector3; rotY: number; layer: number; index: number }[] = [];
 
     for (let layer = 0; layer < config.layerCount; layer++) {
       const count = config.blocksPerLayer[layer];
@@ -173,175 +146,215 @@ export default function TowerGrid() {
 
       const positions = isSpire
         ? computeSpireLayerPositions(layer, count, config.layerCount)
-        : computeBodyLayerPositions(
-          layer,
-          count,
-          MONOLITH_HALF_W,
-          MONOLITH_HALF_D,
-        );
+        : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D);
 
-      // Only use as many positions as config says
       const usable = positions.slice(0, count);
-
       for (let i = 0; i < usable.length; i++) {
-        const energy = Math.random() * 100;
-        const ownerColor =
-          BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
-        const hasOwner = energy > 5;
-
-        data.push({
-          id: `block-${layer}-${i}`,
-          position: usable[i].pos,
-          layer,
-          index: i,
-          energy,
-          ownerColor,
-          owner: hasOwner
-            ? `Demo${Math.random().toString(36).slice(2, 8)}`
-            : null,
-          stakedAmount: hasOwner
-            ? Math.floor(10 + Math.random() * 990) * 1_000_000
-            : 0,
-        });
+        layout.push({ ...usable[i], layer, index: i });
       }
     }
 
-    return data;
+    return layout;
   }, [config]);
 
-  // Push demo blocks to store for BlockInspector
+  // Build block meta from store data + layout positions
+  const blockData = useMemo(() => {
+    if (demoBlocks.length === 0) return [];
+
+    const data: BlockMeta[] = [];
+    for (let i = 0; i < layoutData.length; i++) {
+      const layout = layoutData[i];
+      const storeBlock = demoBlocks.find(
+        (b) => b.layer === layout.layer && b.index === layout.index,
+      );
+
+      data.push({
+        id: storeBlock?.id ?? `block-${layout.layer}-${layout.index}`,
+        position: layout.pos,
+        layer: layout.layer,
+        index: layout.index,
+        energy: storeBlock?.energy ?? 0,
+        ownerColor: storeBlock?.ownerColor ?? BLOCK_COLORS[0],
+        owner: storeBlock?.owner ?? null,
+        stakedAmount: storeBlock?.stakedAmount ?? 0,
+      });
+    }
+
+    return data;
+  }, [layoutData, demoBlocks]);
+
+  // Update blockMetaRef for click handler
   useEffect(() => {
     blockMetaRef.current = blockData;
-    setDemoBlocks(
-      blockData.map((b) => ({
-        id: b.id,
-        layer: b.layer,
-        index: b.index,
-        energy: b.energy,
-        ownerColor: b.ownerColor,
-        owner: b.owner,
-        stakedAmount: b.stakedAmount,
-        position: { x: b.position.x, y: b.position.y, z: b.position.z },
-      })),
-    );
-  }, [blockData, setDemoBlocks]);
+  }, [blockData]);
 
-  // Apply transforms and per-instance attributes (runs once after mount)
+  // Apply transforms (runs once when layout is ready)
+  const transformsApplied = useRef(false);
   useEffect(() => {
     const mesh = meshRef.current;
     const hitMesh = hitMeshRef.current;
-    if (!mesh) return;
+    if (!mesh || blockData.length === 0) return;
 
+    // Only apply transforms once (positions don't change)
+    if (!transformsApplied.current) {
+      const tempObj = new THREE.Object3D();
+      // Stable seeded random for jitter
+      let jitterSeed = 12345;
+      const nextJitter = () => {
+        jitterSeed = (jitterSeed * 16807 + 0) % 2147483647;
+        return (jitterSeed & 0x7fffffff) / 2147483647;
+      };
+
+      for (let i = 0; i < blockData.length; i++) {
+        const block = blockData[i];
+        const layoutItem = layoutData[i];
+        const layerScale = 1 + block.layer * BLOCK_SCALE_PER_LAYER;
+
+        tempObj.position.copy(block.position);
+
+        const baseScale = BLOCK_SIZE * layerScale;
+        const randomJitter = 0.92 + nextJitter() * 0.12;
+        tempObj.scale.set(
+          baseScale * randomJitter,
+          baseScale * (0.85 + nextJitter() * 0.3),
+          baseScale * randomJitter,
+        );
+
+        tempObj.rotation.set(
+          0,
+          layoutItem.rotY + (nextJitter() - 0.5) * 0.04,
+          0,
+        );
+
+        tempObj.updateMatrix();
+        mesh.setMatrixAt(i, tempObj.matrix);
+
+        if (hitMesh) {
+          tempObj.scale.multiplyScalar(HIT_SCALE);
+          tempObj.updateMatrix();
+          hitMesh.setMatrixAt(i, tempObj.matrix);
+        }
+      }
+
+      mesh.instanceMatrix.needsUpdate = true;
+      if (hitMesh) hitMesh.instanceMatrix.needsUpdate = true;
+      transformsApplied.current = true;
+    }
+
+    // Update per-instance attributes (energy, color, layerNorm)
     const count = blockData.length;
     const energyArray = new Float32Array(count);
     const colorArray = new Float32Array(count * 3);
     const layerNormArray = new Float32Array(count);
-    const tempObj = new THREE.Object3D();
     const tempColor = new THREE.Color();
 
-    // Pre-compute all face rotation data for reuse
-    const allPositions = (() => {
-      const posMap: { rotY: number }[][] = [];
-      for (let layer = 0; layer < config.layerCount; layer++) {
-        const cnt = config.blocksPerLayer[layer];
-        const isSpire = layer >= SPIRE_START_LAYER;
-        const positions = isSpire
-          ? computeSpireLayerPositions(layer, cnt, config.layerCount)
-          : computeBodyLayerPositions(
-            layer,
-            cnt,
-            MONOLITH_HALF_W,
-            MONOLITH_HALF_D,
-          );
-        posMap.push(positions.slice(0, cnt));
-      }
-      return posMap;
-    })();
+    for (let i = 0; i < count; i++) {
+      const block = blockData[i];
+      energyArray[i] = block.energy / 100;
 
-    let globalIdx = 0;
-    for (let layer = 0; layer < config.layerCount; layer++) {
-      const layerPositions = allPositions[layer];
-      const layerScale = 1 + layer * BLOCK_SCALE_PER_LAYER;
-      const isSpire = layer >= SPIRE_START_LAYER;
+      tempColor.set(block.ownerColor);
+      colorArray[i * 3] = tempColor.r;
+      colorArray[i * 3 + 1] = tempColor.g;
+      colorArray[i * 3 + 2] = tempColor.b;
 
-      for (let i = 0; i < layerPositions.length; i++) {
-        const block = blockData[globalIdx];
-        if (!block) break;
-
-        // Position
-        tempObj.position.copy(block.position);
-
-        // Scale: base size × layer scaling × slight random variation
-        const baseScale = BLOCK_SIZE * layerScale;
-        const randomJitter = 0.92 + Math.random() * 0.12;
-        tempObj.scale.set(
-          baseScale * randomJitter,
-          baseScale * (0.85 + Math.random() * 0.3), // height variation
-          baseScale * randomJitter,
-        );
-
-        // Rotation: face outward + tiny random jitter for organic feel
-        tempObj.rotation.set(0, layerPositions[i].rotY + (Math.random() - 0.5) * 0.04, 0);
-
-        tempObj.updateMatrix();
-        mesh.setMatrixAt(globalIdx, tempObj.matrix);
-
-        // Hit-test mesh — same position/rotation but uniformly inflated scale
-        if (hitMesh) {
-          tempObj.scale.multiplyScalar(HIT_SCALE);
-          tempObj.updateMatrix();
-          hitMesh.setMatrixAt(globalIdx, tempObj.matrix);
-        }
-
-        // Per-instance energy (normalized 0-1)
-        energyArray[globalIdx] = block.energy / 100;
-
-        // Per-instance owner color
-        tempColor.set(block.ownerColor);
-        colorArray[globalIdx * 3] = tempColor.r;
-        colorArray[globalIdx * 3 + 1] = tempColor.g;
-        colorArray[globalIdx * 3 + 2] = tempColor.b;
-
-        // Normalized layer position (0 = base, 1 = top) for height gradient
-        layerNormArray[globalIdx] = layer / (config.layerCount - 1);
-
-        globalIdx++;
-      }
+      layerNormArray[i] = block.layer / (config.layerCount - 1);
     }
 
-    mesh.instanceMatrix.needsUpdate = true;
-    if (hitMesh) {
-      hitMesh.instanceMatrix.needsUpdate = true;
-    }
-
-    // Attach per-instance attributes
     const geo = mesh.geometry;
-    geo.setAttribute(
-      "aEnergy",
-      new THREE.InstancedBufferAttribute(energyArray, 1),
-    );
-    geo.setAttribute(
-      "aOwnerColor",
-      new THREE.InstancedBufferAttribute(colorArray, 3),
-    );
-    geo.setAttribute(
-      "aLayerNorm",
-      new THREE.InstancedBufferAttribute(layerNormArray, 1),
-    );
-  }, [blockData, config]);
+    const existingEnergy = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+    if (existingEnergy && existingEnergy.count === count) {
+      existingEnergy.set(energyArray);
+      existingEnergy.needsUpdate = true;
+    } else {
+      geo.setAttribute("aEnergy", new THREE.InstancedBufferAttribute(energyArray, 1));
+    }
 
-  // Minimal per-frame work: just bump the time uniform
+    const existingColor = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+    if (existingColor && existingColor.count === count) {
+      existingColor.set(colorArray);
+      existingColor.needsUpdate = true;
+    } else {
+      geo.setAttribute("aOwnerColor", new THREE.InstancedBufferAttribute(colorArray, 3));
+    }
+
+    const existingLayer = geo.getAttribute("aLayerNorm") as THREE.InstancedBufferAttribute | null;
+    if (existingLayer && existingLayer.count === count) {
+      existingLayer.set(layerNormArray);
+      existingLayer.needsUpdate = true;
+    } else {
+      geo.setAttribute("aLayerNorm", new THREE.InstancedBufferAttribute(layerNormArray, 1));
+    }
+  }, [blockData, config, layoutData]);
+
+  // Handle claim flash trigger
+  useEffect(() => {
+    if (recentlyClaimedId) {
+      const idx = blockData.findIndex((b) => b.id === recentlyClaimedId);
+      if (idx >= 0) {
+        claimFlashRef.current = { blockIndex: idx, time: 0 };
+      }
+      // Clear after a short delay to allow re-triggering
+      const timer = setTimeout(() => clearRecentlyClaimed(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
+
+  // Per-frame: update time uniform + claim flash animation
   useFrame((_state, delta) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += delta;
     }
+
+    // Claim flash: temporarily boost energy to white for 1 second
+    const flash = claimFlashRef.current;
+    if (flash && meshRef.current) {
+      flash.time += delta;
+      const geo = meshRef.current.geometry;
+      const energyAttr = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+      const colorAttr = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+
+      if (energyAttr && colorAttr) {
+        if (flash.time < 1.0) {
+          // Flash white then fade to actual color
+          const t = flash.time;
+          const flashIntensity = t < 0.3 ? 1.0 : Math.max(0, 1.0 - (t - 0.3) / 0.7);
+
+          // Temporarily set energy to max + flash
+          energyAttr.array[flash.blockIndex] = 1.0;
+          energyAttr.needsUpdate = true;
+
+          // Flash white then fade to owner color
+          const block = blockData[flash.blockIndex];
+          if (block) {
+            const tempColor = new THREE.Color(block.ownerColor);
+            const white = new THREE.Color(1, 1, 1);
+            const blended = white.lerp(tempColor, 1 - flashIntensity);
+            colorAttr.array[flash.blockIndex * 3] = blended.r;
+            colorAttr.array[flash.blockIndex * 3 + 1] = blended.g;
+            colorAttr.array[flash.blockIndex * 3 + 2] = blended.b;
+            colorAttr.needsUpdate = true;
+          }
+        } else {
+          // Flash complete — restore actual values
+          const block = blockData[flash.blockIndex];
+          if (block) {
+            energyAttr.array[flash.blockIndex] = block.energy / 100;
+            energyAttr.needsUpdate = true;
+
+            const tempColor = new THREE.Color(block.ownerColor);
+            colorAttr.array[flash.blockIndex * 3] = tempColor.r;
+            colorAttr.array[flash.blockIndex * 3 + 1] = tempColor.g;
+            colorAttr.array[flash.blockIndex * 3 + 2] = tempColor.b;
+            colorAttr.needsUpdate = true;
+          }
+          claimFlashRef.current = null;
+        }
+      }
+    }
   });
 
-  // Handle tap on block instance
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
-    // Ignore clicks during active gestures (drag/pinch) —
-    // a finger landing on a block during pinch should not select it.
     if (useTowerStore.getState().isGestureActive) return;
     if (event.instanceId !== undefined && event.instanceId !== null) {
       const meta = blockMetaRef.current[event.instanceId];
@@ -351,9 +364,10 @@ export default function TowerGrid() {
     }
   };
 
+  if (blockData.length === 0) return null;
+
   return (
     <group>
-      {/* Visual mesh — renders the blocks, no click handler */}
       <instancedMesh
         ref={meshRef}
         args={[undefined, undefined, blockData.length]}
@@ -363,7 +377,6 @@ export default function TowerGrid() {
         <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
       </instancedMesh>
 
-      {/* Hit-test mesh — invisible, 40% larger, handles taps */}
       <instancedMesh
         ref={hitMeshRef}
         args={[undefined, undefined, blockData.length]}
