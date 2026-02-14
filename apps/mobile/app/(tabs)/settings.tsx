@@ -1,33 +1,44 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { useState } from "react";
+import { Alert, Text, View, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
+import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getClusterName } from "@/services/mwa";
-import { getRpcUrl } from "@/services/solana";
+import { ScreenLayout, Card, Button, Badge, ChargeBar } from "@/components/ui";
+import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { hapticButtonPress } from "@/utils/haptics";
 
 /**
- * Settings screen — wallet info, network config, and app preferences.
+ * Me screen — Player profile, My Blocks grid, and account management.
+ *
+ * Game-first: shows identity, block ownership, and streaks up top.
+ * Finance/settings are collapsed below as secondary concerns.
  */
-export default function SettingsScreen() {
+export default function MeScreen() {
   const router = useRouter();
   const { disconnect } = useAuthorization();
   const isConnected = useWalletStore((s) => s.isConnected);
   const isLoading = useWalletStore((s) => s.isLoading);
+  const publicKey = useWalletStore((s) => s.publicKey);
   const truncatedAddress = useTruncatedAddress();
+  const demoBlocks = useTowerStore((s) => s.demoBlocks);
+  const selectBlock = useTowerStore((s) => s.selectBlock);
   const cluster = getClusterName();
-  const rpcUrl = getRpcUrl();
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Derive my blocks
+  const myBlocks = publicKey
+    ? demoBlocks.filter((b) => b.owner === publicKey.toBase58())
+    : [];
+  const totalEnergy = myBlocks.length > 0
+    ? Math.round(myBlocks.reduce((sum, b) => sum + b.energy, 0) / myBlocks.length)
+    : 0;
 
   const handleDisconnect = () => {
     Alert.alert(
       "Disconnect Wallet",
-      "Are you sure you want to disconnect your wallet?",
+      "Are you sure you want to disconnect?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -45,204 +56,356 @@ export default function SettingsScreen() {
     );
   };
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Settings</Text>
-
-      {/* Wallet Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>WALLET</Text>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Status</Text>
-          <View style={styles.statusRow}>
-            <View
-              style={[
-                styles.statusDot,
-                isConnected
-                  ? styles.statusDotConnected
-                  : styles.statusDotDisconnected,
-              ]}
+  if (!isConnected) {
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyContent}>
+          <Text style={styles.emptyIcon}>👤</Text>
+          <Text style={TEXT.displaySm}>Who Are You?</Text>
+          <Text style={[TEXT.bodySm, { textAlign: "center" }]}>
+            Connect your wallet to claim your identity on the tower.
+          </Text>
+          <View style={styles.fullWidth}>
+            <Button
+              title="Connect Wallet"
+              variant="primary"
+              onPress={() => router.push("/connect")}
             />
-            <Text
-              style={[
-                styles.cardValue,
-                isConnected ? styles.cardValueCyan : undefined,
-              ]}
-            >
-              {isConnected ? "Connected" : "Not Connected"}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <ScreenLayout title="Me">
+      {/* ─── Player Identity Card ─── */}
+      <Card variant="accent">
+        <View style={styles.identityCard}>
+          <View style={styles.avatarContainer}>
+            <Text style={styles.avatarEmoji}>🗿</Text>
+          </View>
+          <View style={styles.identityInfo}>
+            <Text style={styles.playerName}>
+              Keeper {truncatedAddress}
             </Text>
+            <Badge
+              label="Connected"
+              variant="dot"
+              color={COLORS.success}
+            />
           </View>
         </View>
 
-        {isConnected && truncatedAddress && (
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Address</Text>
-            <Text style={styles.cardValueMono}>{truncatedAddress}</Text>
+        <View style={styles.identityStats}>
+          <View style={styles.identityStatItem}>
+            <Text style={styles.identityStatValue}>{myBlocks.length}</Text>
+            <Text style={styles.identityStatLabel}>Blocks</Text>
+          </View>
+          <View style={styles.identityStatDivider} />
+          <View style={styles.identityStatItem}>
+            <Text style={styles.identityStatValue}>{totalEnergy}%</Text>
+            <Text style={styles.identityStatLabel}>Avg Charge</Text>
+          </View>
+          <View style={styles.identityStatDivider} />
+          <View style={styles.identityStatItem}>
+            <Text style={styles.identityStatValue}>Day 1</Text>
+            <Text style={styles.identityStatLabel}>Streak</Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* ─── My Blocks ─── */}
+      <Card>
+        <Text style={TEXT.overline}>MY BLOCKS</Text>
+
+        {myBlocks.length === 0 ? (
+          <View style={styles.emptyBlocks}>
+            <Text style={styles.emptyBlocksIcon}>🧱</Text>
+            <Text style={[TEXT.bodySm, { textAlign: "center" }]}>
+              No blocks yet. Head to the Tower and claim your first one!
+            </Text>
+            <Button
+              title="Go to Tower"
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push("/(tabs)")}
+            />
+          </View>
+        ) : (
+          <View style={styles.blocksGrid}>
+            {myBlocks.map((block) => (
+              <TouchableOpacity
+                key={block.id}
+                style={styles.blockCard}
+                onPress={() => {
+                  hapticButtonPress();
+                  selectBlock(block.id);
+                  router.push("/(tabs)");
+                }}
+              >
+                <View style={styles.blockCardHeader}>
+                  <View
+                    style={[
+                      styles.blockColorDot,
+                      { backgroundColor: block.ownerColor },
+                    ]}
+                  />
+                  <Text style={styles.blockCardTitle}>
+                    L{block.layer} / B{block.index}
+                  </Text>
+                </View>
+                <ChargeBar charge={block.energy} size="sm" />
+                <Text style={styles.blockCardCharge}>
+                  {Math.round(block.energy)}%
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
+      </Card>
 
-        {isConnected ? (
-          <TouchableOpacity
-            style={styles.disconnectButton}
+      {/* ─── Badges (Mock for now) ─── */}
+      <Card>
+        <Text style={TEXT.overline}>BADGES</Text>
+        <View style={styles.badgesRow}>
+          <View style={styles.badgeItem}>
+            <Text style={styles.badgeIcon}>⚡</Text>
+            <Text style={styles.badgeLabel}>Charged Up</Text>
+          </View>
+          <View style={styles.badgeItemLocked}>
+            <Text style={styles.badgeIcon}>🏅</Text>
+            <Text style={[styles.badgeLabel, { color: COLORS.textMuted }]}>Week Warrior</Text>
+          </View>
+          <View style={styles.badgeItemLocked}>
+            <Text style={styles.badgeIcon}>🔥</Text>
+            <Text style={[styles.badgeLabel, { color: COLORS.textMuted }]}>Flame Keeper</Text>
+          </View>
+          <View style={styles.badgeItemLocked}>
+            <Text style={styles.badgeIcon}>👑</Text>
+            <Text style={[styles.badgeLabel, { color: COLORS.textMuted }]}>Monument</Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* ─── Settings (Collapsible) ─── */}
+      <TouchableOpacity
+        style={styles.settingsToggle}
+        onPress={() => {
+          hapticButtonPress();
+          setShowSettings(!showSettings);
+        }}
+      >
+        <Text style={styles.settingsToggleText}>
+          {showSettings ? "Hide" : "Show"} Settings
+        </Text>
+        <Text style={styles.settingsToggleIcon}>
+          {showSettings ? "▲" : "▼"}
+        </Text>
+      </TouchableOpacity>
+
+      {showSettings && (
+        <View style={styles.settingsSection}>
+          <Card>
+            <View style={styles.cardRow}>
+              <Text style={TEXT.bodySm}>Network</Text>
+              <Text style={[TEXT.bodySm, { color: COLORS.gold, fontWeight: "600" }]}>
+                {cluster.charAt(0).toUpperCase() + cluster.slice(1)}
+              </Text>
+            </View>
+          </Card>
+          <Card>
+            <View style={styles.cardRow}>
+              <Text style={TEXT.bodySm}>Version</Text>
+              <Text style={[TEXT.bodySm, { fontWeight: "600" }]}>1.0.0 — Hackathon MVP</Text>
+            </View>
+          </Card>
+          <Button
+            title={isLoading ? "Disconnecting..." : "Disconnect Wallet"}
+            variant="danger"
             onPress={handleDisconnect}
             disabled={isLoading}
-          >
-            <Text style={styles.disconnectButtonText}>
-              {isLoading ? "Disconnecting..." : "Disconnect Wallet"}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.connectButton}
-            onPress={() => router.push("/connect")}
-          >
-            <Text style={styles.connectButtonText}>Connect Wallet</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Network Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>NETWORK</Text>
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Cluster</Text>
-          <Text style={styles.cardValueCyan}>
-            {cluster.charAt(0).toUpperCase() + cluster.slice(1)}
-          </Text>
+          />
         </View>
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>RPC</Text>
-          <Text style={styles.cardValueMono} numberOfLines={1}>
-            {rpcUrl.replace("https://", "")}
-          </Text>
-        </View>
-      </View>
-
-      {/* App Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ABOUT</Text>
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Version</Text>
-          <Text style={styles.cardValue}>1.0.0</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Build</Text>
-          <Text style={styles.cardValue}>Hackathon MVP</Text>
-        </View>
-      </View>
-    </ScrollView>
+      )}
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  // ─── Empty ───
+  emptyContainer: {
     flex: 1,
-    backgroundColor: "#0a0a0f",
+    backgroundColor: COLORS.bg,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: SPACING.lg,
   },
-  content: {
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 40,
+  emptyContent: {
+    alignItems: "center",
+    gap: SPACING.md,
   },
-  title: {
-    color: "#ffffff",
+  emptyIcon: {
+    fontSize: 64,
+  },
+  fullWidth: {
+    width: "100%",
+  },
+
+  // ─── Identity card ───
+  identityCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  avatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.bgMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: COLORS.gold,
+  },
+  avatarEmoji: {
     fontSize: 28,
-    fontWeight: "900",
+  },
+  identityInfo: {
+    flex: 1,
+    gap: SPACING.xs,
+  },
+  playerName: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 18,
+    color: COLORS.text,
+  },
+  identityStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  identityStatItem: {
+    alignItems: "center",
+  },
+  identityStatValue: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 18,
+    color: COLORS.text,
+  },
+  identityStatLabel: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 11,
+    color: COLORS.textSecondary,
     letterSpacing: 1,
-    marginBottom: 24,
+    textTransform: "uppercase",
+    marginTop: 2,
   },
-  section: {
-    marginBottom: 32,
+  identityStatDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: COLORS.border,
   },
-  sectionTitle: {
-    color: "#666680",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 2,
-    marginBottom: 12,
+
+  // ─── Blocks grid ───
+  emptyBlocks: {
+    alignItems: "center",
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
   },
-  card: {
-    backgroundColor: "#0d0d15",
-    borderRadius: 10,
-    padding: 14,
+  emptyBlocksIcon: {
+    fontSize: 32,
+  },
+  blocksGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  blockCard: {
+    flex: 1,
+    minWidth: 130,
+    backgroundColor: COLORS.bgMuted,
+    borderRadius: RADIUS.md,
+    padding: SPACING.sm,
     borderWidth: 1,
-    borderColor: "#1a1a2e",
+    borderColor: COLORS.border,
+    gap: SPACING.xs,
+  },
+  blockCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+  },
+  blockColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  blockCardTitle: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 12,
+    color: COLORS.text,
+  },
+  blockCardCharge: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: "right",
+  },
+
+  // ─── Badges ───
+  badgesRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: SPACING.sm,
+  },
+  badgeItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  badgeItemLocked: {
+    alignItems: "center",
+    gap: 4,
+    opacity: 0.4,
+  },
+  badgeIcon: {
+    fontSize: 24,
+  },
+  badgeLabel: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 9,
+    color: COLORS.textSecondary,
+    letterSpacing: 0.5,
+  },
+
+  // ─── Settings ───
+  settingsToggle: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+  },
+  settingsToggleText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 13,
+    color: COLORS.textMuted,
+  },
+  settingsToggleIcon: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+  },
+  settingsSection: {
+    gap: SPACING.sm,
+  },
+  cardRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
-  },
-  cardLabel: {
-    color: "#999999",
-    fontSize: 14,
-  },
-  cardValue: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  cardValueCyan: {
-    color: "#00ffff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  cardValueMono: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontFamily: "monospace",
-  },
-  // Status indicator
-  statusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  statusDotConnected: {
-    backgroundColor: "#00ff88",
-    shadowColor: "#00ff88",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  statusDotDisconnected: {
-    backgroundColor: "#555566",
-  },
-  // Buttons
-  connectButton: {
-    backgroundColor: "rgba(0, 255, 255, 0.1)",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#00ffff",
-    marginTop: 8,
-  },
-  connectButtonText: {
-    color: "#00ffff",
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  disconnectButton: {
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 59, 48, 0.4)",
-    marginTop: 8,
-  },
-  disconnectButtonText: {
-    color: "#ff6b6b",
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 1,
   },
 });

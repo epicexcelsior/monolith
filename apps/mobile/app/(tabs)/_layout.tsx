@@ -1,9 +1,10 @@
 import { Tabs } from "expo-router";
 import { Text, StyleSheet } from "react-native";
+import { COLORS, FONT_FAMILY } from "@/constants/theme";
 
 /**
- * Tab navigator — 3 tabs: Tower (3D view), Blocks (portfolio), Settings.
- * Uses a dark cyberpunk aesthetic with neon accents.
+ * Tab navigator — 3 tabs: Tower (3D view), Board (leaderboard), Me (profile + settings).
+ * Uses the solarpunk design system with gold accents on cream backgrounds.
  */
 export default function TabLayout() {
   return (
@@ -11,8 +12,8 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: "#00ffff",
-        tabBarInactiveTintColor: "#666680",
+        tabBarActiveTintColor: COLORS.gold,
+        tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: styles.tabLabel,
       }}
     >
@@ -28,18 +29,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="blocks"
         options={{
-          title: "Vault",
+          title: "Board",
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>🏦</Text>
+            <Text style={[styles.tabIcon, { color }]}>🏆</Text>
           ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings",
+          title: "Me",
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>⚙️</Text>
+            <Text style={[styles.tabIcon, { color }]}>👤</Text>
           ),
         }}
       />
@@ -49,8 +50,8 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "#0d0d15",
-    borderTopColor: "#1a1a2e",
+    backgroundColor: COLORS.bgCard,
+    borderTopColor: COLORS.border,
     borderTopWidth: 1,
     height: 60,
     paddingBottom: 8,
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: FONT_FAMILY.bodySemibold,
     letterSpacing: 0.5,
   },
   tabIcon: {

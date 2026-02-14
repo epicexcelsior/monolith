@@ -43,6 +43,7 @@ interface TowerStore {
   selectedBlockId: string | null;
   focusedLayer: number;
   zoomTier: "overview" | "neighborhood" | "block";
+  isGestureActive: boolean;
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -55,6 +56,7 @@ interface TowerStore {
   updateStats: (stats: TowerStats) => void;
   setFocusedLayer: (layer: number) => void;
   setZoomTier: (tier: "overview" | "neighborhood" | "block") => void;
+  setGestureActive: (active: boolean) => void;
 
   // ─── Computed ─────────────────────────────
   getBlockById: (id: string) => Block | undefined;
@@ -81,6 +83,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   selectedBlockId: null,
   focusedLayer: Math.floor(DEFAULT_TOWER_CONFIG.layerCount / 2),
   zoomTier: "overview" as const,
+  isGestureActive: false,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
@@ -100,6 +103,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   updateStats: (stats) => set({ stats }),
   setFocusedLayer: (layer) => set({ focusedLayer: layer }),
   setZoomTier: (tier) => set({ zoomTier: tier }),
+  setGestureActive: (active) => set({ isGestureActive: active }),
 
   // ─── Computed ─────────────────────────────
   getBlockById: (id) => get().blocks.find((b) => b.id === id),

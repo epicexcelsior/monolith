@@ -82,6 +82,23 @@ export default function NewScreen() {
 
 For UI that overlays the 3D tower, use `COLORS.bgOverlay` for translucent backgrounds and `COLORS.textOnDark` for text, since the tower has its own dark atmospheric background.
 
+### 8. Haptics
+
+Every user-facing interaction should include tactile feedback. Use the named events from `utils/haptics.ts`:
+
+```typescript
+import { hapticButtonPress, hapticBlockClaimed, hapticError, hapticBlockDeselect } from '@/utils/haptics';
+
+// Button taps
+hapticButtonPress();      // Light impact
+// Success moments
+hapticBlockClaimed();     // Heavy success + notification
+// Errors / denied actions
+hapticError();            // Warning notification
+```
+
+See [`/docs/design/HAPTICS.md`](/docs/design/HAPTICS.md) for the full spec.
+
 ## Project Structure
 
 ```
@@ -108,5 +125,16 @@ apps/mobile/
 │   └── config.ts      # App configuration
 ├── hooks/             # Custom React hooks
 ├── services/          # API / blockchain services
-└── stores/            # Zustand stores
+├── stores/            # Zustand stores
+└── utils/
+    └── haptics.ts     # ← HAPTIC EVENTS (always use named functions)
 ```
+
+## Self-Check Before Committing
+
+Before finishing any UI work, verify:
+1. `grep -rn '#[0-9a-fA-F]\{6\}' apps/mobile/app/ apps/mobile/components/` — no hardcoded hex
+2. `grep -rn 'Dimensions.get' apps/mobile/app/ apps/mobile/components/` — use `useWindowDimensions` instead
+3. Every `TouchableOpacity` that acts like a button should be `<Button>` or have haptics
+4. Every text element uses `TEXT.*` or `FONT_FAMILY.*` — not raw font names
+

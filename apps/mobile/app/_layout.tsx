@@ -1,10 +1,28 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
+import {
+  useFonts,
+  Outfit_400Regular,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  Outfit_900Black,
+} from "@expo-google-fonts/outfit";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_700Bold,
+} from "@expo-google-fonts/jetbrains-mono";
 import { useAuthorization } from "@/hooks/useAuthorization";
+import { COLORS } from "@/constants/theme";
 
 // Prevent splash from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -14,15 +32,35 @@ SplashScreen.preventAutoHideAsync();
  * wallet state hydration on boot.
  *
  * On mount:
- * 1. Checks expo-secure-store for cached MWA auth
- * 2. If found (and user has completed onboarding), restores wallet state
- * 3. User appears "connected" immediately without re-prompting
+ * 1. Loads all Google Fonts (Outfit, Inter, JetBrains Mono)
+ * 2. Checks expo-secure-store for cached MWA auth
+ * 3. If found (and user has completed onboarding), restores wallet state
+ * 4. Hides splash screen once fonts are loaded
  *
  * This follows the official auth caching pattern:
  * https://docs.solanamobile.com/react-native/storing_mwa_auth
  */
 export default function RootLayout() {
   const { hydrateCachedAuth } = useAuthorization();
+
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_900Black,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_700Bold,
+  });
+
+  const onLayoutReady = useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -33,22 +71,24 @@ export default function RootLayout() {
       } catch (err) {
         // Non-fatal — user will just see "not connected" state
         console.warn("Wallet hydration failed:", err);
-      } finally {
-        // Hide splash screen after wallet state is resolved
-        await SplashScreen.hideAsync();
       }
     }
-
     bootstrap();
   }, [hydrateCachedAuth]);
 
+  useEffect(() => {
+    onLayoutReady();
+  }, [onLayoutReady]);
+
+  if (!fontsLoaded) return null;
+
   return (
     <GestureHandlerRootView style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#0a0a0f" },
+          contentStyle: { backgroundColor: COLORS.bg },
           animation: "fade",
         }}
       >
@@ -82,6 +122,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0a0a0f",
+    backgroundColor: COLORS.bg,
   },
 });

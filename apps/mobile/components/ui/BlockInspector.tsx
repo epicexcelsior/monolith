@@ -5,15 +5,15 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
-import { COLORS, SPACING } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING } from "@/constants/theme";
+import { Badge, ChargeBar } from "@/components/ui";
 import { useTowerStore } from "@/stores/tower-store";
 import { ENERGY_THRESHOLDS } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
 import { hapticBlockDeselect } from "@/utils/haptics";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const PANEL_HEIGHT = 260;
 
 function getBlockState(energy: number): BlockState {
@@ -50,6 +50,9 @@ function formatUsdc(lamports: number): string {
 /**
  * BlockInspector — Animated bottom panel showing selected block details.
  * Renders outside the R3F Canvas as a React Native overlay.
+ *
+ * Uses Badge for state indicator and ChargeBar for energy display.
+ * Replaced Dimensions.get() with useWindowDimensions for responsiveness.
  */
 export default function BlockInspector() {
   const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
@@ -60,9 +63,9 @@ export default function BlockInspector() {
   const isVisible = selectedBlockId !== null;
 
   useEffect(() => {
-    Animated.timing(slideAnim, {
+    Animated.spring(slideAnim, {
       toValue: isVisible ? 0 : PANEL_HEIGHT,
-      duration: 300,
+      ...TIMING.spring,
       useNativeDriver: true,
     }).start();
   }, [isVisible, slideAnim]);
@@ -90,7 +93,7 @@ export default function BlockInspector() {
         }}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
-        <Text style={styles.closeText}>X</Text>
+        <Text style={styles.closeText}>✕</Text>
       </TouchableOpacity>
 
       {/* Handle bar */}
@@ -103,61 +106,47 @@ export default function BlockInspector() {
             <Text style={styles.blockTitle}>
               Layer {block.layer} / Block {block.index}
             </Text>
-            <View
-              style={[styles.stateBadge, { backgroundColor: stateColor(state) + "33" }]}
-            >
-              <Text
-                style={[styles.stateText, { color: stateColor(state) }]}
-              >
-                {state.toUpperCase()}
-              </Text>
-            </View>
+            <Badge
+              label={state.toUpperCase()}
+              color={stateColor(state)}
+            />
           </View>
 
-          {/* Energy bar */}
-          <View style={styles.energySection}>
-            <Text style={styles.label}>Energy</Text>
-            <View style={styles.energyBarBg}>
-              <View
-                style={[
-                  styles.energyBarFill,
-                  {
-                    width: `${energyPct}%`,
-                    backgroundColor: stateColor(state),
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[styles.energyValue, { color: stateColor(state) }]}>
-              {Math.round(energyPct)}%
-            </Text>
-          </View>
+          {/* Energy bar — using ChargeBar component */}
+          <ChargeBar
+            charge={energyPct}
+            size="md"
+            showLabel
+            showPercentage
+          />
 
           {/* Info rows */}
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Owner</Text>
-            <Text style={styles.value}>
-              {block.owner ? truncateAddress(block.owner) : "Unclaimed"}
-            </Text>
-          </View>
+          <View style={styles.infoSection}>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Owner</Text>
+              <Text style={styles.value}>
+                {block.owner ? truncateAddress(block.owner) : "Unclaimed"}
+              </Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Staked</Text>
-            <Text style={styles.value}>
-              {block.stakedAmount > 0 ? formatUsdc(block.stakedAmount) : "--"}
-            </Text>
-          </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Staked</Text>
+              <Text style={styles.value}>
+                {block.stakedAmount > 0 ? formatUsdc(block.stakedAmount) : "--"}
+              </Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Color</Text>
-            <View style={styles.colorRow}>
-              <View
-                style={[
-                  styles.colorSwatch,
-                  { backgroundColor: block.ownerColor },
-                ]}
-              />
-              <Text style={styles.value}>{block.ownerColor}</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Color</Text>
+              <View style={styles.colorRow}>
+                <View
+                  style={[
+                    styles.colorSwatch,
+                    { backgroundColor: block.ownerColor },
+                  ]}
+                />
+                <Text style={styles.value}>{block.ownerColor}</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -174,18 +163,20 @@ const styles = StyleSheet.create({
     right: 0,
     height: PANEL_HEIGHT,
     backgroundColor: COLORS.bgCard,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
     borderTopWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.sm,
+    borderCurve: "continuous",
+    boxShadow: "0 -4px 24px rgba(26, 22, 18, 0.10)",
   },
   handle: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.textMuted,
+    backgroundColor: COLORS.borderStrong,
     alignSelf: "center",
     marginBottom: SPACING.md,
   },
@@ -197,7 +188,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: COLORS.bgMuted,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -208,68 +199,37 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    gap: SPACING.md,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: SPACING.md,
   },
   blockTitle: {
+    fontFamily: FONT_FAMILY.headingSemibold,
     color: COLORS.text,
     fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
-  stateBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  stateText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  energySection: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: SPACING.md,
+  infoSection: {
     gap: SPACING.sm,
   },
   label: {
+    fontFamily: FONT_FAMILY.bodySemibold,
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: "600",
     letterSpacing: 0.5,
     width: 54,
-  },
-  energyBarBg: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.border,
-    overflow: "hidden",
-  },
-  energyBarFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  energyValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    width: 42,
-    textAlign: "right",
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: SPACING.sm,
   },
   value: {
+    fontFamily: FONT_FAMILY.mono,
     color: COLORS.text,
     fontSize: 14,
-    fontWeight: "600",
   },
   colorRow: {
     flexDirection: "row",
@@ -281,6 +241,6 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 3,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: COLORS.border,
   },
 });

@@ -1,13 +1,10 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
+import { Button, Card } from "@/components/ui";
+import { TEXT, COLORS, SPACING } from "@/constants/theme";
+import { hapticButtonPress } from "@/utils/haptics";
 
 /**
  * Wallet connect modal screen.
@@ -27,6 +24,7 @@ export default function ConnectScreen() {
 
   const handleConnect = async () => {
     try {
+      hapticButtonPress();
       await connect();
       // Success — navigate back to the tower
       router.back();
@@ -39,207 +37,129 @@ export default function ConnectScreen() {
   // Already connected — show success state
   if (isConnected && truncatedAddress) {
     return (
-      <View style={styles.container}>
-        <View style={styles.content}>
-          <Text style={styles.icon}>✅</Text>
-          <Text style={styles.title}>Wallet Connected</Text>
-          <Text style={styles.addressText}>{truncatedAddress}</Text>
-          <Text style={styles.subtitle}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: COLORS.bg,
+          justifyContent: "center",
+          paddingHorizontal: SPACING.lg,
+        }}
+      >
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 64, marginBottom: SPACING.lg }}>✅</Text>
+          <Text style={[TEXT.displaySm, { textAlign: "center", marginBottom: SPACING.sm }]}>
+            Wallet Connected
+          </Text>
+          <Text
+            style={[
+              TEXT.mono,
+              { color: COLORS.gold, fontSize: 18, marginBottom: SPACING.sm },
+            ]}
+          >
+            {truncatedAddress}
+          </Text>
+          <Text
+            style={[
+              TEXT.bodySm,
+              { textAlign: "center", marginBottom: SPACING.xl },
+            ]}
+          >
             You're ready to stake, claim blocks, and earn yield on The Monolith.
           </Text>
-          <TouchableOpacity
-            style={styles.primaryButton}
+          <Button
+            title="Back to Tower"
+            variant="primary"
             onPress={() => router.back()}
-          >
-            <Text style={styles.primaryText}>Back to Tower</Text>
-          </TouchableOpacity>
+          />
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.icon}>🔐</Text>
-        <Text style={styles.title}>Connect Your Wallet</Text>
-        <Text style={styles.subtitle}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: COLORS.bg,
+        justifyContent: "center",
+        paddingHorizontal: SPACING.lg,
+      }}
+    >
+      <View style={{ alignItems: "center" }}>
+        <Text style={{ fontSize: 64, marginBottom: SPACING.lg }}>🔐</Text>
+        <Text
+          style={[
+            TEXT.displaySm,
+            { textAlign: "center", marginBottom: SPACING.sm },
+          ]}
+        >
+          Connect Your Wallet
+        </Text>
+        <Text
+          style={[
+            TEXT.bodySm,
+            {
+              textAlign: "center",
+              marginBottom: SPACING.lg,
+              paddingHorizontal: SPACING.md,
+            },
+          ]}
+        >
           Connect a Solana wallet to stake, claim blocks, and earn yield on The
           Monolith.
         </Text>
 
         {/* Error display */}
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>⚠️</Text>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <Card variant="muted" style={{ width: "100%", marginBottom: SPACING.lg }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={{ fontSize: 16, marginRight: SPACING.sm }}>⚠️</Text>
+              <Text
+                style={[TEXT.bodySm, { color: COLORS.error, flex: 1 }]}
+              >
+                {error}
+              </Text>
+            </View>
+          </Card>
         )}
 
         {/* Connect button with loading state */}
-        <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            isLoading && styles.primaryButtonDisabled,
-          ]}
-          onPress={handleConnect}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color="#0a0a0f" />
-              <Text style={[styles.primaryText, styles.loadingText]}>
-                Connecting...
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.primaryText}>Connect with MWA</Text>
-          )}
-        </TouchableOpacity>
+        <View style={{ width: "100%", marginBottom: SPACING.md }}>
+          <Button
+            title={isLoading ? "Connecting..." : "Connect with MWA"}
+            variant="primary"
+            onPress={handleConnect}
+            loading={isLoading}
+            disabled={isLoading}
+          />
+        </View>
 
-        <Text style={styles.hint}>
+        <Text
+          style={[
+            TEXT.caption,
+            { textAlign: "center", marginBottom: SPACING.lg },
+          ]}
+        >
           On Seeker, this will use the Seed Vault for secure signing.
         </Text>
 
         {/* Wallet discovery hint */}
-        <View style={styles.walletInfo}>
-          <Text style={styles.walletInfoTitle}>Supported Wallets</Text>
-          <Text style={styles.walletInfoText}>
+        <Card variant="accent" style={{ width: "100%", marginBottom: SPACING.lg }}>
+          <Text style={[TEXT.overline, { color: COLORS.gold, marginBottom: SPACING.xs }]}>
+            SUPPORTED WALLETS
+          </Text>
+          <Text style={TEXT.bodySm}>
             Seed Vault • Phantom • Solflare • Any MWA-compatible wallet
           </Text>
-        </View>
+        </Card>
 
-        <TouchableOpacity
-          style={styles.cancelButton}
+        <Button
+          title="Cancel"
+          variant="ghost"
           onPress={() => router.back()}
           disabled={isLoading}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
+        />
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0a0a0f",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  content: {
-    alignItems: "center",
-  },
-  icon: {
-    fontSize: 64,
-    marginBottom: 20,
-  },
-  title: {
-    color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "900",
-    marginBottom: 12,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    color: "#888899",
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 24,
-    paddingHorizontal: 16,
-  },
-  addressText: {
-    color: "#00ffff",
-    fontSize: 18,
-    fontFamily: "monospace",
-    fontWeight: "700",
-    marginBottom: 12,
-    letterSpacing: 2,
-  },
-  // Error styles
-  errorContainer: {
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255, 59, 48, 0.3)",
-    padding: 14,
-    marginBottom: 20,
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  errorIcon: {
-    fontSize: 16,
-    marginRight: 10,
-  },
-  errorText: {
-    color: "#ff6b6b",
-    fontSize: 14,
-    flex: 1,
-    lineHeight: 20,
-  },
-  // Button styles
-  primaryButton: {
-    backgroundColor: "#00ffff",
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.7,
-  },
-  primaryText: {
-    color: "#0a0a0f",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginLeft: 10,
-  },
-  hint: {
-    color: "#555566",
-    fontSize: 12,
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  // Wallet info section
-  walletInfo: {
-    backgroundColor: "rgba(0, 255, 255, 0.05)",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(0, 255, 255, 0.15)",
-    padding: 14,
-    width: "100%",
-    marginBottom: 24,
-  },
-  walletInfoTitle: {
-    color: "#00ffff",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    marginBottom: 6,
-  },
-  walletInfoText: {
-    color: "#888899",
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  cancelButton: {
-    padding: 12,
-  },
-  cancelText: {
-    color: "#666680",
-    fontSize: 14,
-  },
-});

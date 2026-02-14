@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
@@ -12,13 +12,17 @@ import BlockInspector from "@/components/ui/BlockInspector";
 import LayerIndicator from "@/components/ui/LayerIndicator";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useStaking, type TowerInfo, type UserDepositInfo } from "@/hooks/useStaking";
-
-const { width, height } = Dimensions.get("window");
+import { COLORS, SPACING, FONT_FAMILY, TEXT, RADIUS } from "@/constants/theme";
+import { hapticButtonPress } from "@/utils/haptics";
 
 /**
  * Main Tower screen — the heart of the app.
  * Full-screen 3D R3F canvas showing the tower.
- * Overlay HUD shows wallet status, on-chain stats, and deposit/withdraw actions.
+ * Overlay HUD shows wallet status, on-chain stats.
+ *
+ * NOTE: The Tower scene keeps a dark atmospheric background.
+ * HUD overlays use translucent backgrounds and `textOnDark` colors.
+ * Do NOT use the cream/light theme colors here.
  */
 export default function TowerScreen() {
   const router = useRouter();
@@ -60,7 +64,10 @@ export default function TowerScreen() {
               styles.connectButton,
               isConnected && styles.connectedButton,
             ]}
-            onPress={() => router.push("/connect")}
+            onPress={() => {
+              hapticButtonPress();
+              router.push("/connect");
+            }}
           >
             <Text
               style={[
@@ -92,7 +99,7 @@ export default function TowerScreen() {
             <Text style={styles.statLabel}>Users</Text>
           </View>
           <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: "#00ff64" }]}>
+            <Text style={[styles.statValue, { color: COLORS.success }]}>
               {userDeposit
                 ? `$${userDeposit.amount.toFixed(2)}`
                 : isConnected
@@ -102,7 +109,7 @@ export default function TowerScreen() {
             <Text style={styles.statLabel}>My Vault</Text>
           </View>
           <View style={styles.stat}>
-            <Text style={[styles.statValue, styles.liveIndicator]}>
+            <Text style={[styles.statValue, { color: isConnected ? COLORS.success : COLORS.textMuted }]}>
               {isConnected ? "●" : "○"}
             </Text>
             <Text style={styles.statLabel}>
@@ -111,28 +118,11 @@ export default function TowerScreen() {
           </View>
         </View>
 
-        {/* Bottom action area */}
+        {/* Bottom hint area — no persistent buttons per GDD */}
         <View style={styles.bottomArea}>
-          {isConnected ? (
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.depositButton}
-                onPress={() => router.push("/deposit" as any)}
-              >
-                <Text style={styles.depositButtonText}>Deposit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.withdrawButton}
-                onPress={() => router.push("/withdraw" as any)}
-              >
-                <Text style={styles.withdrawButtonText}>Withdraw</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={styles.hintText}>
-              Drag to orbit • Pinch to zoom • Double-tap to reset
-            </Text>
-          )}
+          <Text style={styles.hintText}>
+            Drag to orbit • Pinch to zoom • Double-tap to reset
+          </Text>
         </View>
       </View>
 
@@ -148,7 +138,7 @@ export default function TowerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0a0a0f",
+    backgroundColor: COLORS.bgTower,
   },
   canvasContainer: {
     position: "absolute",
@@ -162,7 +152,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 50,
     paddingBottom: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.md,
   },
   topBar: {
     flexDirection: "row",
@@ -170,101 +160,64 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   title: {
-    color: "#00ffff",
-    fontSize: 20,
-    fontWeight: "900",
+    color: COLORS.goldLight,
+    fontFamily: FONT_FAMILY.headingBlack,
+    fontSize: 18,
     letterSpacing: 4,
-    textShadowColor: "#00ffff",
+    textShadowColor: COLORS.gold,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
   },
   connectButton: {
-    backgroundColor: "rgba(0, 255, 255, 0.15)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: "rgba(200, 153, 62, 0.15)",
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
-    borderColor: "#00ffff",
+    borderColor: COLORS.gold,
   },
   connectedButton: {
-    backgroundColor: "rgba(0, 255, 100, 0.15)",
-    borderColor: "#00ff64",
+    backgroundColor: "rgba(46, 139, 87, 0.15)",
+    borderColor: COLORS.success,
   },
   connectText: {
-    color: "#00ffff",
+    color: COLORS.gold,
+    fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 13,
-    fontWeight: "700",
     letterSpacing: 1,
   },
   connectedText: {
-    color: "#00ff64",
-    fontFamily: "monospace",
+    color: COLORS.success,
+    fontFamily: FONT_FAMILY.mono,
   },
   statsBar: {
     flexDirection: "row",
     justifyContent: "space-around",
-    backgroundColor: "rgba(13, 13, 21, 0.85)",
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: COLORS.bgOverlay,
+    borderRadius: RADIUS.md,
+    padding: SPACING.sm + 4,
     borderWidth: 1,
-    borderColor: "#1a1a2e",
+    borderColor: COLORS.border,
   },
   stat: {
     alignItems: "center",
   },
   statValue: {
-    color: "#ffffff",
+    color: COLORS.textOnDark,
+    fontFamily: FONT_FAMILY.mono,
     fontSize: 16,
-    fontWeight: "800",
   },
   statLabel: {
-    color: "#666680",
-    fontSize: 11,
+    ...TEXT.overline,
+    color: COLORS.textMuted,
     marginTop: 2,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  liveIndicator: {
-    color: "#00ff64",
   },
   bottomArea: {
     alignItems: "center",
   },
-  buttonRow: {
-    flexDirection: "row",
-    gap: 12,
-    width: "100%",
-  },
-  depositButton: {
-    flex: 1,
-    backgroundColor: "#00ffff",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  depositButtonText: {
-    color: "#0a0a0f",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
-  withdrawButton: {
-    flex: 1,
-    backgroundColor: "transparent",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ff9500",
-  },
-  withdrawButtonText: {
-    color: "#ff9500",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
   hintText: {
-    color: "#444466",
+    color: COLORS.textMuted,
+    fontFamily: FONT_FAMILY.body,
     fontSize: 12,
     letterSpacing: 0.5,
   },

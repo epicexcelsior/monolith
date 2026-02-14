@@ -139,6 +139,7 @@ function computeSpireLayerPositions(
  */
 export default function TowerGrid() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
+  const hitMeshRef = useRef<THREE.InstancedMesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const blockMetaRef = useRef<BlockMeta[]>([]);
   const config = DEFAULT_TOWER_CONFIG;
@@ -152,6 +153,15 @@ export default function TowerGrid() {
     materialRef.current = mat;
     return mat;
   }, []);
+
+  // Invisible material for the hit-test mesh (no GPU draw cost)
+  const hitMaterial = useMemo(
+    () => new THREE.MeshBasicMaterial({ visible: false }),
+    [],
+  );
+
+  /** Hit area inflation factor — 40% larger than visual blocks */
+  const HIT_SCALE = 1.4;
 
   // Pre-compute all block positions (runs once, memoized)
   const blockData = useMemo(() => {
@@ -219,6 +229,7 @@ export default function TowerGrid() {
   // Apply transforms and per-instance attributes (runs once after mount)
   useEffect(() => {
     const mesh = meshRef.current;
+    const hitMesh = hitMeshRef.current;
     if (!mesh) return;
 
     const count = blockData.length;
@@ -275,6 +286,13 @@ export default function TowerGrid() {
         tempObj.updateMatrix();
         mesh.setMatrixAt(globalIdx, tempObj.matrix);
 
+        // Hit-test mesh — same position/rotation but uniformly inflated scale
+        if (hitMesh) {
+          tempObj.scale.multiplyScalar(HIT_SCALE);
+          tempObj.updateMatrix();
+          hitMesh.setMatrixAt(globalIdx, tempObj.matrix);
+        }
+
         // Per-instance energy (normalized 0-1)
         energyArray[globalIdx] = block.energy / 100;
 
@@ -292,6 +310,9 @@ export default function TowerGrid() {
     }
 
     mesh.instanceMatrix.needsUpdate = true;
+    if (hitMesh) {
+      hitMesh.instanceMatrix.needsUpdate = true;
+    }
 
     // Attach per-instance attributes
     const geo = mesh.geometry;
@@ -319,6 +340,9 @@ export default function TowerGrid() {
   // Handle tap on block instance
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
+    // Ignore clicks during active gestures (drag/pinch) —
+    // a finger landing on a block during pinch should not select it.
+    if (useTowerStore.getState().isGestureActive) return;
     if (event.instanceId !== undefined && event.instanceId !== null) {
       const meta = blockMetaRef.current[event.instanceId];
       if (meta) {
@@ -328,14 +352,27 @@ export default function TowerGrid() {
   };
 
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, blockData.length]}
-      frustumCulled={true}
-      material={material}
-      onClick={handleClick}
-    >
-      <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
-    </instancedMesh>
+    <group>
+      {/* Visual mesh — renders the blocks, no click handler */}
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, blockData.length]}
+        frustumCulled={true}
+        material={material}
+      >
+        <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
+      </instancedMesh>
+
+      {/* Hit-test mesh — invisible, 40% larger, handles taps */}
+      <instancedMesh
+        ref={hitMeshRef}
+        args={[undefined, undefined, blockData.length]}
+        frustumCulled={true}
+        material={hitMaterial}
+        onClick={handleClick}
+      >
+        <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
+      </instancedMesh>
+    </group>
   );
 }

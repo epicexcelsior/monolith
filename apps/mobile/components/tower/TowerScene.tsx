@@ -26,28 +26,27 @@ const IDLE_TIMEOUT = 4; // seconds before auto-rotate starts
 const AUTO_ROTATE_SPEED = 0.0005;
 
 /** Lerp rates — dual system for interactive vs programmatic motion */
-const ORBIT_LERP = 0.14; // fast — snappy interactive response
+const ORBIT_LERP = 0.18; // fast — snappy interactive orbit response
+const ZOOM_LERP = 0.22; // faster — zoom should feel immediate and direct
 const TRANSITION_LERP = 0.045; // slow — smooth fly-to / reset easing
 
 /** Orbit sensitivity (radians per pixel of finger drag) */
-const ORBIT_SENSITIVITY = 0.005;
+const ORBIT_SENSITIVITY = 0.006;
 
-/** Momentum: velocity-based inertia after finger lifts */
-const MOMENTUM_FRICTION = 0.94; // per-frame decay (higher = longer coast)
+/** Momentum: velocity-based inertia after finger lifts (orbit only) */
+const MOMENTUM_FRICTION = 0.93; // per-frame decay (higher = longer coast)
 const MOMENTUM_MIN_VEL = 0.00008; // stop threshold
 
 /** Zoom range */
 const ZOOM_MIN = 6;
 const ZOOM_MAX = 55;
 
-/** Zoom tier centers (for tier detection + soft magnetics) */
+/** Zoom tier centers (for tier detection only — no magnetic snapping) */
 const ZOOM_OVERVIEW = 40;
 const ZOOM_NEIGHBORHOOD = 18;
 const ZOOM_BLOCK = 8;
 
-/** Soft magnetic zone — pull gently if within this many units of a tier */
-const MAGNETIC_ZONE = 2.5;
-const MAGNETIC_STRENGTH = 0.03; // per-frame pull factor
+
 
 /** Elevation clamp (radians) */
 const ELEVATION_MIN = 0.15;
@@ -62,6 +61,9 @@ const DRAG_THRESHOLD = 8;
 
 /** Double-tap window (ms) */
 const DOUBLE_TAP_WINDOW = 350;
+
+/** Pinch cooldown — ignore single-finger orbit for this long after pinch ends */
+const PINCH_COOLDOWN_MS = 100;
 
 /** Transition completion threshold */
 const TRANSITION_THRESHOLD = 0.5;
@@ -82,21 +84,7 @@ function getLayerFromY(y: number): number {
   );
 }
 
-/**
- * Soft magnetic snap — gently pulls zoom toward nearest tier center
- * if within the magnetic zone. Returns adjusted zoom per frame.
- */
-function applySoftMagnetic(zoom: number): number {
-  const tiers = [ZOOM_BLOCK, ZOOM_NEIGHBORHOOD, ZOOM_OVERVIEW];
-  for (const tier of tiers) {
-    const dist = Math.abs(zoom - tier);
-    if (dist < MAGNETIC_ZONE && dist > 0.1) {
-      // Gentle pull toward tier center
-      return zoom + (tier - zoom) * MAGNETIC_STRENGTH;
-    }
-  }
-  return zoom;
-}
+
 
 // ─── Camera State ─────────────────────────────────────────
 
@@ -113,7 +101,7 @@ interface CameraState {
   targetZoom: number;
   targetLookAt: THREE.Vector3;
 
-  // Momentum
+  // Momentum (orbit only — zoom is direct, no momentum)
   velocityAzimuth: number;
   velocityElevation: number;
 
@@ -137,9 +125,9 @@ function SceneSetup() {
 /**
  * CameraRig — Per-frame camera update.
  *
- * - Dual lerp: fast for orbit, smooth for transitions
- * - Momentum coasting with friction decay
- * - Soft magnetic zoom near tier centers
+ * - Dual lerp: fast for orbit, faster for zoom, slow for transitions
+ * - Orbit momentum with friction decay
+ * - Zoom is direct: sticks exactly where you leave it (no momentum, no magnetics)
  * - Auto-rotate when idle (scales with zoom level)
  */
 function CameraRig({
@@ -183,13 +171,10 @@ function CameraRig({
           hapticBlockSelect();
         }
       } else {
-        // Deselect → smooth return to overview
-        cs.targetZoom = ZOOM_OVERVIEW;
-        cs.targetElevation = OVERVIEW_ELEVATION;
-        cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
+        // Deselect → keep camera where it is, just clear selection
+        // (Don't fly back to overview — preserve user's zoom/orbit position)
         cs.velocityAzimuth = 0;
         cs.velocityElevation = 0;
-        cs.isTransitioning = true;
         hapticBlockDeselect();
       }
     }
@@ -204,9 +189,10 @@ function CameraRig({
     }
 
     // ─── Pick lerp rate ─────────────────────────
-    const lerp = cs.isTransitioning ? TRANSITION_LERP : ORBIT_LERP;
+    const orbitLerp = cs.isTransitioning ? TRANSITION_LERP : ORBIT_LERP;
+    const zoomLerp = cs.isTransitioning ? TRANSITION_LERP : ZOOM_LERP;
 
-    // ─── Momentum coasting (when finger lifted) ─
+    // ─── Orbit momentum coasting (when finger lifted) ─
     if (!cs.isTouching && !cs.isTransitioning) {
       if (
         Math.abs(cs.velocityAzimuth) > MOMENTUM_MIN_VEL ||
@@ -222,9 +208,7 @@ function CameraRig({
           Math.min(ELEVATION_MAX, cs.targetElevation),
         );
       }
-
-      // Apply soft magnetic pull on zoom
-      cs.targetZoom = applySoftMagnetic(cs.targetZoom);
+      // Zoom: no momentum, no magnetics — sticks where you left it
     }
 
     // ─── Auto-rotate when idle ──────────────────
@@ -236,10 +220,10 @@ function CameraRig({
     }
 
     // ─── Spring-damped interpolation ────────────
-    cs.azimuth += (cs.targetAzimuth - cs.azimuth) * lerp;
-    cs.elevation += (cs.targetElevation - cs.elevation) * lerp;
-    cs.zoom += (cs.targetZoom - cs.zoom) * lerp;
-    cs.lookAt.lerp(cs.targetLookAt, lerp);
+    cs.azimuth += (cs.targetAzimuth - cs.azimuth) * orbitLerp;
+    cs.elevation += (cs.targetElevation - cs.elevation) * orbitLerp;
+    cs.zoom += (cs.targetZoom - cs.zoom) * zoomLerp;
+    cs.lookAt.lerp(cs.targetLookAt, orbitLerp);
 
     // Clamp
     cs.elevation = Math.max(ELEVATION_MIN, Math.min(ELEVATION_MAX, cs.elevation));
@@ -301,6 +285,31 @@ function getPinchDistance(evt: GestureResponderEvent): number | null {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+// ─── BackgroundPlane (tap-to-deselect) ────────────────────
+
+/**
+ * Invisible sphere that catches taps on empty space.
+ * TowerGrid's onClick uses event.stopPropagation(), so block taps
+ * never reach this mesh. Only taps on empty space arrive here → deselect.
+ */
+function BackgroundPlane() {
+  const selectBlock = useTowerStore((s) => s.selectBlock);
+  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
+
+  const handleClick = useCallback(() => {
+    if (selectedBlockId) {
+      selectBlock(null);
+    }
+  }, [selectedBlockId, selectBlock]);
+
+  return (
+    <mesh onClick={handleClick} visible={false}>
+      <sphereGeometry args={[200, 8, 8]} />
+      <meshBasicMaterial side={THREE.BackSide} />
+    </mesh>
+  );
+}
+
 // ─── TowerScene ───────────────────────────────────────────
 
 /**
@@ -308,10 +317,11 @@ function getPinchDistance(evt: GestureResponderEvent): number | null {
  *
  * GESTURE ARCHITECTURE:
  * - PanResponder only captures on MOVE (not start) → taps pass to R3F Canvas
- * - Free zoom with soft magnetic pull near tier centers
- * - Dual lerp: fast for orbit, smooth eased for fly-to/reset
- * - Momentum with friction for tactile spin
+ * - Zoom is direct — sticks exactly where you leave it, no drift
+ * - Dual lerp: fast for orbit, faster for zoom, smooth eased for fly-to/reset
+ * - Orbit momentum with friction for tactile spin
  * - Double-tap to reset (via delayed timer, doesn't block block taps)
+ * - Tap empty space to deselect selected block
  */
 export default function TowerScene() {
   const cameraState = useRef<CameraState>({
@@ -340,12 +350,17 @@ export default function TowerScene() {
   const isPinching = useRef(false);
   const pinchStartDist = useRef(0);
   const pinchStartZoom = useRef(ZOOM_OVERVIEW);
+  const pinchCooldownTime = useRef(0);
+
+  // Drag tracking (to distinguish taps from drags)
+  const isDragging = useRef(false);
 
   // Double-tap state (timer-based so it doesn't block block taps)
   const lastTapTime = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectBlock = useTowerStore((s) => s.selectBlock);
+  const setGestureActive = useTowerStore((s) => s.setGestureActive);
 
   // Reset camera to overview
   const resetCamera = useCallback(() => {
@@ -381,7 +396,9 @@ export default function TowerScene() {
           prevTouch.current = { x: pageX, y: pageY };
           cameraState.current.isTouching = true;
           cameraState.current.isTransitioning = false;
-          // Kill momentum on new touch
+          isDragging.current = true;
+          setGestureActive(true);
+          // Kill orbit momentum on new touch
           cameraState.current.velocityAzimuth = 0;
           cameraState.current.velocityElevation = 0;
           lastTouchTime.current = performance.now() / 1000;
@@ -402,6 +419,7 @@ export default function TowerScene() {
             const scale = pinchDist / pinchStartDist.current;
             const raw = pinchStartZoom.current / scale;
             cameraState.current.targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, raw));
+            // No velocity tracking — zoom sticks exactly where you leave it
 
             // Haptic on tier crossing during pinch
             const newTier = getZoomTier(cameraState.current.targetZoom);
@@ -414,6 +432,8 @@ export default function TowerScene() {
 
           // ─── Single finger orbit ────────────────
           if (isPinching.current) return;
+          // Ignore leftover finger after pinch release (prevents ghost orbit)
+          if (performance.now() - pinchCooldownTime.current < PINCH_COOLDOWN_MS) return;
 
           const { pageX, pageY } = evt.nativeEvent;
           const cs = cameraState.current;
@@ -445,11 +465,14 @@ export default function TowerScene() {
 
         onPanResponderRelease: () => {
           cameraState.current.isTouching = false;
+          // NOTE: isDragging stays true until next handleTouchStart.
+          // This prevents onTouchEnd from triggering double-tap after drag/pinch.
+          setGestureActive(false);
 
           if (isPinching.current) {
             isPinching.current = false;
-            // No hard snap — zoom stays where you left it.
-            // Soft magnetics will gently pull if near a tier center.
+            pinchCooldownTime.current = performance.now();
+            // Zoom sticks — no snap, no momentum, no magnetics.
           }
           // Momentum continues via CameraRig useFrame
         },
@@ -457,14 +480,22 @@ export default function TowerScene() {
     [selectBlock, resetCamera],
   );
 
-  // ─── Double-tap handler (timer-based) ───────────────────
-  // Uses a delayed timer so single taps aren't blocked.
-  // Single taps pass through to R3F Canvas for block onClick.
+  // ─── Touch handlers (double-tap + tap-to-deselect) ──────
+  // Uses onTouchEnd with drag guard so drags never trigger double-tap.
+  // onTouchStart only records time; actual logic runs at touch end.
   const handleTouchStart = useCallback(() => {
+    // Mark that we haven't dragged yet for this touch
+    isDragging.current = false;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    // Skip if this touch was a drag (PanResponder handled it)
+    if (isDragging.current) return;
+
     const now = Date.now();
 
     if (now - lastTapTime.current < DOUBLE_TAP_WINDOW) {
-      // Double-tap detected
+      // Double-tap detected — reset camera
       if (tapTimer.current) {
         clearTimeout(tapTimer.current);
         tapTimer.current = null;
@@ -473,7 +504,6 @@ export default function TowerScene() {
       resetCamera();
     } else {
       lastTapTime.current = now;
-      // Clear any pending timer
       if (tapTimer.current) clearTimeout(tapTimer.current);
       tapTimer.current = setTimeout(() => {
         tapTimer.current = null;
@@ -486,6 +516,7 @@ export default function TowerScene() {
       style={styles.container}
       {...panResponder.panHandlers}
       onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <Canvas
         gl={{
@@ -521,6 +552,7 @@ export default function TowerScene() {
         />
 
         {/* ─── Scene Content ────────────────────────── */}
+        <BackgroundPlane />
         <TowerGrid />
         <Particles />
         <GroundGrid />

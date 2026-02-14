@@ -16,6 +16,9 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+    "@expo-google-fonts/outfit": "^0.4.3",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^9.1.0",
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.2.5",
