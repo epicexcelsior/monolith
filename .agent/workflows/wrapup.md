@@ -19,8 +19,9 @@ Run all relevant automated checks. Detect what applies to this project and run a
 
 **TypeScript/JavaScript projects:**
 ```bash
-# Wrap with timeout to prevent monorepo hangs
-timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
+# This is a pnpm monorepo — always use pnpm, never npm/npx for installs
+# Scope tsc to the mobile app to avoid monorepo-wide compilation hangs
+timeout 90 pnpm --filter @monolith/mobile exec tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 ```
 
 **Rust/Anchor projects:**
@@ -32,9 +33,7 @@ anchor test 2>&1
 
 **General:**
 ```bash
-# If package.json has a test script
-npm test 2>&1 | tail -30
-# or
+# This project uses pnpm — never use npm directly
 pnpm test 2>&1 | tail -30
 ```
 

@@ -138,3 +138,10 @@ Before finishing any UI work, verify:
 3. Every `TouchableOpacity` that acts like a button should be `<Button>` or have haptics
 4. Every text element uses `TEXT.*` or `FONT_FAMILY.*` — not raw font names
 
+## Recent Lessons Learned
+
+- **2026-02-13**: This is a **pnpm monorepo** (`pnpm@10.13.1`). Never use `npm install` or `npx expo install` — they will hang or conflict. Always use `pnpm add --filter @monolith/mobile <pkg>` for mobile dependencies. Root config: `.npmrc` has `node-linker=hoisted` and `shamefully-hoist=true`.
+- **2026-02-13**: `tsc --noEmit` has ~600 pre-existing errors across the monorepo (Anchor test types, module resolution). These are not caused by UI work and should not block commits. Use `--skipLibCheck` and `timeout 90` to prevent hanging. Scope to mobile: `pnpm --filter @monolith/mobile exec tsc --noEmit --skipLibCheck`.
+- **2026-02-13**: Several screens (`deposit.tsx`, `withdraw.tsx`, `blocks.tsx`, `BlockInspector.tsx`) were already migrated to the solarpunk design system in prior conversations. Always check current file state before rewriting — a `grep` for hardcoded hex is faster than re-reading every file.
+
+

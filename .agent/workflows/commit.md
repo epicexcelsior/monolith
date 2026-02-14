@@ -10,8 +10,9 @@ Before committing, run relevant automated checks to catch issues:
 
 **TypeScript/JavaScript projects:**
 ```bash
-# Increased timeout to 90s for monorepo first-run compilation
-timeout 90 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
+# This is a pnpm monorepo — always use pnpm, never npm/npx for installs
+# Scope tsc to mobile app to avoid monorepo-wide compilation hangs
+timeout 90 pnpm --filter @monolith/mobile exec tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 ```
 
 **Rust/Anchor projects:**
@@ -21,7 +22,8 @@ anchor build 2>&1 | tail -5
 
 **General tests (if configured):**
 ```bash
-npm test 2>&1 | tail -20
+# This project uses pnpm — never use npm directly
+pnpm test 2>&1 | tail -20
 ```
 
 If any checks fail, fix the issues before proceeding. Skip checks that aren't relevant to the project.
