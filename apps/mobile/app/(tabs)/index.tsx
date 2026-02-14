@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import {
   View,
   Text,
@@ -12,27 +12,24 @@ import LayerIndicator from "@/components/ui/LayerIndicator";
 import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
-import { useStaking, type TowerInfo, type UserDepositInfo } from "@/hooks/useStaking";
-import { COLORS, SPACING, FONT_FAMILY, TEXT, RADIUS } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { initAudio } from "@/utils/audio";
 
 export default function TowerScreen() {
   const router = useRouter();
   const isConnected = useWalletStore((s) => s.isConnected);
   const truncatedAddress = useTruncatedAddress();
-  const { fetchTowerState, fetchUserDeposit } = useStaking();
 
   const initTower = useTowerStore((s) => s.initTower);
   const startDecayLoop = useTowerStore((s) => s.startDecayLoop);
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
 
-  const [towerInfo, setTowerInfo] = useState<TowerInfo | null>(null);
-  const [userDeposit, setUserDeposit] = useState<UserDepositInfo | null>(null);
-
   // Initialize tower (load from storage or seed)
   useEffect(() => {
     initTower();
+    initAudio(); // Fire-and-forget audio pre-load
   }, [initTower]);
 
   // Start decay loop once tower is initialized
@@ -41,20 +38,6 @@ export default function TowerScreen() {
     const cleanup = startDecayLoop();
     return cleanup;
   }, [initialized, startDecayLoop]);
-
-  // Fetch on-chain tower stats + user deposit periodically
-  const refreshStats = useCallback(async () => {
-    const info = await fetchTowerState();
-    if (info) setTowerInfo(info);
-    const deposit = await fetchUserDeposit();
-    if (deposit) setUserDeposit(deposit);
-  }, [fetchTowerState, fetchUserDeposit]);
-
-  useEffect(() => {
-    refreshStats();
-    const interval = setInterval(refreshStats, 15_000);
-    return () => clearInterval(interval);
-  }, [refreshStats]);
 
   return (
     <View style={styles.container}>
@@ -91,41 +74,6 @@ export default function TowerScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Stats bar — live on-chain data */}
-        <View style={styles.statsBar}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {towerInfo
-                ? `$${towerInfo.totalDeposited.toFixed(2)}`
-                : "\u2014"}
-            </Text>
-            <Text style={styles.statLabel}>TVL</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {towerInfo ? towerInfo.totalUsers.toString() : "\u2014"}
-            </Text>
-            <Text style={styles.statLabel}>Users</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: COLORS.success }]}>
-              {userDeposit
-                ? `$${userDeposit.amount.toFixed(2)}`
-                : isConnected
-                  ? "$0.00"
-                  : "\u2014"}
-            </Text>
-            <Text style={styles.statLabel}>My Vault</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: isConnected ? COLORS.success : COLORS.textMuted }]}>
-              {isConnected ? "\u25CF" : "\u25CB"}
-            </Text>
-            <Text style={styles.statLabel}>
-              {isConnected ? "Live" : "Offline"}
-            </Text>
-          </View>
-        </View>
 
         {/* Bottom hint */}
         <View style={styles.bottomArea}>
@@ -201,28 +149,6 @@ const styles = StyleSheet.create({
   connectedText: {
     color: COLORS.success,
     fontFamily: FONT_FAMILY.mono,
-  },
-  statsBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: COLORS.bgOverlay,
-    borderRadius: RADIUS.md,
-    padding: SPACING.sm + 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  stat: {
-    alignItems: "center",
-  },
-  statValue: {
-    color: COLORS.textOnDark,
-    fontFamily: FONT_FAMILY.mono,
-    fontSize: 16,
-  },
-  statLabel: {
-    ...TEXT.overline,
-    color: COLORS.textMuted,
-    marginTop: 2,
   },
   bottomArea: {
     alignItems: "center",

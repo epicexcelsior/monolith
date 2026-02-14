@@ -132,11 +132,11 @@ describe("Energy color stops", () => {
     }
   });
 
-  it("should have blazing as cyan (high G and B)", () => {
+  it("should have blazing as golden (warm solarpunk palette)", () => {
     const [r, g, b] = ENERGY_COLOR_STOPS.blazing.color;
-    expect(r).toBeCloseTo(0, 1);
-    expect(g).toBeCloseTo(1, 1);
-    expect(b).toBeCloseTo(1, 1);
+    expect(r).toBeCloseTo(1.0, 1);   // brilliant gold — high red
+    expect(g).toBeCloseTo(0.85, 1);   // high green
+    expect(b).toBeCloseTo(0.2, 1);    // low blue
   });
 
   it("should have dead as dark", () => {

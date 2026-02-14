@@ -17,7 +17,7 @@ export const COLORS = {
   bgCard: "#FFFFFF",
   bgMuted: "#F0EBE3",
   bgOverlay: "rgba(250, 247, 242, 0.92)",
-  bgTower: "#0A0F0A", // Tower 3D scene only
+  bgTower: "#080604", // Tower 3D scene — warm dark
 
   // ─── Gold Accent ──────────────────────────
   gold: "#C8993E",

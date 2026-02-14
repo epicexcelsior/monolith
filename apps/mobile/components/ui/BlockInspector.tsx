@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,14 +8,16 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  PanResponder,
 } from "react-native";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING, TEXT } from "@/constants/theme";
+import { useRouter } from "expo-router";
 import Badge from "./Badge";
 import ChargeBar from "./ChargeBar";
 import Button from "./Button";
 import ColorPicker from "@/components/ui/ColorPicker";
 import ClaimModal from "@/components/ui/ClaimModal";
-import { useTowerStore } from "@/stores/tower-store";
+import { useTowerStore, getStreakMultiplier, getNextStreakMilestone } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import { useStaking } from "@/hooks/useStaking";
 import { ENERGY_THRESHOLDS, BLOCK_ICONS } from "@monolith/common";
@@ -26,8 +28,17 @@ import {
   hapticButtonPress,
   hapticError,
 } from "@/utils/haptics";
+import {
+  playBlockClaim,
+  playChargeTap,
+  playBlockSelect,
+  playBlockDeselect,
+  playStreakMilestone,
+  playError,
+} from "@/utils/audio";
 
 const PANEL_HEIGHT = 380;
+const DISMISS_THRESHOLD = 80;
 
 function getBlockState(energy: number): BlockState {
   if (energy >= ENERGY_THRESHOLDS.blazing) return "blazing";
@@ -69,14 +80,46 @@ export default function BlockInspector() {
   const publicKey = useWalletStore((s) => s.publicKey);
   const isWalletConnected = useWalletStore((s) => s.isConnected);
   const { deposit } = useStaking();
+  const router = useRouter();
 
   const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
+  const dragOffset = useRef(new Animated.Value(0)).current;
   const isVisible = selectedBlockId !== null;
 
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [cooldownText, setCooldownText] = useState<string | null>(null);
+
+  // Swipe-to-dismiss gesture
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dy) > 5 && gesture.dy > 0,
+        onPanResponderMove: (_, gesture) => {
+          // Only allow dragging down (positive dy)
+          if (gesture.dy > 0) {
+            dragOffset.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > DISMISS_THRESHOLD || gesture.vy > 0.5) {
+            // Dismiss — animate out and deselect
+            hapticBlockDeselect();
+            selectBlock(null);
+          }
+          // Spring back
+          Animated.spring(dragOffset, {
+            toValue: 0,
+            ...TIMING.spring,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    [dragOffset, selectBlock],
+  );
 
   useEffect(() => {
     Animated.spring(slideAnim, {
@@ -85,12 +128,13 @@ export default function BlockInspector() {
       useNativeDriver: true,
     }).start();
 
-    // Reset customization panel when block changes
+    // Reset customization panel and drag when block changes
     if (!isVisible) {
       setShowCustomize(false);
       setShowClaimModal(false);
+      dragOffset.setValue(0);
     }
-  }, [isVisible, slideAnim]);
+  }, [isVisible, slideAnim, dragOffset]);
 
   const block = selectedBlockId ? getDemoBlockById(selectedBlockId) : null;
   const isOwner = block?.owner && publicKey
@@ -109,6 +153,7 @@ export default function BlockInspector() {
     // Update local state
     claimBlock(selectedBlockId, publicKey.toBase58(), amount * 1_000_000, color);
     hapticBlockClaimed();
+    playBlockClaim();
   }, [publicKey, selectedBlockId, deposit, claimBlock]);
 
   // Handle charge
@@ -122,6 +167,13 @@ export default function BlockInspector() {
       setCooldownText(`Wait ${secs}s`);
       setTimeout(() => setCooldownText(null), 2000);
       hapticError();
+      playError();
+    } else if (result.success) {
+      playChargeTap();
+      // Check for streak milestone
+      if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
+        playStreakMilestone();
+      }
     }
   }, [selectedBlockId, chargeBlock]);
 
@@ -153,7 +205,11 @@ export default function BlockInspector() {
       <Animated.View
         style={[
           styles.container,
-          { transform: [{ translateY: slideAnim }] },
+          {
+            transform: [
+              { translateY: Animated.add(slideAnim, dragOffset) },
+            ],
+          },
         ]}
       >
         {/* Close button */}
@@ -168,7 +224,10 @@ export default function BlockInspector() {
           <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
 
-        <View style={styles.handle} />
+        {/* Draggable handle bar */}
+        <View {...panResponder.panHandlers} style={styles.handleHitArea}>
+          <View style={styles.handle} />
+        </View>
 
         {block && (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -189,6 +248,25 @@ export default function BlockInspector() {
             {/* Energy bar (only for owned blocks) */}
             {!isUnclaimed && (
               <ChargeBar charge={energyPct} size="md" showLabel showPercentage />
+            )}
+
+            {/* Streak display (for owned blocks with streaks) */}
+            {!isUnclaimed && (block.streak ?? 0) > 0 && (
+              <View style={styles.streakRow}>
+                <Text style={styles.streakEmoji}>🔥</Text>
+                <Text style={styles.streakText}>
+                  Day {block.streak}
+                </Text>
+                {getStreakMultiplier(block.streak ?? 0) > 1 && (
+                  <Badge
+                    label={`${getStreakMultiplier(block.streak ?? 0)}× Charge`}
+                    color={COLORS.gold}
+                  />
+                )}
+                <Text style={styles.nextMilestone}>
+                  Next: Day {getNextStreakMilestone(block.streak ?? 0)}
+                </Text>
+              </View>
             )}
 
             {/* Info rows */}
@@ -237,7 +315,10 @@ export default function BlockInspector() {
                     title="Connect Wallet to Claim"
                     variant="secondary"
                     size="md"
-                    onPress={() => hapticButtonPress()}
+                    onPress={() => {
+                      hapticButtonPress();
+                      router.push("/connect");
+                    }}
                   />
                 )}
               </View>
@@ -397,7 +478,12 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: COLORS.borderStrong,
     alignSelf: "center",
-    marginBottom: SPACING.sm,
+  },
+  handleHitArea: {
+    paddingVertical: SPACING.sm,
+    alignSelf: "stretch",
+    alignItems: "center",
+    marginBottom: SPACING.xs,
   },
   closeButton: {
     position: "absolute",
@@ -543,5 +629,29 @@ const styles = StyleSheet.create({
     color: COLORS.textOnGold,
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 13,
+  },
+  // Streak display
+  streakRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.goldSubtle,
+    borderRadius: RADIUS.sm,
+  },
+  streakEmoji: {
+    fontSize: 18,
+  },
+  streakText: {
+    fontFamily: FONT_FAMILY.heading,
+    fontSize: 16,
+    color: COLORS.gold,
+  },
+  nextMilestone: {
+    ...TEXT.caption,
+    color: COLORS.textMuted,
+    marginLeft: "auto",
   },
 });

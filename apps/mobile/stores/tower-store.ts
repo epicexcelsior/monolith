@@ -55,8 +55,36 @@ async function setOnboardingFlag(): Promise<void> {
 // ─── Demo Mode Constants ──────────────────────────────────
 const DEMO_DECAY_AMOUNT = 1;
 const DEMO_DECAY_INTERVAL_MS = 60_000;
-const CHARGE_AMOUNT = 20;
+const BASE_CHARGE_AMOUNT = 20;
 const DEMO_CHARGE_COOLDOWN_MS = 30_000;
+
+/** Streak multiplier tiers */
+export function getStreakMultiplier(streak: number): number {
+  if (streak >= 30) return 3.0;
+  if (streak >= 7) return 2.0;
+  if (streak >= 5) return 1.75;
+  if (streak >= 3) return 1.5;
+  return 1.0;
+}
+
+/** Returns the next milestone day for streak display */
+export function getNextStreakMilestone(streak: number): number {
+  if (streak < 3) return 3;
+  if (streak < 7) return 7;
+  if (streak < 14) return 14;
+  if (streak < 30) return 30;
+  return streak + 1;
+}
+
+/** Check if ts2 is exactly the next calendar day after ts1 */
+function isNextDay(ts1: number, ts2: number): boolean {
+  const d1 = new Date(ts1);
+  const d2 = new Date(ts2);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  const diff = d2.getTime() - d1.getTime();
+  return diff === 86400000; // exactly 1 day in ms
+}
 
 /** Lightweight block info for demo mode (no server needed) */
 export interface DemoBlock {
@@ -71,6 +99,8 @@ export interface DemoBlock {
   emoji?: string;
   name?: string;
   lastChargeTime?: number;
+  streak?: number;
+  lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
 }
 
 interface TowerStore {
@@ -108,7 +138,7 @@ interface TowerStore {
   initTower: () => Promise<void>;
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
-  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number };
+  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number };
   customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
@@ -221,13 +251,13 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       demoBlocks: state.demoBlocks.map((b) =>
         b.id === blockId
           ? {
-              ...b,
-              owner: wallet,
-              ownerColor: color,
-              energy: MAX_ENERGY,
-              stakedAmount: amount,
-              lastChargeTime: Date.now(),
-            }
+            ...b,
+            owner: wallet,
+            ownerColor: color,
+            energy: MAX_ENERGY,
+            stakedAmount: amount,
+            lastChargeTime: Date.now(),
+          }
           : b,
       ),
       recentlyClaimedId: blockId,
@@ -247,19 +277,44 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       return { success: false, cooldownRemaining };
     }
 
+    // ─── Streak tracking ─────────────────────────
+    const today = new Date(now).toISOString().slice(0, 10); // YYYY-MM-DD
+    const lastStreakDate = block.lastStreakDate || "";
+    const currentStreak = block.streak || 0;
+
+    let newStreak: number;
+    if (lastStreakDate === today) {
+      // Same day: no streak change, just charge
+      newStreak = currentStreak;
+    } else if (lastStreakDate && isNextDay(new Date(lastStreakDate).getTime(), now)) {
+      // Next day: streak continues!
+      newStreak = currentStreak + 1;
+    } else if (lastStreakDate === "") {
+      // First ever charge
+      newStreak = 1;
+    } else {
+      // Missed a day: streak resets
+      newStreak = 1;
+    }
+
+    const multiplier = getStreakMultiplier(newStreak);
+    const chargeAmount = Math.round(BASE_CHARGE_AMOUNT * multiplier);
+
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
         b.id === blockId
           ? {
-              ...b,
-              energy: Math.min(MAX_ENERGY, b.energy + CHARGE_AMOUNT),
-              lastChargeTime: now,
-            }
+            ...b,
+            energy: Math.min(MAX_ENERGY, b.energy + chargeAmount),
+            lastChargeTime: now,
+            streak: newStreak,
+            lastStreakDate: today,
+          }
           : b,
       ),
     }));
     get().persistBlocks();
-    return { success: true };
+    return { success: true, streak: newStreak, multiplier, chargeAmount };
   },
 
   customizeBlock: (blockId, changes) => {
@@ -267,11 +322,11 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       demoBlocks: state.demoBlocks.map((b) =>
         b.id === blockId
           ? {
-              ...b,
-              ...(changes.color !== undefined && { ownerColor: changes.color }),
-              ...(changes.emoji !== undefined && { emoji: changes.emoji }),
-              ...(changes.name !== undefined && { name: changes.name }),
-            }
+            ...b,
+            ...(changes.color !== undefined && { ownerColor: changes.color }),
+            ...(changes.emoji !== undefined && { emoji: changes.emoji }),
+            ...(changes.name !== undefined && { name: changes.name }),
+          }
           : b,
       ),
     }));

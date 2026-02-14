@@ -134,7 +134,7 @@ export default function TowerGrid() {
     [],
   );
 
-  const HIT_SCALE = 1.4;
+  const HIT_SCALE = 1.8;
 
   // Build position layout (stable, config-based)
   const layoutData = useMemo(() => {
@@ -305,7 +305,7 @@ export default function TowerGrid() {
       materialRef.current.uniforms.uTime.value += delta;
     }
 
-    // Claim flash: temporarily boost energy to white for 1 second
+    // Claim flash: golden celebration burst for 2 seconds
     const flash = claimFlashRef.current;
     if (flash && meshRef.current) {
       flash.time += delta;
@@ -314,21 +314,38 @@ export default function TowerGrid() {
       const colorAttr = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
 
       if (energyAttr && colorAttr) {
-        if (flash.time < 1.0) {
-          // Flash white then fade to actual color
+        if (flash.time < 2.0) {
           const t = flash.time;
-          const flashIntensity = t < 0.3 ? 1.0 : Math.max(0, 1.0 - (t - 0.3) / 0.7);
 
-          // Temporarily set energy to max + flash
+          // Phase 1: Bright gold ignition (0-0.5s)
+          // Phase 2: Golden pulse (0.5-1.5s) 
+          // Phase 3: Settle to owner color (1.5-2.0s)
+          let flashIntensity: number;
+          if (t < 0.15) {
+            // Instant bright
+            flashIntensity = 1.0;
+          } else if (t < 0.5) {
+            // Hold bright gold
+            flashIntensity = 0.9 + 0.1 * Math.sin(t * 20);
+          } else if (t < 1.5) {
+            // Golden pulse - breathing effect
+            const pulseT = (t - 0.5) / 1.0;
+            flashIntensity = 0.6 * (1 - pulseT) * (0.7 + 0.3 * Math.sin(t * 8));
+          } else {
+            // Settle to owner color
+            flashIntensity = Math.max(0, 0.3 * (1 - (t - 1.5) / 0.5));
+          }
+
+          // Keep energy at max throughout
           energyAttr.array[flash.blockIndex] = 1.0;
           energyAttr.needsUpdate = true;
 
-          // Flash white then fade to owner color
+          // Blend between brilliant gold and owner color
           const block = blockData[flash.blockIndex];
           if (block) {
             const tempColor = new THREE.Color(block.ownerColor);
-            const white = new THREE.Color(1, 1, 1);
-            const blended = white.lerp(tempColor, 1 - flashIntensity);
+            const gold = new THREE.Color(1.0, 0.85, 0.2); // brilliant gold
+            const blended = gold.lerp(tempColor, 1 - flashIntensity);
             colorAttr.array[flash.blockIndex * 3] = blended.r;
             colorAttr.array[flash.blockIndex * 3 + 1] = blended.g;
             colorAttr.array[flash.blockIndex * 3 + 2] = blended.b;

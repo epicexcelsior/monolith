@@ -57,7 +57,7 @@ const OVERVIEW_ELEVATION = 0.65;
 const OVERVIEW_AZIMUTH = Math.PI / 5;
 
 /** Drag threshold — finger must move this far to count as drag, not tap */
-const DRAG_THRESHOLD = 8;
+const DRAG_THRESHOLD = 14;
 
 /** Double-tap window (ms) */
 const DOUBLE_TAP_WINDOW = 350;
@@ -115,7 +115,7 @@ interface CameraState {
 function SceneSetup() {
   const { scene } = useThree();
   useMemo(() => {
-    scene.fog = new THREE.FogExp2(0x060610, 0.006);
+    scene.fog = new THREE.FogExp2(0x080604, 0.004);
   }, [scene]);
   return null;
 }
@@ -171,10 +171,12 @@ function CameraRig({
           hapticBlockSelect();
         }
       } else {
-        // Deselect → keep camera where it is, just clear selection
-        // (Don't fly back to overview — preserve user's zoom/orbit position)
+        // Deselect → smoothly return lookAt to tower center axis
+        // Keep current Y height for continuity, but center X/Z
+        cs.targetLookAt.set(0, cs.lookAt.y, 0);
         cs.velocityAzimuth = 0;
         cs.velocityElevation = 0;
+        cs.isTransitioning = true;
         hapticBlockDeselect();
       }
     }
@@ -211,12 +213,20 @@ function CameraRig({
       // Zoom: no momentum, no magnetics — sticks where you left it
     }
 
-    // ─── Auto-rotate when idle ──────────────────
+    // ─── Auto-rotate when idle ──────────────
     const currentTier = getZoomTier(cs.zoom);
     if (idleTime > IDLE_TIMEOUT && !selectedBlockId && !cs.isTransitioning) {
       // Rotate slower when zoomed in
       const zoomFactor = cs.zoom / ZOOM_OVERVIEW;
       cs.targetAzimuth += AUTO_ROTATE_SPEED * zoomFactor;
+
+      // Smoothly drift lookAt back toward tower center Y-axis
+      // This ensures auto-rotate always orbits around the tower,
+      // not around the last-selected block's position
+      cs.targetLookAt.x += (0 - cs.targetLookAt.x) * 0.02;
+      cs.targetLookAt.z += (0 - cs.targetLookAt.z) * 0.02;
+      // Gently return Y to tower center too
+      cs.targetLookAt.y += (TOWER_CENTER_Y - cs.targetLookAt.y) * 0.01;
     }
 
     // ─── Spring-damped interpolation ────────────
@@ -228,6 +238,12 @@ function CameraRig({
     // Clamp
     cs.elevation = Math.max(ELEVATION_MIN, Math.min(ELEVATION_MAX, cs.elevation));
     cs.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cs.zoom));
+
+    // Normalize azimuth to [-PI, PI] to prevent float precision drift
+    while (cs.azimuth > Math.PI) cs.azimuth -= Math.PI * 2;
+    while (cs.azimuth < -Math.PI) cs.azimuth += Math.PI * 2;
+    while (cs.targetAzimuth > Math.PI) cs.targetAzimuth -= Math.PI * 2;
+    while (cs.targetAzimuth < -Math.PI) cs.targetAzimuth += Math.PI * 2;
 
     // ─── Spherical → Cartesian ──────────────────
     const r = cs.zoom;
@@ -260,7 +276,7 @@ function GroundGrid() {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]}>
         <planeGeometry args={[120, 120]} />
         <meshStandardMaterial
-          color="#060610"
+          color="#080604"
           transparent
           opacity={0.9}
           roughness={0.95}
@@ -269,7 +285,7 @@ function GroundGrid() {
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]}>
         <circleGeometry args={[15, 32]} />
-        <meshBasicMaterial color="#0a1530" transparent opacity={0.6} />
+        <meshBasicMaterial color="#1a1208" transparent opacity={0.6} />
       </mesh>
     </group>
   );
@@ -306,6 +322,102 @@ function BackgroundPlane() {
     <mesh onClick={handleClick} visible={false}>
       <sphereGeometry args={[200, 8, 8]} />
       <meshBasicMaterial side={THREE.BackSide} />
+    </mesh>
+  );
+}
+
+/**
+ * Enhanced procedural sky sphere — dramatic golden Solarpunk atmosphere.
+ * Uses GLSL shader for rich gradient with subtle stars, achieving the same
+ * warm majestic feeling as an equirectangular texture but native to React Native.
+ */
+function GoldenSkybox() {
+  const skyMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: {
+        uTime: { value: 0 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPos.xyz;
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying vec3 vWorldPosition;
+        uniform float uTime;
+
+        // Simple hash for procedural stars
+        float hash(vec3 p) {
+          p = fract(p * 0.3183099 + 0.1);
+          p *= 17.0;
+          return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        void main() {
+          vec3 dir = normalize(vWorldPosition);
+          float t = dir.y * 0.5 + 0.5; // 0 = bottom, 1 = top
+
+          // Rich color stops for dramatic golden sky
+          vec3 deepBottom   = vec3(0.02, 0.015, 0.01);  // nearly black warm
+          vec3 lowerDark    = vec3(0.08, 0.05, 0.025);   // deep brown
+          vec3 horizonDeep  = vec3(0.25, 0.15, 0.06);    // rich amber-brown
+          vec3 horizonGlow  = vec3(0.55, 0.35, 0.12);    // intense golden glow
+          vec3 horizonPeak  = vec3(0.70, 0.48, 0.18);    // brilliant golden
+          vec3 midAscend    = vec3(0.45, 0.30, 0.12);    // warm copper
+          vec3 upperSky     = vec3(0.20, 0.13, 0.06);    // dark warm copper
+          vec3 topZenith    = vec3(0.06, 0.04, 0.025);   // dark warm zenith
+
+          // Smooth multi-stop gradient
+          vec3 color;
+          if (t < 0.10) {
+            color = mix(deepBottom, lowerDark, t / 0.10);
+          } else if (t < 0.25) {
+            color = mix(lowerDark, horizonDeep, (t - 0.10) / 0.15);
+          } else if (t < 0.40) {
+            color = mix(horizonDeep, horizonGlow, (t - 0.25) / 0.15);
+          } else if (t < 0.50) {
+            color = mix(horizonGlow, horizonPeak, (t - 0.40) / 0.10);
+          } else if (t < 0.62) {
+            color = mix(horizonPeak, midAscend, (t - 0.50) / 0.12);
+          } else if (t < 0.78) {
+            color = mix(midAscend, upperSky, (t - 0.62) / 0.16);
+          } else {
+            color = mix(upperSky, topZenith, (t - 0.78) / 0.22);
+          }
+
+          // Subtle stars in upper sky (above horizon)
+          if (t > 0.55) {
+            vec3 starPos = normalize(vWorldPosition) * 100.0;
+            float starVal = hash(floor(starPos));
+            // Only sparse, bright stars
+            if (starVal > 0.998) {
+              float twinkle = 0.5 + 0.5 * sin(uTime * 3.0 + starVal * 100.0);
+              float starBrightness = (starVal - 0.998) * 500.0 * twinkle;
+              color += vec3(0.9, 0.7, 0.4) * starBrightness * (t - 0.55);
+            }
+          }
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
+    });
+  }, []);
+
+  // Animate stars
+  useFrame((_, delta) => {
+    if (skyMaterial.uniforms.uTime) {
+      skyMaterial.uniforms.uTime.value += delta;
+    }
+  });
+
+  return (
+    <mesh material={skyMaterial}>
+      <sphereGeometry args={[180, 32, 32]} />
     </mesh>
   );
 }
@@ -467,7 +579,9 @@ export default function TowerScene() {
           cameraState.current.isTouching = false;
           // NOTE: isDragging stays true until next handleTouchStart.
           // This prevents onTouchEnd from triggering double-tap after drag/pinch.
-          setGestureActive(false);
+          // Safety timeout: clear gesture active after a brief delay
+          // to prevent stuck state if release event is missed
+          setTimeout(() => setGestureActive(false), 50);
 
           if (isPinching.current) {
             isPinching.current = false;
@@ -532,26 +646,27 @@ export default function TowerScene() {
           lastTouchTime={lastTouchTime}
         />
 
-        {/* ─── Lighting ─────────────────────────────── */}
-        <ambientLight intensity={0.25} color="#4444cc" />
-        <directionalLight position={[12, 30, 8]} intensity={0.8} color="#ddeeff" />
-        <directionalLight position={[-15, 15, -5]} intensity={0.35} color="#4466ff" />
+        {/* ─── Lighting (warm Solarpunk palette) ───── */}
+        <ambientLight intensity={0.3} color="#FFE8C0" />
+        <directionalLight position={[12, 30, 8]} intensity={0.9} color="#FFF0D0" />
+        <directionalLight position={[-15, 15, -5]} intensity={0.3} color="#D4A050" />
         <pointLight
           position={[0, TOWER_CENTER_Y, -20]}
-          intensity={0.6}
-          color="#00ccff"
+          intensity={0.5}
+          color="#FFB347"
           distance={60}
           decay={2}
         />
         <pointLight
           position={[0, TOWER_HEIGHT - 2, 0]}
-          intensity={1.2}
-          color="#00ffff"
+          intensity={1.0}
+          color="#FFD700"
           distance={15}
           decay={1.5}
         />
 
         {/* ─── Scene Content ────────────────────────── */}
+        <GoldenSkybox />
         <BackgroundPlane />
         <TowerGrid />
         <Particles />
@@ -564,6 +679,6 @@ export default function TowerScene() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#060610",
+    backgroundColor: "#080604",
   },
 });
