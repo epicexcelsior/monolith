@@ -3,7 +3,7 @@ import * as THREE from "three";
 /**
  * Energy → color stops for the shader color ramp.
  * Maps normalized energy (0-1) to RGB colors.
- * Solarpunk palette: warm gold/amber/copper
+ * Solarpunk palette: warm gold/amber/copper — HDR-ready.
  * Exported for testing.
  */
 export const ENERGY_COLOR_STOPS = {
@@ -31,6 +31,7 @@ const vertexShader = /* glsl */ `
   varying float vInstanceOffset;
   varying float vLayerNorm;
   varying float vWorldY;
+  varying vec3 vWorldPos;
 
   void main() {
     // Apply instance transform
@@ -44,6 +45,7 @@ const vertexShader = /* glsl */ `
     vOwnerColor = aOwnerColor;
     vLayerNorm = aLayerNorm;
     vWorldY = worldPos.y;
+    vWorldPos = worldPos.xyz;
 
     // View-space normal for fresnel (transform normal by instance rotation)
     mat3 normalMat = mat3(instanceMatrix);
@@ -77,14 +79,16 @@ const fragmentShader = /* glsl */ `
   varying float vInstanceOffset;
   varying float vLayerNorm;
   varying float vWorldY;
+  varying vec3 vWorldPos;
 
   // Energy → color ramp: warm solarpunk palette (gold/amber/copper)
+  // Returns HDR-range values for blazing blocks (>1.0)
   vec3 energyColor(float e) {
-    vec3 dead     = vec3(0.08, 0.06, 0.04);   // dark stone
-    vec3 dying    = vec3(0.4, 0.15, 0.05);     // faint ember
-    vec3 fading   = vec3(0.7, 0.35, 0.1);      // dim copper
-    vec3 thriving = vec3(0.9, 0.6, 0.15);      // warm amber
-    vec3 blazing  = vec3(1.0, 0.85, 0.2);      // brilliant gold
+    vec3 dead     = vec3(0.10, 0.07, 0.04);   // dark stone (warmer)
+    vec3 dying    = vec3(0.50, 0.22, 0.08);    // faint ember
+    vec3 fading   = vec3(0.85, 0.45, 0.14);    // dim copper
+    vec3 thriving = vec3(1.05, 0.75, 0.22);    // warm amber
+    vec3 blazing  = vec3(1.5, 1.15, 0.4);      // HDR brilliant gold (>1.0!)
 
     vec3 col = dead;
     col = mix(col, dying,    smoothstep(0.0,  0.05, e));
@@ -100,45 +104,80 @@ const fragmentShader = /* glsl */ `
 
     // Base color: blend energy ramp with owner color
     vec3 eCol = energyColor(energy);
-    vec3 baseColor = mix(vOwnerColor * 0.6, eCol, 0.65);
+    vec3 baseColor = mix(vOwnerColor * 0.55, eCol, 0.7);
+
+    // ─── Directional face shading ────────────────────
+    // Simulates proper 3D form: top bright, sides mid, bottom dark
+    vec3 N = normalize(vNormal);
+    vec3 lightDir = normalize(vec3(0.4, 0.8, 0.3));
+    float NdotL = dot(N, lightDir);
+    float faceBrightness = 0.65 + 0.35 * NdotL;
+    faceBrightness += max(0.0, N.y) * 0.15; // top-face boost
 
     // ─── Height-based tint ───────────────────────────
-    // Warm gradient: dark earth at base → golden warmth at top
     vec3 baseTint = vec3(0.06, 0.04, 0.02);
-    vec3 topTint = vec3(0.3, 0.2, 0.08);
-    vec3 heightTint = mix(baseTint, topTint, vLayerNorm);
-    baseColor += heightTint * 0.3;
+    vec3 topTint = vec3(0.4, 0.28, 0.12);
+    baseColor += mix(baseTint, topTint, vLayerNorm) * 0.3;
+
+    // ─── Shared view direction ───────────────────────
+    vec3 V = normalize(vViewDir);
+    float NdotV = max(dot(N, V), 0.0);
+
+    // ─── Specular highlight (cheap Blinn-Phong) ──────
+    // Skip for dead/low-energy blocks via multiplier
+    vec3 H = normalize(lightDir + V);
+    float specular = pow(max(dot(N, H), 0.0), 16.0) * 0.4 * step(0.1, energy);
+    specular *= (0.3 + energy * 0.7);
+    vec3 specColor = vec3(1.0, 0.9, 0.6) * specular;
 
     // ─── Fresnel rim glow ────────────────────────────
-    // Warm golden glass-panel edge glow
-    float fresnel = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewDir)), 0.0), 2.5);
-    vec3 rimColor = mix(eCol, vec3(1.0, 0.8, 0.3), 0.3) * 1.8;
-    float rimStrength = fresnel * (0.4 + energy * 0.6);
+    float fresnel = pow(1.0 - NdotV, 3.0);
+    vec3 rimTint = mix(vec3(1.0, 0.8, 0.3), eCol, 0.4);
+    float rimStrength = fresnel * (0.4 + energy * 0.9);
+
+    // ─── Ambient occlusion from edges ────────────────
+    float edgeAO = 1.0 - fresnel * 0.15;
 
     // ─── Pulse animation ─────────────────────────────
-    float pulseSpeed = 1.0 + energy * 2.5;
+    float pulseSpeed = 1.0 + energy * 3.0;
     float pulse = 0.5 + 0.5 * sin(uTime * pulseSpeed + vInstanceOffset);
-    float pulseIntensity = 0.2 + energy * 0.6;
+    float pulseIntensity = 0.12 + energy * 0.6;
 
     // ─── Vertical scanline ───────────────────────────
-    // Faint sweeping golden light line moving up the building
     float scanY = mod(uTime * 0.8, uTowerHeight + 8.0) - 4.0;
-    float scanDist = abs(vWorldY - scanY);
-    float scanLine = smoothstep(2.0, 0.0, scanDist) * 0.15;
+    float scanLine = smoothstep(2.0, 0.0, abs(vWorldY - scanY)) * 0.3;
 
     // ─── Spire glow boost ────────────────────────────
     float spireBoost = smoothstep(uSpireThreshold - 0.05, uSpireThreshold + 0.15, vLayerNorm);
-    float spireGlow = spireBoost * (0.3 + 0.4 * sin(uTime * 1.5 + vInstanceOffset * 2.0));
+    float spireGlow = spireBoost * (0.4 + 0.5 * sin(uTime * 1.5 + vInstanceOffset * 2.0));
+
+    // ─── Emissive glow (high-energy only) ────────────
+    float radiate = smoothstep(0.6, 1.0, energy) * (0.35 + 0.25 * sin(uTime * 2.0 + vInstanceOffset));
+    vec3 radiateColor = vec3(1.3, 0.9, 0.3) * radiate;
 
     // ─── Combine ─────────────────────────────────────
-    vec3 color = baseColor * (0.55 + pulse * pulseIntensity * 0.45);
-    color += rimColor * rimStrength;
-    color += vec3(1.0, 0.8, 0.3) * scanLine * energy;
-    color += eCol * spireGlow * 0.6;
+    vec3 color = baseColor * faceBrightness * edgeAO;
+    color *= (0.75 + pulse * pulseIntensity * 0.5);
+    color += rimTint * 2.5 * rimStrength;
+    color += specColor;
+    color += vec3(1.0, 0.85, 0.35) * scanLine * energy;
+    color += eCol * spireGlow * 0.7;
+    color += radiateColor;
 
-    // Dead blocks: nearly black dark stone with faint warm structure lines
+    // ─── Dead blocks: cheap grid crack pattern ───────
+    // Single fract-based grid — much cheaper than hexPattern × 3
     float deadMask = smoothstep(0.0, 0.06, energy);
-    vec3 deadColor = vec3(0.05, 0.04, 0.03) + vec3(0.04, 0.03, 0.02) * fresnel;
+    vec3 wp = vWorldPos * 2.5;
+    float crackX = smoothstep(0.44, 0.5, abs(fract(wp.x) - 0.5));
+    float crackY = smoothstep(0.44, 0.5, abs(fract(wp.y) - 0.5));
+    float crackZ = smoothstep(0.44, 0.5, abs(fract(wp.z) - 0.5));
+    float cracks = max(crackX, max(crackY, crackZ));
+
+    vec3 deadBase = vec3(0.07, 0.055, 0.04);
+    vec3 deadCrack = vec3(0.18, 0.10, 0.04);
+    vec3 deadColor = mix(deadBase, deadCrack, cracks * 0.7);
+    deadColor += vec3(0.06, 0.04, 0.02) * fresnel;
+
     color = mix(deadColor, color, deadMask);
 
     // ─── Fog ─────────────────────────────────────────
@@ -154,7 +193,13 @@ const fragmentShader = /* glsl */ `
  * Creates the custom ShaderMaterial for tower blocks.
  * Supports instanced rendering with per-block energy, owner color,
  * and layer-normalized height for gradient + spire effects.
- * Uses warm solarpunk palette (gold/amber/copper).
+ *
+ * Visual features:
+ * - HDR-range output for Blazing blocks (fake bloom without post-processing)
+ * - Intense golden fresnel rim glow
+ * - Emissive radiate effect for high-energy blocks
+ * - Visible dead blocks with structural crack lines
+ * - Warm solarpunk palette (gold/amber/copper)
  */
 export function createBlockMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -162,8 +207,8 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
     fragmentShader,
     uniforms: {
       uTime: { value: 0 },
-      uFogColor: { value: new THREE.Color(0x080604) }, // warm dark fog
-      uFogDensity: { value: 0.008 },
+      uFogColor: { value: new THREE.Color(0x1a1008) }, // warm dark fog (brighter)
+      uFogDensity: { value: 0.004 }, // half density — show more tower
       uSpireThreshold: { value: 14 / 18 }, // SPIRE_START_LAYER / layerCount
       uTowerHeight: { value: 18 * 1.3 }, // layerCount * LAYER_HEIGHT
     },

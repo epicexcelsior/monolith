@@ -1,6 +1,7 @@
 import React, { useRef, useMemo, useEffect, useCallback } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber/native";
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three-stdlib";
 import {
   DEFAULT_TOWER_CONFIG,
   BLOCK_SIZE,
@@ -134,6 +135,11 @@ export default function TowerGrid() {
     [],
   );
 
+  // Rounded block geometry — 1 segment keeps rounded look with minimal tris
+  const roundedGeometry = useMemo(() => {
+    return new RoundedBoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 1, BLOCK_SIZE * 0.1);
+  }, []);
+
   const HIT_SCALE = 1.8;
 
   // Build position layout (stable, config-based)
@@ -188,8 +194,15 @@ export default function TowerGrid() {
     blockMetaRef.current = blockData;
   }, [blockData]);
 
-  // Apply transforms (runs once when layout is ready)
+  // Apply transforms (runs once when layout is ready, resets on blockData identity change)
   const transformsApplied = useRef(false);
+  const prevBlockDataRef = useRef(blockData);
+  if (prevBlockDataRef.current !== blockData) {
+    // blockData reference changed — need to re-apply transforms
+    transformsApplied.current = false;
+    prevBlockDataRef.current = blockData;
+  }
+
   useEffect(() => {
     const mesh = meshRef.current;
     const hitMesh = hitMeshRef.current;
@@ -381,22 +394,21 @@ export default function TowerGrid() {
     }
   };
 
-  if (blockData.length === 0) return null;
+  // Don't unmount on empty blockData — keep mesh mounted to avoid losing instance state
+  const instanceCount = blockData.length || 1; // minimum 1 to avoid Three.js warnings
 
   return (
     <group>
       <instancedMesh
         ref={meshRef}
-        args={[undefined, undefined, blockData.length]}
+        args={[roundedGeometry, undefined, instanceCount]}
         frustumCulled={true}
         material={material}
-      >
-        <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
-      </instancedMesh>
+      />
 
       <instancedMesh
         ref={hitMeshRef}
-        args={[undefined, undefined, blockData.length]}
+        args={[undefined, undefined, instanceCount]}
         frustumCulled={true}
         material={hitMaterial}
         onClick={handleClick}

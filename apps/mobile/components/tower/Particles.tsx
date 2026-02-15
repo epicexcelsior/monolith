@@ -8,8 +8,8 @@ import {
   DEFAULT_TOWER_CONFIG,
 } from "@monolith/common";
 
-const PARTICLE_COUNT = 120;
-const PARTICLE_SIZE = 0.12;
+const PARTICLE_COUNT = 80;
+const PARTICLE_SIZE = 0.18;
 const TOWER_HEIGHT = DEFAULT_TOWER_CONFIG.layerCount * LAYER_HEIGHT;
 const MARGIN = 4; // extra space around the monolith
 const DRIFT_SPEED = 0.3;
@@ -43,7 +43,7 @@ const particleVertexShader = /* glsl */ `
 
     // Fade at edges
     vAlpha = smoothstep(0.0, 0.1, normalizedY) * smoothstep(1.0, 0.85, normalizedY);
-    vAlpha *= 0.3 + 0.25 * sin(uTime * 1.5 + aSeed * 15.0);
+    vAlpha *= 0.45 + 0.35 * sin(uTime * 1.5 + aSeed * 15.0);
   }
 `;
 
@@ -54,9 +54,9 @@ const particleFragmentShader = /* glsl */ `
   varying float vHeight;
 
   void main() {
-    // Color shifts from deep blue at base to bright cyan near spire
-    vec3 baseColor = vec3(0.1, 0.15, 0.6);
-    vec3 topColor = vec3(0.0, 0.85, 1.0);
+    // Color shifts from deep ember at base to bright gold near spire
+    vec3 baseColor = vec3(0.6, 0.25, 0.05);
+    vec3 topColor = vec3(1.0, 0.8, 0.25);
     vec3 color = mix(baseColor, topColor, vHeight);
 
     gl_FragColor = vec4(color, vAlpha);

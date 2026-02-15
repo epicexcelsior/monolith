@@ -115,7 +115,7 @@ interface CameraState {
 function SceneSetup() {
   const { scene } = useThree();
   useMemo(() => {
-    scene.fog = new THREE.FogExp2(0x080604, 0.004);
+    scene.fog = new THREE.FogExp2(0x1a1008, 0.003);
   }, [scene]);
   return null;
 }
@@ -171,9 +171,10 @@ function CameraRig({
           hapticBlockSelect();
         }
       } else {
-        // Deselect → smoothly return lookAt to tower center axis
-        // Keep current Y height for continuity, but center X/Z
-        cs.targetLookAt.set(0, cs.lookAt.y, 0);
+        // Deselect → smoothly return to full cinematic overview
+        cs.targetZoom = ZOOM_OVERVIEW;
+        cs.targetElevation = OVERVIEW_ELEVATION;
+        cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
         cs.velocityAzimuth = 0;
         cs.velocityElevation = 0;
         cs.isTransitioning = true;
@@ -239,13 +240,10 @@ function CameraRig({
     cs.elevation = Math.max(ELEVATION_MIN, Math.min(ELEVATION_MAX, cs.elevation));
     cs.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cs.zoom));
 
-    // Normalize azimuth to [-PI, PI] to prevent float precision drift
-    while (cs.azimuth > Math.PI) cs.azimuth -= Math.PI * 2;
-    while (cs.azimuth < -Math.PI) cs.azimuth += Math.PI * 2;
-    while (cs.targetAzimuth > Math.PI) cs.targetAzimuth -= Math.PI * 2;
-    while (cs.targetAzimuth < -Math.PI) cs.targetAzimuth += Math.PI * 2;
-
     // ─── Spherical → Cartesian ──────────────────
+    // NOTE: azimuth is NOT normalized — it grows unboundedly to prevent
+    // jumps when wrapping past ±PI. Float64 handles this for years.
+    // Only the local theta for trig is taken modulo 2PI.
     const r = cs.zoom;
     const theta = cs.azimuth;
     const phi = cs.elevation;
@@ -327,9 +325,17 @@ function BackgroundPlane() {
 }
 
 /**
- * Enhanced procedural sky sphere — dramatic golden Solarpunk atmosphere.
- * Uses GLSL shader for rich gradient with subtle stars, achieving the same
- * warm majestic feeling as an equirectangular texture but native to React Native.
+ * Golden Hour Skybox — Stunning procedural sky with atmospheric effects.
+ *
+ * Features:
+ * - Sun disk with warm corona bloom at horizon
+ * - Atmospheric scattering gradient (golden hour palette)
+ * - Procedural cloud wisps lit from below by golden light
+ * - Radial god rays from sun position
+ * - Twinkling warm starfield in upper hemisphere
+ *
+ * Performance: Single draw call, all computation in fragment shader.
+ * No textures needed — runs perfectly in React Native.
  */
 function GoldenSkybox() {
   const skyMaterial = useMemo(() => {
@@ -348,11 +354,41 @@ function GoldenSkybox() {
         }
       `,
       fragmentShader: /* glsl */ `
+        precision highp float;
         varying vec3 vWorldPosition;
         uniform float uTime;
 
-        // Simple hash for procedural stars
-        float hash(vec3 p) {
+        // ─── Noise functions for clouds ───────────────
+        float hash21(vec2 p) {
+          p = fract(p * vec2(233.34, 851.73));
+          p += dot(p, p + 23.45);
+          return fract(p.x * p.y);
+        }
+
+        float noise2D(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          float a = hash21(i);
+          float b = hash21(i + vec2(1.0, 0.0));
+          float c = hash21(i + vec2(0.0, 1.0));
+          float d = hash21(i + vec2(1.0, 1.0));
+          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+        }
+
+        float fbm(vec2 p) {
+          float val = 0.0;
+          float amp = 0.5;
+          for (int i = 0; i < 3; i++) {
+            val += amp * noise2D(p);
+            p *= 2.1;
+            amp *= 0.5;
+          }
+          return val;
+        }
+
+        // ─── Star hash ───────────────────────────────
+        float hash3D(vec3 p) {
           p = fract(p * 0.3183099 + 0.1);
           p *= 17.0;
           return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
@@ -360,47 +396,120 @@ function GoldenSkybox() {
 
         void main() {
           vec3 dir = normalize(vWorldPosition);
-          float t = dir.y * 0.5 + 0.5; // 0 = bottom, 1 = top
 
-          // Rich color stops for dramatic golden sky
-          vec3 deepBottom   = vec3(0.02, 0.015, 0.01);  // nearly black warm
-          vec3 lowerDark    = vec3(0.08, 0.05, 0.025);   // deep brown
-          vec3 horizonDeep  = vec3(0.25, 0.15, 0.06);    // rich amber-brown
-          vec3 horizonGlow  = vec3(0.55, 0.35, 0.12);    // intense golden glow
-          vec3 horizonPeak  = vec3(0.70, 0.48, 0.18);    // brilliant golden
-          vec3 midAscend    = vec3(0.45, 0.30, 0.12);    // warm copper
-          vec3 upperSky     = vec3(0.20, 0.13, 0.06);    // dark warm copper
-          vec3 topZenith    = vec3(0.06, 0.04, 0.025);   // dark warm zenith
+          // ─── Uniform latitude mapping ─────────────
+          // lat: 0 = zenith (top), 1 = nadir (bottom)
+          // This gives proper full-sphere coverage
+          float lat = acos(dir.y) / 3.14159265;
+          // horizon is at lat = 0.5
+          float aboveHorizon = smoothstep(0.52, 0.48, lat); // 1 above, 0 below
+          // Azimuthal angle for cloud UVs (non-singular)
+          float azimuth = atan(dir.x, dir.z);
 
-          // Smooth multi-stop gradient
-          vec3 color;
-          if (t < 0.10) {
-            color = mix(deepBottom, lowerDark, t / 0.10);
-          } else if (t < 0.25) {
-            color = mix(lowerDark, horizonDeep, (t - 0.10) / 0.15);
-          } else if (t < 0.40) {
-            color = mix(horizonDeep, horizonGlow, (t - 0.25) / 0.15);
-          } else if (t < 0.50) {
-            color = mix(horizonGlow, horizonPeak, (t - 0.40) / 0.10);
-          } else if (t < 0.62) {
-            color = mix(horizonPeak, midAscend, (t - 0.50) / 0.12);
-          } else if (t < 0.78) {
-            color = mix(midAscend, upperSky, (t - 0.62) / 0.16);
+          // ─── Sun position ──────────────────────────
+          vec3 sunDir = normalize(vec3(0.3, 0.08, -1.0));
+          float sunAngle = max(dot(dir, sunDir), 0.0);
+
+          // ─── Sky gradient (full sphere) ────────────
+          vec3 zenithColor    = vec3(0.08, 0.055, 0.035);    // deep warm dark
+          vec3 upperSky       = vec3(0.22, 0.14, 0.07);      // dark warm amber
+          vec3 midSky         = vec3(0.55, 0.32, 0.12);      // warm copper
+          vec3 horizonPeak    = vec3(1.0, 0.72, 0.28);       // brilliant warm gold
+          vec3 horizonGlow    = vec3(0.85, 0.55, 0.18);      // intense golden glow
+          vec3 horizonWarm    = vec3(0.35, 0.18, 0.06);      // rich amber
+          vec3 belowHorizon   = vec3(0.12, 0.07, 0.03);      // warm dark below
+          vec3 nadirColor     = vec3(0.04, 0.025, 0.015);    // deepest bottom
+
+          // Multi-stop gradient across full sphere
+          vec3 skyColor;
+          if (lat < 0.08) {
+            // Zenith zone
+            skyColor = mix(zenithColor, upperSky, lat / 0.08);
+          } else if (lat < 0.22) {
+            skyColor = mix(upperSky, midSky, (lat - 0.08) / 0.14);
+          } else if (lat < 0.35) {
+            skyColor = mix(midSky, horizonPeak, (lat - 0.22) / 0.13);
+          } else if (lat < 0.45) {
+            // Near horizon — brightest
+            skyColor = mix(horizonPeak, horizonGlow, (lat - 0.35) / 0.10);
+          } else if (lat < 0.55) {
+            // Horizon band
+            skyColor = mix(horizonGlow, horizonWarm, (lat - 0.45) / 0.10);
+          } else if (lat < 0.68) {
+            // Below horizon — warm falloff
+            skyColor = mix(horizonWarm, belowHorizon, (lat - 0.55) / 0.13);
           } else {
-            color = mix(upperSky, topZenith, (t - 0.78) / 0.22);
+            // Deep below — fade to nadir
+            skyColor = mix(belowHorizon, nadirColor, (lat - 0.68) / 0.32);
           }
 
-          // Subtle stars in upper sky (above horizon)
-          if (t > 0.55) {
-            vec3 starPos = normalize(vWorldPosition) * 100.0;
-            float starVal = hash(floor(starPos));
-            // Only sparse, bright stars
-            if (starVal > 0.998) {
-              float twinkle = 0.5 + 0.5 * sin(uTime * 3.0 + starVal * 100.0);
-              float starBrightness = (starVal - 0.998) * 500.0 * twinkle;
-              color += vec3(0.9, 0.7, 0.4) * starBrightness * (t - 0.55);
+          // ─── Sun disk + corona ─────────────────────
+          float sunDisk = pow(sunAngle, 400.0) * 3.0;
+          vec3 sunColor = vec3(1.0, 0.9, 0.5);
+
+          float corona = pow(sunAngle, 8.0) * 0.8;
+          vec3 coronaColor = vec3(1.0, 0.65, 0.2);
+
+          float atmoGlow = pow(sunAngle, 2.5) * 0.35;
+          vec3 atmoColor = vec3(0.9, 0.5, 0.15);
+
+          // ─── God rays (2 octaves, above horizon) ───
+          float rayAngle = atan(dir.x - sunDir.x, dir.z - sunDir.z);
+          float rays = 0.0;
+          for (float i = 1.0; i <= 2.0; i += 1.0) {
+            float freq = 6.0 * i;
+            float ray = pow(max(sin(rayAngle * freq + uTime * 0.05 * i), 0.0), 12.0);
+            ray *= pow(sunAngle, 3.0) * (0.15 / i);
+            rays += ray;
+          }
+          vec3 rayColor = vec3(1.0, 0.7, 0.25) * rays * aboveHorizon;
+
+          // ─── Procedural clouds (single layer, azimuthal UVs) ──
+          vec2 cloudUV = vec2(azimuth * 1.5, lat * 6.0);
+          cloudUV += uTime * 0.008;
+
+          float cloudNoise = fbm(cloudUV * 1.5);
+          // Clouds across upper sky
+          float cloudMask = smoothstep(0.10, 0.25, lat) * smoothstep(0.50, 0.30, lat);
+          float clouds = smoothstep(0.35, 0.7, cloudNoise) * cloudMask * 0.7;
+
+          // Cloud color: lit from below by golden sun
+          vec3 cloudLitColor = mix(
+            vec3(0.6, 0.35, 0.12),
+            vec3(1.0, 0.75, 0.3),
+            pow(sunAngle, 1.5) * 0.5 + 0.5
+          );
+
+          // ─── Stars (upper sky only) ────────────────
+          vec3 starContrib = vec3(0.0);
+          if (lat < 0.3) {
+            vec3 starPos = dir * 80.0;
+            float starVal = hash3D(floor(starPos));
+            if (starVal > 0.997) {
+              float twinkle = 0.5 + 0.5 * sin(uTime * 2.5 + starVal * 80.0);
+              float brightness = (starVal - 0.997) * 333.0 * twinkle;
+              float starFade = smoothstep(0.3, 0.12, lat);
+              starContrib = vec3(1.0, 0.85, 0.5) * brightness * starFade;
             }
           }
+
+          // ─── Combine everything ────────────────────
+          vec3 color = skyColor;
+
+          // Sun + corona + atmospheric glow
+          float sunVis = smoothstep(0.58, 0.48, lat);
+          color += sunColor * sunDisk * sunVis;
+          color += coronaColor * corona * sunVis;
+          color += atmoColor * atmoGlow * sunVis;
+
+          // God rays
+          color += rayColor;
+
+          // Blend clouds
+          color = mix(color, cloudLitColor, clouds);
+
+          // Stars (visible through gaps in clouds)
+          color += starContrib * (1.0 - clouds);
 
           gl_FragColor = vec4(color, 1.0);
         }
@@ -408,7 +517,7 @@ function GoldenSkybox() {
     });
   }, []);
 
-  // Animate stars
+  // Animate
   useFrame((_, delta) => {
     if (skyMaterial.uniforms.uTime) {
       skyMaterial.uniforms.uTime.value += delta;
@@ -417,7 +526,7 @@ function GoldenSkybox() {
 
   return (
     <mesh material={skyMaterial}>
-      <sphereGeometry args={[180, 32, 32]} />
+      <sphereGeometry args={[500, 32, 32]} />
     </mesh>
   );
 }
@@ -646,22 +755,20 @@ export default function TowerScene() {
           lastTouchTime={lastTouchTime}
         />
 
-        {/* ─── Lighting (warm Solarpunk palette) ───── */}
-        <ambientLight intensity={0.3} color="#FFE8C0" />
-        <directionalLight position={[12, 30, 8]} intensity={0.9} color="#FFF0D0" />
-        <directionalLight position={[-15, 15, -5]} intensity={0.3} color="#D4A050" />
-        <pointLight
-          position={[0, TOWER_CENTER_Y, -20]}
-          intensity={0.5}
-          color="#FFB347"
-          distance={60}
-          decay={2}
-        />
+        {/* ─── Lighting (warm golden radiance, optimized) ── */}
+        <ambientLight intensity={0.45} color="#FFE8C0" />
+        {/* Hemisphere: golden sky + warm earth fill — replaces multiple fill lights */}
+        <hemisphereLight args={['#FFD080', '#3D2010', 0.5]} />
+        {/* Main key light */}
+        <directionalLight position={[12, 30, 8]} intensity={1.4} color="#FFF0D0" />
+        {/* Warm fill from side */}
+        <directionalLight position={[-15, 15, -5]} intensity={0.5} color="#D4A050" />
+        {/* Spire crown glow */}
         <pointLight
           position={[0, TOWER_HEIGHT - 2, 0]}
-          intensity={1.0}
+          intensity={2.0}
           color="#FFD700"
-          distance={15}
+          distance={18}
           decay={1.5}
         />
 
@@ -679,6 +786,6 @@ export default function TowerScene() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#080604",
+    backgroundColor: "#0d0804",
   },
 });
