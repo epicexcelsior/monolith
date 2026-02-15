@@ -63,8 +63,8 @@ If there are any issues, blockers, or things the user should be aware of, surfac
 Before declaring wrapup complete, check if changes are properly staged/committed:
 
 ```bash
-git status --short
-git log --oneline -1
+timeout 10 git status --short
+timeout 10 git log --oneline -1
 ```
 
 If files are staged but not committed, attempt commit. If the commit command hangs for >10 seconds, verify it succeeded anyway by checking `git log -1` — git commits can succeed even when the terminal doesn't return to prompt.

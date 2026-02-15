@@ -33,14 +33,14 @@ If any checks fail, fix the issues before proceeding. Skip checks that aren't re
 First, get a compact summary of what's changing:
 
 ```bash
-git status
-git diff --stat
+timeout 10 git status
+timeout 10 git diff --stat
 ```
 
 Then review the actual changes if needed:
 
 ```bash
-git diff
+timeout 10 git diff
 ```
 
 Ensure:
@@ -54,8 +54,8 @@ If there are other uncommitted changes the user should be aware of, mention them
 ## 3. Stage and Commit
 
 ```bash
-git add <relevant files>
-git commit -m "<type>: <concise description>
+timeout 10 git add <relevant files>
+timeout 15 git commit -m "<type>: <concise description>
 
 <optional body with details>"
 ```
@@ -69,8 +69,8 @@ Write adequate descriptions — the commit message should explain **what** chang
 After attempting commit, verify it succeeded even if the terminal hung:
 
 ```bash
-git log --oneline -1
-git status --short
+timeout 10 git log --oneline -1
+timeout 10 git status --short
 ```
 
 If `git log` shows the new commit but terminal hung:
@@ -80,7 +80,7 @@ If `git log` shows the new commit but terminal hung:
 ## 4. Push
 
 ```bash
-git push origin <current-branch>
+timeout 30 git push origin <current-branch>
 ```
 
 If using WSL, prefer `git push` directly. Fall back to `gh` CLI if git credentials aren't configured.
