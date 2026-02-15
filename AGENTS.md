@@ -4,6 +4,55 @@ This file documents important lessons, gotchas, and discoveries for future devel
 
 ## Recent Lessons Learned
 
+### 2026-02-15: R3F InstancedMesh — Always Use Child Geometry for Raycasting
+
+**Problem**: Passing geometry via `args` on `<instancedMesh args={[geometry, undefined, count]} />` (self-closing) breaks R3F raycasting/onClick. Blocks become unclickable.
+
+**Solution**: Always use child `<boxGeometry>` or `<meshGeometry>` for the click-handling hit mesh:
+```tsx
+// ✅ Works — child geometry enables raycasting
+<instancedMesh ref={hitRef} args={[undefined, undefined, count]} onClick={handleClick}>
+  <boxGeometry args={[size, size, size]} />
+</instancedMesh>
+
+// ❌ Broken — geometry via args breaks raycasting
+<instancedMesh args={[myGeometry, undefined, count]} onClick={handleClick} />
+```
+Visual-only instanced meshes can safely use `args` geometry (e.g., `RoundedBoxGeometry`).
+
+### 2026-02-15: Mobile 3D Performance Budget — Shader ALU > Triangles > Lights
+
+**Lesson**: On mobile GPUs, the performance priority order is:
+1. **Fragment shader ALU ops** — most expensive. Hex pattern function called 3× per dead block fragment was the biggest cost. Replace with simple `fract()`-based cracks.
+2. **Triangle count** — RoundedBoxGeometry(segments=2) = ~96 tris/block × 650 blocks = 62K. Segments=1 halves it with same visual.
+3. **Light count** — each extra light adds per-fragment cost. Hemisphere light replaces 2-3 fill lights at once.
+4. **Texture/noise lookups** — FBM with 4 octaves costs 25% more than 3, for <6% visual return.
+5. **Particle count** — transparent blended objects especially expensive. 120→80 particles saves draw overhead.
+
+### 2026-02-15: Camera State Must Fully Reset on Block Deselect
+
+**Problem**: When closing a block viewer, only the lookAt X/Z were reset but zoom stayed at `ZOOM_BLOCK` distance — camera clipped inside tower.
+
+**Solution**: On deselect, reset ALL camera targets to overview state — zoom, elevation, and lookAt — not just the center position:
+```typescript
+// ✅ Full reset
+cs.targetZoom = ZOOM_OVERVIEW;
+cs.targetElevation = OVERVIEW_ELEVATION;
+cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
+cs.isTransitioning = true;
+```
+
+### 2026-02-15: Azimuth Normalization Causes Rotation Jumps
+
+**Problem**: Independently normalizing `azimuth` and `targetAzimuth` to `[-PI, PI]` every frame causes visible camera snaps when one wraps while the other doesn't.
+
+**Solution**: Let azimuth grow unboundedly. Float64 handles years of continuous rotation. Only use a local copy for `Math.sin()/Math.cos()`:
+```typescript
+const theta = cs.azimuth; // local copy for trig only
+camera.position.x = Math.sin(theta) * radius;
+```
+
+
 ### 2026-02-13: Design System Work Should Follow Interview → Plan → Build → Migrate
 
 **Pattern**: Instead of jumping into code, run a structured design interview first (10 questions covering aesthetic, typography, components, navigation, animations). This produces a specification that makes the build phase trivial.
