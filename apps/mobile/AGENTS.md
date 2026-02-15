@@ -99,6 +99,21 @@ hapticError();            // Warning notification
 
 See [`/docs/design/HAPTICS.md`](/docs/design/HAPTICS.md) for the full spec.
 
+### 9. Game-First Language
+
+All user-facing text must use game terminology, not financial language:
+
+| ❌ Finance Term | ✅ Game Term |
+|---|---|
+| Deposit | Add Fuel ⛽ |
+| Withdraw | Extract 📤 |
+| Vault | Tower |
+| User | Keeper |
+| Balance | Fuel |
+| Energy level | Charge |
+
+Financial details (TVL, amounts) should be de-emphasized — shown in small text, behind collapsible sections, or in secondary views.
+
 ## Project Structure
 
 ```
@@ -143,5 +158,8 @@ Before finishing any UI work, verify:
 - **2026-02-13**: This is a **pnpm monorepo** (`pnpm@10.13.1`). Never use `npm install` or `npx expo install` — they will hang or conflict. Always use `pnpm add --filter @monolith/mobile <pkg>` for mobile dependencies. Root config: `.npmrc` has `node-linker=hoisted` and `shamefully-hoist=true`.
 - **2026-02-13**: `tsc --noEmit` has ~600 pre-existing errors across the monorepo (Anchor test types, module resolution). These are not caused by UI work and should not block commits. Use `--skipLibCheck` and `timeout 90` to prevent hanging. Scope to mobile: `pnpm --filter @monolith/mobile exec tsc --noEmit --skipLibCheck`.
 - **2026-02-13**: Several screens (`deposit.tsx`, `withdraw.tsx`, `blocks.tsx`, `BlockInspector.tsx`) were already migrated to the solarpunk design system in prior conversations. Always check current file state before rewriting — a `grep` for hardcoded hex is faster than re-reading every file.
-
+- **2026-02-14**: **Game-first language** — The GDD mandates "Game first. Finance is the engine." User-facing text should use game terms: "Add Fuel ⛽" not "Deposit USDC", "Extract 📤" not "Withdraw", "Keeper" not "User", "Charge" not "Energy level". Financial details (TVL, vault balance) should be de-emphasized or hidden behind collapsible sections.
+- **2026-02-14**: **Tab bar safe area** — Always use `useSafeAreaInsets()` for tab bar bottom padding: `paddingBottom: Math.max(insets.bottom, 8)`. Hardcoded `paddingBottom: 8` causes tabs to overlap the system gesture bar on notched devices (Seeker, modern iPhones).
+- **2026-02-14**: **Swipe-to-dismiss pattern** — Bottom panels (BlockInspector, BottomPanel) should support drag-to-close via `PanResponder`. Threshold: drag >80px or velocity >0.5 → dismiss. Use `Animated.add(slideAnim, dragOffset)` to combine slide + drag transforms. Reset `dragOffset` on panel close.
+- **2026-02-14**: **Background commands for slow operations** — `tsc` takes ~2min in this monorepo; `git add` with large binaries (6MB icons) can take minutes. Always use `WaitMsBeforeAsync: 500` and poll with `command_status` + long `WaitDurationSeconds` instead of synchronous timeouts.
 
