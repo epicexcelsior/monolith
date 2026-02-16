@@ -18,3 +18,5 @@ export { default as ScreenLayout } from "./ScreenLayout";
 export { default as ColorPicker } from "./ColorPicker";
 export { default as ClaimModal } from "./ClaimModal";
 export { default as OnboardingOverlay } from "./OnboardingOverlay";
+export { default as ActionPrompt } from "./ActionPrompt";
+export { default as TowerStats } from "./TowerStats";

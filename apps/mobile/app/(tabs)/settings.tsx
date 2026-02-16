@@ -24,6 +24,7 @@ export default function MeScreen() {
   const truncatedAddress = useTruncatedAddress();
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const selectBlock = useTowerStore((s) => s.selectBlock);
+  const resetTower = useTowerStore((s) => s.resetTower);
   const cluster = getClusterName();
   const [showSettings, setShowSettings] = useState(false);
 
@@ -220,6 +221,27 @@ export default function MeScreen() {
               <Text style={[TEXT.bodySm, { fontWeight: "600" }]}>1.0.0 — Hackathon MVP</Text>
             </View>
           </Card>
+          <Button
+            title="Reset Tower (Dev)"
+            variant="secondary"
+            onPress={() => {
+              Alert.alert(
+                "Reset Tower",
+                "This re-seeds all bot blocks. Your claimed blocks will be lost. Continue?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Reset",
+                    style: "destructive",
+                    onPress: async () => {
+                      await resetTower();
+                      Alert.alert("Done", "Tower re-seeded with fresh bots.");
+                    },
+                  },
+                ],
+              );
+            }}
+          />
           <Button
             title={isLoading ? "Disconnecting..." : "Disconnect Wallet"}
             variant="danger"

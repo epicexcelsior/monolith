@@ -284,6 +284,7 @@ export function useStaking() {
     const fetchTowerState = useCallback(async (): Promise<TowerInfo | null> => {
         try {
             const [towerPda] = getTowerPda();
+            console.log(TAG, "Fetching TowerState at:", towerPda.toBase58());
             const accountInfo = await connection.getAccountInfo(towerPda, "confirmed");
             if (!accountInfo) {
                 console.log(TAG, "TowerState account not found");
@@ -300,7 +301,7 @@ export function useStaking() {
             console.log(TAG, "✅ TowerState:", JSON.stringify(info));
             return info;
         } catch (err: any) {
-            console.error(TAG, "❌ fetchTowerState error:", err?.message);
+            console.error(TAG, "❌ fetchTowerState error:", err?.message, "| RPC:", connection.rpcEndpoint);
             return null;
         }
     }, []);
@@ -315,6 +316,7 @@ export function useStaking() {
 
             try {
                 const [userDepositPda] = getUserDepositPda(userKey);
+                console.log(TAG, "Fetching UserDeposit at:", userDepositPda.toBase58(), "for user:", userKey.toBase58());
                 const accountInfo = await connection.getAccountInfo(userDepositPda, "confirmed");
                 if (!accountInfo) {
                     console.log(TAG, "UserDeposit not found — user hasn't deposited yet");
@@ -330,7 +332,7 @@ export function useStaking() {
                 console.log(TAG, "✅ UserDeposit:", JSON.stringify(info));
                 return info;
             } catch (err: any) {
-                console.error(TAG, "❌ fetchUserDeposit error:", err?.message);
+                console.error(TAG, "❌ fetchUserDeposit error:", err?.message, "| RPC:", connection.rpcEndpoint);
                 return null;
             }
         },

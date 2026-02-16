@@ -10,7 +10,14 @@ import { Connection, clusterApiUrl } from "@solana/web3.js";
 const NETWORK = process.env.EXPO_PUBLIC_SOLANA_NETWORK || "devnet";
 const RPC_URL =
   process.env.EXPO_PUBLIC_SOLANA_RPC_URL ||
-  "https://solana-devnet.g.alchemy.com/v2/iZggasNITBS_glMXEkk8u";
+  "https://api.devnet.solana.com";
+
+if (!process.env.EXPO_PUBLIC_SOLANA_RPC_URL) {
+  console.warn(
+    "[Solana] No EXPO_PUBLIC_SOLANA_RPC_URL set — using public devnet RPC. " +
+    "Set this in .env for a faster/more reliable RPC.",
+  );
+}
 
 /**
  * Singleton Solana connection.

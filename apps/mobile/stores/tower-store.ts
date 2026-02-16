@@ -8,14 +8,19 @@ import type {
   Player,
 } from "@monolith/common";
 import { DEFAULT_TOWER_CONFIG, MAX_ENERGY } from "@monolith/common";
-import { generateSeedTower } from "@/utils/seed-tower";
+import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
 
 // ─── Storage Helpers ──────────────────────────────────────
 // Uses expo-file-system for large tower data (650+ blocks JSON)
 // Uses expo-secure-store for small flags (onboarding)
 
 const TOWER_FILE = `${FileSystem.documentDirectory}tower-state.json`;
+const TOWER_VERSION_KEY = "monolith_tower_version";
 const ONBOARDING_KEY = "monolith_onboarding_done";
+
+// Bump this whenever the seed algorithm changes to force a re-seed.
+// Users who already have persisted data will get the new bots on next launch.
+const CURRENT_TOWER_VERSION = "2";
 
 async function readTowerFile(): Promise<string | null> {
   try {
@@ -142,6 +147,8 @@ interface TowerStore {
   customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
+  startBotSimulation: () => () => void;
+  resetTower: () => Promise<void>;
   clearRecentlyClaimed: () => void;
   completeOnboarding: () => void;
 
@@ -209,30 +216,45 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     try {
       const onboardingFlag = await getOnboardingFlag();
 
-      const stored = await readTowerFile();
-      if (stored) {
-        const parsed = JSON.parse(stored) as DemoBlock[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          set({
-            demoBlocks: parsed,
-            initialized: true,
-            onboardingDone: onboardingFlag,
-          });
-          return;
+      // Check if persisted tower matches current seed version.
+      // If the bot system was upgraded, we re-seed to get new personas/neighborhoods.
+      let storedVersion: string | null = null;
+      try {
+        storedVersion = await SecureStore.getItemAsync(TOWER_VERSION_KEY);
+      } catch { /* ignore */ }
+
+      const needsReseed = storedVersion !== CURRENT_TOWER_VERSION;
+
+      if (!needsReseed) {
+        const stored = await readTowerFile();
+        if (stored) {
+          const parsed = JSON.parse(stored) as DemoBlock[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            set({
+              demoBlocks: parsed,
+              initialized: true,
+              onboardingDone: onboardingFlag,
+            });
+            return;
+          }
         }
       }
 
-      // First launch: seed the tower
-      const seeded = generateSeedTower(42);
+      // First launch or version bump: seed the tower with enhanced bots
+      console.log(`[TowerStore] Seeding tower (version ${CURRENT_TOWER_VERSION})`);
+      const seeded = generateSeedTower();
       set({
         demoBlocks: seeded,
         initialized: true,
         onboardingDone: onboardingFlag,
       });
       await writeTowerFile(JSON.stringify(seeded));
+      try {
+        await SecureStore.setItemAsync(TOWER_VERSION_KEY, CURRENT_TOWER_VERSION);
+      } catch { /* ignore */ }
     } catch (err) {
       console.error("[TowerStore] initTower error:", err);
-      const seeded = generateSeedTower(42);
+      const seeded = generateSeedTower();
       set({ demoBlocks: seeded, initialized: true });
     }
   },
@@ -349,6 +371,23 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       get().decayTick();
     }, DEMO_DECAY_INTERVAL_MS);
     return () => clearInterval(interval);
+  },
+
+  startBotSimulation: () => {
+    if (!getBotConfig().simulation.enabled) return () => {};
+    return startBotSim(
+      () => get().demoBlocks,
+      (blockId, changes) => get().updateDemoBlock(blockId, changes),
+    );
+  },
+
+  resetTower: async () => {
+    const seeded = generateSeedTower();
+    set({ demoBlocks: seeded });
+    await writeTowerFile(JSON.stringify(seeded));
+    try {
+      await SecureStore.setItemAsync(TOWER_VERSION_KEY, CURRENT_TOWER_VERSION);
+    } catch { /* ignore */ }
   },
 
   clearRecentlyClaimed: () => set({ recentlyClaimedId: null }),

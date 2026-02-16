@@ -12,11 +12,19 @@
 
 **Demo sentence:** *"I stake $1 → my block lights up on the tower → I customize it → I see other people's blocks around mine → I keep it charged to stay visible → I share my spot on X."*
 
-**The feeling:** It's your tiny piece of a living digital city. You built something. It's visible. Other people can see it. And if you stop caring, it fades.
+**The feeling:** It's your tiny piece of a living digital monument. You built something. It's visible. Other people can see it. And if you stop caring, someone takes your spot.
 
 **Genre:** Massively Multiplayer Idle Economy / Spatial Status Game
 
 **Comparable to:** r/Place + Clash of Clans + a DeFi dashboard, in 3D.
+
+### Design Pillars (decided 2026-02-16)
+
+1. **Admire from outside.** The tower is a monument you look AT, not live inside. The aggregate view — all blocks glowing, fading, pulsing — is the product. The surface tells a visual story. Projects and communities coordinate blocks to form patterns and branding on the tower surface.
+
+2. **Territory > streaks.** Losing your streak is painful because you lose your SPOT, not just a number. Dormant blocks become claimable. Your location on the tower is your real asset. Prime positions (top floors, center of neighborhoods) are worth fighting for.
+
+3. **650 blocks, evenly spaced, visually polished.** Quality over quantity for MVP. Every block should be clearly visible, evenly distributed, and the tower should look complete and intentional from any angle.
 
 ---
 
@@ -90,8 +98,11 @@ Consecutive daily taps on the same block build a streak multiplier on the Daily 
 | Day 7+ | 2.0x | +40 |
 | Day 30+ | 3.0x | +60 |
 
-> [!NOTE]
-> Breaking a streak **only resets the multiplier**. You don't lose your block, your Charge, or your customization. This is critical: fear of losing the streak drives daily returns, but the punishment for breaking it is mild.
+> [!IMPORTANT]
+> **Competitive streak loss (design decision 2026-02-16):**
+> Breaking a streak resets your multiplier to 1x. If your block hits 0 Charge and stays Dormant for 3+ days, **it becomes claimable by other players**. You lose your spot. This is intentional — territory is the real asset, not the streak number. The fear of losing your *location* is the strongest re-engagement hook.
+>
+> Players who lose their block can always claim a new one elsewhere. Their lifetime stats (total days, blocks held, peak streak) persist on their profile as proof of history.
 
 ### 3.4 Charge Decay Rate (Configurable)
 

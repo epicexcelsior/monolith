@@ -10,6 +10,8 @@ import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
 import LayerIndicator from "@/components/ui/LayerIndicator";
 import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
+import ActionPrompt from "@/components/ui/ActionPrompt";
+import TowerStats from "@/components/ui/TowerStats";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
@@ -23,6 +25,7 @@ export default function TowerScreen() {
 
   const initTower = useTowerStore((s) => s.initTower);
   const startDecayLoop = useTowerStore((s) => s.startDecayLoop);
+  const startBotSimulation = useTowerStore((s) => s.startBotSimulation);
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
 
@@ -32,12 +35,16 @@ export default function TowerScreen() {
     initAudio(); // Fire-and-forget audio pre-load
   }, [initTower]);
 
-  // Start decay loop once tower is initialized
+  // Start decay loop + bot simulation once tower is initialized
   useEffect(() => {
     if (!initialized) return;
-    const cleanup = startDecayLoop();
-    return cleanup;
-  }, [initialized, startDecayLoop]);
+    const cleanupDecay = startDecayLoop();
+    const cleanupBots = startBotSimulation();
+    return () => {
+      cleanupDecay();
+      cleanupBots();
+    };
+  }, [initialized, startDecayLoop, startBotSimulation]);
 
   return (
     <View style={styles.container}>
@@ -74,17 +81,25 @@ export default function TowerScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Tower stats bar */}
+        {initialized && <TowerStats />}
+
+        {/* Spacer to push bottom content down */}
+        <View style={{ flex: 1 }} />
 
         {/* Bottom hint */}
         <View style={styles.bottomArea}>
           <Text style={styles.hintText}>
-            Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Double-tap to reset
+            Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Tap a block to inspect
           </Text>
         </View>
       </View>
 
       {/* Layer Indicator */}
       <LayerIndicator />
+
+      {/* Contextual action prompt */}
+      {initialized && onboardingDone && <ActionPrompt />}
 
       {/* Block Inspector panel */}
       <BlockInspector />

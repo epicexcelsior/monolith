@@ -1,0 +1,123 @@
+---
+description: Audit 3D tower performance. Run when modifying shaders, geometry, lighting, or particles.
+---
+
+# 3D Performance Audit
+
+Run this checklist whenever you modify files in `components/tower/` — especially shaders, geometry, lighting, or particles. Mobile GPU budgets are tight; every change has a cost.
+
+## 1. Geometry Budget
+
+Check triangle counts for instanced meshes. With ~650 blocks, geometry cost multiplies fast.
+
+| Geometry | Approx Tris/Instance | Budget |
+|---|---|---|
+| BoxGeometry | 12 | ✅ Cheapest |
+| RoundedBoxGeometry(segments=1) | ~24 | ✅ Good balance |
+| RoundedBoxGeometry(segments=2) | ~96 | ⚠️ Gets expensive at scale |
+| RoundedBoxGeometry(segments=3+) | ~216+ | ❌ Too many for 650 instances |
+
+**Rule**: Total scene triangles should stay under ~25K for smooth 60fps on mid-range mobile.
+
+```bash
+# Quick grep to check geometry params
+grep -n "RoundedBoxGeometry\|BoxGeometry\|sphereGeometry\|SphereGeometry" apps/mobile/components/tower/*.tsx
+```
+
+## 2. Shader Complexity
+
+Fragment shaders run per-pixel per-object. On a 1080p screen, that's millions of invocations.
+
+**Cost hierarchy** (most to least expensive):
+1. `pow()` with high exponents (>32) — use lower exponents or approximations
+2. Noise/FBM loops — each octave = full noise eval. Max 3 octaves for mobile
+3. `sin()`/`cos()` — moderate cost, avoid in tight loops
+4. `smoothstep()` — cheap, prefer over `pow()` for soft transitions
+5. `step()`/`clamp()`/`mix()` — essentially free
+
+**Check for red flags:**
+```bash
+# Count expensive operations in shaders
+grep -c "pow\|fbm\|noise\|hexPattern" apps/mobile/components/tower/BlockShader.ts
+grep -c "pow\|fbm\|noise" apps/mobile/components/tower/TowerScene.tsx
+```
+
+**Rules**:
+- No function called 3+ times per fragment (e.g., old hexPattern × 3 was costly)
+- Skip expensive ops for dead/low-energy blocks using `step()` guards
+- Use `step(0.1, energy)` to zero out specular/glow on dead blocks — avoids computing effects that contribute nothing visually
+
+## 3. Light Count
+
+Each additional light = extra per-fragment computation for every lit object.
+
+```bash
+# Count lights in scene
+grep -c "Light\|light" apps/mobile/components/tower/TowerScene.tsx
+```
+
+**Budget**: Max 5 lights total for mobile.
+
+| Light Type | Cost | Notes |
+|---|---|---|
+| ambientLight | Free | No per-fragment cost |
+| hemisphereLight | Very cheap | Replaces 2-3 fill/bounce lights |
+| directionalLight | Moderate | 1 key + 1 fill is ideal |
+| pointLight | Expensive | Use sparingly, set `distance` and `decay` |
+| spotLight | Most expensive | Avoid on mobile |
+
+**Tip**: A single `hemisphereLight` replaces ground bounce + back-rim + ambient fill lights.
+
+## 4. Particle Count
+
+Transparent blended objects are especially expensive on mobile GPUs (no early-Z rejection).
+
+```bash
+grep "PARTICLE_COUNT" apps/mobile/components/tower/Particles.tsx
+```
+
+**Budget**: 60-80 particles max. Over 100 causes visible frame drops on mid-range devices.
+
+## 5. Skybox Cost
+
+The skybox shader runs for every visible sky pixel — often 30-50% of the screen.
+
+**Check**:
+- FBM octaves: max 3 (grep for `for.*int i.*<`)
+- Cloud layers: max 1 (each layer = 1 FBM call = 3 noise evals)
+- God ray loop iterations: max 2
+- Star computation: must be behind an `if (lat < threshold)` guard
+
+## 6. R3F / Three.js Settings
+
+```bash
+# Check Canvas config
+grep -A5 "Canvas" apps/mobile/components/tower/TowerScene.tsx | head -10
+```
+
+**Ensure**:
+- `antialias: false` — huge perf win on mobile
+- `alpha: false` — avoids compositing overhead
+- `powerPreference: "high-performance"` — requests dedicated GPU
+- `frustumCulled={true}` on instanced meshes
+
+## 7. InstancedMesh Raycasting
+
+> ⚠️ **Critical gotcha**: Passing geometry via `args` on `<instancedMesh>` breaks R3F raycasting. Always use child `<boxGeometry>` for click-handling meshes.
+
+```bash
+# Verify hit meshes use child geometry, not args
+grep -A3 "hitMesh\|onClick" apps/mobile/components/tower/TowerGrid.tsx
+```
+
+## 8. Summary Checklist
+
+After reviewing, confirm:
+- [ ] Total geometry < 25K tris
+- [ ] No shader function called 3+ times per fragment
+- [ ] FBM ≤ 3 octaves, ≤ 1 cloud layer
+- [ ] ≤ 5 scene lights
+- [ ] ≤ 80 particles
+- [ ] antialias: false, alpha: false
+- [ ] Hit meshes use child geometry for raycasting
+- [ ] Expensive shader ops guarded by energy level

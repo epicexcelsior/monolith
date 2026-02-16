@@ -300,9 +300,12 @@ export default function BlockInspector() {
 
             {/* ─── Action Buttons ─────────────────── */}
 
-            {/* Unclaimed block: Show Claim button */}
+            {/* Unclaimed block: Show Claim button + hint */}
             {isUnclaimed && (
               <View style={styles.actionSection}>
+                <Text style={styles.hintText}>
+                  Stake USDC to make this block yours. Your money earns yield while it glows.
+                </Text>
                 {isWalletConnected ? (
                   <Button
                     title="Claim This Block"
@@ -327,6 +330,11 @@ export default function BlockInspector() {
             {/* Owned block: Charge + Customize + Share */}
             {isOwner && (
               <View style={styles.actionSection}>
+                {block.energy < 50 && (
+                  <Text style={styles.hintText}>
+                    Your block is losing charge! Tap to recharge and protect your streak.
+                  </Text>
+                )}
                 <Button
                   title={cooldownText || "CHARGE"}
                   variant="primary"
@@ -414,12 +422,22 @@ export default function BlockInspector() {
               </View>
             )}
 
-            {/* Bot-owned block info */}
+            {/* Other player's block info */}
             {!isUnclaimed && !isOwner && block.owner && (
               <View style={styles.actionSection}>
                 <Text style={styles.botOwnerText}>
-                  Owned by {block.owner}
+                  Owned by {block.name || truncateAddress(block.owner)}
                 </Text>
+                {block.energy < 30 && (
+                  <Text style={styles.hintText}>
+                    This block is fading... find an unclaimed one nearby to claim!
+                  </Text>
+                )}
+                {block.energy >= 80 && (
+                  <Text style={styles.hintText}>
+                    This keeper is active! Can you keep your block brighter?
+                  </Text>
+                )}
               </View>
             )}
           </ScrollView>
@@ -570,6 +588,18 @@ const styles = StyleSheet.create({
     ...TEXT.bodySm,
     color: COLORS.textMuted,
     textAlign: "center",
+  },
+  hintText: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 13,
+    color: COLORS.goldDark,
+    backgroundColor: COLORS.goldSubtle,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    textAlign: "center",
+    lineHeight: 18,
+    overflow: "hidden",
   },
   // Customize section
   customizeSection: {

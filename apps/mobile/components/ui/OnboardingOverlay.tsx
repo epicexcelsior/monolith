@@ -23,31 +23,24 @@ interface StepConfig {
 const STEPS: StepConfig[] = [
   {
     emoji: "🏛️",
-    title: "A Tower Powered by You",
+    title: "Welcome to the Monolith",
     subtitle:
-      "Every block on this tower is a real person's stake. The brighter it glows, the more active they are.\n\nThis is a living monument — and there's a spot waiting for you.",
-    buttonText: "Tell Me More",
+      "A living tower where every block is someone's real stake. Bright = active. Dark = neglected.\n\nYour job: claim a block and keep it glowing.",
+    buttonText: "How?",
   },
   {
-    emoji: "💰",
-    title: "Stake. Glow. Earn.",
+    emoji: "⚡",
+    title: "The Daily Loop",
     subtitle:
-      "Stake as little as $0.10 USDC to claim your block. Your money earns while you sleep.\n\nThe more you stake, the brighter your block shines.",
-    buttonText: "How Do I Stay Bright?",
+      "1. Stake USDC to claim a block\n2. Tap daily to charge it\n3. Build streaks for multipliers (Day 3 = 1.5x, Day 7 = 2x)\n4. Don't let it fade!",
+    buttonText: "What if I stop?",
   },
   {
-    emoji: "🔥",
-    title: "Build Your Streak",
+    emoji: "💀",
+    title: "Use It or Lose It",
     subtitle:
-      "Tap daily to charge your block and build streaks for bonus multipliers.\n\nDay 7 = 2× charge. Day 30 = 3×. The tower rewards consistency.",
-    buttonText: "I'm Ready",
-  },
-  {
-    emoji: "🎯",
-    title: "Find Your Spot",
-    subtitle:
-      "Explore the tower. Look for dark or unclaimed blocks — those are waiting for someone like you.\n\nTap any block to learn more, then claim it to make it yours.",
-    buttonText: "Let's Go!",
+      "Blocks slowly lose charge over time. Miss a day and your streak resets.\n\nThe tower punishes neglect and rewards consistency.",
+    buttonText: "Got it — let me in!",
   },
 ];
 
