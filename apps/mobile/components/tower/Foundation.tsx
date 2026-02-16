@@ -92,10 +92,10 @@ const foundationFragmentShader = /* glsl */ `
     float cracks = max(crackX, max(crackY, crackZ)) * 0.6;
 
     // ─── Base rock colors ────────────────────────────
-    vec3 rockDark  = vec3(0.06, 0.05, 0.04);   // dark ancient stone
-    vec3 rockMid   = vec3(0.12, 0.09, 0.06);   // mid weathered stone
-    vec3 rockLight = vec3(0.18, 0.13, 0.08);   // lighter patches
-    vec3 crackColor = vec3(0.04, 0.03, 0.02);  // deep dark cracks
+    vec3 rockDark  = vec3(0.20, 0.15, 0.10);   // visible stone
+    vec3 rockMid   = vec3(0.30, 0.22, 0.14);   // mid weathered stone
+    vec3 rockLight = vec3(0.40, 0.30, 0.18);   // lighter patches
+    vec3 crackColor = vec3(0.12, 0.09, 0.06);  // dark cracks
 
     // Mix rock variations
     vec3 rockColor = mix(rockDark, rockMid, rockNoise);
@@ -104,8 +104,8 @@ const foundationFragmentShader = /* glsl */ `
 
     // ─── Golden top glow ─────────────────────────────
     // Top of the foundation picks up tower's warm light
-    float topGlow = smoothstep(0.15, 0.0, vDepth);
-    rockColor += vec3(0.15, 0.08, 0.02) * topGlow;
+    float topGlow = smoothstep(0.25, 0.0, vDepth);
+    rockColor += vec3(0.22, 0.14, 0.05) * topGlow;
 
     // ─── Face shading ────────────────────────────────
     vec3 lightDir = normalize(vec3(0.4, 0.8, 0.3));
@@ -115,11 +115,11 @@ const foundationFragmentShader = /* glsl */ `
 
     // ─── Subtle rim light ────────────────────────────
     float fresnel = pow(1.0 - NdotV, 3.0);
-    vec3 rimColor = vec3(0.12, 0.08, 0.04) * fresnel;
+    vec3 rimColor = vec3(0.18, 0.12, 0.06) * fresnel;
 
     // ─── Depth fade to darkness ──────────────────────
     // Gradually darken as we go deeper
-    float depthFade = 1.0 - vDepth * 0.85;
+    float depthFade = 1.0 - vDepth * 0.7;
     // Additional fog-like fade at the very bottom
     float bottomFog = smoothstep(0.6, 1.0, vDepth);
     vec3 fogColor = vec3(0.03, 0.02, 0.01);
@@ -128,6 +128,10 @@ const foundationFragmentShader = /* glsl */ `
     vec3 color = rockColor * faceBrightness * depthFade;
     color += rimColor;
     color = mix(color, fogColor, bottomFog);
+
+    // Emissive floor — foundation is always visible, never blends with void
+    float minBrightness = 0.14;
+    color = max(color, vec3(minBrightness, minBrightness * 0.8, minBrightness * 0.5));
 
     gl_FragColor = vec4(color, 1.0);
   }

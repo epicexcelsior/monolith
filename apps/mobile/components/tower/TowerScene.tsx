@@ -506,9 +506,9 @@ function GoldenSkybox() {
           vec3 horizonPeak    = vec3(1.2, 0.78, 0.30);        // intense warm gold (HDR)
           vec3 horizonGlow    = vec3(1.0, 0.60, 0.20);        // rich golden glow
           vec3 horizonBand    = vec3(0.65, 0.35, 0.10);       // deep amber band
-          vec3 horizonWarm    = vec3(0.30, 0.15, 0.05);       // rich dark amber
-          vec3 belowHorizon   = vec3(0.18, 0.11, 0.05);       // warm amber below
-          vec3 nadirColor     = vec3(0.12, 0.07, 0.04);        // warm radiant ground glow
+          vec3 horizonWarm    = vec3(0.45, 0.25, 0.10);       // warm amber (visible!)
+          vec3 belowHorizon   = vec3(0.35, 0.20, 0.08);       // rich amber below
+          vec3 nadirColor     = vec3(0.25, 0.14, 0.06);        // warm ground radiance
 
           // Smooth multi-stop gradient with wider, more dramatic horizon band
           vec3 skyColor;
@@ -532,9 +532,9 @@ function GoldenSkybox() {
             skyColor = mix(belowHorizon, nadirColor, smoothstep(0.72, 1.0, lat));
           }
 
-          // Warm radiance at the very bottom — prevents void look
-          float nadirBoost = smoothstep(0.65, 1.0, lat) * 0.08;
-          skyColor += vec3(0.15, 0.08, 0.03) * nadirBoost;
+          // Warm radiance at the very bottom — gives sense of ground
+          float nadirBoost = smoothstep(0.55, 1.0, lat) * 0.15;
+          skyColor += vec3(0.20, 0.12, 0.05) * nadirBoost;
 
           // ─── Sun disk + corona (richer) ────────────
           float sunDisk = pow(sunAngle, 500.0) * 3.5;
