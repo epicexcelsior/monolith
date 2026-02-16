@@ -7,6 +7,7 @@
  * @see /docs/design/UI_SYSTEM.md for full design system reference.
  */
 
+export { default as GlassView } from "./GlassView";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
 export { default as Badge } from "./Badge";

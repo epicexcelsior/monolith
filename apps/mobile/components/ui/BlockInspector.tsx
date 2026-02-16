@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Alert,
   PanResponder,
+  Share,
+  Linking,
 } from "react-native";
+import ShareCard from "./ShareCard";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING, TEXT } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import Badge from "./Badge";
@@ -20,7 +22,7 @@ import ClaimModal from "@/components/ui/ClaimModal";
 import { useTowerStore, getStreakMultiplier, getNextStreakMilestone } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import { useStaking } from "@/hooks/useStaking";
-import { ENERGY_THRESHOLDS, BLOCK_ICONS } from "@monolith/common";
+import { ENERGY_THRESHOLDS, BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
 import {
   hapticBlockDeselect,
@@ -36,6 +38,16 @@ import {
   playStreakMilestone,
   playError,
 } from "@/utils/audio";
+
+const BLOCK_STYLES = [
+  { id: 0, label: "Default", icon: "🔲" },
+  { id: 1, label: "Holo", icon: "🌈" },
+  { id: 2, label: "Neon", icon: "💜" },
+  { id: 3, label: "Matte", icon: "🪨" },
+  { id: 4, label: "Glass", icon: "💎" },
+  { id: 5, label: "Fire", icon: "🔥" },
+  { id: 6, label: "Ice", icon: "❄️" },
+] as const;
 
 const PANEL_HEIGHT = 380;
 const DISMISS_THRESHOLD = 80;
@@ -84,6 +96,7 @@ export default function BlockInspector() {
 
   const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
   const dragOffset = useRef(new Animated.Value(0)).current;
+  const shareCardRef = useRef<View>(null);
   const isVisible = selectedBlockId !== null;
 
   const [showClaimModal, setShowClaimModal] = useState(false);
@@ -177,6 +190,13 @@ export default function BlockInspector() {
     }
   }, [selectedBlockId, chargeBlock]);
 
+  // Handle style change
+  const handleStyleChange = useCallback((style: number) => {
+    if (!selectedBlockId) return;
+    customizeBlock(selectedBlockId, { style });
+    hapticButtonPress();
+  }, [selectedBlockId, customizeBlock]);
+
   // Handle color change
   const handleColorChange = useCallback((color: string) => {
     if (!selectedBlockId) return;
@@ -194,6 +214,13 @@ export default function BlockInspector() {
     if (!selectedBlockId || !nameInput.trim()) return;
     customizeBlock(selectedBlockId, { name: nameInput.trim().slice(0, 12) });
   }, [selectedBlockId, nameInput, customizeBlock]);
+
+  // Handle texture change
+  const handleTextureChange = useCallback((textureId: number) => {
+    if (!selectedBlockId) return;
+    customizeBlock(selectedBlockId, { textureId });
+    hapticButtonPress();
+  }, [selectedBlockId, customizeBlock]);
 
   if (!block && !isVisible) return null;
 
@@ -362,8 +389,18 @@ export default function BlockInspector() {
                       size="sm"
                       onPress={() => {
                         hapticButtonPress();
-                        // Share handled by ShareButton
-                        handleShare(block);
+                        handleShare(block, shareCardRef);
+                      }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      title="Tweet"
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => {
+                        hapticButtonPress();
+                        handleTweet(block);
                       }}
                     />
                   </View>
@@ -372,6 +409,32 @@ export default function BlockInspector() {
                 {/* Customize panel */}
                 {showCustomize && (
                   <View style={styles.customizeSection}>
+                    <Text style={styles.sectionLabel}>STYLE</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.styleRow}
+                    >
+                      {BLOCK_STYLES.map((s) => (
+                        <TouchableOpacity
+                          key={s.id}
+                          style={[
+                            styles.styleCell,
+                            (block.style ?? 0) === s.id && styles.styleCellSelected,
+                          ]}
+                          onPress={() => handleStyleChange(s.id)}
+                        >
+                          <Text style={styles.styleIcon}>{s.icon}</Text>
+                          <Text style={[
+                            styles.styleLabel,
+                            (block.style ?? 0) === s.id && styles.styleLabelSelected,
+                          ]}>
+                            {s.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
                     <Text style={styles.sectionLabel}>COLOR</Text>
                     <ColorPicker
                       selected={block.ownerColor}
@@ -394,6 +457,32 @@ export default function BlockInspector() {
                           onPress={() => handleEmojiChange(icon)}
                         >
                           <Text style={styles.emojiText}>{icon}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    <Text style={styles.sectionLabel}>TEXTURE</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.styleRow}
+                    >
+                      {BLOCK_TEXTURES.map((tex) => (
+                        <TouchableOpacity
+                          key={tex.id}
+                          style={[
+                            styles.styleCell,
+                            (block.textureId ?? 0) === tex.id && styles.styleCellSelected,
+                          ]}
+                          onPress={() => handleTextureChange(tex.id)}
+                        >
+                          <Text style={styles.styleIcon}>{tex.icon}</Text>
+                          <Text style={[
+                            styles.styleLabel,
+                            (block.textureId ?? 0) === tex.id && styles.styleLabelSelected,
+                          ]}>
+                            {tex.label}
+                          </Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -455,19 +544,66 @@ export default function BlockInspector() {
           onClose={() => setShowClaimModal(false)}
         />
       )}
+
+      {/* Off-screen ShareCard for image capture */}
+      {block && isOwner && (
+        <View style={styles.offscreen} pointerEvents="none">
+          <ShareCard ref={shareCardRef} block={block} />
+        </View>
+      )}
     </>
   );
 }
 
-// Share helper
-async function handleShare(block: { layer: number; energy: number; emoji?: string; name?: string }) {
+// Twitter intent — opens compose with pre-filled text + deep link
+async function handleTweet(block: { layer: number; index: number; energy: number; emoji?: string; name?: string }) {
+  const label = block.name || `Layer ${block.layer}`;
+  const charge = Math.round(block.energy);
+  const icon = block.emoji || "";
+  const deepLink = `https://monolith.gg/block/${block.layer}/${block.index}`;
+  const text = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged!\n\n${deepLink}`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+
   try {
-    const { Share } = require("react-native");
-    const label = block.name || `Layer ${block.layer}`;
-    const charge = Math.round(block.energy);
-    const icon = block.emoji || "";
-    const message = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged! https://monolith.gg`;
-    await Share.share({ message });
+    await Linking.openURL(twitterUrl);
+  } catch {
+    // Linking failed — no-op
+  }
+}
+
+// Share helper — captures ShareCard as image, falls back to text
+async function handleShare(block: { layer: number; index: number; energy: number; emoji?: string; name?: string; ownerColor: string; owner: string | null; streak?: number }, shareCardRef: React.RefObject<View | null>) {
+  const label = block.name || `Layer ${block.layer}`;
+  const charge = Math.round(block.energy);
+  const icon = block.emoji || "";
+  const deepLink = `https://monolith.gg/block/${block.layer}/${block.index}`;
+  const textMessage = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged! ${deepLink}`;
+
+  try {
+    // Try image share via react-native-view-shot
+    const ViewShot = await import("react-native-view-shot");
+    const Sharing = await import("expo-sharing");
+
+    if (shareCardRef.current) {
+      const uri = await ViewShot.captureRef(shareCardRef, {
+        format: "png",
+        quality: 1,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: "Share your block",
+        });
+        return;
+      }
+    }
+  } catch {
+    // Image capture failed, fall back to text
+  }
+
+  try {
+    await Share.share({ message: textMessage });
   } catch {
     // User cancelled or share not available
   }
@@ -612,6 +748,37 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     marginBottom: SPACING.xs,
   },
+  styleRow: {
+    flexDirection: "row",
+    maxHeight: 60,
+  },
+  styleCell: {
+    width: 56,
+    height: 52,
+    borderRadius: RADIUS.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.bgMuted,
+    marginRight: SPACING.xs,
+    paddingVertical: 4,
+  },
+  styleCellSelected: {
+    borderWidth: 2,
+    borderColor: COLORS.gold,
+    backgroundColor: COLORS.goldSubtle,
+  },
+  styleIcon: {
+    fontSize: 18,
+  },
+  styleLabel: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 9,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  styleLabelSelected: {
+    color: COLORS.gold,
+  },
   emojiRow: {
     flexDirection: "row",
     maxHeight: 48,
@@ -683,5 +850,10 @@ const styles = StyleSheet.create({
     ...TEXT.caption,
     color: COLORS.textMuted,
     marginLeft: "auto",
+  },
+  offscreen: {
+    position: "absolute",
+    left: -9999,
+    top: -9999,
   },
 });

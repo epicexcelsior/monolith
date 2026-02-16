@@ -204,6 +204,17 @@ export const BLOCK_ICONS = [
   "🎇",
 ] as const;
 
+/** Available block textures (procedural patterns applied in shader) */
+export const BLOCK_TEXTURES = [
+  { id: 0, label: "Smooth", icon: "◻️" },
+  { id: 1, label: "Bricks", icon: "🧱" },
+  { id: 2, label: "Circuits", icon: "🔌" },
+  { id: 3, label: "Scales", icon: "🐉" },
+  { id: 4, label: "Camo", icon: "🌿" },
+  { id: 5, label: "Marble", icon: "🪨" },
+  { id: 6, label: "Carbon", icon: "⬛" },
+] as const;
+
 // ─── Network ──────────────────────────────────────────────
 /** Default Solana RPC endpoint */
 export const DEFAULT_RPC_URL = "https://api.devnet.solana.com";

@@ -3,16 +3,24 @@ import * as THREE from "three";
 /**
  * Energy → color stops for the shader color ramp.
  * Maps normalized energy (0-1) to RGB colors.
- * Solarpunk palette: warm gold/amber/copper — HDR-ready.
+ * These define the ENERGY OVERLAY — brightness/glow intensity, not base color.
  * Exported for testing.
  */
 export const ENERGY_COLOR_STOPS = {
-  blazing: { threshold: 0.8, color: [1.0, 0.85, 0.2] as const }, // brilliant gold
-  thriving: { threshold: 0.5, color: [0.9, 0.6, 0.15] as const }, // warm amber
-  fading: { threshold: 0.2, color: [0.7, 0.35, 0.1] as const }, // dim copper
-  dying: { threshold: 0.05, color: [0.4, 0.15, 0.05] as const }, // faint ember
-  dead: { threshold: 0.0, color: [0.08, 0.06, 0.04] as const }, // dark stone
+  blazing: { threshold: 0.8, color: [1.0, 0.92, 0.55] as const },  // brilliant white-gold
+  thriving: { threshold: 0.5, color: [0.95, 0.65, 0.18] as const }, // warm amber-gold
+  fading: { threshold: 0.2, color: [0.65, 0.35, 0.22] as const },   // copper with warmth
+  dying: { threshold: 0.05, color: [0.45, 0.12, 0.08] as const },   // warm ember red
+  dead: { threshold: 0.0, color: [0.06, 0.06, 0.08] as const },     // cool dark stone
 } as const;
+
+/**
+ * Block styles (matched to BLOCK_STYLES in BlockInspector):
+ * 0=Default, 1=Holographic, 2=Neon, 3=Matte, 4=Glass, 5=Fire, 6=Ice
+ *
+ * Block textures (procedural patterns):
+ * 0=None, 1=Bricks, 2=Circuits, 3=Scales, 4=Camo, 5=Marble, 6=Carbon
+ */
 
 const vertexShader = /* glsl */ `
   precision highp float;
@@ -21,6 +29,8 @@ const vertexShader = /* glsl */ `
   attribute float aEnergy;
   attribute vec3 aOwnerColor;
   attribute float aLayerNorm;
+  attribute float aStyle;
+  attribute float aTextureId;
 
   // Passed to fragment
   varying float vEnergy;
@@ -32,6 +42,8 @@ const vertexShader = /* glsl */ `
   varying float vLayerNorm;
   varying float vWorldY;
   varying vec3 vWorldPos;
+  varying float vStyle;
+  varying float vTextureId;
 
   void main() {
     // Apply instance transform
@@ -46,6 +58,8 @@ const vertexShader = /* glsl */ `
     vLayerNorm = aLayerNorm;
     vWorldY = worldPos.y;
     vWorldPos = worldPos.xyz;
+    vStyle = aStyle;
+    vTextureId = aTextureId;
 
     // View-space normal for fresnel (transform normal by instance rotation)
     mat3 normalMat = mat3(instanceMatrix);
@@ -80,92 +94,317 @@ const fragmentShader = /* glsl */ `
   varying float vLayerNorm;
   varying float vWorldY;
   varying vec3 vWorldPos;
+  varying float vStyle;
+  varying float vTextureId;
 
-  // Energy → color ramp: warm solarpunk palette (gold/amber/copper)
-  // Returns HDR-range values for blazing blocks (>1.0)
-  vec3 energyColor(float e) {
-    vec3 dead     = vec3(0.10, 0.07, 0.04);   // dark stone (warmer)
-    vec3 dying    = vec3(0.50, 0.22, 0.08);    // faint ember
-    vec3 fading   = vec3(0.85, 0.45, 0.14);    // dim copper
-    vec3 thriving = vec3(1.05, 0.75, 0.22);    // warm amber
-    vec3 blazing  = vec3(1.5, 1.15, 0.4);      // HDR brilliant gold (>1.0!)
+  // ─── Utility: hash/noise for textures ──────────────────
+  float hash21(vec2 p) {
+    p = fract(p * vec2(233.34, 851.73));
+    p += dot(p, p + 23.45);
+    return fract(p.x * p.y);
+  }
+
+  float noise2D(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+
+  // ─── HSV helpers for holographic ───────────────────────
+  vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+  }
+
+  // ─── Energy glow color (for overlays) ──────────────────
+  vec3 energyGlowColor(float e) {
+    vec3 dead     = vec3(0.06, 0.06, 0.09);
+    vec3 dying    = vec3(0.50, 0.14, 0.08);
+    vec3 fading   = vec3(0.72, 0.38, 0.20);
+    vec3 thriving = vec3(1.05, 0.72, 0.22);
+    vec3 blazing  = vec3(1.5, 1.25, 0.65);
 
     vec3 col = dead;
     col = mix(col, dying,    smoothstep(0.0,  0.05, e));
     col = mix(col, fading,   smoothstep(0.05, 0.2,  e));
     col = mix(col, thriving, smoothstep(0.2,  0.5,  e));
     col = mix(col, blazing,  smoothstep(0.5,  0.8,  e));
-
     return col;
+  }
+
+  // ─── Texture patterns (procedural) ─────────────────────
+  // Returns a 0-1 pattern value to modulate the base color
+  float getTexturePattern(float texId, vec3 wp) {
+    int tid = int(texId + 0.5);
+
+    if (tid == 1) {
+      // Bricks — offset grid pattern
+      vec2 bUV = wp.xz * 3.0;
+      float row = floor(bUV.y);
+      bUV.x += mod(row, 2.0) * 0.5; // offset every other row
+      vec2 brick = fract(bUV);
+      float mortar = step(0.06, brick.x) * step(0.06, brick.y);
+      return mix(0.6, 1.0, mortar);
+    }
+
+    if (tid == 2) {
+      // Circuits — PCB trace lines
+      vec2 cUV = wp.xz * 4.0;
+      float lineX = smoothstep(0.45, 0.48, abs(fract(cUV.x) - 0.5));
+      float lineY = smoothstep(0.45, 0.48, abs(fract(cUV.y * 0.7) - 0.5));
+      float traces = max(lineX, lineY);
+      float dots = smoothstep(0.15, 0.1, length(fract(cUV) - 0.5));
+      return mix(0.85, 1.0, max(traces, dots * 0.5));
+    }
+
+    if (tid == 3) {
+      // Scales — hexagonal pattern
+      vec2 sUV = wp.xz * 5.0;
+      sUV.x += mod(floor(sUV.y), 2.0) * 0.5;
+      vec2 cell = fract(sUV) - 0.5;
+      float d = length(cell);
+      return smoothstep(0.45, 0.3, d) * 0.3 + 0.7;
+    }
+
+    if (tid == 4) {
+      // Camo — organic blobs from noise
+      float n = noise2D(wp.xz * 2.5) * 0.5
+              + noise2D(wp.xz * 5.0 + 100.0) * 0.3
+              + noise2D(wp.xz * 10.0 + 200.0) * 0.2;
+      return smoothstep(0.3, 0.7, n) * 0.4 + 0.6;
+    }
+
+    if (tid == 5) {
+      // Marble — turbulent veins
+      float n = noise2D(wp.xz * 3.0) * 2.0;
+      n += noise2D(wp.xz * 6.0) * 1.0;
+      n += noise2D(wp.xz * 12.0) * 0.5;
+      float veins = abs(sin(wp.x * 4.0 + n));
+      return mix(0.7, 1.0, veins);
+    }
+
+    if (tid == 6) {
+      // Carbon fiber — woven grid
+      vec2 cfUV = wp.xz * 8.0;
+      float cx = sin(cfUV.x * 3.14159) * 0.5 + 0.5;
+      float cy = sin(cfUV.y * 3.14159) * 0.5 + 0.5;
+      float weave = cx * cy + (1.0 - cx) * (1.0 - cy);
+      return mix(0.75, 1.0, weave);
+    }
+
+    return 1.0; // tid == 0 or unrecognized: no pattern
   }
 
   void main() {
     float energy = clamp(vEnergy, 0.0, 1.0);
-
-    // Base color: blend energy ramp with owner color
-    vec3 eCol = energyColor(energy);
-    vec3 baseColor = mix(vOwnerColor * 0.55, eCol, 0.7);
-
-    // ─── Directional face shading ────────────────────
-    // Simulates proper 3D form: top bright, sides mid, bottom dark
+    int style = int(vStyle + 0.5);
     vec3 N = normalize(vNormal);
-    vec3 lightDir = normalize(vec3(0.4, 0.8, 0.3));
-    float NdotL = dot(N, lightDir);
-    float faceBrightness = 0.65 + 0.35 * NdotL;
-    faceBrightness += max(0.0, N.y) * 0.15; // top-face boost
-
-    // ─── Height-based tint ───────────────────────────
-    vec3 baseTint = vec3(0.06, 0.04, 0.02);
-    vec3 topTint = vec3(0.4, 0.28, 0.12);
-    baseColor += mix(baseTint, topTint, vLayerNorm) * 0.3;
-
-    // ─── Shared view direction ───────────────────────
     vec3 V = normalize(vViewDir);
     float NdotV = max(dot(N, V), 0.0);
+    float fresnel = pow(1.0 - NdotV, 4.0);
 
-    // ─── Specular highlight (cheap Blinn-Phong) ──────
-    // Skip for dead/low-energy blocks via multiplier
-    vec3 H = normalize(lightDir + V);
-    float specular = pow(max(dot(N, H), 0.0), 16.0) * 0.4 * step(0.1, energy);
-    specular *= (0.3 + energy * 0.7);
-    vec3 specColor = vec3(1.0, 0.9, 0.6) * specular;
+    // ═══════════════════════════════════════════════════════
+    // LAYER 1: BASE COLOR (from customization, NOT energy)
+    // ═══════════════════════════════════════════════════════
 
-    // ─── Fresnel rim glow ────────────────────────────
-    float fresnel = pow(1.0 - NdotV, 3.0);
-    vec3 rimTint = mix(vec3(1.0, 0.8, 0.3), eCol, 0.4);
-    float rimStrength = fresnel * (0.4 + energy * 0.9);
+    // Owner color is the player's chosen color. Unowned blocks get a neutral default.
+    vec3 baseColor = vOwnerColor;
 
-    // ─── Ambient occlusion from edges ────────────────
-    float edgeAO = 1.0 - fresnel * 0.15;
+    // If block is dead/unowned, use neutral dark stone as base
+    float isOwned = step(0.01, energy);
+    vec3 neutralColor = vec3(0.12, 0.10, 0.09);
+    baseColor = mix(neutralColor, baseColor, isOwned);
 
-    // ─── Pulse animation ─────────────────────────────
+    // Apply texture pattern (skip for dead blocks and no-texture)
+    int texId = int(vTextureId + 0.5);
+    if (energy > 0.01 && texId > 0) {
+      float texPattern = getTexturePattern(vTextureId, vWorldPos);
+      baseColor *= texPattern;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // LAYER 2: STYLE MODIFIER (purely cosmetic, per block)
+    // ═══════════════════════════════════════════════════════
+
+    // --- Style 1: Holographic (rainbow shift) ---
+    if (style == 1 && energy > 0.01) {
+      float hue = fract(
+        dot(vWorldPos, vec3(0.3, 0.5, 0.7)) * 0.15
+        + uTime * 0.15
+        + NdotV * 0.3
+      );
+      vec3 holoColor = hsv2rgb(vec3(hue, 0.6, 1.0));
+      // Blend holo rainbow with the owner color
+      float holoMix = 0.4 + fresnel * 0.4;
+      baseColor = mix(baseColor, holoColor, holoMix);
+      // Iridescent sheen on edges
+      baseColor += holoColor * fresnel * 0.6;
+    }
+
+    // --- Style 2: Neon (saturated glow, bloom edges) ---
+    if (style == 2 && energy > 0.01) {
+      // Boost saturation of owner color
+      float luma = dot(baseColor, vec3(0.299, 0.587, 0.114));
+      baseColor = mix(vec3(luma), baseColor, 1.8); // over-saturate
+      baseColor = max(baseColor, vec3(0.0));
+      // Strong edge glow in owner color
+      baseColor += vOwnerColor * fresnel * 2.0;
+      // Emissive boost
+      baseColor *= 1.3;
+    }
+
+    // --- Style 3: Matte (no specular, flat diffuse) ---
+    // Handled below by zeroing fresnel/specular
+
+    // --- Style 4: Glass (high fresnel, translucent look) ---
+    if (style == 4 && energy > 0.01) {
+      // Lighten the base for a glass-like appearance
+      baseColor = mix(baseColor, vec3(1.0), 0.25);
+      // Strong reflective rim
+      baseColor += vec3(0.8, 0.9, 1.0) * fresnel * 1.5;
+      // Subtle distortion via world position
+      float distort = noise2D(vWorldPos.xz * 3.0 + uTime * 0.2) * 0.1;
+      baseColor += vec3(distort);
+    }
+
+    // --- Style 5: Fire (animated flame) ---
+    if (style == 5 && energy > 0.01) {
+      vec2 fireUV = vec2(vWorldPos.x * 3.0, vWorldPos.y * 2.0 - uTime * 1.5);
+      float flame = noise2D(fireUV) * 0.5
+                  + noise2D(fireUV * 2.0 + 50.0) * 0.3
+                  + noise2D(fireUV * 4.0 + 100.0) * 0.2;
+      // Fire gradient: dark red → orange → yellow → white
+      vec3 fireColor;
+      if (flame < 0.3) {
+        fireColor = mix(vec3(0.15, 0.02, 0.0), vec3(0.8, 0.2, 0.0), flame / 0.3);
+      } else if (flame < 0.6) {
+        fireColor = mix(vec3(0.8, 0.2, 0.0), vec3(1.0, 0.7, 0.1), (flame - 0.3) / 0.3);
+      } else {
+        fireColor = mix(vec3(1.0, 0.7, 0.1), vec3(1.3, 1.1, 0.8), (flame - 0.6) / 0.4);
+      }
+      baseColor = mix(baseColor, fireColor, 0.7);
+    }
+
+    // --- Style 6: Ice (cool crystal) ---
+    if (style == 6 && energy > 0.01) {
+      // Cool blue-white tint
+      baseColor = mix(baseColor, vec3(0.6, 0.8, 1.0), 0.45);
+      // Crystalline facets — sharp normal-based lighting
+      vec3 iceLight = normalize(vec3(0.5, 0.8, 0.3));
+      float facet = pow(max(dot(N, iceLight), 0.0), 16.0);
+      baseColor += vec3(0.5, 0.7, 1.0) * facet * 0.6;
+      // Frost noise
+      float frost = noise2D(vWorldPos.xz * 8.0) * noise2D(vWorldPos.xy * 6.0);
+      baseColor += vec3(0.3, 0.4, 0.5) * frost * 0.3;
+      // Ice rim glow
+      baseColor += vec3(0.4, 0.6, 1.0) * fresnel * 0.8;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // LAYER 3: FACE SHADING (3D form, always applies)
+    // ═══════════════════════════════════════════════════════
+
+    vec3 lightDir = normalize(vec3(0.4, 0.8, 0.3));
+    float NdotL = dot(N, lightDir);
+    float topFace = max(0.0, N.y);
+    float bottomFace = max(0.0, -N.y);
+    float sideFace = 1.0 - abs(N.y);
+
+    float faceBrightness = 0.55 + 0.35 * NdotL;
+    faceBrightness += topFace * 0.25;
+    faceBrightness -= bottomFace * 0.15;
+
+    // Matte style: flatten the lighting
+    if (style == 3) {
+      faceBrightness = 0.65 + 0.15 * NdotL;
+    }
+
+    // Warm ambient on sides for living blocks
+    baseColor += vec3(0.04, 0.02, 0.01) * sideFace * energy;
+
+    // ═══════════════════════════════════════════════════════
+    // LAYER 4: ENERGY OVERLAY (system-driven, additive)
+    // ═══════════════════════════════════════════════════════
+    // Energy affects glow intensity, not base color
+
+    vec3 glowColor = energyGlowColor(energy);
+
+    // Specular (skip for matte)
+    vec3 specColor = vec3(0.0);
+    if (style != 3) {
+      vec3 H = normalize(lightDir + V);
+      float spec = pow(max(dot(N, H), 0.0), 24.0) * 0.45 * step(0.1, energy);
+      spec *= (0.3 + energy * 0.7);
+      specColor = vec3(1.0, 0.92, 0.7) * spec;
+    }
+
+    // Fresnel rim glow (energy-scaled, skip for matte)
+    vec3 rimContrib = vec3(0.0);
+    if (style != 3) {
+      vec3 rimTint = mix(vec3(0.5, 0.7, 1.0), glowColor, 0.5 + energy * 0.5);
+      float rimStrength = fresnel * (0.35 + energy * 1.0);
+      rimContrib = rimTint * 2.2 * rimStrength;
+    }
+
+    // Edge highlights (normal curvature)
+    float edgeHighlight = 0.0;
+    if (energy > 0.1 && style != 3) {
+      float normalVariance = length(fwidth(N));
+      edgeHighlight = smoothstep(0.3, 0.8, normalVariance) * 0.4 * energy;
+    }
+
+    // Inner glow (core emission for owned blocks)
+    float innerGlow = 0.0;
+    if (energy > 0.05) {
+      float coreFactor = NdotV * NdotV;
+      innerGlow = coreFactor * energy * 0.15;
+    }
+
+    // Pulse animation (energy-driven)
     float pulseSpeed = 1.0 + energy * 3.0;
     float pulse = 0.5 + 0.5 * sin(uTime * pulseSpeed + vInstanceOffset);
-    float pulseIntensity = 0.12 + energy * 0.6;
+    float pulseIntensity = 0.1 + energy * 0.5;
 
-    // ─── Vertical scanline ───────────────────────────
+    // Vertical scanline
     float scanY = mod(uTime * 0.8, uTowerHeight + 8.0) - 4.0;
-    float scanLine = smoothstep(2.0, 0.0, abs(vWorldY - scanY)) * 0.3;
+    float scanLine = smoothstep(2.0, 0.0, abs(vWorldY - scanY)) * 0.25;
 
-    // ─── Spire glow boost ────────────────────────────
+    // Spire glow boost
     float spireBoost = smoothstep(uSpireThreshold - 0.05, uSpireThreshold + 0.15, vLayerNorm);
     float spireGlow = spireBoost * (0.4 + 0.5 * sin(uTime * 1.5 + vInstanceOffset * 2.0));
 
-    // ─── Emissive glow (high-energy only) ────────────
-    float radiate = smoothstep(0.6, 1.0, energy) * (0.35 + 0.25 * sin(uTime * 2.0 + vInstanceOffset));
-    vec3 radiateColor = vec3(1.3, 0.9, 0.3) * radiate;
+    // Emissive radiate (high-energy only)
+    float radiate = smoothstep(0.6, 1.0, energy) * (0.3 + 0.2 * sin(uTime * 2.0 + vInstanceOffset));
 
-    // ─── Combine ─────────────────────────────────────
-    vec3 color = baseColor * faceBrightness * edgeAO;
-    color *= (0.75 + pulse * pulseIntensity * 0.5);
-    color += rimTint * 2.5 * rimStrength;
+    // Height tint
+    vec3 baseTint = vec3(0.04, 0.03, 0.05);
+    vec3 topTint = vec3(0.4, 0.28, 0.12);
+    vec3 heightTint = mix(baseTint, topTint, vLayerNorm) * 0.15;
+
+    // ═══════════════════════════════════════════════════════
+    // COMBINE: Base × Shading + Energy Overlays
+    // ═══════════════════════════════════════════════════════
+
+    vec3 color = baseColor * faceBrightness;
+    color += heightTint;
+
+    // Energy-driven overlays (additive)
+    color *= (0.8 + pulse * pulseIntensity * 0.4);
+    color += rimContrib;
     color += specColor;
-    color += vec3(1.0, 0.85, 0.35) * scanLine * energy;
-    color += eCol * spireGlow * 0.7;
-    color += radiateColor;
+    color += glowColor * scanLine * energy;
+    color += glowColor * spireGlow * 0.5;
+    color += glowColor * radiate;
+    color += glowColor * innerGlow;
+    color += vec3(1.0, 0.9, 0.7) * edgeHighlight;
 
-    // ─── Dead blocks: cheap grid crack pattern ───────
-    // Single fract-based grid — much cheaper than hexPattern × 3
+    // ─── Dead blocks: crack pattern ──────────────────────
     float deadMask = smoothstep(0.0, 0.06, energy);
     vec3 wp = vWorldPos * 2.5;
     float crackX = smoothstep(0.44, 0.5, abs(fract(wp.x) - 0.5));
@@ -173,14 +412,14 @@ const fragmentShader = /* glsl */ `
     float crackZ = smoothstep(0.44, 0.5, abs(fract(wp.z) - 0.5));
     float cracks = max(crackX, max(crackY, crackZ));
 
-    vec3 deadBase = vec3(0.07, 0.055, 0.04);
-    vec3 deadCrack = vec3(0.18, 0.10, 0.04);
+    vec3 deadBase = vec3(0.05, 0.05, 0.07);
+    vec3 deadCrack = vec3(0.12, 0.10, 0.14);
     vec3 deadColor = mix(deadBase, deadCrack, cracks * 0.7);
-    deadColor += vec3(0.06, 0.04, 0.02) * fresnel;
+    deadColor += vec3(0.04, 0.04, 0.06) * fresnel;
 
     color = mix(deadColor, color, deadMask);
 
-    // ─── Fog ─────────────────────────────────────────
+    // ─── Fog ─────────────────────────────────────────────
     float fogFactor = exp(-uFogDensity * uFogDensity * vDist * vDist);
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     color = mix(uFogColor, color, fogFactor);
@@ -192,14 +431,18 @@ const fragmentShader = /* glsl */ `
 /**
  * Creates the custom ShaderMaterial for tower blocks.
  * Supports instanced rendering with per-block energy, owner color,
- * and layer-normalized height for gradient + spire effects.
+ * layer height, style, and texture.
+ *
+ * ARCHITECTURE — Energy ≠ Customization:
+ * - Energy (system): controls pulse, rim glow, scanline, radiate intensity
+ * - Customization (player): controls base color (ownerColor), style, texture
  *
  * Visual features:
- * - HDR-range output for Blazing blocks (fake bloom without post-processing)
- * - Intense golden fresnel rim glow
- * - Emissive radiate effect for high-energy blocks
- * - Visible dead blocks with structural crack lines
- * - Warm solarpunk palette (gold/amber/copper)
+ * - 7 material styles: Default, Holographic, Neon, Matte, Glass, Fire, Ice
+ * - 7 procedural textures: None, Bricks, Circuits, Scales, Camo, Marble, Carbon
+ * - HDR output for Blazing blocks
+ * - Face-shading differentiation (top/side/bottom)
+ * - Dead blocks with cool-tinted cracks
  */
 export function createBlockMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -207,10 +450,10 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
     fragmentShader,
     uniforms: {
       uTime: { value: 0 },
-      uFogColor: { value: new THREE.Color(0x1a1008) }, // warm dark fog (brighter)
-      uFogDensity: { value: 0.004 }, // half density — show more tower
-      uSpireThreshold: { value: 14 / 18 }, // SPIRE_START_LAYER / layerCount
-      uTowerHeight: { value: 18 * 1.3 }, // layerCount * LAYER_HEIGHT
+      uFogColor: { value: new THREE.Color(0x1a1008) },
+      uFogDensity: { value: 0.004 },
+      uSpireThreshold: { value: 14 / 18 },
+      uTowerHeight: { value: 18 * 1.3 },
     },
     fog: false,
     toneMapped: false,

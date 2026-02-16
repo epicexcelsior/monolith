@@ -7,15 +7,16 @@
  * Tab route: app/(tabs)/blocks.tsx → "Board"
  */
 
-import { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
-import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
-import { useTowerStore } from "@/stores/tower-store";
+import { useWalletStore } from "@/stores/wallet-store";
+import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { useStaking, type TowerInfo, type UserDepositInfo } from "@/hooks/useStaking";
 import { ScreenLayout, Card, Badge, Button, ChargeBar } from "@/components/ui";
 import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { isBotOwner } from "@/utils/seed-tower";
 
 // ─── Leaderboard categories from GDD §6.2 ──────────────────────
 type LeaderboardTab = "skyline" | "brightest" | "streak" | "territory";
@@ -27,7 +28,7 @@ const LEADERBOARD_TABS: { key: LeaderboardTab; label: string; icon: string }[] =
   { key: "territory", label: "Territory", icon: "👑" },
 ];
 
-// ─── Mock leaderboard data (will be server-driven post-MVP) ─────
+// ─── Leaderboard data (computed from demoBlocks) ────────────────
 interface LeaderboardEntry {
   rank: number;
   address: string;
@@ -35,59 +36,79 @@ interface LeaderboardEntry {
   isYou: boolean;
 }
 
-function generateMockLeaderboard(
-  tab: LeaderboardTab,
-  userAddress: string | null,
-): LeaderboardEntry[] {
-  const mockAddresses = [
-    "7xKX...m4Qp",
-    "9bRd...vWn3",
-    "3tFe...cH8j",
-    "Dk4P...qR2x",
-    "mN7W...sJ5y",
-    "5aLc...pT9f",
-    "Xr2Q...bK6n",
-  ];
-
-  const valuesByTab: Record<LeaderboardTab, string[]> = {
-    skyline: ["Crown L12", "High L10", "High L9", "Mid L7", "Mid L6", "Base L3", "Base L1"],
-    brightest: ["98%", "95%", "91%", "87%", "82%", "74%", "68%"],
-    streak: ["Day 42 👑", "Day 28 🔥", "Day 14 🔥", "Day 9", "Day 7 🏅", "Day 4", "Day 2"],
-    territory: ["8 blocks", "5 blocks", "4 blocks", "3 blocks", "2 blocks", "2 blocks", "1 block"],
-  };
-
-  const entries = mockAddresses.map((addr, i) => ({
-    rank: i + 1,
-    address: addr,
-    value: valuesByTab[tab][i],
-    isYou: false,
-  }));
-
-  // Inject user into the leaderboard if connected
-  if (userAddress) {
-    const truncAddr = userAddress.length > 12
-      ? `${userAddress.slice(0, 4)}...${userAddress.slice(-4)}`
-      : userAddress;
-    const userValues: Record<LeaderboardTab, string> = {
-      skyline: "Base L2",
-      brightest: "72%",
-      streak: "Day 1 ⚡",
-      territory: "1 block",
-    };
-    entries.splice(5, 0, {
-      rank: 6,
-      address: truncAddr,
-      value: userValues[tab],
-      isYou: true,
-    });
-    // Re-rank
-    entries.forEach((e, i) => (e.rank = i + 1));
-  }
-
-  return entries.slice(0, 8);
+function truncAddr(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
 }
 
-// ─── Activity feed mock ─────────────────────────────────────────
+function displayName(owner: string): string {
+  return isBotOwner(owner) ? owner : truncAddr(owner);
+}
+
+function computeLeaderboard(
+  tab: LeaderboardTab,
+  blocks: DemoBlock[],
+  userAddress: string | null,
+): LeaderboardEntry[] {
+  const owned = blocks.filter((b) => b.owner !== null);
+  if (owned.length === 0) return [];
+
+  // Group blocks by owner
+  const byOwner = new Map<string, DemoBlock[]>();
+  for (const b of owned) {
+    const list = byOwner.get(b.owner!) || [];
+    list.push(b);
+    byOwner.set(b.owner!, list);
+  }
+
+  let entries: { owner: string; sortVal: number; display: string }[] = [];
+
+  switch (tab) {
+    case "skyline": {
+      for (const [owner, obs] of byOwner) {
+        const best = obs.reduce((a, b) => (b.layer > a.layer ? b : a), obs[0]);
+        entries.push({ owner, sortVal: best.layer, display: `Layer ${best.layer}` });
+      }
+      entries.sort((a, b) => b.sortVal - a.sortVal);
+      break;
+    }
+    case "brightest": {
+      for (const [owner, obs] of byOwner) {
+        const best = obs.reduce((a, b) => (b.energy > a.energy ? b : a), obs[0]);
+        entries.push({ owner, sortVal: best.energy, display: `${Math.round(best.energy)}%` });
+      }
+      entries.sort((a, b) => b.sortVal - a.sortVal);
+      break;
+    }
+    case "streak": {
+      for (const [owner, obs] of byOwner) {
+        const best = obs.reduce((a, b) => ((b.streak ?? 0) > (a.streak ?? 0) ? b : a), obs[0]);
+        const s = best.streak ?? 0;
+        const badge = s >= 30 ? " 👑" : s >= 7 ? " 🔥" : "";
+        entries.push({ owner, sortVal: s, display: `Day ${s}${badge}` });
+      }
+      entries.sort((a, b) => b.sortVal - a.sortVal);
+      break;
+    }
+    case "territory": {
+      for (const [owner, obs] of byOwner) {
+        const count = obs.length;
+        entries.push({ owner, sortVal: count, display: `${count} block${count !== 1 ? "s" : ""}` });
+      }
+      entries.sort((a, b) => b.sortVal - a.sortVal);
+      break;
+    }
+  }
+
+  return entries.slice(0, 8).map((e, i) => ({
+    rank: i + 1,
+    address: displayName(e.owner),
+    value: e.display,
+    isYou: userAddress !== null && e.owner === userAddress,
+  }));
+}
+
+// ─── Activity feed (generated from demoBlocks) ─────────────────
 interface ActivityItem {
   id: string;
   icon: string;
@@ -95,19 +116,109 @@ interface ActivityItem {
   time: string;
 }
 
-const MOCK_ACTIVITY: ActivityItem[] = [
-  { id: "1", icon: "🔥", text: "Tower Charge Storm! All blocks +10 Charge", time: "2h ago" },
-  { id: "2", icon: "👀", text: "Someone claimed the block next to yours!", time: "5h ago" },
-  { id: "3", icon: "🏆", text: "You moved up 3 spots on the Skyline!", time: "1d ago" },
-  { id: "4", icon: "⚡", text: "New keeper joined Floor 3", time: "1d ago" },
-  { id: "5", icon: "💡", text: "A Lighthouse appeared on Floor 8!", time: "2d ago" },
-];
+const TIME_STRINGS = ["just now", "2m ago", "15m ago", "1h ago", "3h ago", "6h ago", "1d ago", "2d ago"];
+
+function generateActivityFeed(blocks: DemoBlock[], userAddress: string | null): ActivityItem[] {
+  const items: ActivityItem[] = [];
+  const owned = blocks.filter((b) => b.owner !== null);
+  if (owned.length === 0) return [];
+
+  // Find interesting blocks
+  const blazing = owned.filter((b) => b.energy > 90);
+  const fading = owned.filter((b) => b.energy < 20 && b.energy > 0);
+  const highStreak = owned.filter((b) => (b.streak ?? 0) > 7);
+  const crown = owned.reduce((a, b) => (b.layer > a.layer ? b : a), owned[0]);
+  const totalKeepers = new Set(owned.map((b) => b.owner)).size;
+  const avgEnergy = Math.round(owned.reduce((s, b) => s + b.energy, 0) / owned.length);
+
+  // Crown holder
+  items.push({
+    id: "crown",
+    icon: "👑",
+    text: `${displayName(crown.owner!)} holds the Crown at Layer ${crown.layer}`,
+    time: TIME_STRINGS[2],
+  });
+
+  // Tower-wide stats
+  items.push({
+    id: "stats",
+    icon: "🏔️",
+    text: `${totalKeepers} keepers maintain ${owned.length} blocks (avg ${avgEnergy}% charge)`,
+    time: TIME_STRINGS[0],
+  });
+
+  // Blazing blocks
+  if (blazing.length > 0) {
+    const b = blazing[Math.floor(blazing.length * 0.3)];
+    items.push({
+      id: "blazing",
+      icon: "🔥",
+      text: `${displayName(b.owner!)} is blazing at ${Math.round(b.energy)}% charge!`,
+      time: TIME_STRINGS[1],
+    });
+  }
+
+  // Fading blocks
+  if (fading.length > 0) {
+    items.push({
+      id: "fading",
+      icon: "💀",
+      text: `${fading.length} block${fading.length !== 1 ? "s" : ""} fading below 20% — territory up for grabs`,
+      time: TIME_STRINGS[3],
+    });
+  }
+
+  // High streaks
+  if (highStreak.length > 0) {
+    const best = highStreak.reduce((a, b) => ((b.streak ?? 0) > (a.streak ?? 0) ? b : a), highStreak[0]);
+    items.push({
+      id: "streak",
+      icon: "⚡",
+      text: `${displayName(best.owner!)} is on a Day ${best.streak} streak!`,
+      time: TIME_STRINGS[4],
+    });
+  }
+
+  // User-specific
+  if (userAddress) {
+    const userBlks = blocks.filter((b) => b.owner === userAddress);
+    if (userBlks.length > 0) {
+      const bestUser = userBlks.reduce((a, b) => (b.energy > a.energy ? b : a), userBlks[0]);
+      items.push({
+        id: "you",
+        icon: "✨",
+        text: `Your best block is at ${Math.round(bestUser.energy)}% charge on Layer ${bestUser.layer}`,
+        time: TIME_STRINGS[0],
+      });
+    } else {
+      items.push({
+        id: "you-hint",
+        icon: "👀",
+        text: "Claim a block to join the tower and start competing!",
+        time: TIME_STRINGS[0],
+      });
+    }
+  }
+
+  // Newest neighborhood activity
+  const topLayer = Math.max(...owned.map((b) => b.layer));
+  const topBlocks = owned.filter((b) => b.layer === topLayer);
+  if (topBlocks.length > 0) {
+    items.push({
+      id: "top-floor",
+      icon: "🌟",
+      text: `Floor ${topLayer} has ${topBlocks.length} keeper${topBlocks.length !== 1 ? "s" : ""} — the spire glows`,
+      time: TIME_STRINGS[5],
+    });
+  }
+
+  return items.slice(0, 8);
+}
 
 export default function BoardScreen() {
   const router = useRouter();
   const isConnected = useWalletStore((s) => s.isConnected);
   const publicKey = useWalletStore((s) => s.publicKey);
-  const truncatedAddress = useTruncatedAddress();
   const stats = useTowerStore((s) => s.stats);
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const { fetchTowerState, fetchUserDeposit } = useStaking();
@@ -147,10 +258,30 @@ export default function BoardScreen() {
     setRefreshing(false);
   }, [refreshAll]);
 
-  const leaderboardData = generateMockLeaderboard(
-    activeTab,
-    publicKey?.toBase58() ?? null,
+  const userAddress = publicKey?.toBase58() ?? null;
+
+  const leaderboardData = useMemo(
+    () => computeLeaderboard(activeTab, demoBlocks, userAddress),
+    [activeTab, demoBlocks, userAddress],
   );
+
+  const activityFeed = useMemo(
+    () => generateActivityFeed(demoBlocks, userAddress),
+    [demoBlocks, userAddress],
+  );
+
+  // Compute user's skyline rank for hero card
+  const userSkylineRank = useMemo(() => {
+    const skylineData = computeLeaderboard("skyline", demoBlocks, userAddress);
+    const you = skylineData.find((e) => e.isYou);
+    return you ? you.rank : null;
+  }, [demoBlocks, userAddress]);
+
+  // Best streak across user's blocks
+  const bestUserStreak = useMemo(() => {
+    if (!userAddress) return 0;
+    return userBlocks.reduce((max, b) => Math.max(max, b.streak ?? 0), 0);
+  }, [userBlocks, userAddress]);
 
   // ─── Not connected state ───
   if (!isConnected) {
@@ -194,7 +325,9 @@ export default function BoardScreen() {
               </Text>
             </View>
             <View style={styles.heroRank}>
-              <Text style={styles.rankNumber}>#6</Text>
+              <Text style={styles.rankNumber}>
+                {userSkylineRank ? `#${userSkylineRank}` : "—"}
+              </Text>
               <Text style={[TEXT.caption, { color: COLORS.gold }]}>Skyline</Text>
             </View>
           </View>
@@ -215,7 +348,9 @@ export default function BoardScreen() {
             </View>
             <View style={styles.heroStatDivider} />
             <View style={styles.heroStatItem}>
-              <Text style={styles.heroStatValue}>Day 1</Text>
+              <Text style={styles.heroStatValue}>
+                {bestUserStreak > 0 ? `Day ${bestUserStreak}` : "—"}
+              </Text>
               <Text style={styles.heroStatLabel}>Streak</Text>
             </View>
             <View style={styles.heroStatDivider} />
@@ -322,7 +457,7 @@ export default function BoardScreen() {
       <Card>
         <Text style={TEXT.overline}>RECENT ACTIVITY</Text>
         <View style={styles.activityList}>
-          {MOCK_ACTIVITY.map((item) => (
+          {activityFeed.map((item) => (
             <View key={item.id} style={styles.activityRow}>
               <Text style={styles.activityIcon}>{item.icon}</Text>
               <View style={styles.activityContent}>

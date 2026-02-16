@@ -132,18 +132,18 @@ describe("Energy color stops", () => {
     }
   });
 
-  it("should have blazing as golden (warm solarpunk palette)", () => {
+  it("should have blazing as white-gold (chromatic palette)", () => {
     const [r, g, b] = ENERGY_COLOR_STOPS.blazing.color;
-    expect(r).toBeCloseTo(1.0, 1);   // brilliant gold — high red
-    expect(g).toBeCloseTo(0.85, 1);   // high green
-    expect(b).toBeCloseTo(0.2, 1);    // low blue
+    expect(r).toBeCloseTo(1.0, 1);   // brilliant white-gold — high red
+    expect(g).toBeCloseTo(0.92, 1);   // high green (whiter than pure gold)
+    expect(b).toBeCloseTo(0.55, 1);   // warm yellow-white
   });
 
-  it("should have dead as dark", () => {
+  it("should have dead as cool dark stone", () => {
     const [r, g, b] = ENERGY_COLOR_STOPS.dead.color;
-    expect(r).toBeLessThan(0.2);
-    expect(g).toBeLessThan(0.2);
-    expect(b).toBeLessThan(0.3);
+    expect(r).toBeLessThan(0.15);
+    expect(g).toBeLessThan(0.15);
+    expect(b).toBeLessThan(0.15);
   });
 });
 

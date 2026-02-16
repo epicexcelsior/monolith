@@ -64,12 +64,12 @@ export async function initAudio(): Promise<void> {
         // 2. Uncomment the corresponding loadSound() call below
         // 3. Rebuild the app
 
-        // await loadSound("blockClaim", require("../assets/sfx/block-claim.wav"));
-        // await loadSound("chargeTap", require("../assets/sfx/charge-tap.wav"));
-        // await loadSound("blockSelect", require("../assets/sfx/block-select.wav"));
-        // await loadSound("blockDeselect", require("../assets/sfx/block-deselect.wav"));
-        // await loadSound("streakMilestone", require("../assets/sfx/streak-milestone.wav"));
-        // await loadSound("error", require("../assets/sfx/error.wav"));
+        await loadSound("blockClaim", require("../assets/sfx/block-claim.wav"));
+        await loadSound("chargeTap", require("../assets/sfx/charge-tap.wav"));
+        await loadSound("blockSelect", require("../assets/sfx/block-select.wav"));
+        await loadSound("blockDeselect", require("../assets/sfx/block-deselect.wav"));
+        await loadSound("streakMilestone", require("../assets/sfx/streak-milestone.wav"));
+        await loadSound("error", require("../assets/sfx/error.wav"));
 
         initialized = true;
     } catch {

@@ -4,6 +4,7 @@ import { View, StyleSheet, PanResponder, type GestureResponderEvent } from "reac
 import * as THREE from "three";
 import TowerGrid from "./TowerGrid";
 import Particles from "./Particles";
+import Foundation from "./Foundation";
 import { useTowerStore } from "@/stores/tower-store";
 import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG } from "@monolith/common";
 import {
@@ -115,7 +116,7 @@ interface CameraState {
 function SceneSetup() {
   const { scene } = useThree();
   useMemo(() => {
-    scene.fog = new THREE.FogExp2(0x1a1008, 0.003);
+    scene.fog = new THREE.FogExp2(0x1a1008, 0.005);
   }, [scene]);
   return null;
 }
@@ -268,24 +269,113 @@ function CameraRig({
 
 // ─── GroundGrid ───────────────────────────────────────────
 
-function GroundGrid() {
+/**
+ * GroundPlane — Styled rectangular liquid ground beneath the tower.
+ * Dark and dimmed, with subtle animated caustic/liquid ripple effects.
+ * Matches tower footprint but wider (2.5×), doesn't distract from the tower.
+ */
+function GroundPlane() {
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+
+  const groundMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+      uniforms: {
+        uTime: { value: 0 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        void main() {
+          vUv = uv;
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        uniform float uTime;
+
+        float hash21(vec2 p) {
+          p = fract(p * vec2(233.34, 851.73));
+          p += dot(p, p + 23.45);
+          return fract(p.x * p.y);
+        }
+
+        float noise2D(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          float a = hash21(i);
+          float b = hash21(i + vec2(1.0, 0.0));
+          float c = hash21(i + vec2(0.0, 1.0));
+          float d = hash21(i + vec2(1.0, 1.0));
+          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+        }
+
+        void main() {
+          vec2 center = vUv - 0.5;
+
+          // Rectangular fade — stronger on the short edges, softer on long
+          float fadeX = smoothstep(0.5, 0.3, abs(center.x));
+          float fadeY = smoothstep(0.5, 0.3, abs(center.y));
+          float rectFade = fadeX * fadeY;
+
+          // Liquid caustic ripples (2 slow-moving octaves)
+          vec2 uv1 = vWorldPos.xz * 0.12 + uTime * 0.03;
+          vec2 uv2 = vWorldPos.xz * 0.2 - uTime * 0.02;
+          float caustic1 = noise2D(uv1) * noise2D(uv1 * 1.5 + 50.0);
+          float caustic2 = noise2D(uv2 + 100.0) * noise2D(uv2 * 1.3 + 150.0);
+          float caustic = (caustic1 + caustic2) * 0.5;
+
+          // Gentle ripple rings emanating from center
+          float dist = length(center) * 8.0;
+          float ripple = sin(dist - uTime * 0.5) * 0.5 + 0.5;
+          ripple *= smoothstep(0.5, 0.15, length(center));
+          ripple *= 0.12;
+
+          // Base color: very dark warm, subtle golden tint near center
+          vec3 darkBase = vec3(0.04, 0.03, 0.02);
+          vec3 warmCenter = vec3(0.10, 0.07, 0.03);
+          vec3 color = mix(warmCenter, darkBase, smoothstep(0.0, 0.4, length(center)));
+
+          // Add caustic light with golden tint
+          vec3 causticColor = vec3(0.20, 0.14, 0.05);
+          color += causticColor * caustic * 0.4;
+          color += vec3(0.12, 0.08, 0.03) * ripple;
+
+          // Overall dimness
+          float alpha = rectFade * 0.7;
+
+          gl_FragColor = vec4(color, alpha);
+        }
+      `,
+    });
+  }, []);
+
+  // Animate liquid
+  useFrame((_, delta) => {
+    if (matRef.current) {
+      matRef.current.uniforms.uTime.value += delta;
+    }
+  });
+
   return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]}>
-        <planeGeometry args={[120, 120]} />
-        <meshStandardMaterial
-          color="#080604"
-          transparent
-          opacity={0.9}
-          roughness={0.95}
-          metalness={0.1}
-        />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]}>
-        <circleGeometry args={[15, 32]} />
-        <meshBasicMaterial color="#1a1208" transparent opacity={0.6} />
-      </mesh>
-    </group>
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -0.5, 0]}
+      ref={(mesh) => {
+        if (mesh) matRef.current = mesh.material as THREE.ShaderMaterial;
+      }}
+      material={groundMaterial}
+    >
+      <planeGeometry args={[40, 40]} />
+    </mesh>
   );
 }
 
@@ -397,61 +487,60 @@ function GoldenSkybox() {
         void main() {
           vec3 dir = normalize(vWorldPosition);
 
-          // ─── Uniform latitude mapping ─────────────
-          // lat: 0 = zenith (top), 1 = nadir (bottom)
-          // This gives proper full-sphere coverage
-          float lat = acos(dir.y) / 3.14159265;
-          // horizon is at lat = 0.5
-          float aboveHorizon = smoothstep(0.52, 0.48, lat); // 1 above, 0 below
-          // Azimuthal angle for cloud UVs (non-singular)
+          // ─── Smooth latitude mapping ───────────────
+          // Use atan2 for Y vs XZ-plane to avoid acos pole singularity
+          float elevation = atan(dir.y, length(dir.xz));
+          // Map: +PI/2 (zenith) → 0, 0 (horizon) → 0.5, -PI/2 (nadir) → 1
+          float lat = 0.5 - elevation / 3.14159265;
+          float aboveHorizon = smoothstep(0.52, 0.48, lat);
           float azimuth = atan(dir.x, dir.z);
 
-          // ─── Sun position ──────────────────────────
-          vec3 sunDir = normalize(vec3(0.3, 0.08, -1.0));
+          // ─── Sun position (low on horizon for dramatic golden hour) ──
+          vec3 sunDir = normalize(vec3(0.3, 0.06, -1.0));
           float sunAngle = max(dot(dir, sunDir), 0.0);
 
-          // ─── Sky gradient (full sphere) ────────────
-          vec3 zenithColor    = vec3(0.08, 0.055, 0.035);    // deep warm dark
-          vec3 upperSky       = vec3(0.22, 0.14, 0.07);      // dark warm amber
-          vec3 midSky         = vec3(0.55, 0.32, 0.12);      // warm copper
-          vec3 horizonPeak    = vec3(1.0, 0.72, 0.28);       // brilliant warm gold
-          vec3 horizonGlow    = vec3(0.85, 0.55, 0.18);      // intense golden glow
-          vec3 horizonWarm    = vec3(0.35, 0.18, 0.06);      // rich amber
-          vec3 belowHorizon   = vec3(0.12, 0.07, 0.03);      // warm dark below
-          vec3 nadirColor     = vec3(0.04, 0.025, 0.015);    // deepest bottom
+          // ─── Sky gradient — richer golden sunset ───
+          vec3 zenithColor    = vec3(0.05, 0.035, 0.025);     // deep dark (more contrast)
+          vec3 upperSky       = vec3(0.15, 0.09, 0.04);       // dark warm
+          vec3 midSky         = vec3(0.50, 0.28, 0.10);       // deep copper
+          vec3 horizonPeak    = vec3(1.2, 0.78, 0.30);        // intense warm gold (HDR)
+          vec3 horizonGlow    = vec3(1.0, 0.60, 0.20);        // rich golden glow
+          vec3 horizonBand    = vec3(0.65, 0.35, 0.10);       // deep amber band
+          vec3 horizonWarm    = vec3(0.30, 0.15, 0.05);       // rich dark amber
+          vec3 belowHorizon   = vec3(0.10, 0.06, 0.03);       // warm dark below
+          vec3 nadirColor     = vec3(0.03, 0.02, 0.012);      // deepest bottom
 
-          // Multi-stop gradient across full sphere
+          // Smooth multi-stop gradient with wider, more dramatic horizon band
           vec3 skyColor;
-          if (lat < 0.08) {
-            // Zenith zone
-            skyColor = mix(zenithColor, upperSky, lat / 0.08);
-          } else if (lat < 0.22) {
-            skyColor = mix(upperSky, midSky, (lat - 0.08) / 0.14);
-          } else if (lat < 0.35) {
-            skyColor = mix(midSky, horizonPeak, (lat - 0.22) / 0.13);
-          } else if (lat < 0.45) {
-            // Near horizon — brightest
-            skyColor = mix(horizonPeak, horizonGlow, (lat - 0.35) / 0.10);
-          } else if (lat < 0.55) {
-            // Horizon band
-            skyColor = mix(horizonGlow, horizonWarm, (lat - 0.45) / 0.10);
-          } else if (lat < 0.68) {
-            // Below horizon — warm falloff
-            skyColor = mix(horizonWarm, belowHorizon, (lat - 0.55) / 0.13);
+          if (lat < 0.06) {
+            skyColor = mix(zenithColor, upperSky, lat / 0.06);
+          } else if (lat < 0.18) {
+            skyColor = mix(upperSky, midSky, (lat - 0.06) / 0.12);
+          } else if (lat < 0.32) {
+            skyColor = mix(midSky, horizonPeak, (lat - 0.18) / 0.14);
+          } else if (lat < 0.42) {
+            // Near horizon — brightest, widest glow
+            skyColor = mix(horizonPeak, horizonGlow, (lat - 0.32) / 0.10);
+          } else if (lat < 0.50) {
+            skyColor = mix(horizonGlow, horizonBand, (lat - 0.42) / 0.08);
+          } else if (lat < 0.58) {
+            // Below horizon — amber falloff
+            skyColor = mix(horizonBand, horizonWarm, (lat - 0.50) / 0.08);
+          } else if (lat < 0.72) {
+            skyColor = mix(horizonWarm, belowHorizon, (lat - 0.58) / 0.14);
           } else {
-            // Deep below — fade to nadir
-            skyColor = mix(belowHorizon, nadirColor, (lat - 0.68) / 0.32);
+            skyColor = mix(belowHorizon, nadirColor, (lat - 0.72) / 0.28);
           }
 
-          // ─── Sun disk + corona ─────────────────────
-          float sunDisk = pow(sunAngle, 400.0) * 3.0;
-          vec3 sunColor = vec3(1.0, 0.9, 0.5);
+          // ─── Sun disk + corona (richer) ────────────
+          float sunDisk = pow(sunAngle, 500.0) * 3.5;
+          vec3 sunColor = vec3(1.0, 0.92, 0.55);
 
-          float corona = pow(sunAngle, 8.0) * 0.8;
-          vec3 coronaColor = vec3(1.0, 0.65, 0.2);
+          float corona = pow(sunAngle, 6.0) * 0.9;
+          vec3 coronaColor = vec3(1.0, 0.6, 0.18);
 
-          float atmoGlow = pow(sunAngle, 2.5) * 0.35;
-          vec3 atmoColor = vec3(0.9, 0.5, 0.15);
+          float atmoGlow = pow(sunAngle, 2.0) * 0.45;
+          vec3 atmoColor = vec3(0.95, 0.5, 0.12);
 
           // ─── God rays (2 octaves, above horizon) ───
           float rayAngle = atan(dir.x - sunDir.x, dir.z - sunDir.z);
@@ -459,37 +548,36 @@ function GoldenSkybox() {
           for (float i = 1.0; i <= 2.0; i += 1.0) {
             float freq = 6.0 * i;
             float ray = pow(max(sin(rayAngle * freq + uTime * 0.05 * i), 0.0), 12.0);
-            ray *= pow(sunAngle, 3.0) * (0.15 / i);
+            ray *= pow(sunAngle, 3.0) * (0.18 / i);
             rays += ray;
           }
           vec3 rayColor = vec3(1.0, 0.7, 0.25) * rays * aboveHorizon;
 
-          // ─── Procedural clouds (single layer, azimuthal UVs) ──
+          // ─── Procedural clouds (richer, more visible) ──
           vec2 cloudUV = vec2(azimuth * 1.5, lat * 6.0);
           cloudUV += uTime * 0.008;
 
           float cloudNoise = fbm(cloudUV * 1.5);
-          // Clouds across upper sky
-          float cloudMask = smoothstep(0.10, 0.25, lat) * smoothstep(0.50, 0.30, lat);
-          float clouds = smoothstep(0.35, 0.7, cloudNoise) * cloudMask * 0.7;
+          float cloudMask = smoothstep(0.08, 0.22, lat) * smoothstep(0.52, 0.28, lat);
+          float clouds = smoothstep(0.30, 0.65, cloudNoise) * cloudMask * 0.8;
 
-          // Cloud color: lit from below by golden sun
+          // Cloud color: golden-lit from below
           vec3 cloudLitColor = mix(
-            vec3(0.6, 0.35, 0.12),
-            vec3(1.0, 0.75, 0.3),
+            vec3(0.55, 0.30, 0.10),
+            vec3(1.0, 0.72, 0.28),
             pow(sunAngle, 1.5) * 0.5 + 0.5
           );
 
           // ─── Stars (upper sky only) ────────────────
           vec3 starContrib = vec3(0.0);
-          if (lat < 0.3) {
+          if (lat < 0.25) {
             vec3 starPos = dir * 80.0;
             float starVal = hash3D(floor(starPos));
             if (starVal > 0.997) {
               float twinkle = 0.5 + 0.5 * sin(uTime * 2.5 + starVal * 80.0);
               float brightness = (starVal - 0.997) * 333.0 * twinkle;
-              float starFade = smoothstep(0.3, 0.12, lat);
-              starContrib = vec3(1.0, 0.85, 0.5) * brightness * starFade;
+              float starFade = smoothstep(0.25, 0.10, lat);
+              starContrib = vec3(1.0, 0.88, 0.55) * brightness * starFade;
             }
           }
 
@@ -497,7 +585,7 @@ function GoldenSkybox() {
           vec3 color = skyColor;
 
           // Sun + corona + atmospheric glow
-          float sunVis = smoothstep(0.58, 0.48, lat);
+          float sunVis = smoothstep(0.58, 0.46, lat);
           color += sunColor * sunDisk * sunVis;
           color += coronaColor * corona * sunVis;
           color += atmoColor * atmoGlow * sunVis;
@@ -508,7 +596,7 @@ function GoldenSkybox() {
           // Blend clouds
           color = mix(color, cloudLitColor, clouds);
 
-          // Stars (visible through gaps in clouds)
+          // Stars
           color += starContrib * (1.0 - clouds);
 
           gl_FragColor = vec4(color, 1.0);
@@ -526,7 +614,7 @@ function GoldenSkybox() {
 
   return (
     <mesh material={skyMaterial}>
-      <sphereGeometry args={[500, 32, 32]} />
+      <sphereGeometry args={[800, 64, 48]} />
     </mesh>
   );
 }
@@ -777,7 +865,8 @@ export default function TowerScene() {
         <BackgroundPlane />
         <TowerGrid />
         <Particles />
-        <GroundGrid />
+        <Foundation />
+        <GroundPlane />
       </Canvas>
     </View>
   );

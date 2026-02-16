@@ -1,8 +1,13 @@
 /**
- * Monolith Design System — Solarpunk Theme
+ * Monolith Design System — Warm Glassmorphic Theme
  *
  * All colors, typography, spacing, radii, and shadows for the app.
  * RULE: Never hardcode hex values in components. Always import from here.
+ *
+ * Design language: Warm frosted glass surfaces with golden radiance.
+ * Two visual contexts:
+ *   1. Tower HUD  — light frost on dark 3D background
+ *   2. Standard   — translucent white glass on warm off-white
  *
  * @see /docs/design/UI_SYSTEM.md for the full design system spec.
  */
@@ -13,29 +18,38 @@
 
 export const COLORS = {
   // ─── Backgrounds ──────────────────────────
-  bg: "#FAF7F2",
-  bgCard: "#FFFFFF",
-  bgMuted: "#F0EBE3",
-  bgOverlay: "rgba(250, 247, 242, 0.92)",
-  bgTower: "#080604", // Tower 3D scene — warm dark
+  bg: "#F5F0E8",                           // Warm off-white — primary screen background
+  bgCard: "rgba(255, 255, 255, 0.65)",     // Translucent white glass surface
+  bgMuted: "rgba(255, 255, 255, 0.40)",    // Lighter glass variant
+  bgOverlay: "rgba(245, 240, 232, 0.88)",  // Translucent warm overlay
+  bgTower: "#060810",                      // Tower 3D scene — deep dark
+
+  // ─── Glass Surface Tokens ────────────────
+  bgGlass: "rgba(255, 255, 255, 0.55)",        // Primary glass card surface
+  bgGlassStrong: "rgba(255, 255, 255, 0.72)",  // Emphasized glass (modals, focused panels)
+  bgGlassMuted: "rgba(255, 255, 255, 0.30)",   // Subtle glass (badges, chips)
+  bgGlassBorder: "rgba(200, 180, 150, 0.25)",  // Warm translucent glass border
+  bgGlassDark: "rgba(0, 0, 0, 0.35)",          // Glass on dark BGs (tower HUD)
+  bgGlassDarkBorder: "rgba(255, 255, 255, 0.12)", // Glass border on dark BGs
 
   // ─── Gold Accent ──────────────────────────
-  gold: "#C8993E",
-  goldLight: "#E8A94D",
-  goldDark: "#A67C2E",
-  goldSubtle: "rgba(200, 153, 62, 0.10)",
+  gold: "#D4A847",               // Primary actions, links, highlights (richer for glass)
+  goldLight: "#F0BC5E",          // Hover/active states, chart fills
+  goldDark: "#B08A30",           // Pressed states, text on gold bg
+  goldSubtle: "rgba(212, 168, 71, 0.15)", // Tinted glass backgrounds
+  goldGlow: "rgba(212, 168, 71, 0.30)",   // Gold glow effect for glass
 
   // ─── Text ─────────────────────────────────
-  text: "#1A1612",
-  textSecondary: "#5C554B",
-  textMuted: "#9E9690",
-  textOnGold: "#FFFFFF",
-  textOnDark: "#FAF7F2",
+  text: "#1A1612",               // Primary text (headings, body) — dark on light glass
+  textSecondary: "#5C554B",      // Secondary text (labels, captions)
+  textMuted: "#9E9690",          // Placeholder, hint, disabled text
+  textOnGold: "#FFFFFF",         // Text on gold-filled buttons
+  textOnDark: "#F0ECE6",         // Text on dark/tower backgrounds
 
   // ─── Borders & Dividers ───────────────────
-  border: "#E8E2D9",
-  borderStrong: "#D4CEC4",
-  borderAccent: "#C8993E",
+  border: "rgba(200, 180, 150, 0.25)",   // Warm translucent glass edge
+  borderStrong: "rgba(180, 160, 130, 0.35)", // Visible glass edge
+  borderAccent: "#D4A847",           // Gold accent border
 
   // ─── Block States (Charge System) ─────────
   blazing: "#FFB800",
@@ -49,6 +63,28 @@ export const COLORS = {
   warning: "#E8A94D",
   error: "#C4402A",
   info: "#5B8FB9",
+} as const;
+
+// ─────────────────────────────────────────────
+// BLUR / GLASS CONFIG
+// ─────────────────────────────────────────────
+
+/** Default blur settings for glass surfaces */
+export const BLUR = {
+  /** Blur intensity (0-100) for standard glass surfaces */
+  intensity: 60,
+  /** Blur intensity for HUD elements on dark backgrounds */
+  hudIntensity: 40,
+  /** Tint for light-background glass */
+  tint: "light" as const,
+  /** Tint for tower HUD glass (on dark bg) */
+  hudTint: "dark" as const,
+  /** Fallback background when blur is unavailable */
+  fallbackBg: "rgba(245, 240, 232, 0.92)",
+  /** Fallback background for HUD when blur is unavailable */
+  fallbackHudBg: "rgba(0, 0, 0, 0.55)",
+  /** Android experimental blur method */
+  androidMethod: "dimezisBlurView" as const,
 } as const;
 
 // ─────────────────────────────────────────────
@@ -84,7 +120,8 @@ export const SHADOW = {
   sm: "0 1px 3px rgba(26, 22, 18, 0.06)",
   md: "0 4px 12px rgba(26, 22, 18, 0.08)",
   lg: "0 8px 24px rgba(26, 22, 18, 0.12)",
-  gold: "0 4px 16px rgba(200, 153, 62, 0.20)",
+  gold: "0 4px 20px rgba(212, 168, 71, 0.25)",    // Gold glow for primary actions
+  glassInset: "inset 0 1px 0 rgba(255, 255, 255, 0.15)", // Inner top highlight for glass
 } as const;
 
 // ─────────────────────────────────────────────

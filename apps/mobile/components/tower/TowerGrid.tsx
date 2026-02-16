@@ -297,7 +297,34 @@ export default function TowerGrid() {
     } else {
       geo.setAttribute("aLayerNorm", new THREE.InstancedBufferAttribute(layerNormArray, 1));
     }
-  }, [blockData, config, layoutData]);
+
+    // Style attribute (0=Default, 1-6 for custom styles)
+    const styleArray = new Float32Array(count);
+    const textureArray = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const storeBlock = demoBlocks.find(
+        (b) => b.layer === blockData[i].layer && b.index === blockData[i].index,
+      );
+      styleArray[i] = storeBlock?.style ?? 0;
+      textureArray[i] = storeBlock?.textureId ?? 0;
+    }
+    const existingStyle = geo.getAttribute("aStyle") as THREE.InstancedBufferAttribute | null;
+    if (existingStyle && existingStyle.count === count) {
+      existingStyle.set(styleArray);
+      existingStyle.needsUpdate = true;
+    } else {
+      geo.setAttribute("aStyle", new THREE.InstancedBufferAttribute(styleArray, 1));
+    }
+
+    // Texture attribute (0=None, 1-6 for procedural patterns)
+    const existingTexture = geo.getAttribute("aTextureId") as THREE.InstancedBufferAttribute | null;
+    if (existingTexture && existingTexture.count === count) {
+      existingTexture.set(textureArray);
+      existingTexture.needsUpdate = true;
+    } else {
+      geo.setAttribute("aTextureId", new THREE.InstancedBufferAttribute(textureArray, 1));
+    }
+  }, [blockData, config, layoutData, demoBlocks]);
 
   // Handle claim flash trigger
   useEffect(() => {

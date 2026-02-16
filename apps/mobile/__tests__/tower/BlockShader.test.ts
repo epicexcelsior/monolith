@@ -28,7 +28,7 @@ describe("createBlockMaterial", () => {
 
   it("should have uFogDensity uniform", () => {
     expect(material.uniforms.uFogDensity).toBeDefined();
-    expect(material.uniforms.uFogDensity.value).toBeCloseTo(0.008);
+    expect(material.uniforms.uFogDensity.value).toBeCloseTo(0.004);
   });
 
   it("should have uSpireThreshold uniform", () => {
@@ -94,6 +94,35 @@ describe("createBlockMaterial", () => {
 
   it("fragment shader should reference tower height for scanline", () => {
     expect(material.fragmentShader).toContain("uTowerHeight");
+  });
+
+  it("vertex shader should declare aStyle attribute", () => {
+    expect(material.vertexShader).toContain("aStyle");
+  });
+
+  it("vertex shader should declare aTextureId attribute", () => {
+    expect(material.vertexShader).toContain("aTextureId");
+  });
+
+  it("fragment shader should contain style branching", () => {
+    // Holographic, Neon, Matte, Glass, Fire, Ice
+    expect(material.fragmentShader).toContain("style == 1");
+    expect(material.fragmentShader).toContain("style == 2");
+    expect(material.fragmentShader).toContain("style == 3");
+    expect(material.fragmentShader).toContain("style == 4");
+    expect(material.fragmentShader).toContain("style == 5");
+    expect(material.fragmentShader).toContain("style == 6");
+  });
+
+  it("fragment shader should contain texture pattern function", () => {
+    expect(material.fragmentShader).toContain("getTexturePattern");
+  });
+
+  it("fragment shader should separate energy from customization", () => {
+    // Energy overlay function
+    expect(material.fragmentShader).toContain("energyGlowColor");
+    // Owner color used as base
+    expect(material.fragmentShader).toContain("baseColor = vOwnerColor");
   });
 });
 
