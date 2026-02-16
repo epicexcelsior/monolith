@@ -339,18 +339,18 @@ function GroundPlane() {
           ripple *= smoothstep(0.5, 0.15, length(center));
           ripple *= 0.12;
 
-          // Base color: very dark warm, subtle golden tint near center
-          vec3 darkBase = vec3(0.04, 0.03, 0.02);
-          vec3 warmCenter = vec3(0.10, 0.07, 0.03);
+          // Base color: warm dark, golden tint near center (brighter)
+          vec3 darkBase = vec3(0.07, 0.05, 0.03);
+          vec3 warmCenter = vec3(0.18, 0.12, 0.06);
           vec3 color = mix(warmCenter, darkBase, smoothstep(0.0, 0.4, length(center)));
 
-          // Add caustic light with golden tint
-          vec3 causticColor = vec3(0.20, 0.14, 0.05);
-          color += causticColor * caustic * 0.4;
-          color += vec3(0.12, 0.08, 0.03) * ripple;
+          // Add caustic light with golden tint (stronger)
+          vec3 causticColor = vec3(0.28, 0.18, 0.06);
+          color += causticColor * caustic * 0.5;
+          color += vec3(0.15, 0.10, 0.04) * ripple;
 
-          // Overall dimness
-          float alpha = rectFade * 0.7;
+          // Overall dimness (slightly more visible)
+          float alpha = rectFade * 0.8;
 
           gl_FragColor = vec4(color, alpha);
         }
@@ -368,7 +368,7 @@ function GroundPlane() {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -0.5, 0]}
+      position={[0, -0.3, 0]}
       ref={(mesh) => {
         if (mesh) matRef.current = mesh.material as THREE.ShaderMaterial;
       }}
@@ -507,8 +507,8 @@ function GoldenSkybox() {
           vec3 horizonGlow    = vec3(1.0, 0.60, 0.20);        // rich golden glow
           vec3 horizonBand    = vec3(0.65, 0.35, 0.10);       // deep amber band
           vec3 horizonWarm    = vec3(0.30, 0.15, 0.05);       // rich dark amber
-          vec3 belowHorizon   = vec3(0.10, 0.06, 0.03);       // warm dark below
-          vec3 nadirColor     = vec3(0.03, 0.02, 0.012);      // deepest bottom
+          vec3 belowHorizon   = vec3(0.18, 0.11, 0.05);       // warm amber below
+          vec3 nadirColor     = vec3(0.12, 0.07, 0.04);        // warm radiant ground glow
 
           // Smooth multi-stop gradient with wider, more dramatic horizon band
           vec3 skyColor;
@@ -529,8 +529,12 @@ function GoldenSkybox() {
           } else if (lat < 0.72) {
             skyColor = mix(horizonWarm, belowHorizon, (lat - 0.58) / 0.14);
           } else {
-            skyColor = mix(belowHorizon, nadirColor, (lat - 0.72) / 0.28);
+            skyColor = mix(belowHorizon, nadirColor, smoothstep(0.72, 1.0, lat));
           }
+
+          // Warm radiance at the very bottom — prevents void look
+          float nadirBoost = smoothstep(0.65, 1.0, lat) * 0.08;
+          skyColor += vec3(0.15, 0.08, 0.03) * nadirBoost;
 
           // ─── Sun disk + corona (richer) ────────────
           float sunDisk = pow(sunAngle, 500.0) * 3.5;

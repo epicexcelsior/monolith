@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import * as THREE from "three";
 import {
-    MONOLITH_HALF_W,
-    MONOLITH_HALF_D,
+  MONOLITH_HALF_W,
+  MONOLITH_HALF_D,
 } from "@monolith/common";
 
 /**
@@ -134,46 +134,46 @@ const foundationFragmentShader = /* glsl */ `
 `;
 
 export default function Foundation() {
-    // Create a tapered cylinder geometry
-    const geometry = useMemo(() => {
-        const topRadiusX = MONOLITH_HALF_W * FOUNDATION_TOP_SCALE;
-        const topRadiusZ = MONOLITH_HALF_D * FOUNDATION_TOP_SCALE;
-        const botRadiusX = topRadiusX * FOUNDATION_TAPER;
-        const botRadiusZ = topRadiusZ * FOUNDATION_TAPER;
+  // Create a tapered cylinder geometry
+  const geometry = useMemo(() => {
+    const topRadiusX = MONOLITH_HALF_W * FOUNDATION_TOP_SCALE;
+    const topRadiusZ = MONOLITH_HALF_D * FOUNDATION_TOP_SCALE;
+    const botRadiusX = topRadiusX * FOUNDATION_TAPER;
+    const botRadiusZ = topRadiusZ * FOUNDATION_TAPER;
 
-        // Build a tapered rectangular prism manually for proper oval shape
-        const geo = new THREE.CylinderGeometry(
-            // Use average of X and Z for the cylinder, then scale
-            (topRadiusX + topRadiusZ) / 2,
-            (botRadiusX + botRadiusZ) / 2,
-            FOUNDATION_DEPTH,
-            FOUNDATION_SEGMENTS,
-            4, // height segments for depth gradient
-            false, // open-ended at bottom (hidden by fog anyway)
-        );
-
-        // Scale X and Z to make it oval matching the rectangular tower footprint
-        const xScale = topRadiusX / ((topRadiusX + topRadiusZ) / 2);
-        const zScale = topRadiusZ / ((topRadiusX + topRadiusZ) / 2);
-        geo.scale(xScale, 1, zScale);
-
-        return geo;
-    }, []);
-
-    const material = useMemo(() => {
-        return new THREE.ShaderMaterial({
-            vertexShader: foundationVertexShader,
-            fragmentShader: foundationFragmentShader,
-            fog: false,
-            toneMapped: false,
-        });
-    }, []);
-
-    return (
-        <mesh
-            geometry={geometry}
-            material={material}
-            position={[0, -FOUNDATION_DEPTH / 2 - 0.5, 0]}
-        />
+    // Build a tapered rectangular prism manually for proper oval shape
+    const geo = new THREE.CylinderGeometry(
+      // Use average of X and Z for the cylinder, then scale
+      (topRadiusX + topRadiusZ) / 2,
+      (botRadiusX + botRadiusZ) / 2,
+      FOUNDATION_DEPTH,
+      FOUNDATION_SEGMENTS,
+      4, // height segments for depth gradient
+      false, // open-ended at bottom (hidden by fog anyway)
     );
+
+    // Scale X and Z to make it oval matching the rectangular tower footprint
+    const xScale = topRadiusX / ((topRadiusX + topRadiusZ) / 2);
+    const zScale = topRadiusZ / ((topRadiusX + topRadiusZ) / 2);
+    geo.scale(xScale, 1, zScale);
+
+    return geo;
+  }, []);
+
+  const material = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      vertexShader: foundationVertexShader,
+      fragmentShader: foundationFragmentShader,
+      fog: false,
+      toneMapped: false,
+    });
+  }, []);
+
+  return (
+    <mesh
+      geometry={geometry}
+      material={material}
+      position={[0, -FOUNDATION_DEPTH / 2 - 1.0, 0]}
+    />
+  );
 }
