@@ -10,6 +10,38 @@ const RECONNECT_MAX_RETRIES = 10;
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30_000;
 
+/** Server block shape (JSON message, not Colyseus schema) */
+interface ServerBlock {
+  id: string;
+  layer: number;
+  index: number;
+  energy: number;
+  owner: string;
+  ownerColor: string;
+  stakedAmount: number;
+  lastChargeTime: number;
+  streak: number;
+  lastStreakDate: string;
+  appearance: {
+    color: string;
+    emoji: string;
+    name: string;
+    style: number;
+    textureId: number;
+  };
+}
+
+interface ServerState {
+  blocks: ServerBlock[];
+  stats: {
+    totalBlocks: number;
+    occupiedBlocks: number;
+    activeUsers: number;
+    averageEnergy: number;
+  };
+  tick: number;
+}
+
 interface MultiplayerStore {
   connected: boolean;
   error: string | null;
@@ -24,45 +56,60 @@ interface MultiplayerStore {
   sendCustomize: (msg: CustomizeMessage) => void;
 }
 
-// Module-level refs — single connection shared across all consumers
+// Module-level refs
 let client: Client | null = null;
 let room: Room | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempt = 0;
 
-/**
- * Convert Colyseus room state → DemoBlock[] and push to tower store.
- * Colyseus MapSchema.forEach passes (value, key).
- */
-function syncState(state: any) {
-  const blocks: DemoBlock[] = [];
+/** Convert a server block to a DemoBlock for the tower store */
+function serverBlockToDemo(block: ServerBlock): DemoBlock {
+  return {
+    id: block.id,
+    layer: block.layer,
+    index: block.index,
+    energy: block.energy,
+    ownerColor: block.ownerColor || "#00ffff",
+    owner: block.owner || null, // "" → null
+    stakedAmount: block.stakedAmount || 0,
+    position: { x: 0, y: 0, z: 0 }, // TowerGrid computes from layout
+    emoji: block.appearance?.emoji || undefined,
+    name: block.appearance?.name || undefined,
+    style: block.appearance?.style || 0,
+    textureId: block.appearance?.textureId || 0,
+    lastChargeTime: block.lastChargeTime || undefined,
+    streak: block.streak || 0,
+    lastStreakDate: block.lastStreakDate || undefined,
+  };
+}
 
-  state.blocks.forEach((block: any, _key: string) => {
-    blocks.push({
-      id: block.id,
-      layer: block.layer,
-      index: block.index,
-      energy: block.energy,
-      ownerColor: block.ownerColor || "#00ffff",
-      owner: block.owner || null, // "" → null (Schema uses "" for unclaimed)
-      stakedAmount: block.stakedAmount || 0,
-      position: { x: 0, y: 0, z: 0 }, // TowerGrid computes from layout, ignores this
-      emoji: block.appearance?.emoji || undefined,
-      name: block.appearance?.name || undefined,
-      style: block.appearance?.style || 0,
-      textureId: block.appearance?.textureId || 0,
-      lastChargeTime: block.lastChargeTime || undefined,
-      streak: block.streak || 0,
-      lastStreakDate: block.lastStreakDate || undefined,
-    });
-  });
-
+/** Apply full tower state from server */
+function applyFullState(data: ServerState) {
+  const blocks = data.blocks.map(serverBlockToDemo);
   if (blocks.length > 0) {
     useTowerStore.getState().setDemoBlocks(blocks);
+    console.log(`[Multiplayer] Applied full state: ${blocks.length} blocks, tick ${data.tick}`);
   }
 }
 
-/** Clear reconnect timer */
+/** Apply a single block update from server */
+function applySingleBlockUpdate(serverBlock: ServerBlock) {
+  const store = useTowerStore.getState();
+  const updated = serverBlockToDemo(serverBlock);
+  const existing = store.demoBlocks;
+
+  // Find and replace the matching block
+  const idx = existing.findIndex(
+    (b) => b.layer === updated.layer && b.index === updated.index,
+  );
+
+  if (idx >= 0) {
+    const newBlocks = [...existing];
+    newBlocks[idx] = updated;
+    store.setDemoBlocks(newBlocks);
+  }
+}
+
 function clearReconnectTimer() {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
@@ -87,15 +134,20 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       client = new Client(GAME_SERVER_URL);
       room = await client.joinOrCreate("tower");
 
-      // ─── Process initial state IMMEDIATELY ──────────────
-      // joinOrCreate resolves after initial state is received.
-      // onStateChange only fires on SUBSEQUENT changes, so we
-      // must manually sync the initial state here.
-      console.log(`[Multiplayer] Room joined, ${room.state.blocks.size} blocks in initial state`);
-      syncState(room.state);
+      // ─── JSON message handlers (bypasses schema auto-sync) ────
 
-      // ─── Subscribe to future state changes ──────────────
-      room.onStateChange(syncState);
+      // Full state: sent on join + every 15s
+      room.onMessage("tower_state", (data: ServerState) => {
+        applyFullState(data);
+        if (data.stats) {
+          set({ playerCount: data.stats.activeUsers || 0 });
+        }
+      });
+
+      // Single block update: sent on claim/charge/customize
+      room.onMessage("block_update", (data: ServerBlock) => {
+        applySingleBlockUpdate(data);
+      });
 
       room.onError((code, message) => {
         console.warn(`[Multiplayer] Room error: ${code} ${message}`);
@@ -108,17 +160,11 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         room = null;
         set({ connected: false, playerCount: 0 });
 
-        // Auto-reconnect on unexpected disconnects (code >= 1000 is abnormal or server-side)
-        // Code 4000 = consented leave (user called disconnect), don't reconnect
+        // Auto-reconnect on unexpected disconnects
         if (wasConnected && code !== 4000) {
           scheduleReconnect(set, get);
         }
       });
-
-      // Track player count from room metadata
-      if (room.state.stats) {
-        set({ playerCount: room.state.stats.activeUsers || 0 });
-      }
 
       reconnectAttempt = 0;
       set({ connected: true, connecting: false, reconnecting: false });
@@ -136,7 +182,6 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   disconnect: () => {
     clearReconnectTimer();
     reconnectAttempt = 0;
-    // Code 4000 = consented leave (prevents auto-reconnect)
     room?.leave(true).catch(() => {});
     room = null;
     client = null;
@@ -168,7 +213,7 @@ function scheduleReconnect(
   console.log(`[Multiplayer] Reconnecting in ${delay}ms (attempt ${reconnectAttempt}/${RECONNECT_MAX_RETRIES})`);
 
   reconnectTimer = setTimeout(async () => {
-    if (get().connected) return; // Already reconnected
+    if (get().connected) return;
     const ok = await get().connect();
     if (!ok && reconnectAttempt < RECONNECT_MAX_RETRIES) {
       scheduleReconnect(set, get);
