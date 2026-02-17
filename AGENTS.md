@@ -4,6 +4,37 @@ This file documents important lessons, gotchas, and discoveries for future devel
 
 ## Recent Lessons Learned
 
+### 2026-02-16: R3F Custom Shaders — All Lights Are Baked, Use Additive Blending for Interior Glow
+
+**Problem**: Attempted to add a solid opaque TowerCore mesh (dark stone) inside the tower to give depth when viewing through gaps. Result: "massive monolithic black structure" that obstructed blocks and darkened everything despite being BackSide-only.
+
+**Root Cause**: ALL R3F light components (`ambientLight`, `hemisphereLight`, `directionalLight`, `pointLight`) have **zero visual effect** because every mesh uses custom `ShaderMaterial` without `lights: true`. All lighting is hardcoded in shader GLSL. Adding an opaque surface with traditional face shading just creates a dark void.
+
+**Solution**: Replace opaque geometry with **additive-blended warm glow**:
+```typescript
+// Material properties
+transparent: true,
+depthWrite: false,
+side: THREE.BackSide,
+blending: THREE.AdditiveBlending,
+
+// Fragment shader: height gradient + edge fade + breathing pulse
+vec3 emberColor = vec3(0.6, 0.15, 0.02);   // deep orange-red base
+vec3 amberColor = vec3(0.8, 0.45, 0.08);   // warm amber mid
+vec3 goldColor  = vec3(0.95, 0.8, 0.3);    // pale gold top
+float edgeFade = pow(1.0 - abs(dot(N, V)), 1.5);
+float pulse = 0.85 + 0.15 * sin(uTime * 0.8);
+gl_FragColor = vec4(glowColor * 0.4, edgeFade * pulse * 0.35);
+```
+
+**Key Insights**:
+- BackSide rendering is NOT sufficient to prevent visual obstruction — opaque materials still darken whatever is behind them in the framebuffer
+- Additive blending (`AdditiveBlending`) only ADDS light, never darkens — safe for interior glow effects
+- `depthWrite: false` prevents z-fighting and overdraw issues
+- For "light from within" effects in shader-based scenes, use emissive additive geometry, not traditional lit surfaces
+
+**Result**: Warm amber glow visible only through gaps between blocks, creating a "keeper of the flame" monument aesthetic. Zero performance cost (additive + depthWrite:false means negligible overdraw).
+
 ### 2026-02-15: R3F InstancedMesh — Always Use Child Geometry for Raycasting
 
 **Problem**: Passing geometry via `args` on `<instancedMesh args={[geometry, undefined, count]} />` (self-closing) breaks R3F raycasting/onClick. Blocks become unclickable.

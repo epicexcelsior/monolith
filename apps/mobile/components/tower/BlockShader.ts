@@ -310,7 +310,7 @@ const fragmentShader = /* glsl */ `
     // LAYER 3: FACE SHADING (3D form, always applies)
     // ═══════════════════════════════════════════════════════
 
-    vec3 lightDir = normalize(vec3(0.4, 0.8, 0.3));
+    vec3 lightDir = normalize(vec3(0.25, 0.8, -0.5));
     float NdotL = dot(N, lightDir);
     float topFace = max(0.0, N.y);
     float bottomFace = max(0.0, -N.y);
@@ -320,10 +320,28 @@ const fragmentShader = /* glsl */ `
     faceBrightness += topFace * 0.25;
     faceBrightness -= bottomFace * 0.15;
 
+    // ─── Fake AO: darken faces pointing toward tower center ──
+    vec3 toCenter = normalize(vec3(0.0, vWorldPos.y, 0.0) - vWorldPos);
+    float ao = 1.0 - max(dot(N, toCenter), 0.0) * 0.4;
+    faceBrightness *= ao;
+
+    // ─── Contact shadow: darken block edges where they meet grid ──
+    vec3 edgePos = fract(vWorldPos * 1.1);
+    float edgeDist = min(min(edgePos.x, 1.0 - edgePos.x), min(edgePos.z, 1.0 - edgePos.z));
+    float contactShadow = smoothstep(0.0, 0.12, edgeDist);
+    faceBrightness *= mix(0.7, 1.0, contactShadow);
+
     // Matte style: flatten the lighting
     if (style == 3) {
       faceBrightness = 0.65 + 0.15 * NdotL;
     }
+
+    // ─── SSS approximation: light wrapping for high-energy blocks ──
+    float sss = pow(max(dot(-N, lightDir), 0.0), 2.0) * energy * 0.2;
+    baseColor += vec3(0.15, 0.08, 0.03) * sss;
+
+    // ─── Uplight bounce: warm light on undersides ──
+    baseColor += vec3(0.06, 0.04, 0.02) * max(0.0, -N.y) * energy;
 
     // Warm ambient on sides for living blocks
     baseColor += vec3(0.04, 0.02, 0.01) * sideFace * energy;
@@ -335,11 +353,18 @@ const fragmentShader = /* glsl */ `
 
     vec3 glowColor = energyGlowColor(energy);
 
-    // Specular (skip for matte)
+    // Specular — GGX-like distribution (skip for matte)
     vec3 specColor = vec3(0.0);
     if (style != 3) {
       vec3 H = normalize(lightDir + V);
-      float spec = pow(max(dot(N, H), 0.0), 24.0) * 0.45 * step(0.1, energy);
+      float NdotH = max(dot(N, H), 0.0);
+      // Roughness varies with energy: smooth when charged, rough when dim
+      float roughness = mix(0.7, 0.2, energy);
+      float alpha2 = roughness * roughness;
+      alpha2 *= alpha2;
+      float denom = NdotH * NdotH * (alpha2 - 1.0) + 1.0;
+      float ggx = alpha2 / (3.14159 * denom * denom + 0.0001);
+      float spec = ggx * 0.12 * step(0.1, energy);
       spec *= (0.3 + energy * 0.7);
       specColor = vec3(1.0, 0.92, 0.7) * spec;
     }
@@ -455,6 +480,94 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
       uSpireThreshold: { value: 14 / 18 },
       uTowerHeight: { value: 18 * 1.3 },
     },
+    fog: false,
+    toneMapped: false,
+  });
+}
+
+// ─── Glow Pass Material ──────────────────────────────────
+
+const glowVertexShader = /* glsl */ `
+  precision highp float;
+
+  attribute float aEnergy;
+  attribute vec3 aOwnerColor;
+
+  varying float vEnergy;
+  varying vec3 vOwnerColor;
+  varying vec3 vNormal;
+  varying vec3 vViewDir;
+
+  void main() {
+    // Inflate geometry along normals for halo effect
+    mat3 normalMat = mat3(instanceMatrix);
+    vec3 worldNormal = normalize(normalMat * normal);
+    vec4 worldPos = instanceMatrix * vec4(position + normal * 0.15, 1.0);
+    vec4 mvPosition = modelViewMatrix * worldPos;
+
+    gl_Position = projectionMatrix * mvPosition;
+
+    vEnergy = aEnergy;
+    vOwnerColor = aOwnerColor;
+    vNormal = normalize(normalMatrix * worldNormal);
+    vViewDir = normalize(-mvPosition.xyz);
+  }
+`;
+
+const glowFragmentShader = /* glsl */ `
+  precision highp float;
+
+  uniform float uTime;
+
+  varying float vEnergy;
+  varying vec3 vOwnerColor;
+  varying vec3 vNormal;
+  varying vec3 vViewDir;
+
+  void main() {
+    float energy = clamp(vEnergy, 0.0, 1.0);
+
+    // Cubic energy falloff — only high-energy blocks glow
+    float glowStrength = energy * energy * energy;
+
+    // Discard low-energy fragments (GPU skips most blocks)
+    if (glowStrength < 0.05) discard;
+
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(vViewDir);
+    float NdotV = max(dot(N, V), 0.0);
+
+    // Fresnel: stronger glow at edges, transparent at center
+    float fresnel = pow(1.0 - NdotV, 2.5);
+
+    // Glow color: blend owner color with warm gold
+    vec3 warmGold = vec3(1.0, 0.8, 0.3);
+    vec3 glowColor = mix(vOwnerColor, warmGold, 0.4) * 1.5;
+
+    // Subtle pulse
+    float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + vOwnerColor.r * 10.0);
+
+    float alpha = fresnel * glowStrength * pulse * 0.6;
+
+    gl_FragColor = vec4(glowColor * glowStrength, alpha);
+  }
+`;
+
+/**
+ * Creates the additive glow material for the fake bloom pass.
+ * Renders inflated block geometry with fresnel-based alpha.
+ * Only high-energy blocks produce visible glow (cubic falloff).
+ */
+export function createGlowMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: glowVertexShader,
+    fragmentShader: glowFragmentShader,
+    uniforms: {
+      uTime: { value: 0 },
+    },
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
     fog: false,
     toneMapped: false,
   });

@@ -13,7 +13,7 @@ import {
   BLOCK_SCALE_PER_LAYER,
   BLOCK_COLORS,
 } from "@monolith/common";
-import { createBlockMaterial } from "./BlockShader";
+import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 
 export interface BlockMeta {
@@ -112,7 +112,9 @@ function computeSpireLayerPositions(
 export default function TowerGrid() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const hitMeshRef = useRef<THREE.InstancedMesh>(null);
+  const glowMeshRef = useRef<THREE.InstancedMesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  const glowMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const blockMetaRef = useRef<BlockMeta[]>([]);
   const config = DEFAULT_TOWER_CONFIG;
 
@@ -127,6 +129,12 @@ export default function TowerGrid() {
   const material = useMemo(() => {
     const mat = createBlockMaterial();
     materialRef.current = mat;
+    return mat;
+  }, []);
+
+  const glowMaterial = useMemo(() => {
+    const mat = createGlowMaterial();
+    glowMaterialRef.current = mat;
     return mat;
   }, []);
 
@@ -206,17 +214,21 @@ export default function TowerGrid() {
   useEffect(() => {
     const mesh = meshRef.current;
     const hitMesh = hitMeshRef.current;
+    const glowMesh = glowMeshRef.current;
     if (!mesh || blockData.length === 0) return;
 
     // Only apply transforms once (positions don't change)
     if (!transformsApplied.current) {
       const tempObj = new THREE.Object3D();
+      const glowObj = new THREE.Object3D();
       // Stable seeded random for jitter
       let jitterSeed = 12345;
       const nextJitter = () => {
         jitterSeed = (jitterSeed * 16807 + 0) % 2147483647;
         return (jitterSeed & 0x7fffffff) / 2147483647;
       };
+
+      const GLOW_SCALE = 1.6;
 
       for (let i = 0; i < blockData.length; i++) {
         const block = blockData[i];
@@ -247,10 +259,24 @@ export default function TowerGrid() {
           tempObj.updateMatrix();
           hitMesh.setMatrixAt(i, tempObj.matrix);
         }
+
+        // Glow mesh: same position, scaled up for halo
+        if (glowMesh) {
+          glowObj.position.copy(block.position);
+          glowObj.scale.set(
+            BLOCK_SIZE * GLOW_SCALE * layerScale,
+            BLOCK_SIZE * GLOW_SCALE * layerScale,
+            BLOCK_SIZE * GLOW_SCALE * layerScale,
+          );
+          glowObj.rotation.copy(tempObj.rotation);
+          glowObj.updateMatrix();
+          glowMesh.setMatrixAt(i, glowObj.matrix);
+        }
       }
 
       mesh.instanceMatrix.needsUpdate = true;
       if (hitMesh) hitMesh.instanceMatrix.needsUpdate = true;
+      if (glowMesh) glowMesh.instanceMatrix.needsUpdate = true;
       transformsApplied.current = true;
     }
 
@@ -324,6 +350,27 @@ export default function TowerGrid() {
     } else {
       geo.setAttribute("aTextureId", new THREE.InstancedBufferAttribute(textureArray, 1));
     }
+
+    // ─── Glow mesh attributes (shared data, separate geometry) ──
+    if (glowMeshRef.current) {
+      const glowGeo = glowMeshRef.current.geometry;
+
+      const existingGlowEnergy = glowGeo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+      if (existingGlowEnergy && existingGlowEnergy.count === count) {
+        existingGlowEnergy.set(energyArray);
+        existingGlowEnergy.needsUpdate = true;
+      } else {
+        glowGeo.setAttribute("aEnergy", new THREE.InstancedBufferAttribute(new Float32Array(energyArray), 1));
+      }
+
+      const existingGlowColor = glowGeo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+      if (existingGlowColor && existingGlowColor.count === count) {
+        existingGlowColor.set(colorArray);
+        existingGlowColor.needsUpdate = true;
+      } else {
+        glowGeo.setAttribute("aOwnerColor", new THREE.InstancedBufferAttribute(new Float32Array(colorArray), 3));
+      }
+    }
   }, [blockData, config, layoutData, demoBlocks]);
 
   // Handle claim flash trigger
@@ -343,6 +390,9 @@ export default function TowerGrid() {
   useFrame((_state, delta) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += delta;
+    }
+    if (glowMaterialRef.current) {
+      glowMaterialRef.current.uniforms.uTime.value += delta;
     }
 
     // Claim flash: golden celebration burst for 2 seconds
@@ -432,6 +482,16 @@ export default function TowerGrid() {
         frustumCulled={true}
         material={material}
       />
+
+      {/* Glow pass: additive halo around high-energy blocks */}
+      <instancedMesh
+        ref={glowMeshRef}
+        args={[undefined, undefined, instanceCount]}
+        frustumCulled={true}
+        material={glowMaterial}
+      >
+        <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
+      </instancedMesh>
 
       <instancedMesh
         ref={hitMeshRef}

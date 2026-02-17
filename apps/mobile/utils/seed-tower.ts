@@ -183,36 +183,36 @@ export interface BotPersona {
 
 const BOT_PERSONAS: BotPersona[] = [
   // ── Whales: High stakes, steady, reliable
-  { name: "SolWhale.sol", color: "#00ffff", emoji: "🐋", archetype: "whale", stakeRange: [200, 2000], activityLevel: 0.9 },
-  { name: "VaultMaxi", color: "#ffcc00", emoji: "🏦", archetype: "whale", stakeRange: [500, 5000], activityLevel: 0.95 },
-  { name: "DiamondHodl", color: "#00ff99", emoji: "💎", archetype: "whale", stakeRange: [100, 1000], activityLevel: 0.85 },
+  { name: "SolWhale.sol", color: "#5B8FB9", emoji: "🐋", archetype: "whale", stakeRange: [200, 2000], activityLevel: 0.9 },
+  { name: "VaultMaxi", color: "#D4A847", emoji: "🏦", archetype: "whale", stakeRange: [500, 5000], activityLevel: 0.95 },
+  { name: "DiamondHodl", color: "#2E8B6A", emoji: "💎", archetype: "whale", stakeRange: [100, 1000], activityLevel: 0.85 },
 
   // ── Degens: Volatile, high energy, wild stakes
-  { name: "DeFiDegen", color: "#ff6600", emoji: "🎰", archetype: "degen", stakeRange: [1, 500], activityLevel: 0.6 },
-  { name: "ApeMode", color: "#ff0066", emoji: "🦍", archetype: "degen", stakeRange: [5, 200], activityLevel: 0.4 },
-  { name: "YoloStake", color: "#ff3300", emoji: "🔥", archetype: "degen", stakeRange: [1, 100], activityLevel: 0.3 },
-  { name: "GigaBrain", color: "#ff00ff", emoji: "🧠", archetype: "degen", stakeRange: [10, 300], activityLevel: 0.5 },
+  { name: "DeFiDegen", color: "#E8843C", emoji: "🎰", archetype: "degen", stakeRange: [1, 500], activityLevel: 0.6 },
+  { name: "ApeMode", color: "#C4572A", emoji: "🦍", archetype: "degen", stakeRange: [5, 200], activityLevel: 0.4 },
+  { name: "YoloStake", color: "#A85C38", emoji: "🔥", archetype: "degen", stakeRange: [1, 100], activityLevel: 0.3 },
+  { name: "GigaBrain", color: "#6B4C8A", emoji: "🧠", archetype: "degen", stakeRange: [10, 300], activityLevel: 0.5 },
 
   // ── Builders: Consistent, medium stakes, high streaks
-  { name: "BuilderDAO", color: "#0066ff", emoji: "🏗️", archetype: "builder", stakeRange: [10, 100], activityLevel: 0.95 },
-  { name: "StakeGuru", color: "#33ff00", emoji: "🧘", archetype: "builder", stakeRange: [20, 200], activityLevel: 0.9 },
-  { name: "CyberMonk", color: "#00ccff", emoji: "⚡", archetype: "builder", stakeRange: [5, 50], activityLevel: 0.85 },
-  { name: "SolPilot", color: "#6600ff", emoji: "🚀", archetype: "builder", stakeRange: [10, 150], activityLevel: 0.8 },
+  { name: "BuilderDAO", color: "#5B8FB9", emoji: "🏗️", archetype: "builder", stakeRange: [10, 100], activityLevel: 0.95 },
+  { name: "StakeGuru", color: "#7BAE4E", emoji: "🧘", archetype: "builder", stakeRange: [20, 200], activityLevel: 0.9 },
+  { name: "CyberMonk", color: "#F0BC5E", emoji: "⚡", archetype: "builder", stakeRange: [5, 50], activityLevel: 0.85 },
+  { name: "SolPilot", color: "#B08A30", emoji: "🚀", archetype: "builder", stakeRange: [10, 150], activityLevel: 0.8 },
 
   // ── Artists: Expressive, varied, love customization
-  { name: "PixelVault", color: "#9900ff", emoji: "🎨", archetype: "artist", stakeRange: [1, 50], activityLevel: 0.7 },
-  { name: "NeonDreams", color: "#ff0099", emoji: "🌈", archetype: "artist", stakeRange: [1, 30], activityLevel: 0.65 },
-  { name: "GlitchArt", color: "#ff6699", emoji: "🎭", archetype: "artist", stakeRange: [2, 40], activityLevel: 0.6 },
+  { name: "PixelVault", color: "#6B4C8A", emoji: "🎨", archetype: "artist", stakeRange: [1, 50], activityLevel: 0.7 },
+  { name: "NeonDreams", color: "#D4763C", emoji: "🌈", archetype: "artist", stakeRange: [1, 30], activityLevel: 0.65 },
+  { name: "GlitchArt", color: "#C9A96E", emoji: "🎭", archetype: "artist", stakeRange: [2, 40], activityLevel: 0.6 },
 
   // ── Explorers: Scattered, curious, lower commitment
-  { name: "ChainGhost", color: "#00ff66", emoji: "👻", archetype: "explorer", stakeRange: [1, 20], activityLevel: 0.4 },
-  { name: "WanderSOL", color: "#ffff00", emoji: "🧭", archetype: "explorer", stakeRange: [1, 15], activityLevel: 0.35 },
-  { name: "CosmicDust", color: "#00ffff", emoji: "🌌", archetype: "explorer", stakeRange: [1, 25], activityLevel: 0.3 },
+  { name: "ChainGhost", color: "#3D7A5F", emoji: "👻", archetype: "explorer", stakeRange: [1, 20], activityLevel: 0.4 },
+  { name: "WanderSOL", color: "#E8D4A0", emoji: "🧭", archetype: "explorer", stakeRange: [1, 15], activityLevel: 0.35 },
+  { name: "CosmicDust", color: "#4A6B5A", emoji: "🌌", archetype: "explorer", stakeRange: [1, 25], activityLevel: 0.3 },
 
   // ── Competitors: Status-obsessed, high activity, mid-high stakes
-  { name: "AlphaGrind", color: "#ff6600", emoji: "🏆", archetype: "competitor", stakeRange: [50, 500], activityLevel: 0.95 },
-  { name: "SkylineKing", color: "#ffcc00", emoji: "👑", archetype: "competitor", stakeRange: [100, 1000], activityLevel: 0.9 },
-  { name: "RankHunter", color: "#ff0066", emoji: "🎯", archetype: "competitor", stakeRange: [20, 300], activityLevel: 0.85 },
+  { name: "AlphaGrind", color: "#D4A847", emoji: "🏆", archetype: "competitor", stakeRange: [50, 500], activityLevel: 0.95 },
+  { name: "SkylineKing", color: "#8B6D42", emoji: "👑", archetype: "competitor", stakeRange: [100, 1000], activityLevel: 0.9 },
+  { name: "RankHunter", color: "#E8843C", emoji: "🎯", archetype: "competitor", stakeRange: [20, 300], activityLevel: 0.85 },
 ];
 
 // ─── Position Helpers (mirrors TowerGrid logic) ───────────

@@ -45,7 +45,7 @@ const ZOOM_MAX = 55;
 /** Zoom tier centers (for tier detection only — no magnetic snapping) */
 const ZOOM_OVERVIEW = 40;
 const ZOOM_NEIGHBORHOOD = 18;
-const ZOOM_BLOCK = 14;
+const ZOOM_BLOCK = 12;
 
 /** Vertical pan (lookAt.y) — active with two-finger drag */
 const PAN_Y_SENSITIVITY = 0.08; // lookAt.y units per pixel of drag
@@ -63,7 +63,7 @@ const CAMERA_NEAR = 0.5;
 const CAMERA_FAR = 1200;
 
 /** Fixed camera state for overview / reset */
-const OVERVIEW_ELEVATION = 0.65;
+const OVERVIEW_ELEVATION = 0.45;
 const OVERVIEW_AZIMUTH = Math.PI / 5;
 
 /** Drag threshold — finger must move this far to count as drag, not tap */
@@ -181,7 +181,7 @@ function CameraRig({
         const block = getDemoBlockById(selectedBlockId);
         if (block) {
           cs.targetAzimuth = nearestAzimuth(cs.azimuth, Math.atan2(block.position.x, block.position.z));
-          cs.targetElevation = 0.55;
+          cs.targetElevation = 0.38;
           cs.targetZoom = ZOOM_BLOCK;
           cs.targetLookAt.set(
             block.position.x,
