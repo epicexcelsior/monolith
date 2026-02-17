@@ -17,6 +17,14 @@ jest.mock("expo-secure-store", () => ({
         delete mockSecureStore[key];
     }),
 }));
+jest.mock("@/services/mwa", () => ({
+    SECURE_STORE_KEYS: {
+        AUTH_TOKEN: "mwa_auth_token",
+        BASE64_ADDRESS: "mwa_base64_address",
+        WALLET_URI_BASE: "mwa_wallet_uri_base",
+        HAS_COMPLETED_ONBOARDING: "monolith_onboarding_complete",
+    },
+}));
 
 import { useOnboardingStore } from "@/stores/onboarding-store";
 
@@ -53,7 +61,7 @@ describe("onboarding-store", () => {
         });
 
         it("should skip to done if onboarding flag is set", async () => {
-            mockSecureStore["monolith_onboarding_done"] = "true";
+            mockSecureStore["monolith_onboarding_complete"] = "true";
             await useOnboardingStore.getState().init();
             const state = useOnboardingStore.getState();
             expect(state.phase).toBe("done");
@@ -93,7 +101,7 @@ describe("onboarding-store", () => {
             expect(useOnboardingStore.getState().phase).toBe("done");
             // SecureStore.setItemAsync is called asynchronously
             expect(require("expo-secure-store").setItemAsync).toHaveBeenCalledWith(
-                "monolith_onboarding_done",
+                "monolith_onboarding_complete",
                 "true",
             );
         });
@@ -123,7 +131,7 @@ describe("onboarding-store", () => {
         it("should persist the onboarding-done flag", () => {
             useOnboardingStore.getState().skipOnboarding();
             expect(require("expo-secure-store").setItemAsync).toHaveBeenCalledWith(
-                "monolith_onboarding_done",
+                "monolith_onboarding_complete",
                 "true",
             );
         });
@@ -145,7 +153,7 @@ describe("onboarding-store", () => {
 
     describe("resetOnboarding", () => {
         it("should reset phase to title and clear persisted flag", async () => {
-            mockSecureStore["monolith_onboarding_done"] = "true";
+            mockSecureStore["monolith_onboarding_complete"] = "true";
             useOnboardingStore.setState({ phase: "done" });
 
             await useOnboardingStore.getState().resetOnboarding();
@@ -154,7 +162,7 @@ describe("onboarding-store", () => {
             expect(state.ghostBlockId).toBeNull();
             expect(state.initialized).toBe(true);
             expect(require("expo-secure-store").deleteItemAsync).toHaveBeenCalledWith(
-                "monolith_onboarding_done",
+                "monolith_onboarding_complete",
             );
         });
     });

@@ -19,6 +19,14 @@ jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn().mockResolvedValue(null),
   setItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock("@/services/mwa", () => ({
+  SECURE_STORE_KEYS: {
+    AUTH_TOKEN: "mwa_auth_token",
+    BASE64_ADDRESS: "mwa_base64_address",
+    WALLET_URI_BASE: "mwa_wallet_uri_base",
+    HAS_COMPLETED_ONBOARDING: "monolith_onboarding_complete",
+  },
+}));
 
 import { useTowerStore } from "@/stores/tower-store";
 

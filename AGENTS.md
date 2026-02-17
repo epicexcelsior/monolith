@@ -192,6 +192,32 @@ If the latest commit message matches what you just committed but the terminal hu
 **Applied**: Updated `/wrapup` and `/commit` workflows to include commit verification steps. Also added React Native platform compatibility notes to `expo-dev-client` skill documenting Buffer/crypto/fs limitations and Solana-specific gotchas.
 
 
+### 2026-02-17: pnpm Strict Isolation Breaks Transitive Deps in Docker/Railway
+
+**Problem**: Server deployed to Railway crashed with `Cannot find module '@colyseus/schema'` despite it being installed as a transitive dependency of `colyseus`. Worked perfectly locally.
+
+**Root Cause**: pnpm's strict `node_modules` isolation intentionally prevents accessing undeclared transitive dependencies. When using `esbuild --packages=external`, the bundle contains `require("@colyseus/schema")` but `@colyseus/schema` was never declared as a direct dependency — only `colyseus` was. Locally this might work due to hoisting, but in a fresh Docker install with pnpm, it fails.
+
+**Solution**:
+1. **Declare ALL directly-imported packages** in `package.json`, even if they're transitive deps of other packages
+2. **Never add `pnpm install --prod` prune step** in Dockerfile when using `--packages=external` — it breaks transitive dep resolution further
+3. Check the esbuild output for all `require()` calls and ensure each one is a direct dependency:
+```bash
+grep 'require("' dist/index.js  # find all external requires
+```
+
+**Key Insight**: esbuild `--packages=external` + pnpm strict isolation = every `require()` in the bundle MUST be in your direct `dependencies`. npm/yarn hoist transitive deps so this isn't an issue there, but pnpm catches it.
+
+### 2026-02-17: Railway Deployment — Port, Dockerfile, and Monorepo Setup
+
+**Gotchas**:
+- Railway sets `PORT` env var (usually 8080). Server must read `process.env.PORT`, NOT hardcode 2567
+- Dockerfile must be at **repo root** (not `apps/server/`). Set Railway root directory to `/`
+- External URL is standard `https://` / `wss://` — no port needed in client URL
+- `EXPOSE 2567` in Dockerfile is informational only — Railway's proxy handles routing
+- Railway GitHub integration auto-deploys on push to main — no manual `railway up` needed
+- For pnpm monorepos: `corepack enable && corepack prepare pnpm@<version> --activate` in Dockerfile
+
 ### 2026-02-12: React Native Gesture Handler + R3F Canvas Touch Event Conflicts
 
 **Problem**: When using `react-native-gesture-handler`'s `GestureDetector` with `onStartShouldSetPanResponder: () => true`, all touch events are captured immediately, preventing R3F Canvas from receiving tap events for raycasting/onClick on 3D objects.

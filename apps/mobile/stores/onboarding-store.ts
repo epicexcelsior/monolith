@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
+import { SECURE_STORE_KEYS } from "@/services/mwa";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ const PHASE_ORDER: OnboardingPhase[] = [
     "done",
 ];
 
-const ONBOARDING_KEY = "monolith_onboarding_done";
+const ONBOARDING_KEY = SECURE_STORE_KEYS.HAS_COMPLETED_ONBOARDING;
 
 // ─── Store ────────────────────────────────────────────────
 

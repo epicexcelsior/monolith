@@ -81,15 +81,18 @@ export default function OnboardingFlow() {
         if (blockId) {
             setGhostBlock(blockId);
             selectBlock(blockId); // This triggers camera fly-to
+            advancePhase(); // → claim
+        } else {
+            // No unclaimed block found — skip to complete phase
+            skipOnboarding();
         }
-        advancePhase(); // → claim
-    }, [demoBlocks, setGhostBlock, selectBlock, advancePhase]);
+    }, [demoBlocks, setGhostBlock, selectBlock, advancePhase, skipOnboarding]);
 
     // ─── Phase: CLAIM ─────────────────────────────
     // When user taps "Claim This Block" in the claim card
     const handleGhostClaim = useCallback(() => {
         if (!ghostBlockId) return;
-        ghostClaimBlock(ghostBlockId);
+        if (typeof ghostClaimBlock === 'function') ghostClaimBlock(ghostBlockId);
         hapticBlockClaimed();
         playBlockClaim();
 
@@ -121,7 +124,7 @@ export default function OnboardingFlow() {
 
         // Start rapid decay after a short delay
         decayTimerRef.current = setTimeout(() => {
-            ghostDecayBlock(ghostBlockId, 60); // Drop from 100 to ~40
+            if (typeof ghostDecayBlock === 'function') ghostDecayBlock(ghostBlockId, 60); // Drop from 100 to ~40
             setHasDecayed(true);
         }, 1500);
 
@@ -133,8 +136,10 @@ export default function OnboardingFlow() {
     // Handle charge tap
     const handleGhostCharge = useCallback(() => {
         if (!ghostBlockId) return;
-        const result = ghostChargeBlock(ghostBlockId);
-        if (result.success) {
+        const result = typeof ghostChargeBlock === 'function'
+            ? ghostChargeBlock(ghostBlockId)
+            : { success: false };
+        if (result?.success) {
             hapticButtonPress();
             playChargeTap();
 
@@ -175,7 +180,7 @@ export default function OnboardingFlow() {
 
     const handleConnectWallet = useCallback(() => {
         hapticButtonPress();
-        clearGhostBlock();
+        if (typeof clearGhostBlock === 'function') clearGhostBlock();
         completeOnboarding();
         skipOnboarding();
         router.push("/connect");
@@ -183,14 +188,14 @@ export default function OnboardingFlow() {
 
     const handleKeepExploring = useCallback(() => {
         hapticButtonPress();
-        clearGhostBlock();
+        if (typeof clearGhostBlock === 'function') clearGhostBlock();
         completeOnboarding();
         skipOnboarding();
     }, [clearGhostBlock, completeOnboarding, skipOnboarding]);
 
     const handleSkip = useCallback(() => {
         hapticButtonPress();
-        clearGhostBlock();
+        if (typeof clearGhostBlock === 'function') clearGhostBlock();
         completeOnboarding();
         skipOnboarding();
     }, [clearGhostBlock, completeOnboarding, skipOnboarding]);

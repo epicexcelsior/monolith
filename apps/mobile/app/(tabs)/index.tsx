@@ -29,6 +29,7 @@ export default function TowerScreen() {
   const startDecayLoop = useTowerStore((s) => s.startDecayLoop);
   const startBotSimulation = useTowerStore((s) => s.startBotSimulation);
   const setMultiplayerMode = useTowerStore((s) => s.setMultiplayerMode);
+  const resetOnboardingFlag = useTowerStore((s) => s.resetOnboardingFlag);
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
 
@@ -50,8 +51,8 @@ export default function TowerScreen() {
         console.log("[Tower] Multiplayer unavailable, using local mode");
         setMultiplayerMode(false);
       }
-      initTower();
-      initOnboarding();
+      await initTower();
+      await initOnboarding();
       initAudio();
     };
     init();
@@ -85,6 +86,7 @@ export default function TowerScreen() {
               onLongPress={() => {
                 hapticButtonPress();
                 resetOnboarding();
+                resetOnboardingFlag();
               }}
               delayLongPress={800}
               activeOpacity={0.7}

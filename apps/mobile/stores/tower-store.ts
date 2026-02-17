@@ -9,6 +9,7 @@ import type {
 } from "@monolith/common";
 import { DEFAULT_TOWER_CONFIG, MAX_ENERGY } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
+import { SECURE_STORE_KEYS } from "@/services/mwa";
 
 // ─── Storage Helpers ──────────────────────────────────────
 // Uses expo-file-system for large tower data (650+ blocks JSON)
@@ -16,11 +17,11 @@ import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBo
 
 const TOWER_FILE = `${FileSystem.documentDirectory}tower-state.json`;
 const TOWER_VERSION_KEY = "monolith_tower_version";
-const ONBOARDING_KEY = "monolith_onboarding_done";
+const ONBOARDING_KEY = SECURE_STORE_KEYS.HAS_COMPLETED_ONBOARDING;
 
 // Bump this whenever the seed algorithm changes to force a re-seed.
 // Users who already have persisted data will get the new bots on next launch.
-const CURRENT_TOWER_VERSION = "7";
+const CURRENT_TOWER_VERSION = "9";
 
 async function readTowerFile(): Promise<string | null> {
   try {
@@ -157,6 +158,13 @@ interface TowerStore {
   resetTower: () => Promise<void>;
   clearRecentlyClaimed: () => void;
   completeOnboarding: () => void;
+  resetOnboardingFlag: () => Promise<void>;
+
+  // ─── Ghost Block Actions (onboarding tutorial) ─────
+  ghostClaimBlock: (blockId: string) => void;
+  ghostChargeBlock: (blockId: string) => { success: boolean; chargeAmount?: number };
+  ghostDecayBlock: (blockId: string, amount?: number) => void;
+  clearGhostBlock: () => void;
 
   // ─── Computed ─────────────────────────────
   getBlockById: (id: string) => Block | undefined;
@@ -414,6 +422,69 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   completeOnboarding: () => {
     set({ onboardingDone: true });
     setOnboardingFlag();
+  },
+
+  resetOnboardingFlag: async () => {
+    set({ onboardingDone: false });
+    try {
+      await SecureStore.deleteItemAsync(ONBOARDING_KEY);
+    } catch { /* ignore */ }
+  },
+
+  // ─── Ghost Block Actions (onboarding tutorial) ─────
+
+  ghostClaimBlock: (blockId) => {
+    set((state) => ({
+      demoBlocks: state.demoBlocks.map((b) =>
+        b.id === blockId
+          ? {
+            ...b,
+            owner: "__ghost__",
+            ownerColor: "#FFB800",
+            energy: MAX_ENERGY,
+            stakedAmount: 1,
+            streak: 1,
+          }
+          : b,
+      ),
+      recentlyClaimedId: blockId,
+    }));
+  },
+
+  ghostChargeBlock: (blockId) => {
+    const block = get().demoBlocks.find((b) => b.id === blockId);
+    if (!block) return { success: false };
+
+    const chargeAmount = BASE_CHARGE_AMOUNT;
+    set((state) => ({
+      demoBlocks: state.demoBlocks.map((b) =>
+        b.id === blockId
+          ? { ...b, energy: Math.min(MAX_ENERGY, b.energy + chargeAmount) }
+          : b,
+      ),
+    }));
+    return { success: true, chargeAmount };
+  },
+
+  ghostDecayBlock: (blockId, amount = 50) => {
+    set((state) => ({
+      demoBlocks: state.demoBlocks.map((b) =>
+        b.id === blockId
+          ? { ...b, energy: Math.max(0, b.energy - amount) }
+          : b,
+      ),
+    }));
+  },
+
+  clearGhostBlock: () => {
+    set((state) => ({
+      demoBlocks: state.demoBlocks.map((b) =>
+        b.owner === "__ghost__"
+          ? { ...b, owner: null, energy: 0, stakedAmount: 0, streak: 0 }
+          : b,
+      ),
+      recentlyClaimedId: null,
+    }));
   },
 
   // ─── Computed ─────────────────────────────

@@ -4,6 +4,14 @@ import { GAME_SERVER_URL } from "@/constants/network";
 import { useTowerStore } from "@/stores/tower-store";
 import type { DemoBlock } from "@/stores/tower-store";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage } from "@monolith/common";
+import {
+  DEFAULT_TOWER_CONFIG,
+  MONOLITH_HALF_W,
+  MONOLITH_HALF_D,
+  SPIRE_START_LAYER,
+  computeBodyLayerPositions,
+  computeSpireLayerPositions,
+} from "@monolith/common";
 
 // ─── Reconnection Config ──────────────────────────────────
 const RECONNECT_MAX_RETRIES = 10;
@@ -62,6 +70,31 @@ let room: Room | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempt = 0;
 
+// ─── Position cache (computed once from shared layout) ───────
+// Maps "layer-index" → {x,y,z} so camera fly-to works correctly.
+const positionCache = new Map<string, { x: number; y: number; z: number }>();
+
+function buildPositionCache() {
+  if (positionCache.size > 0) return;
+  const config = DEFAULT_TOWER_CONFIG;
+  for (let layer = 0; layer < config.layerCount; layer++) {
+    const count = config.blocksPerLayer[layer];
+    const isSpire = layer >= SPIRE_START_LAYER;
+    const positions = isSpire
+      ? computeSpireLayerPositions(layer, count, config.layerCount)
+      : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
+    const usable = positions.slice(0, count);
+    for (let i = 0; i < usable.length; i++) {
+      positionCache.set(`${layer}-${i}`, { x: usable[i].x, y: usable[i].y, z: usable[i].z });
+    }
+  }
+}
+
+function getBlockPosition(layer: number, index: number): { x: number; y: number; z: number } {
+  buildPositionCache();
+  return positionCache.get(`${layer}-${index}`) ?? { x: 0, y: 0, z: 0 };
+}
+
 /** Convert a server block to a DemoBlock for the tower store */
 function serverBlockToDemo(block: ServerBlock): DemoBlock {
   return {
@@ -72,7 +105,7 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     ownerColor: block.ownerColor || "#00ffff",
     owner: block.owner || null, // "" → null
     stakedAmount: block.stakedAmount || 0,
-    position: { x: 0, y: 0, z: 0 }, // TowerGrid computes from layout
+    position: getBlockPosition(block.layer, block.index),
     emoji: block.appearance?.emoji || undefined,
     name: block.appearance?.name || undefined,
     style: block.appearance?.style || 0,
