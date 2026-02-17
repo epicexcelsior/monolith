@@ -26,14 +26,12 @@
 import {
   DEFAULT_TOWER_CONFIG,
   BLOCK_COLORS,
-  BLOCK_SIZE,
-  BLOCK_GAP,
-  LAYER_HEIGHT,
   MONOLITH_HALF_W,
   MONOLITH_HALF_D,
   SPIRE_START_LAYER,
-  BLOCK_SCALE_PER_LAYER,
   BLOCK_ICONS,
+  computeBodyLayerPositions,
+  computeSpireLayerPositions,
 } from "@monolith/common";
 import type { DemoBlock } from "@/stores/tower-store";
 
@@ -215,67 +213,7 @@ const BOT_PERSONAS: BotPersona[] = [
   { name: "RankHunter", color: "#E8843C", emoji: "🎯", archetype: "competitor", stakeRange: [20, 300], activityLevel: 0.85 },
 ];
 
-// ─── Position Helpers (mirrors TowerGrid logic) ───────────
-
-function computeBodyLayerPositions(
-  layer: number,
-  blockCount: number,
-  halfW: number,
-  halfD: number,
-): { x: number; y: number; z: number }[] {
-  const results: { x: number; y: number; z: number }[] = [];
-  const y = layer * LAYER_HEIGHT;
-  const step = BLOCK_SIZE + BLOCK_GAP;
-  const layerScale = 1 + layer * BLOCK_SCALE_PER_LAYER;
-
-  const perimeterUnits = 2 * halfW + 2 * halfD;
-  const frontBack = Math.round((halfW / perimeterUnits) * blockCount);
-  const leftRight = Math.round((halfD / perimeterUnits) * blockCount);
-
-  const totalCalc = 2 * frontBack + 2 * leftRight;
-  let fCount = frontBack;
-  if (totalCalc !== blockCount) {
-    fCount = frontBack + Math.round((blockCount - totalCalc) / 4);
-  }
-  const sCount = leftRight;
-
-  for (let i = 0; i < fCount; i++) {
-    const x = (i - (fCount - 1) / 2) * step * layerScale;
-    results.push({ x, y, z: halfD + BLOCK_SIZE * 0.5 });
-  }
-  for (let i = 0; i < fCount; i++) {
-    const x = (i - (fCount - 1) / 2) * step * layerScale;
-    results.push({ x, y, z: -halfD - BLOCK_SIZE * 0.5 });
-  }
-  for (let i = 0; i < sCount; i++) {
-    const z = (i - (sCount - 1) / 2) * step * layerScale;
-    results.push({ x: halfW + BLOCK_SIZE * 0.5, y, z });
-  }
-  for (let i = 0; i < sCount; i++) {
-    const z = (i - (sCount - 1) / 2) * step * layerScale;
-    results.push({ x: -halfW - BLOCK_SIZE * 0.5, y, z });
-  }
-
-  return results;
-}
-
-function computeSpireLayerPositions(
-  layer: number,
-  blockCount: number,
-  totalLayers: number,
-): { x: number; y: number; z: number }[] {
-  const spireProgress =
-    (layer - SPIRE_START_LAYER) / (totalLayers - 1 - SPIRE_START_LAYER);
-  const shrink = 1 - spireProgress * 0.9;
-  const hw = MONOLITH_HALF_W * shrink;
-  const hd = MONOLITH_HALF_D * shrink;
-
-  if (blockCount <= 1) {
-    return [{ x: 0, y: layer * LAYER_HEIGHT, z: 0 }];
-  }
-
-  return computeBodyLayerPositions(layer, blockCount, hw, hd);
-}
+// Position helpers now imported from @monolith/common (computeBodyLayerPositions, computeSpireLayerPositions)
 
 // ─── Neighborhood Generation ─────────────────────────────
 
@@ -398,7 +336,7 @@ export function generateSeedTower(seed: number = _config.seed): DemoBlock[] {
       const isSpire = layer >= SPIRE_START_LAYER;
       const positions = isSpire
         ? computeSpireLayerPositions(layer, count, config.layerCount)
-        : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D);
+        : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
 
       const usable = positions.slice(0, count);
       for (let i = 0; i < usable.length; i++) {
@@ -426,7 +364,7 @@ export function generateSeedTower(seed: number = _config.seed): DemoBlock[] {
 
     const positions = isSpire
       ? computeSpireLayerPositions(layer, count, config.layerCount)
-      : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D);
+      : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
 
     const usable = positions.slice(0, count);
 

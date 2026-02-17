@@ -6,13 +6,13 @@
 import {
   DEFAULT_TOWER_CONFIG,
   BLOCK_SIZE,
-  LAYER_HEIGHT,
   MONOLITH_HALF_W,
   MONOLITH_HALF_D,
   SPIRE_START_LAYER,
-  BLOCK_SCALE_PER_LAYER,
   ENERGY_THRESHOLDS,
   generateTowerConfig,
+  getLayerScale,
+  getLayerY,
 } from "@monolith/common";
 import { ENERGY_COLOR_STOPS } from "@/components/tower/BlockShader";
 
@@ -66,11 +66,18 @@ describe("Monolith tower config", () => {
 });
 
 describe("Tower layer Y positions", () => {
-  it("should produce correct Y for each layer", () => {
-    for (let layer = 0; layer < DEFAULT_TOWER_CONFIG.layerCount; layer++) {
-      const y = layer * LAYER_HEIGHT;
-      expect(y).toBeCloseTo(layer * 1.3, 5);
+  it("should produce increasing Y for each layer", () => {
+    const totalLayers = DEFAULT_TOWER_CONFIG.layerCount;
+    let prevY = -1;
+    for (let layer = 0; layer < totalLayers; layer++) {
+      const y = getLayerY(layer, totalLayers);
+      expect(y).toBeGreaterThan(prevY);
+      prevY = y;
     }
+  });
+
+  it("layer 0 should be at Y=0", () => {
+    expect(getLayerY(0, DEFAULT_TOWER_CONFIG.layerCount)).toBe(0);
   });
 });
 
@@ -88,9 +95,10 @@ describe("Monolith dimensions", () => {
     expect(SPIRE_START_LAYER).toBeLessThan(DEFAULT_TOWER_CONFIG.layerCount);
   });
 
-  it("BLOCK_SCALE_PER_LAYER should be a small positive value", () => {
-    expect(BLOCK_SCALE_PER_LAYER).toBeGreaterThan(0);
-    expect(BLOCK_SCALE_PER_LAYER).toBeLessThan(0.1);
+  it("getLayerScale should return ~1x at bottom and ~3x at top", () => {
+    const totalLayers = DEFAULT_TOWER_CONFIG.layerCount;
+    expect(getLayerScale(0, totalLayers)).toBeCloseTo(1, 1);
+    expect(getLayerScale(totalLayers - 1, totalLayers)).toBeCloseTo(3, 0);
   });
 
   it("BLOCK_SIZE should be positive", () => {

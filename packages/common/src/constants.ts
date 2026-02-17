@@ -56,17 +56,48 @@ export const MONOLITH_HALF_W = 6;
 /** Half-depth of the monolith on Z axis (total depth = 2 * MONOLITH_HALF_D) */
 export const MONOLITH_HALF_D = 3.5;
 
-/** Height of each tower layer in world units */
+/** Approximate height per layer (legacy — use getLayerY() for accurate positions) */
 export const LAYER_HEIGHT = 1.3;
 
 /** Block size at layer 0 */
 export const BLOCK_SIZE = 0.85;
 
-/** Gap between blocks */
-export const BLOCK_GAP = 0.06;
+/** Gap between blocks (hairline seam) */
+export const BLOCK_GAP = 0.015;
 
-/** Extra scale multiplier per layer (higher = slightly bigger blocks) */
-export const BLOCK_SCALE_PER_LAYER = 0.01;
+/**
+ * Exponential scale factor per layer.
+ * Bottom blocks ~1x, top blocks ~3x.
+ * Formula: 1 + 2 * (layer / (totalLayers - 1))^2.5
+ */
+export function getLayerScale(layer: number, totalLayers: number): number {
+  if (totalLayers <= 1) return 1;
+  const t = layer / (totalLayers - 1);
+  return 1 + 2 * Math.pow(t, 2.5);
+}
+
+/**
+ * Compute the Y position for a given layer by summing actual block heights + gap.
+ * Each layer's block height = BLOCK_SIZE * getLayerScale(layer), so larger top blocks
+ * stack correctly without overlapping or leaving gaps.
+ */
+export function getLayerY(layer: number, totalLayers: number): number {
+  let y = 0;
+  for (let i = 0; i < layer; i++) {
+    const scale = getLayerScale(i, totalLayers);
+    y += BLOCK_SIZE * scale + BLOCK_GAP;
+  }
+  return y;
+}
+
+/**
+ * Total tower height (top of last layer's block).
+ */
+export function getTowerHeight(totalLayers: number): number {
+  const lastY = getLayerY(totalLayers - 1, totalLayers);
+  const lastScale = getLayerScale(totalLayers - 1, totalLayers);
+  return lastY + BLOCK_SIZE * lastScale;
+}
 
 /** Layer index where the spire (converging crown) begins */
 export const SPIRE_START_LAYER = 14;
