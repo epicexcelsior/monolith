@@ -56,3 +56,4 @@ yarn-error.log*
 
 # CMake build caches
 .cxx/
+/apps/mobile/.env.local

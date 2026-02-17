@@ -158,3 +158,28 @@ export type GameEvent =
   | { type: "sonar_pulse"; originBlockId: string; dyingBlockIds: string[] }
   | { type: "player_joined"; player: Player }
   | { type: "stats_updated"; stats: TowerStats };
+
+// ─── Multiplayer Message Types ────────────────────────────
+// Used by both Colyseus server and client for type-safe messaging.
+
+export interface ClaimMessage {
+  blockId: string;
+  wallet: string;
+  amount: number;
+  color: string;
+}
+
+export interface ChargeMessage {
+  blockId: string;
+}
+
+export interface CustomizeMessage {
+  blockId: string;
+  changes: {
+    color?: string;
+    emoji?: string;
+    name?: string;
+    style?: number;
+    textureId?: number;
+  };
+}

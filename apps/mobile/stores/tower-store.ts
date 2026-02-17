@@ -127,6 +127,7 @@ interface TowerStore {
   onboardingDone: boolean;
   initialized: boolean;
   cameraStateRef: React.MutableRefObject<any> | null;
+  multiplayerMode: boolean;
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -142,6 +143,7 @@ interface TowerStore {
   setZoomTier: (tier: "overview" | "neighborhood" | "block") => void;
   setGestureActive: (active: boolean) => void;
   setCameraStateRef: (ref: React.MutableRefObject<any>) => void;
+  setMultiplayerMode: (enabled: boolean) => void;
 
   // ─── Game Actions ─────────────────────────
   initTower: () => Promise<void>;
@@ -187,6 +189,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   onboardingDone: false,
   initialized: false,
   cameraStateRef: null,
+  multiplayerMode: false,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
@@ -215,10 +218,18 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setZoomTier: (tier) => set({ zoomTier: tier }),
   setGestureActive: (active) => set({ isGestureActive: active }),
   setCameraStateRef: (ref) => set({ cameraStateRef: ref }),
+  setMultiplayerMode: (enabled) => set({ multiplayerMode: enabled }),
 
   // ─── Game Actions ─────────────────────────
 
   initTower: async () => {
+    // In multiplayer mode, server provides state — skip local load/seed
+    if (get().multiplayerMode) {
+      const onboardingFlag = await getOnboardingFlag();
+      set({ initialized: true, onboardingDone: onboardingFlag });
+      return;
+    }
+
     try {
       const onboardingFlag = await getOnboardingFlag();
 

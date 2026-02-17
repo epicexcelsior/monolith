@@ -13,18 +13,27 @@
     "development": {
       "extends": "base",
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_GAME_SERVER_URL": "ws://192.168.1.84:2567"
+      }
     },
     "preview": {
       "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_GAME_SERVER_URL": "ws://0.tcp.us-cal-1.ngrok.io:16355"
       }
     },
     "production": {
       "extends": "base",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_GAME_SERVER_URL": "wss://monolith-server.railway.app"
+      }
     }
   },
   "submit": {

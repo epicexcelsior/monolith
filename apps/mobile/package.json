@@ -28,6 +28,7 @@
     "@supabase/supabase-js": "^2.49.0",
     "babel-plugin-module-resolver": "^5.0.2",
     "buffer": "^6.0.3",
+    "colyseus.js": "^0.15.0",
     "expo": "~54.0.33",
     "expo-audio": "^1.1.1",
     "expo-blur": "^15.0.8",
@@ -84,7 +85,7 @@
       "^.+\\.(ts|tsx|js|jsx)$": "babel-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@solana/web3.js|@solana/spl-token|@solana-mobile/.*|@coral-xyz/.*|@react-three/.*|three|zustand|wonka|@noble/.*|buffer|readable-stream)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@solana/web3.js|@solana/spl-token|@solana-mobile/.*|@coral-xyz/.*|@react-three/.*|three|zustand|wonka|@noble/.*|buffer|readable-stream|colyseus\\.js|@colyseus/.*)"
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1",
