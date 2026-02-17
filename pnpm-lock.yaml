@@ -211,6 +211,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@colyseus/schema':
+        specifier: ^2.0.0
+        version: 2.0.37
       '@colyseus/ws-transport':
         specifier: ^0.15.0
         version: 0.15.3(@colyseus/core@0.15.57(@colyseus/schema@2.0.37)(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@colyseus/schema@2.0.37)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
