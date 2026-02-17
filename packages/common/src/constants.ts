@@ -67,13 +67,14 @@ export const BLOCK_GAP = 0.015;
 
 /**
  * Exponential scale factor per layer.
- * Bottom blocks ~1x, top blocks ~3x.
- * Formula: 1 + 2 * (layer / (totalLayers - 1))^2.5
+ * Bottom blocks ~1x, top blocks ~1.8x.
+ * Formula: 1 + 0.8 * (layer / (totalLayers - 1))^2.0
+ * Moderate growth — blocks get noticeably bigger without overwhelming the silhouette.
  */
 export function getLayerScale(layer: number, totalLayers: number): number {
   if (totalLayers <= 1) return 1;
   const t = layer / (totalLayers - 1);
-  return 1 + 2 * Math.pow(t, 2.5);
+  return 1 + 0.8 * Math.pow(t, 2.0);
 }
 
 /**
@@ -123,21 +124,28 @@ export function generateTowerConfig(layerCount: number = 18): TowerConfig {
   const blocksPerLayer: number[] = [];
 
   // Body: each layer has blocks on 4 faces
-  const bodyBlocksWide = 12; // blocks along width face (front & back)
-  const bodyBlocksDeep = 8;  // blocks along depth face (left & right)
-  const bodyBlocksPerLayer = 2 * bodyBlocksWide + 2 * bodyBlocksDeep; // 40
+  // Base counts at layer 0 (scale=1x)
+  const baseBlocksWide = 12; // blocks along width face (front & back)
+  const baseBlocksDeep = 8;  // blocks along depth face (left & right)
+  const baseBlocksPerLayer = 2 * baseBlocksWide + 2 * baseBlocksDeep; // 40
 
   for (let i = 0; i < layerCount; i++) {
     if (i < SPIRE_START_LAYER) {
-      // Body layer — consistent rectangular ring
-      blocksPerLayer.push(bodyBlocksPerLayer);
+      // Body layer — reduce block count inversely with scale to maintain footprint
+      const scale = getLayerScale(i, layerCount);
+      const layerBlocks = Math.max(
+        12, // minimum blocks per body layer
+        Math.round(baseBlocksPerLayer / scale),
+      );
+      blocksPerLayer.push(layerBlocks);
     } else {
-      // Spire layer — taper down
+      // Spire layer — taper down from the body count at spire start
       const spireProgress =
         (i - SPIRE_START_LAYER) / (layerCount - 1 - SPIRE_START_LAYER); // 0→1
+      const spireBaseCount = blocksPerLayer[SPIRE_START_LAYER - 1] || baseBlocksPerLayer;
       const spireBlocks = Math.max(
         1,
-        Math.round(bodyBlocksPerLayer * (1 - spireProgress * 0.88)),
+        Math.round(spireBaseCount * (1 - spireProgress * 0.88)),
       );
       blocksPerLayer.push(spireBlocks);
     }

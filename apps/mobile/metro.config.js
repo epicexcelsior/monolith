@@ -15,6 +15,13 @@ const moduleShims = {
   ws: path.resolve(shimsDir, "ws.js"),
 };
 
+// Force colyseus.js to use the CJS build (ESM build has import namespace
+// issues with our shims — read-only .default property conflict)
+const colyseusMainOverride = path.resolve(
+  monorepoRoot,
+  "node_modules/colyseus.js/build/cjs/index.js",
+);
+
 // Required for Solana web3.js and other Node.js libraries in React Native
 config.resolver.extraNodeModules = {
   crypto: require.resolve("expo-crypto"),
@@ -27,12 +34,22 @@ config.resolver.extraNodeModules = {
 // Custom resolver: intercept imports of shimmed modules regardless of origin
 const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Shim Node-only modules
   if (moduleShims[moduleName]) {
     return {
       filePath: moduleShims[moduleName],
       type: "sourceFile",
     };
   }
+
+  // Force colyseus.js → CJS build
+  if (moduleName === "colyseus.js") {
+    return {
+      filePath: colyseusMainOverride,
+      type: "sourceFile",
+    };
+  }
+
   if (originalResolveRequest) {
     return originalResolveRequest(context, moduleName, platform);
   }

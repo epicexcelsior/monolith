@@ -34,8 +34,10 @@ export function computeBodyLayerPositions(
 ): LayoutPosition[] {
   const results: LayoutPosition[] = [];
   const y = getLayerY(layer, totalLayers);
-  const step = BLOCK_SIZE + BLOCK_GAP;
-  const layerScale = getLayerScale(layer, totalLayers);
+  const scale = getLayerScale(layer, totalLayers);
+  // Step scales with block size so bigger blocks space correctly on the face
+  // but we DON'T expand the overall footprint — fewer blocks fill the same width
+  const step = BLOCK_SIZE * scale + BLOCK_GAP;
 
   const perimeterUnits = 2 * halfW + 2 * halfD;
   const frontBack = Math.round((halfW / perimeterUnits) * blockCount);
@@ -50,22 +52,22 @@ export function computeBodyLayerPositions(
 
   // Front face
   for (let i = 0; i < fCount; i++) {
-    const x = (i - (fCount - 1) / 2) * step * layerScale;
+    const x = (i - (fCount - 1) / 2) * step;
     results.push({ x, y, z: halfD + BLOCK_SIZE * 0.5, rotY: 0 });
   }
   // Back face
   for (let i = 0; i < fCount; i++) {
-    const x = (i - (fCount - 1) / 2) * step * layerScale;
+    const x = (i - (fCount - 1) / 2) * step;
     results.push({ x, y, z: -halfD - BLOCK_SIZE * 0.5, rotY: Math.PI });
   }
   // Right face
   for (let i = 0; i < sCount; i++) {
-    const z = (i - (sCount - 1) / 2) * step * layerScale;
+    const z = (i - (sCount - 1) / 2) * step;
     results.push({ x: halfW + BLOCK_SIZE * 0.5, y, z, rotY: Math.PI / 2 });
   }
   // Left face
   for (let i = 0; i < sCount; i++) {
-    const z = (i - (sCount - 1) / 2) * step * layerScale;
+    const z = (i - (sCount - 1) / 2) * step;
     results.push({ x: -halfW - BLOCK_SIZE * 0.5, y, z, rotY: -Math.PI / 2 });
   }
 

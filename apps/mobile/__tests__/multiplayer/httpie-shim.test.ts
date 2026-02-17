@@ -5,8 +5,7 @@
  * expected by colyseus.js's HTTP module.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const httpie = require("@/shims/httpie");
+const httpie = require("../../shims/httpie");
 
 function makeMockResponse(status: number, statusText: string, data: any) {
   const headersMap: Record<string, string> = { "content-type": "application/json" };

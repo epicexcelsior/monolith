@@ -50,7 +50,7 @@ const gameServer = new Server({
 
 gameServer.define("tower", TowerRoom);
 
-const port = GAME_SERVER_PORT;
+const port = Number(process.env.PORT) || GAME_SERVER_PORT;
 httpServer.listen(port, "0.0.0.0", () => {
   console.log(`🗼 Monolith Game Server running on 0.0.0.0:${port}`);
   console.log(`   Health: http://localhost:${port}/health`);

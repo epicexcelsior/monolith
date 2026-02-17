@@ -5,13 +5,6 @@
  * React Native provides WebSocket globally, so we just export it.
  */
 
-const WebSocketShim = globalThis.WebSocket || class {};
+/* eslint-disable no-undef */
 
-// CommonJS
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = WebSocketShim;
-  // Don't set .default — metro will handle it
-}
-
-// ESM
-export default WebSocketShim;
+module.exports = globalThis.WebSocket || function() {};

@@ -15,7 +15,7 @@ import TowerStats from "@/components/ui/TowerStats";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
-import { useMultiplayer } from "@/hooks/useMultiplayer";
+import { useMultiplayerStore } from "@/stores/multiplayer-store";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { initAudio } from "@/utils/audio";
@@ -32,7 +32,7 @@ export default function TowerScreen() {
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
 
-  const { connect: connectMultiplayer, connected: multiplayerConnected } = useMultiplayer();
+  const multiplayerConnected = useMultiplayerStore((s) => s.connected);
 
   // Onboarding state
   const onboardingPhase = useOnboardingStore((s) => s.phase);
@@ -40,25 +40,23 @@ export default function TowerScreen() {
   const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
   const isOnboarding = onboardingPhase !== "done";
 
-  // Initialize tower: try multiplayer first, fall back to local
+  // Initialize tower: try multiplayer, fall back to local
   useEffect(() => {
     const init = async () => {
-      try {
-        setMultiplayerMode(true);
-        await connectMultiplayer();
-        // Server provides state; just mark initialized
-        initTower();
-      } catch {
-        // Server unavailable — fall back to local mode
+      const mpConnect = useMultiplayerStore.getState().connect;
+      setMultiplayerMode(true);
+      const ok = await mpConnect();
+      if (!ok) {
         console.log("[Tower] Multiplayer unavailable, using local mode");
         setMultiplayerMode(false);
-        initTower();
       }
+      initTower();
       initOnboarding();
       initAudio();
     };
     init();
-  }, [initTower, initOnboarding, connectMultiplayer, setMultiplayerMode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Start decay loop + bot simulation only when NOT in multiplayer (server handles these)
   useEffect(() => {

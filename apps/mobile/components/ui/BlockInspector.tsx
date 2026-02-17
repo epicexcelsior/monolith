@@ -24,7 +24,7 @@ import { useWalletStore } from "@/stores/wallet-store";
 import { useStaking } from "@/hooks/useStaking";
 import { ENERGY_THRESHOLDS, BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
-import { useMultiplayer } from "@/hooks/useMultiplayer";
+import { useMultiplayerStore, onChargeResult } from "@/stores/multiplayer-store";
 import {
   hapticBlockDeselect,
   hapticBlockClaimed,
@@ -94,7 +94,10 @@ export default function BlockInspector() {
   const isWalletConnected = useWalletStore((s) => s.isConnected);
   const { deposit } = useStaking();
   const router = useRouter();
-  const { connected: mpConnected, sendClaim, sendCharge, sendCustomize, onChargeResult } = useMultiplayer();
+  const mpConnected = useMultiplayerStore((s) => s.connected);
+  const sendClaim = useMultiplayerStore((s) => s.sendClaim);
+  const sendCharge = useMultiplayerStore((s) => s.sendCharge);
+  const sendCustomize = useMultiplayerStore((s) => s.sendCustomize);
 
   const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
   const dragOffset = useRef(new Animated.Value(0)).current;
@@ -217,7 +220,7 @@ export default function BlockInspector() {
         }
       }
     });
-  }, [mpConnected, onChargeResult]);
+  }, [mpConnected]);
 
   // Customize helper — routes through multiplayer or local store
   const applyCustomize = useCallback((changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => {
