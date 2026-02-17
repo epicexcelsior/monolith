@@ -15,6 +15,7 @@ import TowerStats from "@/components/ui/TowerStats";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
+import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { initAudio } from "@/utils/audio";
@@ -27,8 +28,11 @@ export default function TowerScreen() {
   const initTower = useTowerStore((s) => s.initTower);
   const startDecayLoop = useTowerStore((s) => s.startDecayLoop);
   const startBotSimulation = useTowerStore((s) => s.startBotSimulation);
+  const setMultiplayerMode = useTowerStore((s) => s.setMultiplayerMode);
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
+
+  const { connect: connectMultiplayer, connected: multiplayerConnected } = useMultiplayer();
 
   // Onboarding state
   const onboardingPhase = useOnboardingStore((s) => s.phase);
@@ -36,23 +40,36 @@ export default function TowerScreen() {
   const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
   const isOnboarding = onboardingPhase !== "done";
 
-  // Initialize tower (load from storage or seed)
+  // Initialize tower: try multiplayer first, fall back to local
   useEffect(() => {
-    initTower();
-    initOnboarding();
-    initAudio(); // Fire-and-forget audio pre-load
-  }, [initTower, initOnboarding]);
+    const init = async () => {
+      try {
+        setMultiplayerMode(true);
+        await connectMultiplayer();
+        // Server provides state; just mark initialized
+        initTower();
+      } catch {
+        // Server unavailable — fall back to local mode
+        console.log("[Tower] Multiplayer unavailable, using local mode");
+        setMultiplayerMode(false);
+        initTower();
+      }
+      initOnboarding();
+      initAudio();
+    };
+    init();
+  }, [initTower, initOnboarding, connectMultiplayer, setMultiplayerMode]);
 
-  // Start decay loop + bot simulation once tower is initialized
+  // Start decay loop + bot simulation only when NOT in multiplayer (server handles these)
   useEffect(() => {
-    if (!initialized) return;
+    if (!initialized || multiplayerConnected) return;
     const cleanupDecay = startDecayLoop();
     const cleanupBots = startBotSimulation();
     return () => {
       cleanupDecay();
       cleanupBots();
     };
-  }, [initialized, startDecayLoop, startBotSimulation]);
+  }, [initialized, multiplayerConnected, startDecayLoop, startBotSimulation]);
 
   return (
     <View style={styles.container}>

@@ -6,7 +6,7 @@ import TowerGrid from "./TowerGrid";
 import Particles from "./Particles";
 import Foundation from "./Foundation";
 import { useTowerStore } from "@/stores/tower-store";
-import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG } from "@monolith/common";
+import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG, getTowerHeight, getLayerY } from "@monolith/common";
 import {
   hapticBlockSelect,
   hapticBlockDeselect,
@@ -17,8 +17,8 @@ import {
 
 // ─── Constants ────────────────────────────────────────────
 
-const TOWER_CENTER_Y = (DEFAULT_TOWER_CONFIG.layerCount * LAYER_HEIGHT) / 2;
-const TOWER_HEIGHT = DEFAULT_TOWER_CONFIG.layerCount * LAYER_HEIGHT;
+const TOWER_HEIGHT = getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount);
+const TOWER_CENTER_Y = TOWER_HEIGHT / 2;
 
 // ─── Camera tuning ────────────────────────────────────────
 
@@ -38,14 +38,14 @@ const ORBIT_SENSITIVITY = 0.006;
 const MOMENTUM_FRICTION = 0.93; // per-frame decay (higher = longer coast)
 const MOMENTUM_MIN_VEL = 0.00008; // stop threshold
 
-/** Zoom range — ZOOM_MIN keeps camera outside tower geometry (~7 unit radius) */
-const ZOOM_MIN = 12;
+/** Zoom range — ZOOM_MIN allows close inspect while staying outside geometry */
+const ZOOM_MIN = 7;
 const ZOOM_MAX = 55;
 
 /** Zoom tier centers (for tier detection only — no magnetic snapping) */
 const ZOOM_OVERVIEW = 40;
 const ZOOM_NEIGHBORHOOD = 18;
-const ZOOM_BLOCK = 12;
+const ZOOM_BLOCK = 7;
 
 /** Vertical pan (lookAt.y) — active with two-finger drag */
 const PAN_Y_SENSITIVITY = 0.08; // lookAt.y units per pixel of drag
@@ -89,9 +89,19 @@ function getZoomTier(zoom: number): ZoomTier {
 }
 
 function getLayerFromY(y: number): number {
-  return Math.round(
-    Math.max(0, Math.min(y / LAYER_HEIGHT, DEFAULT_TOWER_CONFIG.layerCount - 1)),
-  );
+  // Binary search through layer Y positions for accurate mapping
+  const totalLayers = DEFAULT_TOWER_CONFIG.layerCount;
+  let best = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < totalLayers; i++) {
+    const layerY = getLayerY(i, totalLayers);
+    const dist = Math.abs(y - layerY);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  return best;
 }
 
 /**
@@ -308,7 +318,7 @@ function CameraRig({
 
     // Dynamic near plane: tighter when zoomed in for close detail,
     // relaxed when zoomed out to avoid z-fighting
-    camera.near = Math.max(0.1, cs.zoom * 0.03);
+    camera.near = Math.max(0.05, cs.zoom * 0.02);
     camera.far = CAMERA_FAR;
     camera.updateProjectionMatrix();
 

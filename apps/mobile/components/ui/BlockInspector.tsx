@@ -24,6 +24,7 @@ import { useWalletStore } from "@/stores/wallet-store";
 import { useStaking } from "@/hooks/useStaking";
 import { ENERGY_THRESHOLDS, BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
+import { useMultiplayer } from "@/hooks/useMultiplayer";
 import {
   hapticBlockDeselect,
   hapticBlockClaimed,
@@ -93,6 +94,7 @@ export default function BlockInspector() {
   const isWalletConnected = useWalletStore((s) => s.isConnected);
   const { deposit } = useStaking();
   const router = useRouter();
+  const { connected: mpConnected, sendClaim, sendCharge, sendCustomize, onChargeResult } = useMultiplayer();
 
   const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
   const dragOffset = useRef(new Animated.Value(0)).current;
@@ -163,64 +165,97 @@ export default function BlockInspector() {
     const sig = await deposit(amount);
     if (!sig) throw new Error("Transaction failed or rejected");
 
-    // Update local state
-    claimBlock(selectedBlockId, publicKey.toBase58(), amount * 1_000_000, color);
+    const wallet = publicKey.toBase58();
+    if (mpConnected) {
+      sendClaim({ blockId: selectedBlockId, wallet, amount: amount * 1_000_000, color });
+    } else {
+      claimBlock(selectedBlockId, wallet, amount * 1_000_000, color);
+    }
     hapticBlockClaimed();
     playBlockClaim();
-  }, [publicKey, selectedBlockId, deposit, claimBlock]);
+  }, [publicKey, selectedBlockId, deposit, claimBlock, mpConnected, sendClaim]);
 
   // Handle charge
   const handleCharge = useCallback(() => {
     if (!selectedBlockId) return;
     hapticButtonPress();
 
-    const result = chargeBlock(selectedBlockId);
-    if (!result.success && result.cooldownRemaining) {
-      const secs = Math.ceil(result.cooldownRemaining / 1000);
-      setCooldownText(`Wait ${secs}s`);
-      setTimeout(() => setCooldownText(null), 2000);
-      hapticError();
-      playError();
-    } else if (result.success) {
+    if (mpConnected) {
+      sendCharge({ blockId: selectedBlockId });
+      // Feedback comes async via charge_result message
       playChargeTap();
-      // Check for streak milestone
-      if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
-        playStreakMilestone();
+    } else {
+      const result = chargeBlock(selectedBlockId);
+      if (!result.success && result.cooldownRemaining) {
+        const secs = Math.ceil(result.cooldownRemaining / 1000);
+        setCooldownText(`Wait ${secs}s`);
+        setTimeout(() => setCooldownText(null), 2000);
+        hapticError();
+        playError();
+      } else if (result.success) {
+        playChargeTap();
+        if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
+          playStreakMilestone();
+        }
       }
     }
-  }, [selectedBlockId, chargeBlock]);
+  }, [selectedBlockId, chargeBlock, mpConnected, sendCharge]);
+
+  // Listen for server charge results (multiplayer)
+  useEffect(() => {
+    if (!mpConnected) return;
+    onChargeResult((result) => {
+      if (!result.success && result.cooldownRemaining) {
+        const secs = Math.ceil(result.cooldownRemaining / 1000);
+        setCooldownText(`Wait ${secs}s`);
+        setTimeout(() => setCooldownText(null), 2000);
+        hapticError();
+        playError();
+      } else if (result.success) {
+        if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
+          playStreakMilestone();
+        }
+      }
+    });
+  }, [mpConnected, onChargeResult]);
+
+  // Customize helper — routes through multiplayer or local store
+  const applyCustomize = useCallback((changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => {
+    if (!selectedBlockId) return;
+    if (mpConnected) {
+      sendCustomize({ blockId: selectedBlockId, changes });
+    } else {
+      customizeBlock(selectedBlockId, changes);
+    }
+  }, [selectedBlockId, mpConnected, sendCustomize, customizeBlock]);
 
   // Handle style change
   const handleStyleChange = useCallback((style: number) => {
-    if (!selectedBlockId) return;
-    customizeBlock(selectedBlockId, { style });
+    applyCustomize({ style });
     hapticButtonPress();
-  }, [selectedBlockId, customizeBlock]);
+  }, [applyCustomize]);
 
   // Handle color change
   const handleColorChange = useCallback((color: string) => {
-    if (!selectedBlockId) return;
-    customizeBlock(selectedBlockId, { color });
-  }, [selectedBlockId, customizeBlock]);
+    applyCustomize({ color });
+  }, [applyCustomize]);
 
   // Handle emoji change
   const handleEmojiChange = useCallback((emoji: string) => {
-    if (!selectedBlockId) return;
-    customizeBlock(selectedBlockId, { emoji });
-  }, [selectedBlockId, customizeBlock]);
+    applyCustomize({ emoji });
+  }, [applyCustomize]);
 
   // Handle name change
   const handleNameSubmit = useCallback(() => {
-    if (!selectedBlockId || !nameInput.trim()) return;
-    customizeBlock(selectedBlockId, { name: nameInput.trim().slice(0, 12) });
-  }, [selectedBlockId, nameInput, customizeBlock]);
+    if (!nameInput.trim()) return;
+    applyCustomize({ name: nameInput.trim().slice(0, 12) });
+  }, [nameInput, applyCustomize]);
 
   // Handle texture change
   const handleTextureChange = useCallback((textureId: number) => {
-    if (!selectedBlockId) return;
-    customizeBlock(selectedBlockId, { textureId });
+    applyCustomize({ textureId });
     hapticButtonPress();
-  }, [selectedBlockId, customizeBlock]);
+  }, [applyCustomize]);
 
   if (!block && !isVisible) return null;
 

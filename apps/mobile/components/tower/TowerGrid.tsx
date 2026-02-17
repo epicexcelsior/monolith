@@ -6,12 +6,13 @@ import {
   DEFAULT_TOWER_CONFIG,
   BLOCK_SIZE,
   BLOCK_GAP,
-  LAYER_HEIGHT,
   MONOLITH_HALF_W,
   MONOLITH_HALF_D,
   SPIRE_START_LAYER,
-  BLOCK_SCALE_PER_LAYER,
   BLOCK_COLORS,
+  getLayerScale,
+  computeBodyLayerPositions,
+  computeSpireLayerPositions,
 } from "@monolith/common";
 import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
@@ -27,80 +28,7 @@ export interface BlockMeta {
   stakedAmount: number;
 }
 
-// ─── Monolith Geometry Helpers ────────────────────────────
-
-function computeBodyLayerPositions(
-  layer: number,
-  blockCount: number,
-  halfW: number,
-  halfD: number,
-): { pos: THREE.Vector3; rotY: number }[] {
-  const results: { pos: THREE.Vector3; rotY: number }[] = [];
-  const y = layer * LAYER_HEIGHT;
-  const step = BLOCK_SIZE + BLOCK_GAP;
-  const layerScale = 1 + layer * BLOCK_SCALE_PER_LAYER;
-
-  const perimeterUnits = 2 * halfW + 2 * halfD;
-  const frontBack = Math.round((halfW / perimeterUnits) * blockCount);
-  const leftRight = Math.round((halfD / perimeterUnits) * blockCount);
-
-  const totalCalc = 2 * frontBack + 2 * leftRight;
-  let fCount = frontBack;
-  if (totalCalc !== blockCount) {
-    fCount = frontBack + Math.round((blockCount - totalCalc) / 4);
-  }
-  const sCount = leftRight;
-
-  for (let i = 0; i < fCount; i++) {
-    const x = (i - (fCount - 1) / 2) * step * layerScale;
-    results.push({
-      pos: new THREE.Vector3(x, y, halfD + BLOCK_SIZE * 0.5),
-      rotY: 0,
-    });
-  }
-  for (let i = 0; i < fCount; i++) {
-    const x = (i - (fCount - 1) / 2) * step * layerScale;
-    results.push({
-      pos: new THREE.Vector3(x, y, -halfD - BLOCK_SIZE * 0.5),
-      rotY: Math.PI,
-    });
-  }
-  for (let i = 0; i < sCount; i++) {
-    const z = (i - (sCount - 1) / 2) * step * layerScale;
-    results.push({
-      pos: new THREE.Vector3(halfW + BLOCK_SIZE * 0.5, y, z),
-      rotY: Math.PI / 2,
-    });
-  }
-  for (let i = 0; i < sCount; i++) {
-    const z = (i - (sCount - 1) / 2) * step * layerScale;
-    results.push({
-      pos: new THREE.Vector3(-halfW - BLOCK_SIZE * 0.5, y, z),
-      rotY: -Math.PI / 2,
-    });
-  }
-
-  return results;
-}
-
-function computeSpireLayerPositions(
-  layer: number,
-  blockCount: number,
-  totalLayers: number,
-): { pos: THREE.Vector3; rotY: number }[] {
-  const spireProgress =
-    (layer - SPIRE_START_LAYER) / (totalLayers - 1 - SPIRE_START_LAYER);
-  const shrink = 1 - spireProgress * 0.9;
-  const hw = MONOLITH_HALF_W * shrink;
-  const hd = MONOLITH_HALF_D * shrink;
-
-  if (blockCount <= 1) {
-    const y = layer * LAYER_HEIGHT;
-    return [{ pos: new THREE.Vector3(0, y, 0), rotY: 0 }];
-  }
-
-  return computeBodyLayerPositions(layer, blockCount, hw, hd);
-}
+// ─── TowerGrid ──────────────────────────────────────────────
 
 /**
  * TowerGrid — Renders 600+ blocks using a single InstancedMesh.
@@ -119,12 +47,17 @@ export default function TowerGrid() {
   const config = DEFAULT_TOWER_CONFIG;
 
   const selectBlock = useTowerStore((s) => s.selectBlock);
+  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const recentlyClaimedId = useTowerStore((s) => s.recentlyClaimedId);
   const clearRecentlyClaimed = useTowerStore((s) => s.clearRecentlyClaimed);
 
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
+
+  // Fade animation state
+  const fadeTargetsRef = useRef<Float32Array | null>(null);
+  const fadeCurrentRef = useRef<Float32Array | null>(null);
 
   const material = useMemo(() => {
     const mat = createBlockMaterial();
@@ -150,9 +83,9 @@ export default function TowerGrid() {
 
   const HIT_SCALE = 1.8;
 
-  // Build position layout (stable, config-based)
+  // Build position layout (stable, config-based) — uses shared layout functions
   const layoutData = useMemo(() => {
-    const layout: { pos: THREE.Vector3; rotY: number; layer: number; index: number }[] = [];
+    const layout: { x: number; y: number; z: number; rotY: number; layer: number; index: number }[] = [];
 
     for (let layer = 0; layer < config.layerCount; layer++) {
       const count = config.blocksPerLayer[layer];
@@ -160,7 +93,7 @@ export default function TowerGrid() {
 
       const positions = isSpire
         ? computeSpireLayerPositions(layer, count, config.layerCount)
-        : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D);
+        : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
 
       const usable = positions.slice(0, count);
       for (let i = 0; i < usable.length; i++) {
@@ -184,7 +117,7 @@ export default function TowerGrid() {
 
       data.push({
         id: storeBlock?.id ?? `block-${layout.layer}-${layout.index}`,
-        position: layout.pos,
+        position: new THREE.Vector3(layout.x, layout.y, layout.z),
         layer: layout.layer,
         index: layout.index,
         energy: storeBlock?.energy ?? 0,
@@ -221,35 +154,22 @@ export default function TowerGrid() {
     if (!transformsApplied.current) {
       const tempObj = new THREE.Object3D();
       const glowObj = new THREE.Object3D();
-      // Stable seeded random for jitter
-      let jitterSeed = 12345;
-      const nextJitter = () => {
-        jitterSeed = (jitterSeed * 16807 + 0) % 2147483647;
-        return (jitterSeed & 0x7fffffff) / 2147483647;
-      };
 
       const GLOW_SCALE = 1.6;
 
       for (let i = 0; i < blockData.length; i++) {
         const block = blockData[i];
         const layoutItem = layoutData[i];
-        const layerScale = 1 + block.layer * BLOCK_SCALE_PER_LAYER;
+        const layerScale = getLayerScale(block.layer, config.layerCount);
 
         tempObj.position.copy(block.position);
 
+        // Uniform scale — no jitter, perfect symmetry
         const baseScale = BLOCK_SIZE * layerScale;
-        const randomJitter = 0.92 + nextJitter() * 0.12;
-        tempObj.scale.set(
-          baseScale * randomJitter,
-          baseScale * (0.85 + nextJitter() * 0.3),
-          baseScale * randomJitter,
-        );
+        tempObj.scale.set(baseScale, baseScale, baseScale);
 
-        tempObj.rotation.set(
-          0,
-          layoutItem.rotY + (nextJitter() - 0.5) * 0.04,
-          0,
-        );
+        // Exact rotation from layout — no noise
+        tempObj.rotation.set(0, layoutItem.rotY, 0);
 
         tempObj.updateMatrix();
         mesh.setMatrixAt(i, tempObj.matrix);
@@ -268,7 +188,7 @@ export default function TowerGrid() {
             BLOCK_SIZE * GLOW_SCALE * layerScale,
             BLOCK_SIZE * GLOW_SCALE * layerScale,
           );
-          glowObj.rotation.copy(tempObj.rotation);
+          glowObj.rotation.set(0, layoutItem.rotY, 0);
           glowObj.updateMatrix();
           glowMesh.setMatrixAt(i, glowObj.matrix);
         }
@@ -351,6 +271,14 @@ export default function TowerGrid() {
       geo.setAttribute("aTextureId", new THREE.InstancedBufferAttribute(textureArray, 1));
     }
 
+    // Fade attribute — initialized to 1.0 (fully visible)
+    if (!fadeCurrentRef.current || fadeCurrentRef.current.length !== count) {
+      const fadeArray = new Float32Array(count).fill(1.0);
+      fadeTargetsRef.current = new Float32Array(count).fill(1.0);
+      fadeCurrentRef.current = fadeArray;
+      geo.setAttribute("aFade", new THREE.InstancedBufferAttribute(fadeArray, 1));
+    }
+
     // ─── Glow mesh attributes (shared data, separate geometry) ──
     if (glowMeshRef.current) {
       const glowGeo = glowMeshRef.current.geometry;
@@ -370,8 +298,55 @@ export default function TowerGrid() {
       } else {
         glowGeo.setAttribute("aOwnerColor", new THREE.InstancedBufferAttribute(new Float32Array(colorArray), 3));
       }
+
+      // Glow fade attribute
+      if (fadeCurrentRef.current) {
+        const existingGlowFade = glowGeo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
+        if (existingGlowFade && existingGlowFade.count === count) {
+          existingGlowFade.set(fadeCurrentRef.current);
+          existingGlowFade.needsUpdate = true;
+        } else {
+          glowGeo.setAttribute("aFade", new THREE.InstancedBufferAttribute(new Float32Array(fadeCurrentRef.current), 1));
+        }
+      }
     }
   }, [blockData, config, layoutData, demoBlocks]);
+
+  // Update fade targets when selection changes
+  useEffect(() => {
+    if (!fadeTargetsRef.current || blockData.length === 0) return;
+    const targets = fadeTargetsRef.current;
+
+    if (!selectedBlockId) {
+      // No selection: all fully visible
+      targets.fill(1.0);
+      return;
+    }
+
+    const selectedIdx = blockData.findIndex((b) => b.id === selectedBlockId);
+    if (selectedIdx < 0) {
+      targets.fill(1.0);
+      return;
+    }
+
+    const selectedPos = blockData[selectedIdx].position;
+
+    for (let i = 0; i < blockData.length; i++) {
+      if (i === selectedIdx) {
+        targets[i] = 1.0;
+        continue;
+      }
+      const dist = blockData[i].position.distanceTo(selectedPos);
+      // Near neighbors: ghostly, far blocks: very faint
+      if (dist < 3) {
+        targets[i] = 0.3;
+      } else if (dist < 8) {
+        targets[i] = 0.15;
+      } else {
+        targets[i] = 0.1;
+      }
+    }
+  }, [selectedBlockId, blockData]);
 
   // Handle claim flash trigger
   useEffect(() => {
@@ -386,13 +361,45 @@ export default function TowerGrid() {
     }
   }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
 
-  // Per-frame: update time uniform + claim flash animation
+  // Per-frame: update time uniform + claim flash + fade animation
   useFrame((_state, delta) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += delta;
     }
     if (glowMaterialRef.current) {
       glowMaterialRef.current.uniforms.uTime.value += delta;
+    }
+
+    // ─── Fade animation: lerp current toward targets ────
+    const mesh = meshRef.current;
+    const glowMesh = glowMeshRef.current;
+    if (mesh && fadeCurrentRef.current && fadeTargetsRef.current) {
+      const current = fadeCurrentRef.current;
+      const targets = fadeTargetsRef.current;
+      let needsUpdate = false;
+
+      for (let i = 0; i < current.length; i++) {
+        if (Math.abs(current[i] - targets[i]) > 0.001) {
+          current[i] += (targets[i] - current[i]) * 0.12;
+          needsUpdate = true;
+        }
+      }
+
+      if (needsUpdate) {
+        const fadeAttr = mesh.geometry.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
+        if (fadeAttr) {
+          fadeAttr.set(current);
+          fadeAttr.needsUpdate = true;
+        }
+        // Update glow mesh fade too
+        if (glowMesh) {
+          const glowFadeAttr = glowMesh.geometry.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
+          if (glowFadeAttr) {
+            glowFadeAttr.set(current);
+            glowFadeAttr.needsUpdate = true;
+          }
+        }
+      }
     }
 
     // Claim flash: golden celebration burst for 2 seconds
@@ -408,7 +415,7 @@ export default function TowerGrid() {
           const t = flash.time;
 
           // Phase 1: Bright gold ignition (0-0.5s)
-          // Phase 2: Golden pulse (0.5-1.5s) 
+          // Phase 2: Golden pulse (0.5-1.5s)
           // Phase 3: Settle to owner color (1.5-2.0s)
           let flashIntensity: number;
           if (t < 0.15) {

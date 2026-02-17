@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useMemo, useCallback } from "react";
 import { View, Text, StyleSheet, Animated, PanResponder, useWindowDimensions } from "react-native";
 import { COLORS, SPACING } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
-import { DEFAULT_TOWER_CONFIG, LAYER_HEIGHT } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, getLayerY } from "@monolith/common";
 import { hapticBlockSelect, hapticLayerCross } from "@/utils/haptics";
 
 const INDICATOR_HEIGHT_RATIO = 0.55; // 55% of screen height
@@ -62,7 +62,7 @@ export default function LayerIndicator() {
     const setLookAtForLayer = useCallback((layer: number, transition: boolean) => {
         if (!cameraStateRef?.current) return;
         const cs = cameraStateRef.current;
-        const targetY = layer * LAYER_HEIGHT;
+        const targetY = getLayerY(layer, DEFAULT_TOWER_CONFIG.layerCount);
         cs.targetLookAt.y = targetY;
         cs.velocityLookAtY = 0;
         if (transition) {

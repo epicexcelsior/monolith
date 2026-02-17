@@ -31,6 +31,7 @@ const vertexShader = /* glsl */ `
   attribute float aLayerNorm;
   attribute float aStyle;
   attribute float aTextureId;
+  attribute float aFade;
 
   // Passed to fragment
   varying float vEnergy;
@@ -44,6 +45,7 @@ const vertexShader = /* glsl */ `
   varying vec3 vWorldPos;
   varying float vStyle;
   varying float vTextureId;
+  varying float vFade;
 
   void main() {
     // Apply instance transform
@@ -60,6 +62,7 @@ const vertexShader = /* glsl */ `
     vWorldPos = worldPos.xyz;
     vStyle = aStyle;
     vTextureId = aTextureId;
+    vFade = aFade;
 
     // View-space normal for fresnel (transform normal by instance rotation)
     mat3 normalMat = mat3(instanceMatrix);
@@ -96,6 +99,7 @@ const fragmentShader = /* glsl */ `
   varying vec3 vWorldPos;
   varying float vStyle;
   varying float vTextureId;
+  varying float vFade;
 
   // ─── Utility: hash/noise for textures ──────────────────
   float hash21(vec2 p) {
@@ -449,7 +453,10 @@ const fragmentShader = /* glsl */ `
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     color = mix(uFogColor, color, fogFactor);
 
-    gl_FragColor = vec4(color, 1.0);
+    // Fade: multiply alpha for inspect-mode neighbor fading
+    float fade = clamp(vFade, 0.0, 1.0);
+    if (fade < 0.01) discard;
+    gl_FragColor = vec4(color, fade);
   }
 `;
 
@@ -478,8 +485,10 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
       uFogColor: { value: new THREE.Color(0x1a1008) },
       uFogDensity: { value: 0.004 },
       uSpireThreshold: { value: 14 / 18 },
-      uTowerHeight: { value: 18 * 1.3 },
+      uTowerHeight: { value: 25 }, // ~24.7 world units with exponential scaling
     },
+    transparent: true,
+    depthWrite: true,
     fog: false,
     toneMapped: false,
   });
@@ -492,11 +501,13 @@ const glowVertexShader = /* glsl */ `
 
   attribute float aEnergy;
   attribute vec3 aOwnerColor;
+  attribute float aFade;
 
   varying float vEnergy;
   varying vec3 vOwnerColor;
   varying vec3 vNormal;
   varying vec3 vViewDir;
+  varying float vFade;
 
   void main() {
     // Inflate geometry along normals for halo effect
@@ -509,6 +520,7 @@ const glowVertexShader = /* glsl */ `
 
     vEnergy = aEnergy;
     vOwnerColor = aOwnerColor;
+    vFade = aFade;
     vNormal = normalize(normalMatrix * worldNormal);
     vViewDir = normalize(-mvPosition.xyz);
   }
@@ -523,15 +535,17 @@ const glowFragmentShader = /* glsl */ `
   varying vec3 vOwnerColor;
   varying vec3 vNormal;
   varying vec3 vViewDir;
+  varying float vFade;
 
   void main() {
     float energy = clamp(vEnergy, 0.0, 1.0);
+    float fade = clamp(vFade, 0.0, 1.0);
 
     // Cubic energy falloff — only high-energy blocks glow
     float glowStrength = energy * energy * energy;
 
-    // Discard low-energy fragments (GPU skips most blocks)
-    if (glowStrength < 0.05) discard;
+    // Discard low-energy or fully faded fragments
+    if (glowStrength < 0.05 || fade < 0.01) discard;
 
     vec3 N = normalize(vNormal);
     vec3 V = normalize(vViewDir);
@@ -547,7 +561,7 @@ const glowFragmentShader = /* glsl */ `
     // Subtle pulse
     float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + vOwnerColor.r * 10.0);
 
-    float alpha = fresnel * glowStrength * pulse * 0.6;
+    float alpha = fresnel * glowStrength * pulse * 0.6 * fade;
 
     gl_FragColor = vec4(glowColor * glowStrength, alpha);
   }
