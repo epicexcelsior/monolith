@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { DEFAULT_TOWER_CONFIG, getTowerHeight, SPIRE_START_LAYER } from "@monolith/common";
 
 /**
  * Energy → color stops for the shader color ramp.
@@ -32,6 +33,7 @@ const vertexShader = /* glsl */ `
   attribute float aStyle;
   attribute float aTextureId;
   attribute float aFade;
+  attribute float aHighlight;
 
   // Passed to fragment
   varying float vEnergy;
@@ -46,10 +48,21 @@ const vertexShader = /* glsl */ `
   varying float vStyle;
   varying float vTextureId;
   varying float vFade;
+  varying float vHighlight;
 
   void main() {
-    // Apply instance transform
-    vec4 worldPos = instanceMatrix * vec4(position, 1.0);
+    // Apply instance transform with optional highlight scale-up
+    vec3 localPos = position * (1.0 + aHighlight * 0.08);
+    vec4 worldPos = instanceMatrix * vec4(localPos, 1.0);
+
+    // Pop-out: push highlighted block radially outward from tower axis
+    vec3 blockCenter = vec3(instanceMatrix[3][0], 0.0, instanceMatrix[3][2]);
+    float centerDist = length(blockCenter);
+    if (centerDist > 0.1) {
+      worldPos.xyz += (blockCenter / centerDist) * aHighlight * 0.5;
+    }
+    worldPos.y += aHighlight * 0.15; // subtle upward float
+
     vec4 mvPosition = modelViewMatrix * worldPos;
 
     gl_Position = projectionMatrix * mvPosition;
@@ -63,6 +76,7 @@ const vertexShader = /* glsl */ `
     vStyle = aStyle;
     vTextureId = aTextureId;
     vFade = aFade;
+    vHighlight = aHighlight;
 
     // View-space normal for fresnel (transform normal by instance rotation)
     mat3 normalMat = mat3(instanceMatrix);
@@ -100,6 +114,7 @@ const fragmentShader = /* glsl */ `
   varying float vStyle;
   varying float vTextureId;
   varying float vFade;
+  varying float vHighlight;
 
   // ─── Utility: hash/noise for textures ──────────────────
   float hash21(vec2 p) {
@@ -448,15 +463,31 @@ const fragmentShader = /* glsl */ `
 
     color = mix(deadColor, color, deadMask);
 
+    // ═══════════════════════════════════════════════════════
+    // LAYER 5: INSPECT MODE (dim + highlight)
+    // ═══════════════════════════════════════════════════════
+
+    // Dim non-focused blocks (desaturate + darken)
+    float dimFactor = mix(0.08, 1.0, vFade);
+    float satFactor = mix(0.12, 1.0, vFade);
+    float lumaDim = dot(color, vec3(0.299, 0.587, 0.114));
+    color = mix(vec3(lumaDim * 0.6), color, satFactor) * dimFactor;
+
+    // Highlight selected block (emissive boost + bright rim)
+    if (vHighlight > 0.01) {
+      vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.9, 0.6), 0.35);
+      color += emissive * vHighlight * 0.35;
+      color *= 1.0 + vHighlight * 0.25;
+      float hlRim = pow(1.0 - NdotV, 2.5);
+      color += vec3(1.0, 0.92, 0.7) * hlRim * vHighlight * 0.6;
+    }
+
     // ─── Fog ─────────────────────────────────────────────
     float fogFactor = exp(-uFogDensity * uFogDensity * vDist * vDist);
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     color = mix(uFogColor, color, fogFactor);
 
-    // Fade: multiply alpha for inspect-mode neighbor fading
-    float fade = clamp(vFade, 0.0, 1.0);
-    if (fade < 0.01) discard;
-    gl_FragColor = vec4(color, fade);
+    gl_FragColor = vec4(color, 1.0);
   }
 `;
 
@@ -484,11 +515,9 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
       uTime: { value: 0 },
       uFogColor: { value: new THREE.Color(0x1a1008) },
       uFogDensity: { value: 0.004 },
-      uSpireThreshold: { value: 14 / 18 },
-      uTowerHeight: { value: 25 }, // ~24.7 world units with exponential scaling
+      uSpireThreshold: { value: SPIRE_START_LAYER / DEFAULT_TOWER_CONFIG.layerCount },
+      uTowerHeight: { value: getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount) },
     },
-    transparent: true,
-    depthWrite: true,
     fog: false,
     toneMapped: false,
   });
@@ -502,18 +531,30 @@ const glowVertexShader = /* glsl */ `
   attribute float aEnergy;
   attribute vec3 aOwnerColor;
   attribute float aFade;
+  attribute float aHighlight;
 
   varying float vEnergy;
   varying vec3 vOwnerColor;
   varying vec3 vNormal;
   varying vec3 vViewDir;
   varying float vFade;
+  varying float vHighlight;
 
   void main() {
     // Inflate geometry along normals for halo effect
     mat3 normalMat = mat3(instanceMatrix);
     vec3 worldNormal = normalize(normalMat * normal);
-    vec4 worldPos = instanceMatrix * vec4(position + normal * 0.15, 1.0);
+    vec3 localPos = (position + normal * 0.04) * (1.0 + aHighlight * 0.08);
+    vec4 worldPos = instanceMatrix * vec4(localPos, 1.0);
+
+    // Pop-out: match main shader
+    vec3 blockCenter = vec3(instanceMatrix[3][0], 0.0, instanceMatrix[3][2]);
+    float centerDist = length(blockCenter);
+    if (centerDist > 0.1) {
+      worldPos.xyz += (blockCenter / centerDist) * aHighlight * 0.5;
+    }
+    worldPos.y += aHighlight * 0.15;
+
     vec4 mvPosition = modelViewMatrix * worldPos;
 
     gl_Position = projectionMatrix * mvPosition;
@@ -521,6 +562,7 @@ const glowVertexShader = /* glsl */ `
     vEnergy = aEnergy;
     vOwnerColor = aOwnerColor;
     vFade = aFade;
+    vHighlight = aHighlight;
     vNormal = normalize(normalMatrix * worldNormal);
     vViewDir = normalize(-mvPosition.xyz);
   }
@@ -536,16 +578,16 @@ const glowFragmentShader = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vViewDir;
   varying float vFade;
+  varying float vHighlight;
 
   void main() {
     float energy = clamp(vEnergy, 0.0, 1.0);
-    float fade = clamp(vFade, 0.0, 1.0);
 
-    // Cubic energy falloff — only high-energy blocks glow
-    float glowStrength = energy * energy * energy;
+    // Steep energy falloff — only very high-energy blocks glow
+    float glowStrength = energy * energy * energy * energy;
 
-    // Discard low-energy or fully faded fragments
-    if (glowStrength < 0.05 || fade < 0.01) discard;
+    // Discard low-energy fragments (GPU skips most blocks)
+    if (glowStrength < 0.2) discard;
 
     vec3 N = normalize(vNormal);
     vec3 V = normalize(vViewDir);
@@ -561,7 +603,14 @@ const glowFragmentShader = /* glsl */ `
     // Subtle pulse
     float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + vOwnerColor.r * 10.0);
 
-    float alpha = fresnel * glowStrength * pulse * 0.6 * fade;
+    float alpha = fresnel * glowStrength * pulse * 0.35;
+
+    // Inspect mode: fade glow on non-selected, boost on selected
+    alpha *= mix(0.05, 1.0, vFade);
+    if (vHighlight > 0.01) {
+      alpha += vHighlight * glowStrength * 0.5;
+      glowColor *= 1.0 + vHighlight * 0.5;
+    }
 
     gl_FragColor = vec4(glowColor * glowStrength, alpha);
   }

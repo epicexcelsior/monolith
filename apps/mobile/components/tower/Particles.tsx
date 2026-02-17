@@ -4,13 +4,13 @@ import * as THREE from "three";
 import {
   MONOLITH_HALF_W,
   MONOLITH_HALF_D,
-  LAYER_HEIGHT,
   DEFAULT_TOWER_CONFIG,
+  getTowerHeight,
 } from "@monolith/common";
 
 const PARTICLE_COUNT = 80;
 const PARTICLE_SIZE = 0.18;
-const TOWER_HEIGHT = DEFAULT_TOWER_CONFIG.layerCount * LAYER_HEIGHT;
+const TOWER_HEIGHT = getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount);
 const MARGIN = 4; // extra space around the monolith
 const DRIFT_SPEED = 0.3;
 

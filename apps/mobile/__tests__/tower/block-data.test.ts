@@ -19,8 +19,8 @@ import { ENERGY_COLOR_STOPS } from "@/components/tower/BlockShader";
 describe("Monolith tower config", () => {
   const config = DEFAULT_TOWER_CONFIG;
 
-  it("should have 18 layers by default", () => {
-    expect(config.layerCount).toBe(18);
+  it("should have 22 layers by default", () => {
+    expect(config.layerCount).toBe(22);
   });
 
   it("should have shape set to 'monolith'", () => {
@@ -35,24 +35,23 @@ describe("Monolith tower config", () => {
     expect(config.totalBlocks).toBeLessThan(1500);
   });
 
-  it("should have consistent body layer block count for layers below spire", () => {
-    const bodyCount = config.blocksPerLayer[0];
+  it("body layers should have decreasing or equal block count (scaling compensation)", () => {
     for (let i = 1; i < SPIRE_START_LAYER; i++) {
-      expect(config.blocksPerLayer[i]).toBe(bodyCount);
+      expect(config.blocksPerLayer[i]).toBeLessThanOrEqual(config.blocksPerLayer[i - 1]);
     }
   });
 
-  it("should have spire layers with fewer or equal blocks than body", () => {
-    const bodyCount = config.blocksPerLayer[0];
+  it("should have spire layers with fewer or equal blocks than last body layer", () => {
+    const lastBodyCount = config.blocksPerLayer[SPIRE_START_LAYER - 1];
     for (let i = SPIRE_START_LAYER; i < config.layerCount; i++) {
-      expect(config.blocksPerLayer[i]).toBeLessThanOrEqual(bodyCount);
+      expect(config.blocksPerLayer[i]).toBeLessThanOrEqual(lastBodyCount);
     }
   });
 
-  it("should have the very top layer with just 1-3 blocks (penthouse)", () => {
+  it("should have the very top layer with few blocks (penthouse)", () => {
     const topCount = config.blocksPerLayer[config.layerCount - 1];
     expect(topCount).toBeGreaterThanOrEqual(1);
-    expect(topCount).toBeLessThanOrEqual(5);
+    expect(topCount).toBeLessThanOrEqual(12);
   });
 
   it("should have blocksPerLayer array length matching layerCount", () => {
@@ -95,10 +94,10 @@ describe("Monolith dimensions", () => {
     expect(SPIRE_START_LAYER).toBeLessThan(DEFAULT_TOWER_CONFIG.layerCount);
   });
 
-  it("getLayerScale should return ~1x at bottom and ~3x at top", () => {
+  it("getLayerScale should return ~1x at bottom and ~1.8x at top", () => {
     const totalLayers = DEFAULT_TOWER_CONFIG.layerCount;
     expect(getLayerScale(0, totalLayers)).toBeCloseTo(1, 1);
-    expect(getLayerScale(totalLayers - 1, totalLayers)).toBeCloseTo(3, 0);
+    expect(getLayerScale(totalLayers - 1, totalLayers)).toBeCloseTo(1.8, 1);
   });
 
   it("BLOCK_SIZE should be positive", () => {

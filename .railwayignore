@@ -1,0 +1,11 @@
+node_modules
+.git
+apps/mobile
+programs
+docs
+archive_docs
+.expo
+.agent
+*.apk
+*.md
+target

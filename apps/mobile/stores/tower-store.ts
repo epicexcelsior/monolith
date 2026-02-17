@@ -20,7 +20,7 @@ const ONBOARDING_KEY = "monolith_onboarding_done";
 
 // Bump this whenever the seed algorithm changes to force a re-seed.
 // Users who already have persisted data will get the new bots on next launch.
-const CURRENT_TOWER_VERSION = "4";
+const CURRENT_TOWER_VERSION = "7";
 
 async function readTowerFile(): Promise<string | null> {
   try {

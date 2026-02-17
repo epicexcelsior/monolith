@@ -128,7 +128,7 @@ describe("tower-store multiplayer mode", () => {
     await useTowerStore.getState().initTower();
 
     expect(useTowerStore.getState().initialized).toBe(true);
-    // Should have seeded ~650 blocks
-    expect(useTowerStore.getState().demoBlocks.length).toBeGreaterThan(600);
+    // Should have seeded ~540+ blocks (fewer per layer with exponential scaling)
+    expect(useTowerStore.getState().demoBlocks.length).toBeGreaterThan(500);
   });
 });

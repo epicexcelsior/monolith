@@ -55,9 +55,12 @@ export default function TowerGrid() {
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
 
-  // Fade animation state
+  // Inspect focus animation state
   const fadeTargetsRef = useRef<Float32Array | null>(null);
   const fadeCurrentRef = useRef<Float32Array | null>(null);
+  const highlightTargetsRef = useRef<Float32Array | null>(null);
+  const highlightCurrentRef = useRef<Float32Array | null>(null);
+  const prevSelectedIdRef = useRef<string | null>(null);
 
   const material = useMemo(() => {
     const mat = createBlockMaterial();
@@ -78,7 +81,7 @@ export default function TowerGrid() {
 
   // Rounded block geometry — 1 segment keeps rounded look with minimal tris
   const roundedGeometry = useMemo(() => {
-    return new RoundedBoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 1, BLOCK_SIZE * 0.1);
+    return new RoundedBoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 1, BLOCK_SIZE * 0.04);
   }, []);
 
   const HIT_SCALE = 1.8;
@@ -155,7 +158,7 @@ export default function TowerGrid() {
       const tempObj = new THREE.Object3D();
       const glowObj = new THREE.Object3D();
 
-      const GLOW_SCALE = 1.6;
+      const GLOW_SCALE = 1.08;
 
       for (let i = 0; i < blockData.length; i++) {
         const block = blockData[i];
@@ -164,9 +167,8 @@ export default function TowerGrid() {
 
         tempObj.position.copy(block.position);
 
-        // Uniform scale — no jitter, perfect symmetry
-        const baseScale = BLOCK_SIZE * layerScale;
-        tempObj.scale.set(baseScale, baseScale, baseScale);
+        // Uniform scale — geometry is already BLOCK_SIZE wide, just apply layer scaling
+        tempObj.scale.set(layerScale, layerScale, layerScale);
 
         // Exact rotation from layout — no noise
         tempObj.rotation.set(0, layoutItem.rotY, 0);
@@ -180,14 +182,11 @@ export default function TowerGrid() {
           hitMesh.setMatrixAt(i, tempObj.matrix);
         }
 
-        // Glow mesh: same position, scaled up for halo
+        // Glow mesh: same position, slightly larger for subtle halo
         if (glowMesh) {
           glowObj.position.copy(block.position);
-          glowObj.scale.set(
-            BLOCK_SIZE * GLOW_SCALE * layerScale,
-            BLOCK_SIZE * GLOW_SCALE * layerScale,
-            BLOCK_SIZE * GLOW_SCALE * layerScale,
-          );
+          const glowScale = GLOW_SCALE * layerScale;
+          glowObj.scale.set(glowScale, glowScale, glowScale);
           glowObj.rotation.set(0, layoutItem.rotY, 0);
           glowObj.updateMatrix();
           glowMesh.setMatrixAt(i, glowObj.matrix);
@@ -271,12 +270,20 @@ export default function TowerGrid() {
       geo.setAttribute("aTextureId", new THREE.InstancedBufferAttribute(textureArray, 1));
     }
 
-    // Fade attribute — initialized to 1.0 (fully visible)
+    // ─── Inspect mode attributes (fade + highlight) ──────────
     if (!fadeCurrentRef.current || fadeCurrentRef.current.length !== count) {
-      const fadeArray = new Float32Array(count).fill(1.0);
+      fadeCurrentRef.current = new Float32Array(count).fill(1.0);
       fadeTargetsRef.current = new Float32Array(count).fill(1.0);
-      fadeCurrentRef.current = fadeArray;
-      geo.setAttribute("aFade", new THREE.InstancedBufferAttribute(fadeArray, 1));
+      highlightCurrentRef.current = new Float32Array(count).fill(0.0);
+      highlightTargetsRef.current = new Float32Array(count).fill(0.0);
+    }
+    const existingFade = geo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
+    if (!existingFade || existingFade.count !== count) {
+      geo.setAttribute("aFade", new THREE.InstancedBufferAttribute(fadeCurrentRef.current!, 1));
+    }
+    const existingHighlight = geo.getAttribute("aHighlight") as THREE.InstancedBufferAttribute | null;
+    if (!existingHighlight || existingHighlight.count !== count) {
+      geo.setAttribute("aHighlight", new THREE.InstancedBufferAttribute(highlightCurrentRef.current!, 1));
     }
 
     // ─── Glow mesh attributes (shared data, separate geometry) ──
@@ -299,54 +306,21 @@ export default function TowerGrid() {
         glowGeo.setAttribute("aOwnerColor", new THREE.InstancedBufferAttribute(new Float32Array(colorArray), 3));
       }
 
-      // Glow fade attribute
+      // Glow inspect mode attributes
       if (fadeCurrentRef.current) {
         const existingGlowFade = glowGeo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
-        if (existingGlowFade && existingGlowFade.count === count) {
-          existingGlowFade.set(fadeCurrentRef.current);
-          existingGlowFade.needsUpdate = true;
-        } else {
+        if (!existingGlowFade || existingGlowFade.count !== count) {
           glowGeo.setAttribute("aFade", new THREE.InstancedBufferAttribute(new Float32Array(fadeCurrentRef.current), 1));
+        }
+      }
+      if (highlightCurrentRef.current) {
+        const existingGlowHL = glowGeo.getAttribute("aHighlight") as THREE.InstancedBufferAttribute | null;
+        if (!existingGlowHL || existingGlowHL.count !== count) {
+          glowGeo.setAttribute("aHighlight", new THREE.InstancedBufferAttribute(new Float32Array(highlightCurrentRef.current), 1));
         }
       }
     }
   }, [blockData, config, layoutData, demoBlocks]);
-
-  // Update fade targets when selection changes
-  useEffect(() => {
-    if (!fadeTargetsRef.current || blockData.length === 0) return;
-    const targets = fadeTargetsRef.current;
-
-    if (!selectedBlockId) {
-      // No selection: all fully visible
-      targets.fill(1.0);
-      return;
-    }
-
-    const selectedIdx = blockData.findIndex((b) => b.id === selectedBlockId);
-    if (selectedIdx < 0) {
-      targets.fill(1.0);
-      return;
-    }
-
-    const selectedPos = blockData[selectedIdx].position;
-
-    for (let i = 0; i < blockData.length; i++) {
-      if (i === selectedIdx) {
-        targets[i] = 1.0;
-        continue;
-      }
-      const dist = blockData[i].position.distanceTo(selectedPos);
-      // Near neighbors: ghostly, far blocks: very faint
-      if (dist < 3) {
-        targets[i] = 0.3;
-      } else if (dist < 8) {
-        targets[i] = 0.15;
-      } else {
-        targets[i] = 0.1;
-      }
-    }
-  }, [selectedBlockId, blockData]);
 
   // Handle claim flash trigger
   useEffect(() => {
@@ -361,45 +335,13 @@ export default function TowerGrid() {
     }
   }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
 
-  // Per-frame: update time uniform + claim flash + fade animation
+  // Per-frame: update time uniform + claim flash
   useFrame((_state, delta) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += delta;
     }
     if (glowMaterialRef.current) {
       glowMaterialRef.current.uniforms.uTime.value += delta;
-    }
-
-    // ─── Fade animation: lerp current toward targets ────
-    const mesh = meshRef.current;
-    const glowMesh = glowMeshRef.current;
-    if (mesh && fadeCurrentRef.current && fadeTargetsRef.current) {
-      const current = fadeCurrentRef.current;
-      const targets = fadeTargetsRef.current;
-      let needsUpdate = false;
-
-      for (let i = 0; i < current.length; i++) {
-        if (Math.abs(current[i] - targets[i]) > 0.001) {
-          current[i] += (targets[i] - current[i]) * 0.12;
-          needsUpdate = true;
-        }
-      }
-
-      if (needsUpdate) {
-        const fadeAttr = mesh.geometry.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
-        if (fadeAttr) {
-          fadeAttr.set(current);
-          fadeAttr.needsUpdate = true;
-        }
-        // Update glow mesh fade too
-        if (glowMesh) {
-          const glowFadeAttr = glowMesh.geometry.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
-          if (glowFadeAttr) {
-            glowFadeAttr.set(current);
-            glowFadeAttr.needsUpdate = true;
-          }
-        }
-      }
     }
 
     // Claim flash: golden celebration burst for 2 seconds
@@ -462,6 +404,70 @@ export default function TowerGrid() {
             colorAttr.needsUpdate = true;
           }
           claimFlashRef.current = null;
+        }
+      }
+    }
+
+    // ─── Inspect mode: fade + highlight animation ──────────
+    if (selectedBlockId !== prevSelectedIdRef.current) {
+      prevSelectedIdRef.current = selectedBlockId;
+      const count = blockData.length;
+      if (fadeTargetsRef.current && highlightTargetsRef.current && count > 0) {
+        if (selectedBlockId) {
+          const selectedIdx = blockData.findIndex((b) => b.id === selectedBlockId);
+          for (let i = 0; i < count; i++) {
+            fadeTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
+            highlightTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
+          }
+        } else {
+          // No selection — restore all blocks to normal
+          for (let i = 0; i < count; i++) {
+            fadeTargetsRef.current[i] = 1.0;
+            highlightTargetsRef.current[i] = 0.0;
+          }
+        }
+      }
+    }
+
+    // Animate fade/highlight values toward targets
+    const fadeCur = fadeCurrentRef.current;
+    const fadeTgt = fadeTargetsRef.current;
+    const hlCur = highlightCurrentRef.current;
+    const hlTgt = highlightTargetsRef.current;
+    if (fadeCur && fadeTgt && hlCur && hlTgt && meshRef.current) {
+      let needsFadeUpdate = false;
+      const FADE_LERP = 0.1;
+      for (let i = 0; i < fadeCur.length; i++) {
+        const fd = fadeTgt[i] - fadeCur[i];
+        if (Math.abs(fd) > 0.001) {
+          fadeCur[i] += fd * FADE_LERP;
+          needsFadeUpdate = true;
+        }
+        const hd = hlTgt[i] - hlCur[i];
+        if (Math.abs(hd) > 0.001) {
+          hlCur[i] += hd * FADE_LERP;
+          needsFadeUpdate = true;
+        }
+      }
+      if (needsFadeUpdate) {
+        const geo = meshRef.current.geometry;
+        const fadeAttr = geo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
+        if (fadeAttr) fadeAttr.needsUpdate = true;
+        const hlAttr = geo.getAttribute("aHighlight") as THREE.InstancedBufferAttribute | null;
+        if (hlAttr) hlAttr.needsUpdate = true;
+        // Sync glow mesh attributes
+        if (glowMeshRef.current) {
+          const glowGeo = glowMeshRef.current.geometry;
+          const gFade = glowGeo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
+          if (gFade) {
+            (gFade.array as Float32Array).set(fadeCur);
+            gFade.needsUpdate = true;
+          }
+          const gHL = glowGeo.getAttribute("aHighlight") as THREE.InstancedBufferAttribute | null;
+          if (gHL) {
+            (gHL.array as Float32Array).set(hlCur);
+            gHL.needsUpdate = true;
+          }
         }
       }
     }

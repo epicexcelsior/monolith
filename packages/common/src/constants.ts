@@ -62,8 +62,8 @@ export const LAYER_HEIGHT = 1.3;
 /** Block size at layer 0 */
 export const BLOCK_SIZE = 0.85;
 
-/** Gap between blocks (hairline seam) */
-export const BLOCK_GAP = 0.015;
+/** Gap between blocks (sub-pixel seam — ~1px on device) */
+export const BLOCK_GAP = 0.005;
 
 /**
  * Exponential scale factor per layer.
@@ -101,53 +101,67 @@ export function getTowerHeight(totalLayers: number): number {
 }
 
 /** Layer index where the spire (converging crown) begins */
-export const SPIRE_START_LAYER = 14;
+export const SPIRE_START_LAYER = 18;
 
 // Legacy aliases (kept for any external references)
 export const BASE_RADIUS = MONOLITH_HALF_W;
 export const TOP_RADIUS = 1;
 
 /**
+ * How many blocks fit edge-to-edge on a single face of the given width
+ * at the given layer scale. Uses Math.round so blocks tile tightly
+ * (minor overlaps preferred over visible gaps for a solid monolith).
+ */
+export function computeBlocksForFace(faceWidth: number, scale: number): number {
+  const blockWidth = BLOCK_SIZE * scale;
+  if (faceWidth < blockWidth * 0.5) return 0; // face too small
+  return Math.max(1, Math.round(faceWidth / (blockWidth + BLOCK_GAP)));
+}
+
+/**
+ * Compute the spire shrink factor and half-dimensions for a spire layer.
+ */
+export function getSpireDimensions(
+  layer: number,
+  totalLayers: number,
+  halfW: number = MONOLITH_HALF_W,
+  halfD: number = MONOLITH_HALF_D,
+): { hw: number; hd: number; shrink: number } {
+  const spireProgress =
+    (layer - SPIRE_START_LAYER) / (totalLayers - 1 - SPIRE_START_LAYER);
+  const shrink = 1 - spireProgress * 0.75;
+  return { hw: halfW * shrink, hd: halfD * shrink, shrink };
+}
+
+/**
  * Generate a monolith tower config.
  *
- * Body layers (0 to spireStart-1): consistent block count per layer
- * Spire layers (spireStart to layerCount-1): tapering to 1 block at the top
+ * Block counts per layer are computed from what physically fits on the
+ * 4 rectangular faces at each layer's scale. This guarantees the config
+ * matches the layout positioning (edge-to-edge, no orphan gaps).
  *
- * Each "body" layer has blocks on 4 rectangular faces:
- *   Front/Back faces: blocksWide per face
- *   Left/Right faces: blocksDeep per face
- *   (blocks sit ON the surface, not inside)
- *
- * Target: ~600-800 total blocks (single InstancedMesh = 1 draw call)
+ * Target: ~600-900 total blocks (single InstancedMesh = 1 draw call)
  */
-export function generateTowerConfig(layerCount: number = 18): TowerConfig {
+export function generateTowerConfig(layerCount: number = 22): TowerConfig {
   const blocksPerLayer: number[] = [];
 
-  // Body: each layer has blocks on 4 faces
-  // Base counts at layer 0 (scale=1x)
-  const baseBlocksWide = 12; // blocks along width face (front & back)
-  const baseBlocksDeep = 8;  // blocks along depth face (left & right)
-  const baseBlocksPerLayer = 2 * baseBlocksWide + 2 * baseBlocksDeep; // 40
-
   for (let i = 0; i < layerCount; i++) {
+    const scale = getLayerScale(i, layerCount);
+
     if (i < SPIRE_START_LAYER) {
-      // Body layer — reduce block count inversely with scale to maintain footprint
-      const scale = getLayerScale(i, layerCount);
-      const layerBlocks = Math.max(
-        12, // minimum blocks per body layer
-        Math.round(baseBlocksPerLayer / scale),
-      );
-      blocksPerLayer.push(layerBlocks);
+      // Body layer — face-fitted count + 4 corner blocks
+      const front = computeBlocksForFace(2 * MONOLITH_HALF_W, scale);
+      const side = computeBlocksForFace(2 * MONOLITH_HALF_D, scale);
+      blocksPerLayer.push(2 * front + 2 * side + 4);
     } else {
-      // Spire layer — taper down from the body count at spire start
-      const spireProgress =
-        (i - SPIRE_START_LAYER) / (layerCount - 1 - SPIRE_START_LAYER); // 0→1
-      const spireBaseCount = blocksPerLayer[SPIRE_START_LAYER - 1] || baseBlocksPerLayer;
-      const spireBlocks = Math.max(
-        1,
-        Math.round(spireBaseCount * (1 - spireProgress * 0.88)),
-      );
-      blocksPerLayer.push(spireBlocks);
+      // Spire layer — shrinking faces + corners (when faces are big enough)
+      const { hw, hd } = getSpireDimensions(i, layerCount);
+      const front = computeBlocksForFace(2 * hw, scale);
+      const side = computeBlocksForFace(2 * hd, scale);
+      const faceTotal = 2 * front + 2 * side;
+      // Add corners only when there are blocks on both face directions
+      const corners = (front > 0 && side > 0) ? 4 : 0;
+      blocksPerLayer.push(Math.max(1, faceTotal + corners));
     }
   }
 
@@ -159,8 +173,8 @@ export function generateTowerConfig(layerCount: number = 18): TowerConfig {
   };
 }
 
-/** Default tower: 18 layers, ~650+ blocks */
-export const DEFAULT_TOWER_CONFIG = generateTowerConfig(18);
+/** Default tower: 22 layers (18 body + 4 spire), ~700+ blocks */
+export const DEFAULT_TOWER_CONFIG = generateTowerConfig(22);
 
 // ─── LOD Distances ────────────────────────────────────────
 /** Distance thresholds for Level of Detail tiers */
