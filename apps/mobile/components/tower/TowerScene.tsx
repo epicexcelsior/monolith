@@ -184,6 +184,10 @@ function CameraRig({
     const idleTime = now - lastTouchTime.current;
 
     // ─── Fly to selected block ──────────────────
+    // NOTE: Depends on DemoBlock.position being pre-computed at store boundaries
+    // (not {0,0,0}). In local mode, seed-tower.ts computes positions. In multiplayer mode,
+    // serverBlockToDemo() uses a position cache computed from @monolith/common layout functions.
+    // Do NOT omit positions or set them to origin — this breaks camera navigation!
     if (selectedBlockId !== prevSelectedRef.current) {
       prevSelectedRef.current = selectedBlockId;
 

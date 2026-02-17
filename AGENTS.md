@@ -177,6 +177,52 @@ const totalDeposited = readU64(accountInfo.data, 104);
 
 **Related Gotcha**: IDL field names are `snake_case` (e.g., `usdc_mint`, `total_deposited`), not `camelCase`. BorshAccountsCoder returns snake_case field names matching the IDL.
 
+### 2026-02-17: Multiplayer Block Positions Must Be Computed — Don't Use Server Position Field
+
+**Problem**: Camera's fly-to-block feature (TowerScene.tsx:CameraRig) reads `block.position` from the store to navigate. In multiplayer mode, `serverBlockToDemo()` set `position: {0,0,0}` because "TowerGrid computes from layout." Result: clicking any block flew the camera to the world origin.
+
+**Root Cause**: TowerGrid correctly computes positions using `computeBodyLayerPositions`/`computeSpireLayerPositions` from `@monolith/common`, but CameraRig doesn't — it reads the pre-computed position field from DemoBlock. This works in local mode (positions are seeded), but breaks in multiplayer.
+
+**Solution**: Compute real 3D positions in `serverBlockToDemo()` using a position cache:
+```typescript
+// Pre-compute once at connect time
+const positionCache = new Map<string, {x,y,z}>();
+
+function buildPositionCache() {
+  const config = DEFAULT_TOWER_CONFIG;
+  for (let layer = 0; layer < config.layerCount; layer++) {
+    const count = config.blocksPerLayer[layer];
+    const isSpire = layer >= SPIRE_START_LAYER;
+    const positions = isSpire
+      ? computeSpireLayerPositions(layer, count, config.layerCount)
+      : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
+    for (let i = 0; i < positions.length; i++) {
+      positionCache.set(`${layer}-${i}`, {x: positions[i].x, y: positions[i].y, z: positions[i].z});
+    }
+  }
+}
+
+// Use cached position in serverBlockToDemo
+position: getBlockPosition(block.layer, block.index)
+```
+
+**Key Insight**: **All position-consuming code should read from a single source of truth**. Don't scatter position computation — compute once at store boundaries, cache it, and use the cache everywhere. This prevents the local/multiplayer divergence.
+
+**Pattern**: When server state doesn't include geometry (positions, rotations), compute them client-side using **shared layout functions from @monolith/common**. Cache the results to avoid recomputation.
+
+### 2026-02-17: Colyseus JSON Messages Are More Reliable Than Schema Auto-Sync for Cross-Version Compatibility
+
+**Lesson from Earlier Session**: Initial Colyseus implementation used schema auto-sync (MapSchema<BlockSchema>) but failed silently — blocks decoded with `size: 0` due to `@colyseus/schema` version mismatch between server encoder and client decoder. Switching to explicit JSON room messages fixed it completely.
+
+**Why**: Schema encoding/decoding is brittle across versions. JSON is self-describing and version-agnostic.
+
+**Current Architecture**:
+- Server: `onJoin` sends full state as `room.send("tower_state", {...})` JSON + periodic `broadcastFullState()` every 15s
+- Single-block updates: `room.send("block_update", blockJSON)` on claim/charge/customize
+- Client: Simple `room.onMessage("tower_state")` / `room.onMessage("block_update")` handlers
+
+**Key Insight**: For MVP multiplayer, JSON messages > schema auto-sync. Auto-sync is seductive (zero boilerplate) but breaks silently across version boundaries. JSON messages have more boilerplate but are debuggable and version-stable.
+
 ### 2026-02-13: Workflow Improvements — Commit Verification
 
 **Lesson**: Git commits can succeed even when the terminal hangs and doesn't return to prompt.
