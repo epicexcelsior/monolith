@@ -14,9 +14,6 @@ RUN pnpm install --filter @monolith/server...
 # Bundle server + common into single JS file
 RUN cd apps/server && pnpm build
 
-# Prune dev dependencies
-RUN pnpm install --filter @monolith/server... --prod
-
 EXPOSE 2567
 
 # Plain node. No tsx. No TypeScript at runtime.
