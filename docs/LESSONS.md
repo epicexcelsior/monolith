@@ -2,6 +2,20 @@
 
 > **Living document.** Add new entries at the top. Review periodically and prune anything no longer relevant.
 
+## 2026-02-16
+
+- **3D camera gesture design — avoid mode ambiguity**: Initial approach used single-finger behavior that changed based on zoom level (orbit at overview, vertical pan when zoomed in). This felt confusing — users couldn't predict what a gesture would do. **Solution**: Clear, mode-free gesture model — 1 finger always orbits, 2 fingers always pinch+pan. LayerIndicator scrubber handles precision vertical navigation. Predictability > fewest gestures.
+
+- **Camera clipping issues in R3F**: ZOOM_MIN=6 caused blocks to disappear when camera got close because the tower extends ~7 units from center. At low elevation angles, horizontal distance shrinks (`r × sin(φ)`), letting camera clip inside geometry. **Fixes**: (1) ZOOM_MIN=12 keeps camera outside tower, (2) ELEVATION_MIN=0.3 prevents near-horizontal views, (3) Dynamic near plane `max(0.1, zoom * 0.03)` tightens frustum when zoomed in, (4) Camera Y floor at 0.5 prevents underground views.
+
+- **Azimuth unwinding problem**: Azimuth grows unboundedly by design (to avoid wrap jumps during continuous drag), but resetting to a fixed `OVERVIEW_AZIMUTH` caused the camera to visually unwind multiple full rotations. **Solution**: `nearestAzimuth(current, target)` normalizes target to be within ±PI of current azimuth — always takes the shortest rotational path. Apply to all programmatic azimuth changes (reset, fly-to-block).
+
+- **React Native PanResponder touch coordinate issues**: `locationY` (component-relative) is unreliable in PanResponder on Animated views — coordinate system shifts during animations. **Solution**: Use `pageY` (absolute screen coords) + `measureInWindow` to get container's absolute position once on layout. All touch math uses stable page coordinates.
+
+- **Interactive UI stealing gestures from 3D scene**: LayerIndicator needed to prevent TowerScene's PanResponder from stealing touches mid-scrub. **Solution**: `onPanResponderTerminationRequest: () => false` in LayerIndicator's PanResponder — parent can't steal once child claims the gesture.
+
+- **Camera angle psychology — "admire from outside"**: Initial camera elevations were too steep (looking down on the tower). Lower angles (overview: 0.45 rad/26°, inspect: 0.38 rad/22°) create a more dramatic, monumental feel that aligns with "tower is something you look AT, not live inside" design principle. Eye-level > bird's-eye for emotional impact.
+
 ## 2026-02-10
 
 - **pnpm path limits on Windows**: pnpm's default symlinked `node_modules` layout creates deeply nested `.pnpm` paths that exceed Windows' 250-char `CMAKE_OBJECT_PATH_MAX`. Fix: add `node-linker=hoisted` and `shamefully-hoist=true` to `.npmrc`. This is also recommended by Expo for monorepo setups.
