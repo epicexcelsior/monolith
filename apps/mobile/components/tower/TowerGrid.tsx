@@ -484,8 +484,11 @@ export default function TowerGrid() {
     }
   };
 
-  // Don't unmount on empty blockData — keep mesh mounted to avoid losing instance state
-  const instanceCount = blockData.length || 1; // minimum 1 to avoid Three.js warnings
+  // Use actual block count — return null below if 0 to avoid phantom black block
+  const instanceCount = Math.max(blockData.length, 1);
+
+  // Don't render anything while waiting for blocks (avoids phantom black block)
+  if (blockData.length === 0) return null;
 
   return (
     <group>
