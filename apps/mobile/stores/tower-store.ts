@@ -20,7 +20,7 @@ const ONBOARDING_KEY = "monolith_onboarding_done";
 
 // Bump this whenever the seed algorithm changes to force a re-seed.
 // Users who already have persisted data will get the new bots on next launch.
-const CURRENT_TOWER_VERSION = "2";
+const CURRENT_TOWER_VERSION = "3";
 
 async function readTowerFile(): Promise<string | null> {
   try {
@@ -126,6 +126,7 @@ interface TowerStore {
   recentlyClaimedId: string | null;
   onboardingDone: boolean;
   initialized: boolean;
+  cameraStateRef: React.MutableRefObject<any> | null;
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -140,6 +141,7 @@ interface TowerStore {
   setFocusedLayer: (layer: number) => void;
   setZoomTier: (tier: "overview" | "neighborhood" | "block") => void;
   setGestureActive: (active: boolean) => void;
+  setCameraStateRef: (ref: React.MutableRefObject<any>) => void;
 
   // ─── Game Actions ─────────────────────────
   initTower: () => Promise<void>;
@@ -184,6 +186,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   recentlyClaimedId: null,
   onboardingDone: false,
   initialized: false,
+  cameraStateRef: null,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
@@ -211,6 +214,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setFocusedLayer: (layer) => set({ focusedLayer: layer }),
   setZoomTier: (tier) => set({ zoomTier: tier }),
   setGestureActive: (active) => set({ isGestureActive: active }),
+  setCameraStateRef: (ref) => set({ cameraStateRef: ref }),
 
   // ─── Game Actions ─────────────────────────
 

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback } from "react";
+import React, { useRef, useMemo, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber/native";
 import { View, StyleSheet, PanResponder, type GestureResponderEvent } from "react-native";
 import * as THREE from "three";
@@ -38,20 +38,29 @@ const ORBIT_SENSITIVITY = 0.006;
 const MOMENTUM_FRICTION = 0.93; // per-frame decay (higher = longer coast)
 const MOMENTUM_MIN_VEL = 0.00008; // stop threshold
 
-/** Zoom range */
-const ZOOM_MIN = 6;
+/** Zoom range — ZOOM_MIN keeps camera outside tower geometry (~7 unit radius) */
+const ZOOM_MIN = 12;
 const ZOOM_MAX = 55;
 
 /** Zoom tier centers (for tier detection only — no magnetic snapping) */
 const ZOOM_OVERVIEW = 40;
 const ZOOM_NEIGHBORHOOD = 18;
-const ZOOM_BLOCK = 8;
+const ZOOM_BLOCK = 14;
 
+/** Vertical pan (lookAt.y) — active with two-finger drag */
+const PAN_Y_SENSITIVITY = 0.08; // lookAt.y units per pixel of drag
+const LOOKAT_Y_MIN = 0; // bottom of tower
+const LOOKAT_Y_MAX = TOWER_HEIGHT; // top of tower
+const LOOKAT_Y_OVERSCROLL = 2; // max overscroll past bounds
+const ELASTIC_SPRING = 0.08; // bounce-back force per frame
 
-
-/** Elevation clamp (radians) */
-const ELEVATION_MIN = 0.15;
+/** Elevation clamp (radians) — 0.3 minimum prevents camera going inside tower */
+const ELEVATION_MIN = 0.3;
 const ELEVATION_MAX = 1.3;
+
+/** Camera frustum */
+const CAMERA_NEAR = 0.5;
+const CAMERA_FAR = 1200;
 
 /** Fixed camera state for overview / reset */
 const OVERVIEW_ELEVATION = 0.65;
@@ -75,7 +84,7 @@ type ZoomTier = "overview" | "neighborhood" | "block";
 
 function getZoomTier(zoom: number): ZoomTier {
   if (zoom >= 29) return "overview";
-  if (zoom >= 13) return "neighborhood";
+  if (zoom >= 18) return "neighborhood";
   return "block";
 }
 
@@ -85,7 +94,16 @@ function getLayerFromY(y: number): number {
   );
 }
 
-
+/**
+ * Normalizes a target azimuth to be within ±PI of the current azimuth.
+ * Prevents the camera from spinning multiple revolutions on reset/fly-to.
+ */
+function nearestAzimuth(current: number, target: number): number {
+  const TWO_PI = Math.PI * 2;
+  let diff = target - current;
+  diff = diff - Math.round(diff / TWO_PI) * TWO_PI;
+  return current + diff;
+}
 
 // ─── Camera State ─────────────────────────────────────────
 
@@ -102,9 +120,10 @@ interface CameraState {
   targetZoom: number;
   targetLookAt: THREE.Vector3;
 
-  // Momentum (orbit only — zoom is direct, no momentum)
+  // Momentum
   velocityAzimuth: number;
   velocityElevation: number;
+  velocityLookAtY: number;
 
   // State flags
   isTouching: boolean;
@@ -128,6 +147,9 @@ function SceneSetup() {
  *
  * - Dual lerp: fast for orbit, faster for zoom, slow for transitions
  * - Orbit momentum with friction decay
+ * - lookAt.y momentum for vertical pan coasting
+ * - Elastic overscroll bounce-back on lookAt.y bounds
+ * - Dynamic near plane based on zoom distance
  * - Zoom is direct: sticks exactly where you leave it (no momentum, no magnetics)
  * - Auto-rotate when idle (scales with zoom level)
  */
@@ -158,7 +180,7 @@ function CameraRig({
       if (selectedBlockId) {
         const block = getDemoBlockById(selectedBlockId);
         if (block) {
-          cs.targetAzimuth = Math.atan2(block.position.x, block.position.z);
+          cs.targetAzimuth = nearestAzimuth(cs.azimuth, Math.atan2(block.position.x, block.position.z));
           cs.targetElevation = 0.55;
           cs.targetZoom = ZOOM_BLOCK;
           cs.targetLookAt.set(
@@ -168,6 +190,7 @@ function CameraRig({
           );
           cs.velocityAzimuth = 0;
           cs.velocityElevation = 0;
+          cs.velocityLookAtY = 0;
           cs.isTransitioning = true;
           hapticBlockSelect();
         }
@@ -178,6 +201,7 @@ function CameraRig({
         cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
         cs.velocityAzimuth = 0;
         cs.velocityElevation = 0;
+        cs.velocityLookAtY = 0;
         cs.isTransitioning = true;
         hapticBlockDeselect();
       }
@@ -212,7 +236,23 @@ function CameraRig({
           Math.min(ELEVATION_MAX, cs.targetElevation),
         );
       }
-      // Zoom: no momentum, no magnetics — sticks where you left it
+
+      // lookAt.y momentum (vertical pan coasting)
+      if (Math.abs(cs.velocityLookAtY) > MOMENTUM_MIN_VEL) {
+        cs.targetLookAt.y += cs.velocityLookAtY;
+        cs.velocityLookAtY *= MOMENTUM_FRICTION;
+      }
+    }
+
+    // ─── Elastic overscroll bounce-back ──────────
+    if (!cs.isTouching) {
+      if (cs.targetLookAt.y < LOOKAT_Y_MIN) {
+        cs.targetLookAt.y += (LOOKAT_Y_MIN - cs.targetLookAt.y) * ELASTIC_SPRING;
+        cs.velocityLookAtY = 0;
+      } else if (cs.targetLookAt.y > LOOKAT_Y_MAX) {
+        cs.targetLookAt.y += (LOOKAT_Y_MAX - cs.targetLookAt.y) * ELASTIC_SPRING;
+        cs.velocityLookAtY = 0;
+      }
     }
 
     // ─── Auto-rotate when idle ──────────────
@@ -241,6 +281,12 @@ function CameraRig({
     cs.elevation = Math.max(ELEVATION_MIN, Math.min(ELEVATION_MAX, cs.elevation));
     cs.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cs.zoom));
 
+    // Clamp lookAt.y — prevent looking far outside the tower
+    cs.lookAt.y = Math.max(
+      LOOKAT_Y_MIN - LOOKAT_Y_OVERSCROLL,
+      Math.min(LOOKAT_Y_MAX + LOOKAT_Y_OVERSCROLL, cs.lookAt.y),
+    );
+
     // ─── Spherical → Cartesian ──────────────────
     // NOTE: azimuth is NOT normalized — it grows unboundedly to prevent
     // jumps when wrapping past ±PI. Float64 handles this for years.
@@ -249,12 +295,22 @@ function CameraRig({
     const theta = cs.azimuth;
     const phi = cs.elevation;
 
+    let camY = cs.lookAt.y + r * Math.cos(phi);
+    // Prevent camera from going below ground
+    if (camY < 0.5) camY = 0.5;
+
     camera.position.set(
       cs.lookAt.x + r * Math.sin(phi) * Math.sin(theta),
-      cs.lookAt.y + r * Math.cos(phi),
+      camY,
       cs.lookAt.z + r * Math.sin(phi) * Math.cos(theta),
     );
     camera.lookAt(cs.lookAt);
+
+    // Dynamic near plane: tighter when zoomed in for close detail,
+    // relaxed when zoomed out to avoid z-fighting
+    camera.near = Math.max(0.1, cs.zoom * 0.03);
+    camera.far = CAMERA_FAR;
+    camera.updateProjectionMatrix();
 
     // ─── Push state for UI overlays ─────────────
     if (currentTier !== prevTierRef.current) {
@@ -379,7 +435,7 @@ function GroundPlane() {
   );
 }
 
-// ─── Pinch distance helper ────────────────────────────────
+// ─── Pinch helpers ────────────────────────────────────────
 
 function getPinchDistance(evt: GestureResponderEvent): number | null {
   const touches = evt.nativeEvent.touches;
@@ -387,6 +443,13 @@ function getPinchDistance(evt: GestureResponderEvent): number | null {
   const dx = touches[1].pageX - touches[0].pageX;
   const dy = touches[1].pageY - touches[0].pageY;
   return Math.sqrt(dx * dx + dy * dy);
+}
+
+/** Returns the vertical midpoint of two fingers (for two-finger pan) */
+function getPinchMidpointY(evt: GestureResponderEvent): number | null {
+  const touches = evt.nativeEvent.touches;
+  if (!touches || touches.length < 2) return null;
+  return (touches[0].pageY + touches[1].pageY) / 2;
 }
 
 // ─── BackgroundPlane (tap-to-deselect) ────────────────────
@@ -629,10 +692,9 @@ function GoldenSkybox() {
  * TowerScene — Main R3F Canvas with gesture-driven camera.
  *
  * GESTURE ARCHITECTURE:
- * - PanResponder only captures on MOVE (not start) → taps pass to R3F Canvas
- * - Zoom is direct — sticks exactly where you leave it, no drift
- * - Dual lerp: fast for orbit, faster for zoom, smooth eased for fly-to/reset
- * - Orbit momentum with friction for tactile spin
+ * - Single finger: always orbits (azimuth + elevation)
+ * - Two fingers: pinch zoom + vertical pan (midpoint Y movement)
+ * - LayerIndicator scrubber: tap/drag for precise floor navigation
  * - Double-tap to reset (via delayed timer, doesn't block block taps)
  * - Tap empty space to deselect selected block
  */
@@ -648,6 +710,7 @@ export default function TowerScene() {
     targetLookAt: new THREE.Vector3(0, TOWER_CENTER_Y, 0),
     velocityAzimuth: 0,
     velocityElevation: 0,
+    velocityLookAtY: 0,
     isTouching: false,
     isTransitioning: false,
   });
@@ -663,6 +726,7 @@ export default function TowerScene() {
   const isPinching = useRef(false);
   const pinchStartDist = useRef(0);
   const pinchStartZoom = useRef(ZOOM_OVERVIEW);
+  const prevPinchMidpointY = useRef(0);
   const pinchCooldownTime = useRef(0);
 
   // Drag tracking (to distinguish taps from drags)
@@ -674,16 +738,23 @@ export default function TowerScene() {
 
   const selectBlock = useTowerStore((s) => s.selectBlock);
   const setGestureActive = useTowerStore((s) => s.setGestureActive);
+  const setCameraStateRef = useTowerStore((s) => s.setCameraStateRef);
+
+  // Register cameraState ref with store so LayerIndicator can access it
+  useEffect(() => {
+    setCameraStateRef(cameraState);
+  }, [setCameraStateRef]);
 
   // Reset camera to overview
   const resetCamera = useCallback(() => {
     const cs = cameraState.current;
-    cs.targetAzimuth = OVERVIEW_AZIMUTH;
+    cs.targetAzimuth = nearestAzimuth(cs.azimuth, OVERVIEW_AZIMUTH);
     cs.targetElevation = OVERVIEW_ELEVATION;
     cs.targetZoom = ZOOM_OVERVIEW;
     cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
     cs.velocityAzimuth = 0;
     cs.velocityElevation = 0;
+    cs.velocityLookAtY = 0;
     cs.isTransitioning = true;
     selectBlock(null);
     hapticReset();
@@ -711,31 +782,48 @@ export default function TowerScene() {
           cameraState.current.isTransitioning = false;
           isDragging.current = true;
           setGestureActive(true);
-          // Kill orbit momentum on new touch
+          // Kill momentum on new touch
           cameraState.current.velocityAzimuth = 0;
           cameraState.current.velocityElevation = 0;
+          cameraState.current.velocityLookAtY = 0;
           lastTouchTime.current = performance.now() / 1000;
         },
 
         onPanResponderMove: (evt) => {
           lastTouchTime.current = performance.now() / 1000;
 
-          // ─── Pinch zoom ─────────────────────────
+          // ─── Two-finger: pinch zoom + vertical pan ─
           const pinchDist = getPinchDistance(evt);
-          if (pinchDist !== null) {
+          const pinchMidY = getPinchMidpointY(evt);
+          if (pinchDist !== null && pinchMidY !== null) {
             if (!isPinching.current) {
               isPinching.current = true;
               pinchStartDist.current = pinchDist;
               pinchStartZoom.current = cameraState.current.zoom;
+              prevPinchMidpointY.current = pinchMidY;
               return;
             }
+
+            // Zoom from pinch spread
             const scale = pinchDist / pinchStartDist.current;
             const raw = pinchStartZoom.current / scale;
             cameraState.current.targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, raw));
-            // No velocity tracking — zoom sticks exactly where you leave it
+
+            // Vertical pan from midpoint movement (two-finger drag)
+            const cs = cameraState.current;
+            const midDy = pinchMidY - prevPinchMidpointY.current;
+            prevPinchMidpointY.current = pinchMidY;
+            const vY = midDy * PAN_Y_SENSITIVITY;
+            cs.targetLookAt.y += vY;
+            cs.velocityLookAtY = vY;
+
+            // Hard clamp with overscroll allowance
+            const hardMin = LOOKAT_Y_MIN - LOOKAT_Y_OVERSCROLL;
+            const hardMax = LOOKAT_Y_MAX + LOOKAT_Y_OVERSCROLL;
+            cs.targetLookAt.y = Math.max(hardMin, Math.min(hardMax, cs.targetLookAt.y));
 
             // Haptic on tier crossing during pinch
-            const newTier = getZoomTier(cameraState.current.targetZoom);
+            const newTier = getZoomTier(cs.targetZoom);
             if (newTier !== prevZoomTierRef.current) {
               hapticZoomSnap();
               prevZoomTierRef.current = newTier;
@@ -743,7 +831,7 @@ export default function TowerScene() {
             return;
           }
 
-          // ─── Single finger orbit ────────────────
+          // ─── Single finger orbit (always azimuth + elevation) ─
           if (isPinching.current) return;
           // Ignore leftover finger after pinch release (prevents ghost orbit)
           if (performance.now() - pinchCooldownTime.current < PINCH_COOLDOWN_MS) return;
@@ -839,7 +927,7 @@ export default function TowerScene() {
           alpha: false,
           powerPreference: "high-performance",
         }}
-        camera={{ position: [0, TOWER_CENTER_Y, ZOOM_OVERVIEW], fov: 50 }}
+        camera={{ position: [0, TOWER_CENTER_Y, ZOOM_OVERVIEW], fov: 50, near: CAMERA_NEAR, far: CAMERA_FAR }}
       >
         <SceneSetup />
         <CameraRig

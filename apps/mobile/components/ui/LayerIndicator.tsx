@@ -1,42 +1,135 @@
-import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, useWindowDimensions } from "react-native";
+import React, { useEffect, useRef, useMemo, useCallback } from "react";
+import { View, Text, StyleSheet, Animated, PanResponder, useWindowDimensions } from "react-native";
 import { COLORS, SPACING } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
-import { DEFAULT_TOWER_CONFIG } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, LAYER_HEIGHT } from "@monolith/common";
+import { hapticBlockSelect, hapticLayerCross } from "@/utils/haptics";
 
 const INDICATOR_HEIGHT_RATIO = 0.55; // 55% of screen height
 const DOT_SIZE = 10;
-const BAR_WIDTH = 2;
+const BAR_WIDTH = 3;
 const FADE_DURATION = 800;
+const TOUCH_WIDTH = 52; // generous touch target
 
 /**
- * LayerIndicator — Vertical bar on the right edge showing the
- * camera's current focused layer position.
+ * LayerIndicator — Interactive vertical scrubber on the right edge.
  *
  * - Thin glowing vertical line (55% screen height)
- * - Small glowing diamond that moves up/down per layer
- * - Layer number label next to the diamond
- * - Fades out after 2s of no change
- *
- * Non-intrusive: positioned far right, semi-transparent.
+ * - Glowing diamond that tracks focused layer
+ * - Tap anywhere on bar → fly camera to that layer
+ * - Drag along bar → scrub camera through layers in real-time
+ * - Fades out after 2s of inactivity
  */
 export default function LayerIndicator() {
     const focusedLayer = useTowerStore((s) => s.focusedLayer);
-    const zoomTier = useTowerStore((s) => s.zoomTier);
+    const cameraStateRef = useTowerStore((s) => s.cameraStateRef);
     const { height: screenHeight } = useWindowDimensions();
 
     const opacity = useRef(new Animated.Value(0.6)).current;
     const dotPosition = useRef(new Animated.Value(0)).current;
     const fadeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isDraggingRef = useRef(false);
+    const prevScrubLayerRef = useRef(-1);
+
+    // Use refs for values the PanResponder needs — avoids stale closures
+    const containerRef = useRef<View>(null);
+    const layoutRef = useRef({ pageY: 0, height: 0 });
 
     const indicatorHeight = screenHeight * INDICATOR_HEIGHT_RATIO;
     const layerCount = DEFAULT_TOWER_CONFIG.layerCount;
 
+    // Measure container position on layout
+    const onLayout = useCallback(() => {
+        containerRef.current?.measureInWindow((_, y, __, h) => {
+            if (y !== undefined && h !== undefined) {
+                layoutRef.current = { pageY: y, height: h };
+            }
+        });
+    }, []);
+
+    // Map absolute pageY to a layer number
+    const pageYToLayer = useCallback((pageY: number): number => {
+        const { pageY: containerY, height } = layoutRef.current;
+        const h = height || indicatorHeight;
+        const relativeY = pageY - containerY;
+        const clamped = Math.max(0, Math.min(relativeY, h));
+        // Top = highest layer, bottom = layer 0
+        const normalizedY = clamped / h;
+        const layer = Math.round((1 - normalizedY) * (layerCount - 1));
+        return Math.max(0, Math.min(layerCount - 1, layer));
+    }, [indicatorHeight, layerCount]);
+
+    const setLookAtForLayer = useCallback((layer: number, transition: boolean) => {
+        if (!cameraStateRef?.current) return;
+        const cs = cameraStateRef.current;
+        const targetY = layer * LAYER_HEIGHT;
+        cs.targetLookAt.y = targetY;
+        cs.velocityLookAtY = 0;
+        if (transition) {
+            cs.isTransitioning = true;
+        }
+    }, [cameraStateRef]);
+
+    const panResponder = useMemo(
+        () =>
+            PanResponder.create({
+                onStartShouldSetPanResponder: () => true,
+                onMoveShouldSetPanResponder: () => true,
+                // Prevent parent (TowerScene) from stealing touches
+                onPanResponderTerminationRequest: () => false,
+
+                onPanResponderGrant: (evt) => {
+                    isDraggingRef.current = false;
+                    const layer = pageYToLayer(evt.nativeEvent.pageY);
+                    prevScrubLayerRef.current = layer;
+
+                    // Fly-to with smooth transition on initial tap
+                    setLookAtForLayer(layer, true);
+                    hapticBlockSelect();
+
+                    // Brighten indicator while touching
+                    Animated.timing(opacity, {
+                        toValue: 1.0,
+                        duration: 100,
+                        useNativeDriver: true,
+                    }).start();
+                },
+
+                onPanResponderMove: (evt) => {
+                    isDraggingRef.current = true;
+                    const layer = pageYToLayer(evt.nativeEvent.pageY);
+
+                    // Direct tracking — no transition lerp for responsive scrubbing
+                    setLookAtForLayer(layer, false);
+
+                    if (layer !== prevScrubLayerRef.current) {
+                        hapticLayerCross();
+                        prevScrubLayerRef.current = layer;
+                    }
+                },
+
+                onPanResponderRelease: () => {
+                    isDraggingRef.current = false;
+                    prevScrubLayerRef.current = -1;
+
+                    // Fade back after release
+                    if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+                    fadeTimeout.current = setTimeout(() => {
+                        Animated.timing(opacity, {
+                            toValue: 0.2,
+                            duration: FADE_DURATION,
+                            useNativeDriver: true,
+                        }).start();
+                    }, 1500);
+                },
+            }),
+        [pageYToLayer, setLookAtForLayer, opacity],
+    );
+
     // Animate the dot position when layer changes
     useEffect(() => {
         // Normalize: layer 0 = bottom, max = top
-        const normalizedY =
-            1 - focusedLayer / (layerCount - 1);
+        const normalizedY = 1 - focusedLayer / (layerCount - 1);
         const targetY = normalizedY * (indicatorHeight - DOT_SIZE);
 
         Animated.spring(dotPosition, {
@@ -46,20 +139,24 @@ export default function LayerIndicator() {
             friction: 12,
         }).start();
 
-        // Show indicator on change, fade out after idle
-        Animated.timing(opacity, {
-            toValue: 0.8,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
+        // Show indicator on change (but don't override bright state while dragging)
+        if (!isDraggingRef.current) {
+            Animated.timing(opacity, {
+                toValue: 0.8,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+        }
 
         if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
         fadeTimeout.current = setTimeout(() => {
-            Animated.timing(opacity, {
-                toValue: 0.2,
-                duration: FADE_DURATION,
-                useNativeDriver: true,
-            }).start();
+            if (!isDraggingRef.current) {
+                Animated.timing(opacity, {
+                    toValue: 0.2,
+                    duration: FADE_DURATION,
+                    useNativeDriver: true,
+                }).start();
+            }
         }, 2000);
 
         return () => {
@@ -67,11 +164,12 @@ export default function LayerIndicator() {
         };
     }, [focusedLayer, indicatorHeight, layerCount, dotPosition, opacity]);
 
-    // Zone label for the focused layer
     const zoneLabel = getZoneLabel(focusedLayer, layerCount);
 
     return (
         <Animated.View
+            ref={containerRef}
+            onLayout={onLayout}
             style={[
                 styles.container,
                 {
@@ -79,8 +177,11 @@ export default function LayerIndicator() {
                     opacity,
                 },
             ]}
-            pointerEvents="none"
+            {...panResponder.panHandlers}
         >
+            {/* Invisible wider touch target */}
+            <View style={styles.touchTarget} />
+
             {/* Vertical glow bar */}
             <View style={styles.barTrack}>
                 <View style={styles.barLine} />
@@ -110,9 +211,6 @@ export default function LayerIndicator() {
     );
 }
 
-/**
- * Returns a zone label for the layer position.
- */
 function getZoneLabel(layer: number, totalLayers: number): string {
     const ratio = layer / (totalLayers - 1);
     if (ratio >= 0.9) return "Crown";
@@ -126,10 +224,18 @@ function getZoneLabel(layer: number, totalLayers: number): string {
 const styles = StyleSheet.create({
     container: {
         position: "absolute",
-        right: SPACING.md,
+        right: SPACING.sm,
         top: "22%",
         alignItems: "flex-end",
         justifyContent: "flex-start",
+        width: TOUCH_WIDTH,
+    },
+    touchTarget: {
+        position: "absolute",
+        top: -12,
+        bottom: -12,
+        right: -8,
+        width: TOUCH_WIDTH + 16,
     },
     barTrack: {
         position: "absolute",
@@ -142,9 +248,9 @@ const styles = StyleSheet.create({
     barLine: {
         flex: 1,
         width: BAR_WIDTH,
-        borderRadius: 1,
+        borderRadius: 1.5,
         backgroundColor: COLORS.gold,
-        opacity: 0.25,
+        opacity: 0.3,
     },
     dotContainer: {
         flexDirection: "row",
