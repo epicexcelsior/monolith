@@ -5,9 +5,9 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT, TIMING } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT, TIMING, SHADOW } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { hapticButtonPress } from "@/utils/haptics";
 
@@ -126,7 +126,7 @@ export default function OnboardingOverlay() {
 
   if (!config) return null;
 
-  const screenWidth = Dimensions.get("window").width;
+  const { width: screenWidth } = useWindowDimensions();
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, screenWidth - SPACING.lg * 2 - SPACING.md * 2],
@@ -183,25 +183,29 @@ export default function OnboardingOverlay() {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(8, 6, 4, 0.80)",
+    backgroundColor: "rgba(6, 8, 16, 0.75)",
     justifyContent: "flex-end",
   },
   spacer: {
     flex: 1,
   },
   card: {
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: COLORS.glassElevated,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.xxl + 20,
     alignItems: "center",
+    borderTopWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderCurve: "continuous",
+    boxShadow: SHADOW.lg,
   },
   progressTrack: {
     width: "100%",
     height: 4,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.glassMuted,
     borderRadius: 2,
     marginBottom: SPACING.sm,
     overflow: "hidden",
@@ -240,7 +244,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     width: "100%",
     alignItems: "center",
-    boxShadow: "0 4px 16px rgba(200, 153, 62, 0.25)",
+    boxShadow: SHADOW.gold,
   },
   buttonText: {
     ...TEXT.button,

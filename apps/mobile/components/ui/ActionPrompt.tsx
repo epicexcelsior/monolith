@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE, SHADOW } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import { hapticButtonPress } from "@/utils/haptics";
@@ -147,10 +147,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   container: {
-    backgroundColor: "rgba(200, 153, 62, 0.15)",
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: "rgba(200, 153, 62, 0.3)",
+    ...GLASS_STYLE.hudDark,
+    borderColor: COLORS.goldGlow,
     overflow: "hidden",
   },
   inner: {

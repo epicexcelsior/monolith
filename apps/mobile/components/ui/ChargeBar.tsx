@@ -6,6 +6,7 @@ import {
     SPACING,
     FONT_FAMILY,
     TIMING,
+    SHADOW,
     getChargeColor,
     getChargeLabel,
     getChargeState,
@@ -125,8 +126,11 @@ const styles = StyleSheet.create({
     barBg: {
         width: "100%",
         borderRadius: RADIUS.full,
-        backgroundColor: COLORS.border,
+        backgroundColor: COLORS.glassMuted,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
         overflow: "hidden",
+        boxShadow: SHADOW.insetDepth,
     },
     barFill: {
         borderRadius: RADIUS.full,

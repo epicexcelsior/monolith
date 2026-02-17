@@ -1,13 +1,21 @@
 import { Tabs } from "expo-router";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from "@/constants/theme";
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, BLUR, GLASS_STYLE, SHADOW } from "@/constants/theme";
+
+// Safe BlurView import — falls back when native module isn't compiled
+let BlurViewComponent: any = null;
+try {
+  BlurViewComponent = require("expo-blur").BlurView;
+} catch {
+  // Native module not available
+}
 
 /**
  * Tab navigator — 3 tabs: Tower (3D view), Board (leaderboard), Me (profile).
  *
- * Safe-area aware: accounts for the system gesture bar / home indicator
- * so tabs never sit underneath the system UI on Seeker or any notched device.
+ * Liquid glass tab bar with real blur (one of only 2 places we keep blur).
+ * Specular edge highlight via top border + inset shadow.
  */
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -21,11 +29,28 @@ export default function TabLayout() {
         tabBarLabelStyle: styles.tabLabel,
         tabBarStyle: {
           ...styles.tabBar,
-          // Add bottom safe area so tabs sit above the gesture bar
           paddingBottom: Math.max(insets.bottom, 8),
-          height: 56 + Math.max(insets.bottom, 8),
+          height: 60 + Math.max(insets.bottom, 8),
         },
         tabBarItemStyle: styles.tabItem,
+        tabBarBackground: () => (
+          <View style={StyleSheet.absoluteFill}>
+            {BlurViewComponent ? (
+              <BlurViewComponent
+                tint={BLUR.tint}
+                intensity={BLUR.intensity}
+                experimentalBlurMethod={BLUR.androidMethod}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: BLUR.fallbackBg }]} />
+            )}
+            {/* Glass tint overlay */}
+            <View style={[StyleSheet.absoluteFill, styles.tabBarTint]} />
+            {/* Specular top-edge highlight — the liquid glass "lip" */}
+            <View style={styles.specularEdge} />
+          </View>
+        ),
       }}
     >
       <Tabs.Screen
@@ -67,22 +92,22 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.bgCard,
-    borderTopColor: COLORS.border,
-    borderTopWidth: 1,
+    position: "absolute",
+    backgroundColor: "transparent",
+    borderTopWidth: 0,
+    elevation: 0,
     paddingTop: 6,
-    // Shadow for elevation
-    ...Platform.select({
-      ios: {
-        shadowColor: "#1A1612",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+  },
+  tabBarTint: {
+    backgroundColor: COLORS.glass,
+  },
+  specularEdge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: COLORS.glassHighlight,
   },
   tabItem: {
     paddingTop: 4,

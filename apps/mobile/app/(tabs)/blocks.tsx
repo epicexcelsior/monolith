@@ -13,8 +13,9 @@ import { useRouter } from "expo-router";
 import { useWalletStore } from "@/stores/wallet-store";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { useStaking, type TowerInfo, type UserDepositInfo } from "@/hooks/useStaking";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { ScreenLayout, Card, Badge, Button, ChargeBar } from "@/components/ui";
-import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { isBotOwner } from "@/utils/seed-tower";
 
@@ -366,26 +367,30 @@ export default function BoardScreen() {
 
       {/* ─── Quick Actions ─── */}
       <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.quickAction}
-          onPress={() => {
-            hapticButtonPress();
-            router.push("/deposit" as any);
-          }}
-        >
-          <Text style={styles.quickActionIcon}>⛽</Text>
-          <Text style={styles.quickActionLabel}>Add Fuel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickAction}
-          onPress={() => {
-            hapticButtonPress();
-            router.push("/withdraw" as any);
-          }}
-        >
-          <Text style={styles.quickActionIcon}>📤</Text>
-          <Text style={styles.quickActionLabel}>Extract</Text>
-        </TouchableOpacity>
+        <Animated.View entering={FadeInDown.delay(100).duration(300)} style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => {
+              hapticButtonPress();
+              router.push("/deposit" as any);
+            }}
+          >
+            <Text style={styles.quickActionIcon}>⛽</Text>
+            <Text style={styles.quickActionLabel}>Add Fuel</Text>
+          </TouchableOpacity>
+        </Animated.View>
+        <Animated.View entering={FadeInDown.delay(150).duration(300)} style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => {
+              hapticButtonPress();
+              router.push("/withdraw" as any);
+            }}
+          >
+            <Text style={styles.quickActionIcon}>📤</Text>
+            <Text style={styles.quickActionLabel}>Extract</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* ─── Leaderboard ─── */}
@@ -421,9 +426,10 @@ export default function BoardScreen() {
 
         {/* Entries */}
         <View style={styles.leaderboardList}>
-          {leaderboardData.map((entry) => (
-            <View
+          {leaderboardData.map((entry, i) => (
+            <Animated.View
               key={entry.rank}
+              entering={FadeInDown.delay(200 + i * 50).duration(250)}
               style={[
                 styles.leaderboardRow,
                 entry.isYou && styles.leaderboardRowYou,
@@ -448,7 +454,7 @@ export default function BoardScreen() {
               >
                 {entry.value}
               </Text>
-            </View>
+            </Animated.View>
           ))}
         </View>
       </Card>
@@ -566,11 +572,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: SPACING.xs,
-    backgroundColor: COLORS.bgMuted,
-    borderRadius: RADIUS.md,
+    ...GLASS_STYLE.muted,
+    borderRadius: RADIUS.full,
     paddingVertical: SPACING.sm + 2,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   quickActionIcon: {
     fontSize: 16,
@@ -593,7 +597,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.glassMuted,
   },
   tabButtonActive: {
     backgroundColor: COLORS.goldSubtle,

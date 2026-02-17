@@ -16,7 +16,7 @@ import type { Cluster, Chain } from "@solana-mobile/mobile-wallet-adapter-protoc
 export const APP_IDENTITY = {
   name: "The Monolith",
   uri: "https://themonolith.app",
-  icon: "favicon.ico", // relative to `uri` per MWA spec
+  icon: "favicon.png", // relative to `uri` per MWA spec
 };
 
 // ---------------------------------------------------------------------------

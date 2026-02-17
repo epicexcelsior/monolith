@@ -115,19 +115,41 @@ export function useAuthorization() {
         SECURE_STORE_KEYS.WALLET_URI_BASE,
       );
 
-      const result = await transact(
-        async (wallet: Web3MobileWallet) => {
-          const authResult = await wallet.authorize({
-            identity: APP_IDENTITY,
-            chain: getMwaChain(),
-            auth_token: cachedAuthToken ?? undefined,
-          });
-          return authResult;
-        },
-        // If we have a cached wallet URI base, pass it to transact()
-        // so it deep-links directly to that wallet instead of showing picker
-        cachedWalletUriBase ? { baseUri: cachedWalletUriBase } : undefined,
-      );
+      const authorizeWithWallet = async (wallet: Web3MobileWallet, authToken?: string) => {
+        return wallet.authorize({
+          identity: APP_IDENTITY,
+          chain: getMwaChain(),
+          ...(authToken ? { auth_token: authToken } : {}),
+        });
+      };
+
+      const transactOptions = cachedWalletUriBase
+        ? { baseUri: cachedWalletUriBase }
+        : undefined;
+
+      let result;
+      try {
+        // First attempt: use cached auth token if available (skip approval dialog)
+        result = await transact(
+          async (wallet: Web3MobileWallet) =>
+            authorizeWithWallet(wallet, cachedAuthToken ?? undefined),
+          transactOptions,
+        );
+      } catch (firstErr) {
+        // If we had a cached token and it was rejected, retry without it
+        // so the wallet shows a fresh approval dialog
+        if (cachedAuthToken) {
+          console.warn("MWA auth with cached token failed, retrying fresh:", firstErr);
+          // Clear the stale token from secure store
+          await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.AUTH_TOKEN);
+          result = await transact(
+            async (wallet: Web3MobileWallet) => authorizeWithWallet(wallet),
+            transactOptions,
+          );
+        } else {
+          throw firstErr;
+        }
+      }
 
       // MWA returns accounts as base64 — convert to PublicKey
       const account = result.accounts[0];

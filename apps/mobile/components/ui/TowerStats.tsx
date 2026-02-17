@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import { isBotOwner } from "@/utils/seed-tower";
@@ -70,8 +70,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "center",
-    backgroundColor: "rgba(8, 6, 4, 0.6)",
-    borderRadius: RADIUS.md,
+    ...GLASS_STYLE.hudDark,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     gap: SPACING.sm,
@@ -96,6 +95,6 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     height: 20,
-    backgroundColor: "rgba(200, 153, 62, 0.2)",
+    backgroundColor: COLORS.goldSubtle,
   },
 });

@@ -39,7 +39,7 @@ export default function Badge({
 
     const containerStyle =
         variant === "solid"
-            ? [styles.base, { backgroundColor: color + "1A" }]
+            ? [styles.base, { backgroundColor: COLORS.glassMuted, borderColor: color + "40", borderWidth: 1, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }]
             : [styles.base, styles.outlineBase, { borderColor: color }];
 
     return (

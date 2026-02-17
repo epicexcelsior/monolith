@@ -8,7 +8,15 @@ import {
     Text,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS, RADIUS, SPACING, TIMING, FONT_FAMILY } from "@/constants/theme";
+import { COLORS, RADIUS, SPACING, TIMING, FONT_FAMILY, BLUR } from "@/constants/theme";
+
+// Safe BlurView import — falls back when native module isn't compiled into the build
+let BlurViewComponent: any = null;
+try {
+    BlurViewComponent = require("expo-blur").BlurView;
+} catch {
+    // Native module not available — will use solid fallback
+}
 
 interface BottomPanelProps {
     /** Whether the panel is visible */
@@ -21,15 +29,17 @@ interface BottomPanelProps {
     height?: number;
     /** Optional title shown in the panel header */
     title?: string;
+    /** Whether the panel sits on a dark background (e.g. tower view) */
+    dark?: boolean;
 }
 
 /**
- * Reusable animated BottomPanel — slides up from the bottom with spring physics.
+ * Reusable animated BottomPanel — frosted glass slide-up panel.
  * Safe-area aware: accounts for gesture bar / home indicator on Seeker.
  *
  * @example
  * ```tsx
- * <BottomPanel visible={showPanel} onClose={() => setShowPanel(false)} title="Block Details">
+ * <BottomPanel visible={showPanel} onClose={() => setShowPanel(false)} title="Block Details" dark>
  *   <Text>Panel content here</Text>
  * </BottomPanel>
  * ```
@@ -40,6 +50,7 @@ export default function BottomPanel({
     children,
     height = 280,
     title,
+    dark = false,
 }: BottomPanelProps) {
     const insets = useSafeAreaInsets();
     const totalHeight = height + insets.bottom;
@@ -63,6 +74,15 @@ export default function BottomPanel({
 
     if (!visible) return null;
 
+    const tint = dark ? BLUR.hudTint : BLUR.tint;
+    const intensity = dark ? BLUR.hudIntensity : BLUR.intensity;
+    const borderColor = dark ? COLORS.hudBorder : COLORS.glassBorder;
+    const bgOverlay = dark ? COLORS.hudGlass : COLORS.glass;
+    const handleColor = dark ? "rgba(255,255,255,0.30)" : COLORS.borderStrong;
+    const textColor = dark ? COLORS.textOnDark : COLORS.text;
+    const closeBg = dark ? "rgba(255,255,255,0.12)" : COLORS.glassMuted;
+    const closeTextColor = dark ? COLORS.textOnDark : COLORS.textSecondary;
+
     return (
         <Animated.View
             style={[
@@ -70,34 +90,49 @@ export default function BottomPanel({
                 {
                     height: totalHeight,
                     paddingBottom: insets.bottom,
+                    borderColor,
                     transform: [{ translateY: slideAnim }],
                 },
             ]}
         >
+            {/* Blur backdrop */}
+            {BlurViewComponent ? (
+                <BlurViewComponent
+                    tint={tint}
+                    intensity={intensity}
+                    experimentalBlurMethod={BLUR.androidMethod}
+                    style={StyleSheet.absoluteFill}
+                />
+            ) : (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: dark ? BLUR.fallbackHudBg : BLUR.fallbackBg }]} />
+            )}
+            {/* Glass tint overlay */}
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: bgOverlay }]} />
+
             {/* Handle bar */}
-            <View style={styles.handleBar} />
+            <View style={[styles.handleBar, { backgroundColor: handleColor }]} />
 
             {/* Header row */}
             {title && (
                 <View style={styles.headerRow}>
-                    <Text style={styles.title}>{title}</Text>
+                    <Text style={[styles.title, { color: textColor }]}>{title}</Text>
                     <TouchableOpacity
-                        style={styles.closeButton}
+                        style={[styles.closeButton, { backgroundColor: closeBg }]}
                         onPress={onClose}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                        <Text style={styles.closeText}>✕</Text>
+                        <Text style={[styles.closeText, { color: closeTextColor }]}>✕</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
             {!title && (
                 <TouchableOpacity
-                    style={styles.closeButtonAbsolute}
+                    style={[styles.closeButtonAbsolute, { backgroundColor: closeBg }]}
                     onPress={onClose}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                    <Text style={styles.closeText}>✕</Text>
+                    <Text style={[styles.closeText, { color: closeTextColor }]}>✕</Text>
                 </TouchableOpacity>
             )}
 
@@ -113,21 +148,18 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: COLORS.bgCard,
         borderTopLeftRadius: RADIUS.xl,
         borderTopRightRadius: RADIUS.xl,
         borderTopWidth: 1,
-        borderColor: COLORS.border,
         paddingHorizontal: SPACING.md,
         paddingTop: SPACING.sm,
         borderCurve: "continuous",
-        boxShadow: "0 -4px 24px rgba(26, 22, 18, 0.10)",
+        overflow: "hidden",
     },
     handleBar: {
         width: 40,
         height: 4,
         borderRadius: 2,
-        backgroundColor: COLORS.borderStrong,
         alignSelf: "center",
         marginBottom: SPACING.md,
     },
@@ -140,14 +172,12 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: FONT_FAMILY.heading,
         fontSize: 18,
-        color: COLORS.text,
         letterSpacing: 0.3,
     },
     closeButton: {
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: COLORS.bgMuted,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -159,12 +189,10 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: COLORS.bgMuted,
         alignItems: "center",
         justifyContent: "center",
     },
     closeText: {
-        color: COLORS.textSecondary,
         fontSize: 12,
         fontWeight: "700",
     },

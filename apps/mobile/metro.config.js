@@ -13,6 +13,7 @@ config.resolver.extraNodeModules = {
   crypto: require.resolve("expo-crypto"),
   stream: require.resolve("readable-stream"),
   buffer: require.resolve("buffer"),
+  three: path.resolve(monorepoRoot, "node_modules/three"),
 };
 
 // Watch the monorepo packages so Metro picks up changes

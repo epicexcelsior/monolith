@@ -9,11 +9,12 @@ import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
 import LayerIndicator from "@/components/ui/LayerIndicator";
-import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
+import { OnboardingFlow } from "@/components/onboarding";
 import ActionPrompt from "@/components/ui/ActionPrompt";
 import TowerStats from "@/components/ui/TowerStats";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
+import { useOnboardingStore } from "@/stores/onboarding-store";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { initAudio } from "@/utils/audio";
@@ -29,11 +30,18 @@ export default function TowerScreen() {
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
 
+  // Onboarding state
+  const onboardingPhase = useOnboardingStore((s) => s.phase);
+  const initOnboarding = useOnboardingStore((s) => s.init);
+  const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
+  const isOnboarding = onboardingPhase !== "done";
+
   // Initialize tower (load from storage or seed)
   useEffect(() => {
     initTower();
+    initOnboarding();
     initAudio(); // Fire-and-forget audio pre-load
-  }, [initTower]);
+  }, [initTower, initOnboarding]);
 
   // Start decay loop + bot simulation once tower is initialized
   useEffect(() => {
@@ -53,59 +61,70 @@ export default function TowerScreen() {
         <TowerScene />
       </View>
 
-      {/* HUD Overlay */}
-      <View style={styles.hud} pointerEvents="box-none">
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <Text style={styles.title}>THE MONOLITH</Text>
-          <TouchableOpacity
-            style={[
-              styles.connectButton,
-              isConnected && styles.connectedButton,
-            ]}
-            onPress={() => {
-              hapticButtonPress();
-              router.push("/connect");
-            }}
-          >
-            <Text
-              style={[
-                styles.connectText,
-                isConnected && styles.connectedText,
-              ]}
+      {/* HUD Overlay — hidden during onboarding for cleaner experience */}
+      {!isOnboarding && (
+        <View style={styles.hud} pointerEvents="box-none">
+          {/* Top bar */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              onLongPress={() => {
+                hapticButtonPress();
+                resetOnboarding();
+              }}
+              delayLongPress={800}
+              activeOpacity={0.7}
             >
-              {isConnected && truncatedAddress
-                ? truncatedAddress
-                : "Connect Wallet"}
+              <Text style={styles.title}>THE MONOLITH</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.connectButton,
+                isConnected && styles.connectedButton,
+              ]}
+              onPress={() => {
+                hapticButtonPress();
+                router.push("/connect");
+              }}
+            >
+              <Text
+                style={[
+                  styles.connectText,
+                  isConnected && styles.connectedText,
+                ]}
+              >
+                {isConnected && truncatedAddress
+                  ? truncatedAddress
+                  : "Connect Wallet"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tower stats bar */}
+          {initialized && <TowerStats />}
+
+          {/* Spacer to push bottom content down */}
+          <View style={{ flex: 1 }} />
+
+          {/* Bottom hint */}
+          <View style={styles.bottomArea}>
+            <Text style={styles.hintText}>
+              Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Tap a block to inspect
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
-
-        {/* Tower stats bar */}
-        {initialized && <TowerStats />}
-
-        {/* Spacer to push bottom content down */}
-        <View style={{ flex: 1 }} />
-
-        {/* Bottom hint */}
-        <View style={styles.bottomArea}>
-          <Text style={styles.hintText}>
-            Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Tap a block to inspect
-          </Text>
-        </View>
-      </View>
+      )}
 
       {/* Layer Indicator */}
       <LayerIndicator />
 
       {/* Contextual action prompt */}
-      {initialized && onboardingDone && <ActionPrompt />}
+      {initialized && onboardingDone && !isOnboarding && <ActionPrompt />}
 
       {/* Block Inspector panel */}
       <BlockInspector />
 
-      {/* Onboarding overlay (first launch only) */}
-      {initialized && !onboardingDone && <OnboardingOverlay />}
+      {/* Interactive onboarding flow (first launch only) */}
+      {initialized && isOnboarding && <OnboardingFlow />}
     </View>
   );
 }
@@ -144,7 +163,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   connectButton: {
-    backgroundColor: "rgba(200, 153, 62, 0.15)",
+    backgroundColor: COLORS.goldSubtle,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.sm,
@@ -152,7 +171,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gold,
   },
   connectedButton: {
-    backgroundColor: "rgba(46, 139, 87, 0.15)",
+    backgroundColor: "rgba(46, 139, 87, 0.12)",
     borderColor: COLORS.success,
   },
   connectText: {

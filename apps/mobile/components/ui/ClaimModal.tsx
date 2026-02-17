@@ -143,17 +143,20 @@ export default function ClaimModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(6, 8, 16, 0.65)",
     justifyContent: "flex-end",
   },
   container: {
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: COLORS.glassElevated,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.xxl,
     maxHeight: "80%",
+    borderTopWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderCurve: "continuous",
   },
   header: {
     flexDirection: "row",

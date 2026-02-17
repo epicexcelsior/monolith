@@ -1,6 +1,8 @@
 import React from "react";
 import { View, StyleSheet, type ViewStyle } from "react-native";
-import { COLORS, RADIUS, SPACING, SHADOW } from "@/constants/theme";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { COLORS, GLASS_STYLE, RADIUS, SPACING } from "@/constants/theme";
+import GlassView from "./GlassView";
 
 type CardVariant = "default" | "accent" | "muted";
 
@@ -14,17 +16,18 @@ interface CardProps {
 }
 
 /**
- * Reusable Card component — content container with warm shadow.
+ * Card — Liquid glass content container.
+ *
+ * Variants:
+ *   - `default` — standard glass card with shimmer
+ *   - `accent`  — gold-bordered glass card
+ *   - `muted`   — subtle, lower-prominence glass
  *
  * @example
  * ```tsx
  * <Card>
  *   <Text style={TEXT.headingSm}>Balance</Text>
  *   <Text style={TEXT.mono}>$42.00 USDC</Text>
- * </Card>
- *
- * <Card variant="accent">
- *   <Text>Gold-highlighted important info</Text>
  * </Card>
  * ```
  */
@@ -33,33 +36,39 @@ export default function Card({
     style,
     children,
 }: CardProps) {
+    if (variant === "accent") {
+        return (
+            <Animated.View entering={FadeIn.duration(250)}>
+                <GlassView
+                    variant="card"
+                    style={[
+                        { borderColor: COLORS.gold, borderWidth: 1.5 },
+                        style,
+                    ]}
+                >
+                    {children}
+                </GlassView>
+            </Animated.View>
+        );
+    }
+
+    if (variant === "muted") {
+        return (
+            <Animated.View
+                entering={FadeIn.duration(250)}
+                style={[GLASS_STYLE.muted, { padding: SPACING.md }, style]}
+            >
+                {children}
+            </Animated.View>
+        );
+    }
+
+    // Default: liquid glass card with fade-in
     return (
-        <View style={[styles.base, variantStyles[variant], style]}>{children}</View>
+        <Animated.View entering={FadeIn.duration(250)}>
+            <GlassView variant="card" style={style}>
+                {children}
+            </GlassView>
+        </Animated.View>
     );
 }
-
-const styles = StyleSheet.create({
-    base: {
-        borderRadius: RADIUS.lg,
-        padding: SPACING.md,
-        borderCurve: "continuous",
-        boxShadow: SHADOW.sm,
-    },
-});
-
-const variantStyles = StyleSheet.create({
-    default: {
-        backgroundColor: COLORS.bgCard,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    accent: {
-        backgroundColor: COLORS.goldSubtle,
-        borderWidth: 1,
-        borderColor: COLORS.borderAccent,
-    },
-    muted: {
-        backgroundColor: COLORS.bgMuted,
-        borderWidth: 0,
-    },
-});

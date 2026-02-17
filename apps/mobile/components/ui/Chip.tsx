@@ -59,10 +59,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm,
         borderRadius: RADIUS.full,
-        backgroundColor: COLORS.bgMuted,
+        backgroundColor: COLORS.glassMuted,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS.glassBorder,
         borderCurve: "continuous",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)",
     },
     chipSelected: {
         backgroundColor: COLORS.goldSubtle,

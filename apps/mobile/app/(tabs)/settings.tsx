@@ -5,8 +5,9 @@ import { useAuthorization } from "@/hooks/useAuthorization";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getClusterName } from "@/services/mwa";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { ScreenLayout, Card, Button, Badge, ChargeBar } from "@/components/ui";
-import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 
 /**
@@ -135,9 +136,9 @@ export default function MeScreen() {
           </View>
         ) : (
           <View style={styles.blocksGrid}>
-            {myBlocks.map((block) => (
+            {myBlocks.map((block, i) => (
+              <Animated.View key={block.id} entering={FadeInDown.delay(100 + i * 60).duration(250)} style={{ flex: 1, minWidth: 130 }}>
               <TouchableOpacity
-                key={block.id}
                 style={styles.blockCard}
                 onPress={() => {
                   hapticButtonPress();
@@ -161,6 +162,7 @@ export default function MeScreen() {
                   {Math.round(block.energy)}%
                 </Text>
               </TouchableOpacity>
+              </Animated.View>
             ))}
           </View>
         )}
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.glassMuted,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -349,13 +351,9 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   blockCard: {
-    flex: 1,
-    minWidth: 130,
-    backgroundColor: COLORS.bgMuted,
+    ...GLASS_STYLE.muted,
     borderRadius: RADIUS.md,
     padding: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     gap: SPACING.xs,
   },
   blockCardHeader: {

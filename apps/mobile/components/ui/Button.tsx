@@ -1,12 +1,18 @@
 import React from "react";
 import {
-    TouchableOpacity,
     Text,
     ActivityIndicator,
     StyleSheet,
     View,
+    Pressable,
+    type ViewStyle,
 } from "react-native";
-import { COLORS, RADIUS, SPACING, TEXT, TIMING } from "@/constants/theme";
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+} from "react-native-reanimated";
+import { COLORS, GLASS_STYLE, RADIUS, SPACING, TEXT, SHADOW, TIMING } from "@/constants/theme";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
@@ -28,16 +34,16 @@ interface ButtonProps {
     onPress?: () => void;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 /**
- * Reusable Button component — the primary interactive element.
+ * Button — Primary interactive element with press scale animation.
  *
- * @example
- * ```tsx
- * <Button title="Claim Block" variant="primary" onPress={handleClaim} />
- * <Button title="Cancel" variant="ghost" onPress={handleCancel} />
- * <Button title="Depositing..." variant="primary" loading />
- * <Button title="Disconnect" variant="danger" onPress={handleDisconnect} />
- * ```
+ * Variants:
+ *   - `primary`   — gold gradient fill with glow
+ *   - `secondary` — liquid glass pill with gold border
+ *   - `ghost`     — text-only, no background
+ *   - `danger`    — liquid glass pill with red border
  */
 export default function Button({
     title,
@@ -49,41 +55,56 @@ export default function Button({
     onPress,
 }: ButtonProps) {
     const isDisabled = disabled || loading;
+    const scale = useSharedValue(1);
 
-    const containerStyle = [
-        styles.base,
-        sizeStyles[size],
-        variantStyles[variant].container,
-        isDisabled && styles.disabled,
-    ];
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
+    const handlePressIn = () => {
+        scale.value = withSpring(0.97, TIMING.microSpring);
+    };
+
+    const handlePressOut = () => {
+        scale.value = withSpring(1, TIMING.microSpring);
+    };
 
     const textStyle = [
         size === "sm" ? TEXT.buttonSm : TEXT.button,
-        variantStyles[variant].text,
+        variantTextStyles[variant],
     ];
 
+    const content = loading ? (
+        <View style={styles.loadingRow}>
+            <ActivityIndicator
+                size="small"
+                color={variant === "primary" ? COLORS.textOnGold : COLORS.gold}
+            />
+            <Text style={[...textStyle, styles.loadingText]}>{title}</Text>
+        </View>
+    ) : (
+        <View style={styles.contentRow}>
+            {icon && <View style={styles.iconContainer}>{icon}</View>}
+            <Text style={textStyle}>{title}</Text>
+        </View>
+    );
+
     return (
-        <TouchableOpacity
-            style={containerStyle}
+        <AnimatedPressable
+            style={[
+                animatedStyle,
+                styles.base,
+                sizeStyles[size],
+                variantStyles[variant],
+                isDisabled && styles.disabled,
+            ]}
             onPress={onPress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
             disabled={isDisabled}
-            activeOpacity={0.8}
         >
-            {loading ? (
-                <View style={styles.loadingRow}>
-                    <ActivityIndicator
-                        size="small"
-                        color={variant === "primary" ? COLORS.textOnGold : COLORS.gold}
-                    />
-                    <Text style={[...textStyle, styles.loadingText]}>{title}</Text>
-                </View>
-            ) : (
-                <View style={styles.contentRow}>
-                    {icon && <View style={styles.iconContainer}>{icon}</View>}
-                    <Text style={textStyle}>{title}</Text>
-                </View>
-            )}
-        </TouchableOpacity>
+            {content}
+        </AnimatedPressable>
     );
 }
 
@@ -112,7 +133,31 @@ const styles = StyleSheet.create({
     },
 });
 
-const sizeStyles = StyleSheet.create({
+const variantStyles: Record<ButtonVariant, ViewStyle> = {
+    primary: {
+        backgroundColor: COLORS.gold,
+        boxShadow: SHADOW.gold,
+        experimental_backgroundImage:
+            `linear-gradient(to bottom, ${COLORS.goldLight} 0%, ${COLORS.gold} 100%)`,
+    } as ViewStyle,
+    secondary: {
+        backgroundColor: COLORS.glassMuted,
+        borderWidth: 1,
+        borderColor: COLORS.gold,
+        boxShadow: SHADOW.glassInset,
+    },
+    ghost: {
+        backgroundColor: "transparent",
+    },
+    danger: {
+        backgroundColor: COLORS.glassMuted,
+        borderWidth: 1,
+        borderColor: COLORS.error,
+        boxShadow: SHADOW.glassInset,
+    },
+};
+
+const sizeStyles: Record<ButtonSize, ViewStyle> = {
     sm: {
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm,
@@ -128,44 +173,11 @@ const sizeStyles = StyleSheet.create({
         paddingVertical: SPACING.md,
         borderRadius: RADIUS.md,
     },
-});
+};
 
-const variantStyles = {
-    primary: StyleSheet.create({
-        container: {
-            backgroundColor: COLORS.gold,
-            boxShadow: "0 4px 16px rgba(200, 153, 62, 0.20)",
-        },
-        text: {
-            color: COLORS.textOnGold,
-        },
-    }),
-    secondary: StyleSheet.create({
-        container: {
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            borderColor: COLORS.gold,
-        },
-        text: {
-            color: COLORS.gold,
-        },
-    }),
-    ghost: StyleSheet.create({
-        container: {
-            backgroundColor: "transparent",
-        },
-        text: {
-            color: COLORS.textSecondary,
-        },
-    }),
-    danger: StyleSheet.create({
-        container: {
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            borderColor: COLORS.error,
-        },
-        text: {
-            color: COLORS.error,
-        },
-    }),
+const variantTextStyles: Record<ButtonVariant, { color: string }> = {
+    primary: { color: COLORS.textOnGold },
+    secondary: { color: COLORS.gold },
+    ghost: { color: COLORS.textSecondary },
+    danger: { color: COLORS.error },
 };

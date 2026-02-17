@@ -2,10 +2,10 @@
  * Audio system for The Monolith.
  * Mirrors haptics.ts pattern: fire-and-forget, fail-safe, platform-aware.
  *
- * Uses expo-av for playback. All sounds are pre-loaded on init.
+ * Uses expo-audio for playback. All sounds are pre-loaded on init.
  * Every function catches errors silently — never blocks gameplay.
  *
- * IMPORTANT: expo-av is loaded lazily so the app doesn't crash if
+ * IMPORTANT: expo-audio is loaded lazily so the app doesn't crash if
  * the native module isn't in the current dev build. Once you rebuild
  * with `npx expo run:android`, sounds will work automatically.
  *
@@ -22,8 +22,8 @@ let initialized = false;
 let muted = false;
 let audioAvailable = false;
 
-// We store loaded sounds as opaque objects to avoid importing expo-av types at top level
-const sounds: Record<string, any> = {};
+// We store loaded players as opaque objects to avoid importing expo-audio types at top level
+const players: Record<string, any> = {};
 
 // Lazy reference to the Audio module — only loaded when initAudio() is called
 let AudioModule: any = null;
@@ -43,52 +43,46 @@ export async function initAudio(): Promise<void> {
 
     try {
         // Lazy import — won't crash if native module is missing
-        const expoAv = await import("expo-av");
-        AudioModule = expoAv.Audio;
+        const expoAudio = await import("expo-audio");
+        AudioModule = expoAudio;
 
-        await AudioModule.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            playsInSilentModeIOS: true,
-            staysActiveInBackground: false,
-            shouldDuckAndroid: true,
+        await expoAudio.setAudioModeAsync({
+            playsInSilentMode: true,
         });
 
         audioAvailable = true;
 
         // ─── Load SFX Sources ──────────────────────────────
-        // Uncomment entries as you add .wav files to assets/sfx/
         // Metro requires static require() — can't use dynamic paths.
         //
         // To add a sound:
         // 1. Place .wav file in apps/mobile/assets/sfx/
-        // 2. Uncomment the corresponding loadSound() call below
+        // 2. Add a loadPlayer() call below
         // 3. Rebuild the app
 
-        await loadSound("blockClaim", require("../assets/sfx/block-claim.wav"));
-        await loadSound("chargeTap", require("../assets/sfx/charge-tap.wav"));
-        await loadSound("blockSelect", require("../assets/sfx/block-select.wav"));
-        await loadSound("blockDeselect", require("../assets/sfx/block-deselect.wav"));
-        await loadSound("streakMilestone", require("../assets/sfx/streak-milestone.wav"));
-        await loadSound("error", require("../assets/sfx/error.wav"));
+        await loadPlayer("blockClaim", require("../assets/sfx/block-claim.wav"));
+        await loadPlayer("chargeTap", require("../assets/sfx/charge-tap.wav"));
+        await loadPlayer("blockSelect", require("../assets/sfx/block-select.wav"));
+        await loadPlayer("blockDeselect", require("../assets/sfx/block-deselect.wav"));
+        await loadPlayer("streakMilestone", require("../assets/sfx/streak-milestone.wav"));
+        await loadPlayer("error", require("../assets/sfx/error.wav"));
 
         initialized = true;
     } catch {
-        // expo-av native module not available (dev build without it)
+        // expo-audio native module not available (dev build without it)
         // Audio just won't play — app continues normally
         initialized = true;
         audioAvailable = false;
     }
 }
 
-/** Load a single sound file into the cache */
-async function loadSound(key: string, source: any): Promise<void> {
+/** Create an AudioPlayer for a single sound file */
+async function loadPlayer(key: string, source: any): Promise<void> {
     if (!AudioModule) return;
     try {
-        const { sound } = await AudioModule.Sound.createAsync(source, {
-            shouldPlay: false,
-            volume: 0.7,
-        });
-        sounds[key] = sound;
+        const player = AudioModule.createAudioPlayer(source);
+        player.volume = 0.7;
+        players[key] = player;
     } catch {
         // Load error — no-op, this sound won't play
     }
@@ -97,10 +91,10 @@ async function loadSound(key: string, source: any): Promise<void> {
 // ─── Playback Helpers ─────────────────────────────────────
 
 async function play(key: string): Promise<void> {
-    if (muted || !audioAvailable || !sounds[key]) return;
+    if (muted || !audioAvailable || !players[key]) return;
     try {
-        await sounds[key].setPositionAsync(0);
-        await sounds[key].playAsync();
+        players[key].seekTo(0);
+        players[key].play();
     } catch {
         // Playback error — no-op
     }
@@ -134,7 +128,7 @@ export function isMuted() { return muted; }
 // ─── Cleanup ──────────────────────────────────────────────
 
 export async function unloadSounds(): Promise<void> {
-    for (const sound of Object.values(sounds)) {
-        try { await sound.unloadAsync(); } catch { /* no-op */ }
+    for (const player of Object.values(players)) {
+        try { player.remove(); } catch { /* no-op */ }
     }
 }

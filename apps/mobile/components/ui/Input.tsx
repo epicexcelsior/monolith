@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, TextInput, StyleSheet, type KeyboardTypeOptions } from "react-native";
-import { COLORS, RADIUS, SPACING, FONT_FAMILY, TEXT } from "@/constants/theme";
+import { COLORS, RADIUS, SPACING, FONT_FAMILY, TEXT, SHADOW } from "@/constants/theme";
 
 interface InputProps {
     /** Label text above the input */
@@ -101,13 +101,14 @@ const styles = StyleSheet.create({
     inputRow: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: COLORS.bgMuted,
+        backgroundColor: COLORS.glassElevated,
         borderRadius: RADIUS.md,
         borderWidth: 1.5,
-        borderColor: COLORS.border,
+        borderColor: COLORS.glassBorder,
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.xs,
         borderCurve: "continuous",
+        boxShadow: SHADOW.insetDepth,
     },
     inputRowError: {
         borderColor: COLORS.error,

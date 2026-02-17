@@ -1,8 +1,8 @@
 /**
  * Withdraw Screen — Withdraw USDC from the Monolith vault.
  *
- * Shows vault balance, amount input, confirms via MWA.
- * Route: app/withdraw.tsx (modal via expo-router)
+ * Half-sheet (formSheet) so the 3D tower remains visible behind.
+ * Route: app/withdraw.tsx
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -14,6 +14,7 @@ import {
     Platform,
     Linking,
     TouchableOpacity,
+    ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useStaking, type UserDepositInfo } from "@/hooks/useStaking";
@@ -54,10 +55,10 @@ export default function WithdrawScreen() {
         console.log("[WithdrawScreen] Starting withdraw of", parsedAmount, "USDC");
         const sig = await withdraw(parsedAmount);
         if (sig) {
-            console.log("[WithdrawScreen] ✅ Withdraw success:", sig);
+            console.log("[WithdrawScreen] Withdraw success:", sig);
             hapticBlockClaimed();
         } else {
-            console.log("[WithdrawScreen] ❌ Withdraw returned null (failed)");
+            console.log("[WithdrawScreen] Withdraw returned null (failed)");
             hapticError();
         }
     };
@@ -69,45 +70,39 @@ export default function WithdrawScreen() {
     // Success state
     if (lastTxSignature) {
         return (
-            <View style={styles.container}>
-                <View style={styles.content}>
-                    <Text style={styles.icon}>✅</Text>
-                    <Text style={TEXT.displaySm}>Extracted! 📤</Text>
-                    <Text style={[TEXT.bodySm, styles.centered]}>
-                        {parsedAmount.toFixed(2)} USDC returned to your wallet.
-                    </Text>
-                    <TouchableOpacity onPress={() => openExplorer(lastTxSignature!)}>
-                        <Card variant="accent" style={styles.fullWidth}>
-                            <Text style={[TEXT.monoSm, { color: COLORS.gold, textAlign: "center" }]} numberOfLines={1} ellipsizeMode="middle">
-                                🔗 {lastTxSignature}
-                            </Text>
-                        </Card>
-                    </TouchableOpacity>
-                    <View style={styles.fullWidth}>
-                        <Button title="Done" variant="primary" onPress={() => router.back()} />
-                    </View>
+            <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
+                <Text style={styles.sheetTitle}>Extracted!</Text>
+                <Text style={[TEXT.bodySm, styles.centered]}>
+                    {parsedAmount.toFixed(2)} USDC returned to your wallet.
+                </Text>
+                <TouchableOpacity onPress={() => openExplorer(lastTxSignature!)} style={styles.fullWidth}>
+                    <Card variant="accent">
+                        <Text style={[TEXT.monoSm, { color: COLORS.gold, textAlign: "center" }]} numberOfLines={1} ellipsizeMode="middle">
+                            View on Explorer
+                        </Text>
+                    </Card>
+                </TouchableOpacity>
+                <View style={styles.fullWidth}>
+                    <Button title="Done" variant="primary" onPress={() => router.back()} />
                 </View>
-            </View>
+            </ScrollView>
         );
     }
 
     // Not connected guard
     if (!isConnected) {
         return (
-            <View style={styles.container}>
-                <View style={styles.content}>
-                    <Text style={styles.icon}>🔐</Text>
-                    <Text style={TEXT.displaySm}>Wallet Required</Text>
-                    <Text style={[TEXT.bodySm, styles.centered]}>
-                        Connect your wallet to withdraw USDC.
-                    </Text>
-                    <View style={styles.fullWidth}>
-                        <Button
-                            title="Connect Wallet"
-                            variant="primary"
-                            onPress={() => router.push("/connect")}
-                        />
-                    </View>
+            <View style={[styles.sheet, styles.sheetContent]}>
+                <Text style={styles.sheetTitle}>Wallet Required</Text>
+                <Text style={[TEXT.bodySm, styles.centered]}>
+                    Connect your wallet to withdraw USDC.
+                </Text>
+                <View style={styles.fullWidth}>
+                    <Button
+                        title="Connect Wallet"
+                        variant="primary"
+                        onPress={() => router.push("/connect")}
+                    />
                 </View>
             </View>
         );
@@ -116,44 +111,39 @@ export default function WithdrawScreen() {
     // No deposit guard
     if (depositInfo && vaultBalance === 0) {
         return (
-            <View style={styles.container}>
-                <View style={styles.content}>
-                    <Text style={styles.icon}>📭</Text>
-                    <Text style={TEXT.displaySm}>No Deposit</Text>
-                    <Text style={[TEXT.bodySm, styles.centered]}>
-                        You haven't deposited any USDC yet.
-                    </Text>
-                    <View style={styles.fullWidth}>
-                        <Button
-                            title="Deposit USDC"
-                            variant="primary"
-                            onPress={() => {
-                                router.back();
-                                setTimeout(() => router.push("/deposit" as any), 100);
-                            }}
-                        />
-                    </View>
+            <View style={[styles.sheet, styles.sheetContent]}>
+                <Text style={styles.sheetTitle}>No Deposit</Text>
+                <Text style={[TEXT.bodySm, styles.centered]}>
+                    You haven't deposited any USDC yet.
+                </Text>
+                <View style={styles.fullWidth}>
                     <Button
-                        title="Back"
-                        variant="ghost"
-                        onPress={() => router.back()}
+                        title="Deposit USDC"
+                        variant="primary"
+                        onPress={() => {
+                            router.back();
+                            setTimeout(() => router.push("/deposit" as any), 100);
+                        }}
                     />
                 </View>
+                <Button
+                    title="Back"
+                    variant="ghost"
+                    onPress={() => router.back()}
+                />
             </View>
         );
     }
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={styles.sheet}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-            <View style={styles.content}>
-                <Text style={styles.icon}>🏦</Text>
-                <Text style={TEXT.displaySm}>Extract Fuel 📤</Text>
+            <ScrollView contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled">
+                <Text style={styles.sheetTitle}>Extract Fuel</Text>
                 <Text style={[TEXT.bodySm, styles.centered]}>
-                    Extract fuel from the tower back to your wallet{"\n"}
-                    back to your wallet.
+                    Extract fuel from the tower back to your wallet.
                 </Text>
 
                 {/* Vault balance */}
@@ -231,7 +221,7 @@ export default function WithdrawScreen() {
                 {error && (
                     <Card variant="muted" style={styles.fullWidth}>
                         <View style={styles.errorRow}>
-                            <Text style={styles.errorIcon}>⚠️</Text>
+                            <Text style={styles.errorIcon}>!</Text>
                             <Text style={[TEXT.bodySm, { color: COLORS.error, flex: 1 }]}>
                                 {error}
                             </Text>
@@ -256,28 +246,29 @@ export default function WithdrawScreen() {
                     onPress={() => router.back()}
                     disabled={isLoading}
                 />
-            </View>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    sheet: {
         flex: 1,
-        backgroundColor: COLORS.bg,
-        justifyContent: "center",
-        paddingHorizontal: SPACING.lg,
     },
-    content: {
+    sheetContent: {
         alignItems: "center",
         gap: SPACING.md,
+        paddingHorizontal: SPACING.lg,
+        paddingTop: SPACING.md,
+        paddingBottom: SPACING.xl,
     },
-    icon: {
-        fontSize: 48,
+    sheetTitle: {
+        ...TEXT.displaySm,
+        textAlign: "center",
     },
     centered: {
         textAlign: "center",
-        paddingHorizontal: SPACING.md,
+        paddingHorizontal: SPACING.sm,
     },
     fullWidth: {
         width: "100%",
@@ -299,6 +290,8 @@ const styles = StyleSheet.create({
         gap: SPACING.sm,
     },
     errorIcon: {
-        fontSize: 16,
+        fontSize: 14,
+        fontWeight: "700",
+        color: COLORS.error,
     },
 });
