@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@monolith/common": "workspace:*",
     "@colyseus/ws-transport": "^0.15.0",
     "@supabase/supabase-js": "^2.49.0",
     "colyseus": "^0.15.0",

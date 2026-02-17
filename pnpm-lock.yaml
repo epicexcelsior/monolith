@@ -214,6 +214,9 @@ importers:
       '@colyseus/ws-transport':
         specifier: ^0.15.0
         version: 0.15.3(@colyseus/core@0.15.57(@colyseus/schema@2.0.37)(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@colyseus/schema@2.0.37)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@monolith/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@supabase/supabase-js':
         specifier: ^2.49.0
         version: 2.95.3(bufferutil@4.1.0)(utf-8-validate@5.0.10)
@@ -6134,6 +6137,7 @@ packages:
   tar@7.5.7:
     resolution: {integrity: sha512-fov56fJiRuThVFXD6o6/Q354S7pnWMJIVlDBYijsTNx6jKSE4pvrDTs6lUnmGvNyfJwFQQwWy3owKz1ucIhveQ==}
     engines: {node: '>=18'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   temp-dir@2.0.0:
     resolution: {integrity: sha512-aoBAniQmmwtcKp/7BzsH8Cxzv8OL736p7v1ihGb5e9DJ9kTwGWHrQrVB5+lfVDzfGrdRzXch+ig7LHaY1JTOrg==}

@@ -25,14 +25,14 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_GAME_SERVER_URL": "ws://0.tcp.us-cal-1.ngrok.io:16355"
+        "EXPO_PUBLIC_GAME_SERVER_URL": "wss://monolith-server-production.up.railway.app"
       }
     },
     "production": {
       "extends": "base",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_GAME_SERVER_URL": "wss://monolith-server.railway.app"
+        "EXPO_PUBLIC_GAME_SERVER_URL": "wss://monolith-server-production.up.railway.app"
       }
     }
   },
