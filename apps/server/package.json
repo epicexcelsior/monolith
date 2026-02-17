@@ -4,25 +4,25 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "tsx src/index.ts",
-    "start:compiled": "node dist/index.js",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --outfile=dist/index.js --packages=external",
+    "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@monolith/common": "workspace:*",
     "@colyseus/ws-transport": "^0.15.0",
     "@supabase/supabase-js": "^2.49.0",
     "colyseus": "^0.15.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
-    "express": "^4.21.0",
-    "tsx": "^4.19.0"
+    "express": "^4.21.0"
   },
   "devDependencies": {
+    "@monolith/common": "workspace:*",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
     "typescript": "~5.9.2"
   },
   "private": true

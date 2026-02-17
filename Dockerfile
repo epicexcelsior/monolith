@@ -2,17 +2,22 @@ FROM node:22-slim
 
 RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
 
-# Install tsx globally so it's always on PATH
-RUN npm install -g tsx
-
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/common ./packages/common
 COPY apps/server ./apps/server
 
+# Install everything (need devDeps for esbuild + common package)
 RUN pnpm install --filter @monolith/server...
+
+# Bundle server + common into single JS file
+RUN cd apps/server && pnpm build
+
+# Prune dev dependencies
+RUN pnpm install --filter @monolith/server... --prod
 
 EXPOSE 2567
 
-CMD ["tsx", "apps/server/src/index.ts"]
+# Plain node. No tsx. No TypeScript at runtime.
+CMD ["node", "apps/server/dist/index.js"]
