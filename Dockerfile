@@ -12,8 +12,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/common ./packages/common
 COPY apps/server ./apps/server
 
-# Install deps for server + common workspace chain
-RUN pnpm install --filter @monolith/server...
+# Install deps for server + common workspace chain (include devDeps for tsx)
+RUN pnpm install --filter @monolith/server... --prod=false
 
 EXPOSE 2567
 
