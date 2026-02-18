@@ -475,13 +475,42 @@ export default function TowerGrid() {
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
-    if (useTowerStore.getState().isGestureActive) return;
-    if (event.instanceId !== undefined && event.instanceId !== null) {
-      const meta = blockMetaRef.current[event.instanceId];
-      if (meta) {
-        selectBlock(meta.id);
-      }
+
+    const state = useTowerStore.getState();
+
+    // Prevent selection during active gestures (drag, pinch, pan)
+    if (state.isGestureActive) {
+      console.log("[BlockSelection] Ignoring tap during gesture");
+      return;
     }
+
+    if (event.instanceId === undefined || event.instanceId === null) {
+      console.log("[BlockSelection] Tap hit no instance (empty space deselect)");
+      // Tapping empty space — deselect current block
+      if (state.selectedBlockId) {
+        selectBlock(null);
+      }
+      return;
+    }
+
+    const meta = blockMetaRef.current[event.instanceId];
+
+    if (!meta) {
+      console.warn(`[BlockSelection] Raycast hit instance ${event.instanceId} but metadata not found`);
+      return;
+    }
+
+    // Debug logging: show what was raycasted
+    console.log(
+      `[BlockSelection] Raycast hit instance ${event.instanceId}: ${meta.id} ` +
+        `(layer=${meta.layer}, index=${meta.index}, owner=${meta.owner || "unclaimed"})`
+    );
+
+    // Select the block
+    selectBlock(meta.id);
+
+    // Log successful selection
+    console.log(`[BlockSelection] Selected block: ${meta.id}`);
   };
 
   // Use actual block count — return null below if 0 to avoid phantom black block
