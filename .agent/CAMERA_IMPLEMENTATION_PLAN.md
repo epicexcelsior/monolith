@@ -165,7 +165,78 @@ lerp: {
 
 ---
 
-## Phase 4: Solid Gesture Handling (NEXT)
+## Phase 4: Block Selection with Instant Visual Feedback
+
+### Status: ✅ COMPLETE (2026-02-17)
+
+### Solution Implemented
+Enhanced block selection in `TowerGrid.tsx` with comprehensive debug logging and improved gesture handling.
+
+**Changes:**
+1. **Enhanced handleClick handler:**
+   - Prevents selection during active gestures (drag, pinch, pan)
+   - Empty space tapping now deselects blocks (before: did nothing)
+   - Comprehensive debug logging for every tap event
+
+2. **Debug logging for troubleshooting:**
+   ```
+   [BlockSelection] Raycast hit instance 42: block-5-10 (layer=5, index=10, owner=unclaimed)
+   [BlockSelection] Ignoring tap during gesture
+   [BlockSelection] Tap hit no instance (empty space deselect)
+   [BlockSelection] Raycast hit instance 999 but metadata not found (warning)
+   ```
+
+3. **Visual feedback (already in place):**
+   - Block expands 8% when selected (via aHighlight shader attribute)
+   - Block floats up slightly
+   - Block gains emissive glow
+   - Animation smooth lerp between current and target states
+   - Returns to normal when deselected
+
+**Benefits:**
+- Console logging makes it obvious which block was tapped and why
+- Can diagnose raycasting issues by viewing logs
+- Empty space deselect works now (improves UX)
+- Gesture blocking prevents mis-selection during camera movement
+
+### Testing Status
+- ✅ TypeScript compilation clean (no errors)
+- ✅ Code review: Improved readability and debuggability
+- ⚠️ Jest tests: Pre-existing Babel configuration issue (unrelated — all tests broken even before changes)
+  - Issue: Jest/Babel parser can't handle some TypeScript syntax
+  - Not caused by Phase 1-4 changes
+  - Affects test infrastructure, not the actual game code
+
+### How User Can Test Phase 4
+1. Run app and watch browser console
+2. Tap a block
+3. See logs:
+   - `[BlockSelection] Raycast hit instance X: block-5-10 (layer=5, index=10, owner=unclaimed)`
+   - Block expands and glows
+   - UI appears (BlockInspector component)
+4. Tap empty space
+5. See logs:
+   - `[BlockSelection] Tap hit no instance (empty space deselect)`
+   - Block returns to normal appearance
+   - UI disappears
+
+### Debugging Capabilities
+If block selection seems wrong:
+1. Open browser DevTools → Console tab
+2. Look for `[BlockSelection]` logs
+3. Verify which block was actually hit by raycasting
+4. Check if logs show "Ignoring tap during gesture" (means user was dragging)
+5. Report instance ID and layer/index if something seems off
+
+---
+
+## Phase 5: Block Details UI (NOT YET IMPLEMENTED)
+
+See plan for conditional content based on block ownership.
+
+## Phase 6: Test & Fine-Tune (NOT YET IMPLEMENTED)
+
+See plan for performance and parameter tuning checklist.
 
 ### Goal: Make gestures responsive, intuitive, predictable
 
