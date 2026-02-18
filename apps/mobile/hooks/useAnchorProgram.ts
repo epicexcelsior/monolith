@@ -29,6 +29,32 @@ import { useWalletStore } from "@/stores/wallet-store";
 
 const TAG = "[AnchorProgram]";
 
+/** Retry an async operation on transient RPC failures (429, 500, 502, 503, network errors). */
+async function withRetry<T>(label: string, fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await fn();
+        } catch (err: any) {
+            const msg = err?.message?.toLowerCase() || "";
+            const isTransient =
+                msg.includes("500") || msg.includes("502") || msg.includes("503") ||
+                msg.includes("429") || msg.includes("too many request") ||
+                msg.includes("internal server error") || msg.includes("network") ||
+                msg.includes("econnreset") || msg.includes("timeout") ||
+                msg.includes("fetch failed");
+
+            if (isTransient && attempt < maxAttempts) {
+                const delay = 1000 * attempt;
+                console.warn(TAG, `${label} attempt ${attempt} failed (${err?.message}), retrying in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw new Error("unreachable");
+}
+
 // ---------------------------------------------------------------------------
 // PDA derivation helpers
 // ---------------------------------------------------------------------------
@@ -82,13 +108,10 @@ export function useAnchorProgram() {
     /**
      * Sign and send a transaction using MWA.
      *
-     * This handles the full MWA lifecycle:
-     * 1. Opens a transact() session
-     * 2. Reauthorizes with cached auth token (or authorizes fresh)
-     * 3. Signs the provided transaction
-     * 4. Sends the raw transaction to the network
-     * 5. Confirms the transaction
-     * 6. CHECKS for on-chain errors
+     * Handles auth token expiration gracefully:
+     * 1. Try reauthorize with cached token (fast, no user prompt)
+     * 2. If that fails, fall back to fresh authorize (shows wallet approval)
+     * 3. RPC calls retry on transient 500/429 errors
      *
      * @returns Transaction signature string
      */
@@ -112,68 +135,100 @@ export function useAnchorProgram() {
             console.log(TAG, `  IX[${i}] data (${ix.data.length} bytes): ${ix.data.slice(0, 16).toString('hex')}...`);
         });
 
-        const signedTx = await transact(
-            async (wallet: Web3MobileWallet) => {
-                console.log(TAG, "MWA session opened, authorizing...");
+        const transactOptions = walletUriBase ? { baseUri: walletUriBase } : undefined;
 
-                // Re-authorize to refresh the session
-                const authResult = authToken
-                    ? await wallet.reauthorize({
-                        auth_token: authToken,
-                        identity: APP_IDENTITY,
-                    })
-                    : await wallet.authorize({
-                        chain: getMwaChain(),
-                        identity: APP_IDENTITY,
-                    });
+        const signTransaction = async (wallet: Web3MobileWallet, useAuthToken: string | null) => {
+            console.log(TAG, "MWA session opened, authorizing...", useAuthToken ? "(reauthorize)" : "(fresh authorize)");
 
-                const walletPubkey = new PublicKey(
-                    Buffer.from(authResult.accounts[0].address, "base64"),
-                );
-                console.log(TAG, "Authorized. Wallet:", walletPubkey.toBase58());
-
-                // Set the fee payer
-                transaction.feePayer = walletPubkey;
-
-                // Get latest blockhash
-                const { blockhash, lastValidBlockHeight } =
-                    await connection.getLatestBlockhash("confirmed");
-                transaction.recentBlockhash = blockhash;
-                console.log(TAG, "Blockhash:", blockhash.slice(0, 12) + "...");
-
-                // Sign via MWA
-                console.log(TAG, "Requesting MWA signature...");
-                const signedTransactions = await wallet.signTransactions({
-                    transactions: [transaction],
+            const authResult = useAuthToken
+                ? await wallet.reauthorize({
+                    auth_token: useAuthToken,
+                    identity: APP_IDENTITY,
+                })
+                : await wallet.authorize({
+                    chain: getMwaChain(),
+                    identity: APP_IDENTITY,
                 });
-                console.log(TAG, "MWA signature received ✓");
 
-                return signedTransactions[0];
-            },
-            walletUriBase ? { baseUri: walletUriBase } : undefined,
-        );
+            // Update stored auth token for future calls
+            if (authResult.auth_token && publicKey) {
+                useWalletStore.getState().setConnected({
+                    publicKey,
+                    authToken: authResult.auth_token,
+                    base64Address: authResult.accounts[0].address,
+                    walletUriBase: authResult.wallet_uri_base ?? walletUriBase ?? "",
+                });
+            }
 
-        // Send the signed transaction
+            const walletPubkey = new PublicKey(
+                Buffer.from(authResult.accounts[0].address, "base64"),
+            );
+            console.log(TAG, "Authorized. Wallet:", walletPubkey.toBase58());
+
+            // Set the fee payer
+            transaction.feePayer = walletPubkey;
+
+            // Get latest blockhash (retry on transient RPC failures)
+            const { blockhash } = await withRetry("getLatestBlockhash",
+                () => connection.getLatestBlockhash("confirmed"));
+            transaction.recentBlockhash = blockhash;
+            console.log(TAG, "Blockhash:", blockhash.slice(0, 12) + "...");
+
+            // Sign via MWA
+            console.log(TAG, "Requesting MWA signature...");
+            const signedTransactions = await wallet.signTransactions({
+                transactions: [transaction],
+            });
+            console.log(TAG, "MWA signature received ✓");
+
+            return signedTransactions[0];
+        };
+
+        // Try reauthorize first, fall back to fresh authorize on auth errors
+        let signedTx: Transaction;
+        try {
+            signedTx = await transact(
+                (wallet) => signTransaction(wallet, authToken),
+                transactOptions,
+            );
+        } catch (firstErr: any) {
+            const msg = firstErr?.message?.toLowerCase() || "";
+            const isAuthError = msg.includes("authorization") || msg.includes("reauthorize") || msg.includes("auth_token");
+
+            if (authToken && isAuthError) {
+                console.warn(TAG, "Reauthorize failed, retrying with fresh authorize:", firstErr?.message);
+                signedTx = await transact(
+                    (wallet) => signTransaction(wallet, null),
+                    transactOptions,
+                );
+            } else {
+                throw firstErr;
+            }
+        }
+
+        // Send the signed transaction (retry on transient RPC failures)
         console.log(TAG, "Sending raw transaction...");
         const rawTransaction = signedTx.serialize();
-        const signature = await connection.sendRawTransaction(rawTransaction, {
-            skipPreflight: false,
-            preflightCommitment: "confirmed",
-        });
+        const signature = await withRetry("sendRawTransaction",
+            () => connection.sendRawTransaction(rawTransaction, {
+                skipPreflight: false,
+                preflightCommitment: "confirmed",
+            }));
         console.log(TAG, "Sent! Signature:", signature);
 
-        // Confirm with error checking
+        // Confirm with error checking (retry on transient RPC failures)
         console.log(TAG, "Confirming transaction...");
-        const { blockhash, lastValidBlockHeight } =
-            await connection.getLatestBlockhash("confirmed");
-        const confirmResult = await connection.confirmTransaction(
-            {
-                signature,
-                blockhash,
-                lastValidBlockHeight,
-            },
-            "confirmed",
-        );
+        const { blockhash, lastValidBlockHeight } = await withRetry("getLatestBlockhash",
+            () => connection.getLatestBlockhash("confirmed"));
+        const confirmResult = await withRetry("confirmTransaction",
+            () => connection.confirmTransaction(
+                {
+                    signature,
+                    blockhash,
+                    lastValidBlockHeight,
+                },
+                "confirmed",
+            ));
 
         // CRITICAL: Check if the transaction actually failed on-chain
         if (confirmResult.value.err) {

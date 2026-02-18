@@ -229,7 +229,7 @@ describe("multiplayer block position computation", () => {
     handler!({
       blocks: [makeServerBlock(0, 0), makeServerBlock(5, 2)],
       stats: { totalBlocks: 2, occupiedBlocks: 2, activeUsers: 1, averageEnergy: 75 },
-      tick: 1,
+      tick: 100,
     });
 
     const blocks = useTowerStore.getState().demoBlocks;
@@ -257,7 +257,7 @@ describe("multiplayer block position computation", () => {
     handler!({
       blocks: [makeServerBlock(spireLayer, 0)],
       stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 75 },
-      tick: 1,
+      tick: 200,
     });
 
     const blocks = useTowerStore.getState().demoBlocks;
@@ -276,7 +276,7 @@ describe("multiplayer block position computation", () => {
     fullHandler!({
       blocks: [makeServerBlock(3, 0, { energy: 50 })],
       stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 50 },
-      tick: 1,
+      tick: 300,
     });
 
     const posBefore = { ...useTowerStore.getState().demoBlocks[0].position };

@@ -366,6 +366,8 @@ function classifyStakingError(error: any): string {
     if (code === "InvalidMint") return "Invalid token — only USDC accepted";
     if (message.includes("failed on-chain")) return message;
     if (message.includes("User rejected")) return "Transaction rejected by user";
+    if (message.includes("authorization") || message.includes("reauthorize"))
+        return "Wallet session expired — please try again";
     if (message.includes("not connected")) return "Please connect your wallet first";
     if (message.includes("insufficient funds") || message.includes("Insufficient"))
         return "Insufficient USDC balance — make sure you have devnet USDC";
@@ -381,7 +383,8 @@ function classifyStakingError(error: any): string {
     }
     if (message.includes("Account does not exist"))
         return "Account not found — tower may not be initialized on this network";
-    if (message.includes("blockhash")) return "Network timeout — please try again";
+    if (message.includes("blockhash") || message.includes("500") || message.includes("internal server error"))
+        return "Solana network error — please try again in a moment";
 
     return `Transaction failed: ${message.substring(0, 100)}`;
 }

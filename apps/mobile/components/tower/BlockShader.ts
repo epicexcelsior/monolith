@@ -237,7 +237,7 @@ const fragmentShader = /* glsl */ `
 
     // If block is dead/unowned, use neutral dark stone as base
     float isOwned = step(0.01, energy);
-    vec3 neutralColor = vec3(0.12, 0.10, 0.09);
+    vec3 neutralColor = vec3(0.10, 0.07, 0.05);
     baseColor = mix(neutralColor, baseColor, isOwned);
 
     // Apply texture pattern (skip for dead blocks and no-texture)
@@ -245,6 +245,24 @@ const fragmentShader = /* glsl */ `
     if (energy > 0.01 && texId > 0) {
       float texPattern = getTexturePattern(vTextureId, vWorldPos);
       baseColor *= texPattern;
+    }
+
+    // Smooth flowing noise for owned blocks with no custom texture
+    // Uses triplanar blending so noise flows consistently on all faces
+    if (energy > 0.01 && texId == 0) {
+      vec3 blend = abs(N);
+      blend = pow(blend, vec3(4.0)); // sharpen blend to reduce overlap
+      blend /= (blend.x + blend.y + blend.z); // normalize
+
+      float t = uTime * 0.03;
+      float nXZ = noise2D(vWorldPos.xz * 1.5 + t);
+      float nXY = noise2D(vWorldPos.xy * 1.5 + t + vec2(53.0, 17.0));
+      float nYZ = noise2D(vWorldPos.yz * 1.5 + t + vec2(91.0, 37.0));
+      float flowNoise = nXZ * blend.y + nXY * blend.z + nYZ * blend.x;
+
+      // Subtle: just enough to break flatness, not enough to distract
+      float noiseStrength = 0.06 + energy * 0.10;
+      baseColor *= 1.0 + (flowNoise - 0.5) * noiseStrength;
     }
 
     // ═══════════════════════════════════════════════════════
@@ -448,18 +466,29 @@ const fragmentShader = /* glsl */ `
     color += glowColor * innerGlow;
     color += vec3(1.0, 0.9, 0.7) * edgeHighlight;
 
-    // ─── Dead blocks: crack pattern ──────────────────────
+    // ─── Dead blocks: warm obsidian with flowing amber veins ──
     float deadMask = smoothstep(0.0, 0.06, energy);
-    vec3 wp = vWorldPos * 2.5;
-    float crackX = smoothstep(0.44, 0.5, abs(fract(wp.x) - 0.5));
-    float crackY = smoothstep(0.44, 0.5, abs(fract(wp.y) - 0.5));
-    float crackZ = smoothstep(0.44, 0.5, abs(fract(wp.z) - 0.5));
-    float cracks = max(crackX, max(crackY, crackZ));
 
-    vec3 deadBase = vec3(0.05, 0.05, 0.07);
-    vec3 deadCrack = vec3(0.12, 0.10, 0.14);
-    vec3 deadColor = mix(deadBase, deadCrack, cracks * 0.7);
-    deadColor += vec3(0.04, 0.04, 0.06) * fresnel;
+    // Warm obsidian base
+    vec3 obsidianBase = vec3(0.08, 0.06, 0.05);
+
+    // Flowing marble veins using turbulent noise
+    float t = uTime * 0.04; // very slow flow
+    vec2 veinUV = vWorldPos.xz * 1.8 + vec2(t, t * 0.7);
+    float turb = noise2D(veinUV) * 2.0
+               + noise2D(veinUV * 2.3 + vec2(13.7, 41.2)) * 1.0
+               + noise2D(veinUV * 5.1 + vec2(73.1, 19.8)) * 0.5;
+    float veins = pow(1.0 - abs(sin(vWorldPos.x * 3.0 + vWorldPos.z * 2.0 + turb)), 4.0);
+
+    // Height gradient: deep ember at bottom, pale gold at top
+    vec3 veinColorLow = vec3(0.35, 0.12, 0.04);  // deep ember
+    vec3 veinColorHigh = vec3(0.55, 0.38, 0.10);  // pale gold
+    vec3 veinColor = mix(veinColorLow, veinColorHigh, vLayerNorm);
+
+    vec3 deadColor = obsidianBase + veinColor * veins * 0.35;
+
+    // Subtle warm fresnel glow
+    deadColor += vec3(0.12, 0.06, 0.02) * fresnel * 0.5;
 
     color = mix(deadColor, color, deadMask);
 

@@ -69,6 +69,7 @@ let client: Client | null = null;
 let room: Room | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempt = 0;
+let lastAppliedTick = -1;
 
 // ─── Position cache (computed once from shared layout) ───────
 // Maps "layer-index" → {x,y,z} so camera fly-to works correctly.
@@ -76,27 +77,84 @@ const positionCache = new Map<string, { x: number; y: number; z: number }>();
 
 function buildPositionCache() {
   if (positionCache.size > 0) return;
+
   const config = DEFAULT_TOWER_CONFIG;
+  let totalCached = 0;
+  let errorCount = 0;
+  const cacheWarnings: string[] = [];
+
   for (let layer = 0; layer < config.layerCount; layer++) {
     const count = config.blocksPerLayer[layer];
     const isSpire = layer >= SPIRE_START_LAYER;
-    const positions = isSpire
-      ? computeSpireLayerPositions(layer, count, config.layerCount)
-      : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
-    const usable = positions.slice(0, count);
-    for (let i = 0; i < usable.length; i++) {
-      positionCache.set(`${layer}-${i}`, { x: usable[i].x, y: usable[i].y, z: usable[i].z });
+
+    try {
+      const positions = isSpire
+        ? computeSpireLayerPositions(layer, count, config.layerCount)
+        : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
+
+      const usable = positions.slice(0, count);
+
+      for (let i = 0; i < usable.length; i++) {
+        const pos = usable[i];
+
+        // Validate position structure
+        if (!pos || typeof pos.x !== "number" || typeof pos.y !== "number" || typeof pos.z !== "number") {
+          errorCount++;
+          cacheWarnings.push(`Layer ${layer}, index ${i}: Invalid position structure`);
+          continue;
+        }
+
+        // Check for zero positions that would break camera
+        const isZero = Math.abs(pos.x) < 0.001 && Math.abs(pos.y) < 0.001 && Math.abs(pos.z) < 0.001;
+        if (isZero) {
+          errorCount++;
+          cacheWarnings.push(`Layer ${layer}, index ${i}: Zero position (camera can't focus)`);
+          continue;
+        }
+
+        positionCache.set(`${layer}-${i}`, { x: pos.x, y: pos.y, z: pos.z });
+        totalCached++;
+      }
+    } catch (err) {
+      errorCount++;
+      cacheWarnings.push(`Layer ${layer}: Layout generation failed - ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Log summary
+  console.log(`[PositionCache] Built cache: ${totalCached} blocks cached, ${errorCount} errors`);
+  if (cacheWarnings.length > 0) {
+    console.warn(`[PositionCache] Warnings:`, cacheWarnings.slice(0, 10)); // Show first 10
+    if (cacheWarnings.length > 10) {
+      console.warn(`[PositionCache] ... and ${cacheWarnings.length - 10} more warnings`);
     }
   }
 }
 
 function getBlockPosition(layer: number, index: number): { x: number; y: number; z: number } {
   buildPositionCache();
-  return positionCache.get(`${layer}-${index}`) ?? { x: 0, y: 0, z: 0 };
+  const pos = positionCache.get(`${layer}-${index}`);
+
+  if (!pos) {
+    console.warn(`[PositionCache] Missing position for block ${layer}-${index} (returning origin fallback)`);
+    return { x: 0, y: 0, z: 0 };
+  }
+
+  return pos;
 }
 
 /** Convert a server block to a DemoBlock for the tower store */
 function serverBlockToDemo(block: ServerBlock): DemoBlock {
+  const position = getBlockPosition(block.layer, block.index);
+
+  // Warn if position is origin (block can't be focused by camera)
+  const isOrigin = position.x === 0 && position.y === 0 && position.z === 0;
+  if (isOrigin && (block.layer !== undefined && block.index !== undefined)) {
+    console.warn(
+      `[ServerBlockConvert] Block ${block.id} (layer=${block.layer}, index=${block.index}) has origin position - camera can't focus`
+    );
+  }
+
   return {
     id: block.id,
     layer: block.layer,
@@ -105,7 +163,7 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     ownerColor: block.ownerColor || "#00ffff",
     owner: block.owner || null, // "" → null
     stakedAmount: block.stakedAmount || 0,
-    position: getBlockPosition(block.layer, block.index),
+    position,
     emoji: block.appearance?.emoji || undefined,
     name: block.appearance?.name || undefined,
     style: block.appearance?.style || 0,
@@ -118,6 +176,10 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
 
 /** Apply full tower state from server */
 function applyFullState(data: ServerState) {
+  // Skip duplicate ticks (e.g. from Strict Mode double-mount)
+  if (data.tick != null && data.tick === lastAppliedTick) return;
+  lastAppliedTick = data.tick ?? -1;
+
   const blocks = data.blocks.map(serverBlockToDemo);
   if (blocks.length > 0) {
     useTowerStore.getState().setDemoBlocks(blocks);
@@ -215,6 +277,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   disconnect: () => {
     clearReconnectTimer();
     reconnectAttempt = 0;
+    lastAppliedTick = -1;
     room?.leave(true).catch(() => {});
     room = null;
     client = null;

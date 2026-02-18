@@ -318,3 +318,42 @@ export default function RootLayout() {
 ```
 
 This enables gesture recognition throughout the entire app tree.
+
+### 2026-02-17: MWA Auth Token Expiration — Always Fallback to Fresh Authorize
+
+**Problem**: `wallet.reauthorize({ auth_token })` fails with `-1/authorization request failed` when the cached auth token is stale, expired, or from a different device. The `signAndSendTransaction` function in `useAnchorProgram.ts` had no fallback — it just threw and the deposit failed.
+
+**Root Cause**: MWA auth tokens expire. The `useAuthorization.connect()` flow already had retry logic (try cached → catch → retry fresh), but the transaction signing path did not.
+
+**Solution**: Wrap the `transact()` call in a try/catch. If `reauthorize()` fails with an auth error, retry with `wallet.authorize()` (fresh approval dialog):
+```typescript
+try {
+    signedTx = await transact(
+        (wallet) => signTransaction(wallet, authToken), // try reauthorize
+        transactOptions,
+    );
+} catch (firstErr) {
+    if (authToken && isAuthError(firstErr)) {
+        signedTx = await transact(
+            (wallet) => signTransaction(wallet, null), // fall back to authorize
+            transactOptions,
+        );
+    } else throw firstErr;
+}
+```
+
+**Key Insight**: Any code path that uses MWA `reauthorize()` MUST have a fallback to `authorize()`. Auth tokens are not reliable across sessions, devices, or wallet app updates.
+
+### 2026-02-17: Public Devnet RPC Is Rate-Limited — Add Retry with Backoff
+
+**Problem**: `api.devnet.solana.com` frequently returns 500/429 errors. `getLatestBlockhash` failing inside an MWA `transact()` session kills the entire deposit flow.
+
+**Solution**: `withRetry()` helper that catches transient RPC errors (500, 502, 503, 429, network resets) and retries up to 3 times with linear backoff (1s, 2s). Applied to `getLatestBlockhash`, `sendRawTransaction`, and `confirmTransaction`.
+
+**Key Insight**: Always wrap Solana RPC calls in retry logic. The public devnet RPC and even paid providers can return transient errors.
+
+### 2026-02-17: eas.json Env Vars Override .env Files
+
+**Problem**: `.env` had correct Alchemy RPC URL, but `eas.json` `base.env` hardcoded `api.devnet.solana.com`. EAS builds used the wrong RPC.
+
+**Solution**: Keep RPC URLs consistent between `.env` (local dev) and `eas.json` (EAS builds). `eas.json` env vars take precedence during EAS builds.

@@ -7,6 +7,7 @@ import Particles from "./Particles";
 import Foundation from "./Foundation";
 import { useTowerStore } from "@/stores/tower-store";
 import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG, getTowerHeight, getLayerY } from "@monolith/common";
+import { CAMERA_CONFIG } from "@/constants/CameraConfig";
 import {
   hapticBlockSelect,
   hapticBlockDeselect,
@@ -20,72 +21,55 @@ import {
 const TOWER_HEIGHT = getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount);
 const TOWER_CENTER_Y = TOWER_HEIGHT / 2;
 
-// ─── Camera tuning ────────────────────────────────────────
+// ─── Camera Configuration (see CameraConfig.ts for all tunable parameters) ───
+// All camera parameters are now centralized in CAMERA_CONFIG for easy iteration
+const IDLE_TIMEOUT = CAMERA_CONFIG.idle.timeoutSeconds;
+const AUTO_ROTATE_SPEED = CAMERA_CONFIG.idle.rotateSpeed;
 
-/** Auto-rotate when idle — speed scales with zoom (slower when close) */
-const IDLE_TIMEOUT = 4; // seconds before auto-rotate starts
-const AUTO_ROTATE_SPEED = 0.0005;
+const ORBIT_LERP = CAMERA_CONFIG.lerp.orbit;
+const ZOOM_LERP = CAMERA_CONFIG.lerp.zoom;
+const TRANSITION_LERP = CAMERA_CONFIG.lerp.transition;
 
-/** Lerp rates — dual system for interactive vs programmatic motion */
-const ORBIT_LERP = 0.18; // fast — snappy interactive orbit response
-const ZOOM_LERP = 0.22; // faster — zoom should feel immediate and direct
-const TRANSITION_LERP = 0.045; // slow — smooth fly-to / reset easing
+const ORBIT_SENSITIVITY = CAMERA_CONFIG.gesture.orbitSensitivity;
 
-/** Orbit sensitivity (radians per pixel of finger drag) */
-const ORBIT_SENSITIVITY = 0.006;
+const MOMENTUM_FRICTION = CAMERA_CONFIG.physics.momentumFriction;
+const MOMENTUM_MIN_VEL = CAMERA_CONFIG.physics.momentumMinVelocity;
 
-/** Momentum: velocity-based inertia after finger lifts (orbit only) */
-const MOMENTUM_FRICTION = 0.93; // per-frame decay (higher = longer coast)
-const MOMENTUM_MIN_VEL = 0.00008; // stop threshold
+const ZOOM_MIN = CAMERA_CONFIG.zoom.min;
+const ZOOM_MAX = CAMERA_CONFIG.zoom.max;
 
-/** Zoom range — ZOOM_MIN allows close inspect while staying outside geometry */
-const ZOOM_MIN = 7;
-const ZOOM_MAX = 55;
+const ZOOM_OVERVIEW = CAMERA_CONFIG.zoom.overview;
+const ZOOM_NEIGHBORHOOD = CAMERA_CONFIG.zoom.neighborhood;
+const ZOOM_BLOCK = CAMERA_CONFIG.zoom.block;
 
-/** Zoom tier centers (for tier detection only — no magnetic snapping) */
-const ZOOM_OVERVIEW = 40;
-const ZOOM_NEIGHBORHOOD = 18;
-const ZOOM_BLOCK = 7;
-
-/** Vertical pan (lookAt.y) — active with two-finger drag */
-const PAN_Y_SENSITIVITY = 0.08; // lookAt.y units per pixel of drag
-const LOOKAT_Y_MIN = 0; // bottom of tower
-const LOOKAT_Y_MAX = TOWER_HEIGHT; // top of tower
+const PAN_Y_SENSITIVITY = CAMERA_CONFIG.gesture.panYSensitivity;
+const LOOKAT_Y_MIN = CAMERA_CONFIG.cameraBounds.yMin;
+const LOOKAT_Y_MAX = TOWER_HEIGHT; // Computed from tower height
 const LOOKAT_Y_OVERSCROLL = 2; // max overscroll past bounds
-const ELASTIC_SPRING = 0.08; // bounce-back force per frame
+const ELASTIC_SPRING = CAMERA_CONFIG.physics.elasticSpring;
 
-/** Elevation clamp (radians) — 0.3 minimum prevents camera going inside tower */
-const ELEVATION_MIN = 0.3;
-const ELEVATION_MAX = 1.3;
+const ELEVATION_MIN = CAMERA_CONFIG.elevation.min;
+const ELEVATION_MAX = CAMERA_CONFIG.elevation.max;
 
-/** Camera frustum */
-const CAMERA_NEAR = 0.5;
-const CAMERA_FAR = 1200;
+const CAMERA_NEAR = CAMERA_CONFIG.frustum.near;
+const CAMERA_FAR = CAMERA_CONFIG.frustum.far;
 
-/** Fixed camera state for overview / reset */
-const OVERVIEW_ELEVATION = 0.45;
+const OVERVIEW_ELEVATION = CAMERA_CONFIG.elevation.overview;
 const OVERVIEW_AZIMUTH = Math.PI / 5;
 
-/** Drag threshold — finger must move this far to count as drag, not tap */
-const DRAG_THRESHOLD = 14;
+const DRAG_THRESHOLD = CAMERA_CONFIG.gesture.dragThreshold;
+const DOUBLE_TAP_WINDOW = CAMERA_CONFIG.gesture.doubleTapWindowMs;
+const PINCH_COOLDOWN_MS = CAMERA_CONFIG.gesture.pinchCooldownMs;
 
-/** Double-tap window (ms) */
-const DOUBLE_TAP_WINDOW = 350;
-
-/** Pinch cooldown — ignore single-finger orbit for this long after pinch ends */
-const PINCH_COOLDOWN_MS = 100;
-
-/** Transition completion threshold */
-const TRANSITION_THRESHOLD = 0.5;
+const TRANSITION_THRESHOLD = CAMERA_CONFIG.transition.completionThreshold;
 
 // ─── Types ────────────────────────────────────────────────
 
 type ZoomTier = "overview" | "neighborhood" | "block";
 
+// Use CAMERA_CONFIG's getMode() helper (same logic, centralized thresholds)
 function getZoomTier(zoom: number): ZoomTier {
-  if (zoom >= 29) return "overview";
-  if (zoom >= 18) return "neighborhood";
-  return "block";
+  return CAMERA_CONFIG.getMode(zoom);
 }
 
 function getLayerFromY(y: number): number {
