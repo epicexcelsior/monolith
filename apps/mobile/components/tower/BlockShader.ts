@@ -496,11 +496,8 @@ const fragmentShader = /* glsl */ `
     // LAYER 5: INSPECT MODE (dim + highlight)
     // ═══════════════════════════════════════════════════════
 
-    // Dim non-focused blocks (desaturate + darken)
-    float dimFactor = mix(0.08, 1.0, vFade);
-    float satFactor = mix(0.12, 1.0, vFade);
-    float lumaDim = dot(color, vec3(0.299, 0.587, 0.114));
-    color = mix(vec3(lumaDim * 0.6), color, satFactor) * dimFactor;
+    // Dim non-focused blocks — subtle darken, selected block gets emissive boost
+    color *= mix(0.55, 1.0, vFade);
 
     // Highlight selected block (emissive boost + bright rim)
     if (vHighlight > 0.01) {
@@ -635,7 +632,7 @@ const glowFragmentShader = /* glsl */ `
     float alpha = fresnel * glowStrength * pulse * 0.35;
 
     // Inspect mode: fade glow on non-selected, boost on selected
-    alpha *= mix(0.05, 1.0, vFade);
+    alpha *= mix(0.3, 1.0, vFade);
     if (vHighlight > 0.01) {
       alpha += vHighlight * glowStrength * 0.5;
       glowColor *= 1.0 + vHighlight * 0.5;

@@ -7,7 +7,7 @@ import Particles from "./Particles";
 import Foundation from "./Foundation";
 import { useTowerStore } from "@/stores/tower-store";
 import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG, getTowerHeight, getLayerY } from "@monolith/common";
-import { CAMERA_CONFIG } from "@/constants/CameraConfig";
+import { CAMERA_CONFIG, getZoomMode } from "@/constants/CameraConfig";
 import {
   hapticBlockSelect,
   hapticBlockDeselect,
@@ -43,9 +43,9 @@ const ZOOM_NEIGHBORHOOD = CAMERA_CONFIG.zoom.neighborhood;
 const ZOOM_BLOCK = CAMERA_CONFIG.zoom.block;
 
 const PAN_Y_SENSITIVITY = CAMERA_CONFIG.gesture.panYSensitivity;
-const LOOKAT_Y_MIN = CAMERA_CONFIG.cameraBounds.yMin;
+const LOOKAT_Y_MIN = CAMERA_CONFIG.overview.yFloor;
 const LOOKAT_Y_MAX = TOWER_HEIGHT; // Computed from tower height
-const LOOKAT_Y_OVERSCROLL = 2; // max overscroll past bounds
+const LOOKAT_Y_OVERSCROLL = CAMERA_CONFIG.physics.lookAtYOverscroll;
 const ELASTIC_SPRING = CAMERA_CONFIG.physics.elasticSpring;
 
 const ELEVATION_MIN = CAMERA_CONFIG.elevation.min;
@@ -55,7 +55,8 @@ const CAMERA_NEAR = CAMERA_CONFIG.frustum.near;
 const CAMERA_FAR = CAMERA_CONFIG.frustum.far;
 
 const OVERVIEW_ELEVATION = CAMERA_CONFIG.elevation.overview;
-const OVERVIEW_AZIMUTH = Math.PI / 5;
+const BLOCK_ELEVATION = CAMERA_CONFIG.elevation.block;
+const OVERVIEW_AZIMUTH = CAMERA_CONFIG.overview.azimuth;
 
 const DRAG_THRESHOLD = CAMERA_CONFIG.gesture.dragThreshold;
 const DOUBLE_TAP_WINDOW = CAMERA_CONFIG.gesture.doubleTapWindowMs;
@@ -67,9 +68,8 @@ const TRANSITION_THRESHOLD = CAMERA_CONFIG.transition.completionThreshold;
 
 type ZoomTier = "overview" | "neighborhood" | "block";
 
-// Use CAMERA_CONFIG's getMode() helper (same logic, centralized thresholds)
 function getZoomTier(zoom: number): ZoomTier {
-  return CAMERA_CONFIG.getMode(zoom);
+  return getZoomMode(zoom);
 }
 
 function getLayerFromY(y: number): number {
@@ -179,7 +179,7 @@ function CameraRig({
         const block = getDemoBlockById(selectedBlockId);
         if (block) {
           cs.targetAzimuth = nearestAzimuth(cs.azimuth, Math.atan2(block.position.x, block.position.z));
-          cs.targetElevation = 0.38;
+          cs.targetElevation = BLOCK_ELEVATION;
           cs.targetZoom = ZOOM_BLOCK;
           cs.targetLookAt.set(
             block.position.x,
@@ -306,7 +306,7 @@ function CameraRig({
 
     // Dynamic near plane: tighter when zoomed in for close detail,
     // relaxed when zoomed out to avoid z-fighting
-    camera.near = Math.max(0.05, cs.zoom * 0.02);
+    camera.near = Math.max(CAMERA_NEAR, cs.zoom * CAMERA_CONFIG.nearPlaneScale);
     camera.far = CAMERA_FAR;
     camera.updateProjectionMatrix();
 
@@ -723,7 +723,7 @@ export default function TowerScene() {
   // Pinch state
   const isPinching = useRef(false);
   const pinchStartDist = useRef(0);
-  const pinchStartZoom = useRef(ZOOM_OVERVIEW);
+  const pinchStartZoom = useRef<number>(ZOOM_OVERVIEW);
   const prevPinchMidpointY = useRef(0);
   const pinchCooldownTime = useRef(0);
 
@@ -746,7 +746,7 @@ export default function TowerScene() {
   // Reset camera to overview
   const resetCamera = useCallback(() => {
     const cs = cameraState.current;
-    cs.targetAzimuth = nearestAzimuth(cs.azimuth, OVERVIEW_AZIMUTH);
+    // Keep current rotation — only reset zoom, elevation, and lookAt
     cs.targetElevation = OVERVIEW_ELEVATION;
     cs.targetZoom = ZOOM_OVERVIEW;
     cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);

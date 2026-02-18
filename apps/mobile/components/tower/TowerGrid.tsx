@@ -416,7 +416,7 @@ export default function TowerGrid() {
         if (selectedBlockId) {
           const selectedIdx = blockData.findIndex((b) => b.id === selectedBlockId);
           for (let i = 0; i < count; i++) {
-            fadeTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
+            fadeTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.6;
             highlightTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
           }
         } else {
@@ -473,48 +473,21 @@ export default function TowerGrid() {
     }
   });
 
-  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+  const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
+    if (useTowerStore.getState().isGestureActive) return;
 
-    const state = useTowerStore.getState();
-
-    // Prevent selection during active gestures (drag, pinch, pan)
-    if (state.isGestureActive) {
-      console.log("[BlockSelection] Ignoring tap during gesture");
-      return;
-    }
-
-    if (event.instanceId === undefined || event.instanceId === null) {
-      console.log("[BlockSelection] Tap hit no instance (empty space deselect)");
-      // Tapping empty space — deselect current block
-      if (state.selectedBlockId) {
-        selectBlock(null);
-      }
-      return;
-    }
-
+    if (event.instanceId == null) return;
     const meta = blockMetaRef.current[event.instanceId];
+    if (!meta) return;
 
-    if (!meta) {
-      console.warn(`[BlockSelection] Raycast hit instance ${event.instanceId} but metadata not found`);
-      return;
+    if (__DEV__) {
+      console.log(`[BlockSelect] ${meta.id} (L${meta.layer} I${meta.index})`);
     }
-
-    // Debug logging: show what was raycasted
-    console.log(
-      `[BlockSelection] Raycast hit instance ${event.instanceId}: ${meta.id} ` +
-        `(layer=${meta.layer}, index=${meta.index}, owner=${meta.owner || "unclaimed"})`
-    );
-
-    // Select the block
     selectBlock(meta.id);
+  }, [selectBlock]);
 
-    // Log successful selection
-    console.log(`[BlockSelection] Selected block: ${meta.id}`);
-  };
-
-  // Use actual block count — return null below if 0 to avoid phantom black block
-  const instanceCount = Math.max(blockData.length, 1);
+  const instanceCount = blockData.length;
 
   // Don't render anything while waiting for blocks (avoids phantom black block)
   if (blockData.length === 0) return null;

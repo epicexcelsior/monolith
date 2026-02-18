@@ -72,98 +72,67 @@ let reconnectAttempt = 0;
 let lastAppliedTick = -1;
 
 // ─── Position cache (computed once from shared layout) ───────
-// Maps "layer-index" → {x,y,z} so camera fly-to works correctly.
-const positionCache = new Map<string, { x: number; y: number; z: number }>();
+// Numeric key = layer * 1000 + index (avoids string allocation on lookups)
+const positionCache = new Map<number, { x: number; y: number; z: number }>();
+let cacheBuilt = false;
+const ORIGIN = { x: 0, y: 0, z: 0 } as const;
+const warnedMissing = new Set<number>();
+
+function cacheKey(layer: number, index: number) {
+  return layer * 1000 + index;
+}
 
 function buildPositionCache() {
-  if (positionCache.size > 0) return;
+  if (cacheBuilt) return;
+  cacheBuilt = true;
 
   const config = DEFAULT_TOWER_CONFIG;
-  let totalCached = 0;
-  let errorCount = 0;
-  const cacheWarnings: string[] = [];
-
   for (let layer = 0; layer < config.layerCount; layer++) {
     const count = config.blocksPerLayer[layer];
     const isSpire = layer >= SPIRE_START_LAYER;
+    const positions = isSpire
+      ? computeSpireLayerPositions(layer, count, config.layerCount)
+      : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
 
-    try {
-      const positions = isSpire
-        ? computeSpireLayerPositions(layer, count, config.layerCount)
-        : computeBodyLayerPositions(layer, count, MONOLITH_HALF_W, MONOLITH_HALF_D, config.layerCount);
-
-      const usable = positions.slice(0, count);
-
-      for (let i = 0; i < usable.length; i++) {
-        const pos = usable[i];
-
-        // Validate position structure
-        if (!pos || typeof pos.x !== "number" || typeof pos.y !== "number" || typeof pos.z !== "number") {
-          errorCount++;
-          cacheWarnings.push(`Layer ${layer}, index ${i}: Invalid position structure`);
-          continue;
-        }
-
-        // Check for zero positions that would break camera
-        const isZero = Math.abs(pos.x) < 0.001 && Math.abs(pos.y) < 0.001 && Math.abs(pos.z) < 0.001;
-        if (isZero) {
-          errorCount++;
-          cacheWarnings.push(`Layer ${layer}, index ${i}: Zero position (camera can't focus)`);
-          continue;
-        }
-
-        positionCache.set(`${layer}-${i}`, { x: pos.x, y: pos.y, z: pos.z });
-        totalCached++;
-      }
-    } catch (err) {
-      errorCount++;
-      cacheWarnings.push(`Layer ${layer}: Layout generation failed - ${err instanceof Error ? err.message : String(err)}`);
+    const limit = Math.min(positions.length, count);
+    for (let i = 0; i < limit; i++) {
+      const p = positions[i];
+      positionCache.set(cacheKey(layer, i), { x: p.x, y: p.y, z: p.z });
     }
   }
 
-  // Log summary
-  console.log(`[PositionCache] Built cache: ${totalCached} blocks cached, ${errorCount} errors`);
-  if (cacheWarnings.length > 0) {
-    console.warn(`[PositionCache] Warnings:`, cacheWarnings.slice(0, 10)); // Show first 10
-    if (cacheWarnings.length > 10) {
-      console.warn(`[PositionCache] ... and ${cacheWarnings.length - 10} more warnings`);
-    }
+  if (__DEV__) {
+    console.log(`[PositionCache] Built: ${positionCache.size} blocks`);
   }
 }
 
 function getBlockPosition(layer: number, index: number): { x: number; y: number; z: number } {
   buildPositionCache();
-  const pos = positionCache.get(`${layer}-${index}`);
+  const pos = positionCache.get(cacheKey(layer, index));
+  if (pos) return pos;
 
-  if (!pos) {
-    console.warn(`[PositionCache] Missing position for block ${layer}-${index} (returning origin fallback)`);
-    return { x: 0, y: 0, z: 0 };
+  // Warn once per missing key in dev
+  if (__DEV__) {
+    const key = cacheKey(layer, index);
+    if (!warnedMissing.has(key)) {
+      warnedMissing.add(key);
+      console.warn(`[PositionCache] Missing: ${layer}-${index}`);
+    }
   }
-
-  return pos;
+  return ORIGIN;
 }
 
 /** Convert a server block to a DemoBlock for the tower store */
 function serverBlockToDemo(block: ServerBlock): DemoBlock {
-  const position = getBlockPosition(block.layer, block.index);
-
-  // Warn if position is origin (block can't be focused by camera)
-  const isOrigin = position.x === 0 && position.y === 0 && position.z === 0;
-  if (isOrigin && (block.layer !== undefined && block.index !== undefined)) {
-    console.warn(
-      `[ServerBlockConvert] Block ${block.id} (layer=${block.layer}, index=${block.index}) has origin position - camera can't focus`
-    );
-  }
-
   return {
     id: block.id,
     layer: block.layer,
     index: block.index,
     energy: block.energy,
     ownerColor: block.ownerColor || "#00ffff",
-    owner: block.owner || null, // "" → null
+    owner: block.owner || null,
     stakedAmount: block.stakedAmount || 0,
-    position,
+    position: getBlockPosition(block.layer, block.index),
     emoji: block.appearance?.emoji || undefined,
     name: block.appearance?.name || undefined,
     style: block.appearance?.style || 0,
@@ -183,7 +152,7 @@ function applyFullState(data: ServerState) {
   const blocks = data.blocks.map(serverBlockToDemo);
   if (blocks.length > 0) {
     useTowerStore.getState().setDemoBlocks(blocks);
-    console.log(`[Multiplayer] Applied full state: ${blocks.length} blocks, tick ${data.tick}`);
+    if (__DEV__) console.log(`[Multiplayer] Full state: ${blocks.length} blocks, tick ${data.tick}`);
   }
 }
 
@@ -245,12 +214,12 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       });
 
       room.onError((code, message) => {
-        console.warn(`[Multiplayer] Room error: ${code} ${message}`);
+        if (__DEV__) console.warn(`[Multiplayer] Room error: ${code} ${message}`);
         set({ error: message || "Connection error" });
       });
 
       room.onLeave((code) => {
-        console.log(`[Multiplayer] Left room: code ${code}`);
+        if (__DEV__) console.log(`[Multiplayer] Left room: code ${code}`);
         const wasConnected = get().connected;
         room = null;
         set({ connected: false, playerCount: 0 });
@@ -263,10 +232,10 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
 
       reconnectAttempt = 0;
       set({ connected: true, connecting: false, reconnecting: false });
-      console.log(`[Multiplayer] Connected to ${GAME_SERVER_URL}, room ${room.roomId}`);
+      if (__DEV__) console.log(`[Multiplayer] Connected to ${GAME_SERVER_URL}, room ${room.roomId}`);
       return true;
     } catch (err: any) {
-      console.warn("[Multiplayer] Connection failed:", err.message);
+      if (__DEV__) console.warn("[Multiplayer] Connection failed:", err.message);
       client = null;
       room = null;
       set({ connected: false, connecting: false, error: err.message });
@@ -295,7 +264,7 @@ function scheduleReconnect(
   get: () => MultiplayerStore,
 ) {
   if (reconnectAttempt >= RECONNECT_MAX_RETRIES) {
-    console.warn("[Multiplayer] Max reconnect attempts reached");
+    if (__DEV__) console.warn("[Multiplayer] Max reconnect attempts reached");
     set({ reconnecting: false, error: "Connection lost" });
     return;
   }
@@ -306,7 +275,7 @@ function scheduleReconnect(
   );
   reconnectAttempt++;
   set({ reconnecting: true });
-  console.log(`[Multiplayer] Reconnecting in ${delay}ms (attempt ${reconnectAttempt}/${RECONNECT_MAX_RETRIES})`);
+  if (__DEV__) console.log(`[Multiplayer] Reconnecting in ${delay}ms (attempt ${reconnectAttempt}/${RECONNECT_MAX_RETRIES})`);
 
   reconnectTimer = setTimeout(async () => {
     if (get().connected) return;
