@@ -4,6 +4,21 @@ This file documents important lessons, gotchas, and discoveries for future devel
 
 ## Recent Lessons Learned
 
+### 2026-02-18: Bottom Sheet Panels Must Account for Absolute Tab Bars
+
+**Problem**: BlockInspector panel had `bottom: 0` but the Expo Router tab bar uses `position: "absolute"` with height `60 + insets.bottom`. The panel content (block name, status, claim button) was hidden behind the tab bar, making it look like "only the claim button shows" or "too low on the screen."
+
+**Solution**: Offset the panel's `bottom` by the tab bar height:
+```typescript
+bottom: 60 + Math.max(insets.bottom, 8),
+```
+
+**Additional Fix**: The PanResponder for swipe-to-dismiss had `onStartShouldSetPanResponder: () => true` which intercepted ALL touches before the ScrollView could handle them. Changed to `() => false` so only explicit downward drags on the handle trigger dismiss.
+
+**Structural Fix**: Split the panel into a **fixed section** (header + CTA — always visible) and a **scrollable section** (customize pickers — only when expanded). This ensures the most important content (block name, status, action button) is always immediately visible without scrolling.
+
+**Key Insight**: When using Expo Router tabs with `position: "absolute"` tab bars, ALL bottom-anchored sheets/panels must offset by the tab bar height. Check `_layout.tsx` tabBarStyle for the exact height calculation.
+
 ### 2026-02-16: R3F Custom Shaders — All Lights Are Baked, Use Additive Blending for Interior Glow
 
 **Problem**: Attempted to add a solid opaque TowerCore mesh (dark stone) inside the tower to give depth when viewing through gaps. Result: "massive monolithic black structure" that obstructed blocks and darkened everything despite being BackSide-only.

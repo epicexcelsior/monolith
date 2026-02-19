@@ -11,6 +11,7 @@ import {
   Share,
   Linking,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ShareCard from "./ShareCard";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING, TEXT, GLASS_STYLE, SHADOW, getChargeColor } from "@/constants/theme";
 import { useRouter } from "expo-router";
@@ -50,7 +51,7 @@ const BLOCK_STYLES = [
   { id: 6, label: "Ice", icon: "❄️" },
 ] as const;
 
-const PANEL_HEIGHT = 320;
+const PANEL_HEIGHT = 420;
 const DISMISS_THRESHOLD = 80;
 
 function getBlockState(energy: number): BlockState {
@@ -84,6 +85,7 @@ function formatUsdc(lamports: number): string {
 }
 
 export default function BlockInspector() {
+  const insets = useSafeAreaInsets();
   const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
   const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
   const selectBlock = useTowerStore((s) => s.selectBlock);
@@ -109,13 +111,13 @@ export default function BlockInspector() {
   const [nameInput, setNameInput] = useState("");
   const [cooldownText, setCooldownText] = useState<string | null>(null);
 
-  // Swipe-to-dismiss
+  // Swipe-to-dismiss — only on drag handle, not content
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dy) > 5 && gesture.dy > 0,
+          gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderMove: (_, gesture) => {
           if (gesture.dy > 0) dragOffset.setValue(gesture.dy);
         },
@@ -259,13 +261,16 @@ export default function BlockInspector() {
         style={[
           styles.container,
           {
+            // Sit above the tab bar (60px + safe area inset)
+            bottom: 60 + Math.max(insets.bottom, 8),
+            paddingBottom: SPACING.sm,
             transform: [
               { translateY: Animated.add(slideAnim, dragOffset) },
             ],
           },
         ]}
       >
-        {/* Drag handle */}
+        {/* Drag handle — swipe down to dismiss */}
         <View {...panResponder.panHandlers} style={styles.handleHitArea}>
           <View style={styles.handle} />
         </View>
@@ -280,184 +285,191 @@ export default function BlockInspector() {
         </TouchableOpacity>
 
         {block && (
-          <View style={styles.content}>
-            {/* ─── Header: identity + status ─── */}
-            <View style={styles.headerRow}>
-              <View style={styles.identity}>
-                {block.emoji && <Text style={styles.emoji}>{block.emoji}</Text>}
-                <View style={styles.titleCol}>
-                  <Text style={styles.blockName} numberOfLines={1}>
-                    {block.name || `L${block.layer} / B${block.index}`}
-                  </Text>
-                  {!isUnclaimed && block.owner && (
-                    <Text style={styles.ownerLabel}>
-                      {isOwner ? "Your block" : truncateAddress(block.owner)}
+          <>
+            {/* ─── Fixed header + CTA (always visible, never scrolled away) ─── */}
+            <View style={styles.fixedSection}>
+              {/* Header: identity + status */}
+              <View style={styles.headerRow}>
+                <View style={styles.identity}>
+                  {block.emoji && <Text style={styles.emoji}>{block.emoji}</Text>}
+                  <View style={styles.titleCol}>
+                    <Text style={styles.blockName} numberOfLines={1}>
+                      {block.name || `L${block.layer} / B${block.index}`}
+                    </Text>
+                    {!isUnclaimed && block.owner && (
+                      <Text style={styles.ownerLabel}>
+                        {isOwner ? "Your block" : truncateAddress(block.owner)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.statusCol}>
+                  <Badge
+                    label={isUnclaimed ? "OPEN" : state.toUpperCase()}
+                    color={isUnclaimed ? COLORS.gold : stateColor(state)}
+                  />
+                  {streak > 0 && (
+                    <Text style={styles.streakBadge}>
+                      {streak}d {multiplier > 1 ? `${multiplier}×` : ""}
                     </Text>
                   )}
                 </View>
               </View>
-              <View style={styles.statusCol}>
-                <Badge
-                  label={isUnclaimed ? "OPEN" : state.toUpperCase()}
-                  color={isUnclaimed ? COLORS.gold : stateColor(state)}
-                />
-                {streak > 0 && (
-                  <Text style={styles.streakBadge}>
-                    {streak}d {multiplier > 1 ? `${multiplier}×` : ""}
+
+              {/* Energy bar (claimed blocks only) */}
+              {!isUnclaimed && (
+                <View style={styles.energyRow}>
+                  <ChargeBar charge={energyPct} size="sm" />
+                  <Text style={[styles.energyPct, { color: getChargeColor(energyPct) }]}>
+                    {Math.round(energyPct)}%
                   </Text>
+                </View>
+              )}
+
+              {/* Primary CTA */}
+              <View style={styles.ctaSection}>
+                {isUnclaimed && (
+                  isWalletConnected ? (
+                    <Button
+                      title="CLAIM THIS BLOCK"
+                      variant="primary"
+                      size="lg"
+                      onPress={() => setShowClaimModal(true)}
+                    />
+                  ) : (
+                    <Button
+                      title="Connect Wallet to Claim"
+                      variant="secondary"
+                      size="lg"
+                      onPress={() => { hapticButtonPress(); router.push("/connect"); }}
+                    />
+                  )
+                )}
+
+                {isOwner && (
+                  <>
+                    <Button
+                      title={cooldownText || "CHARGE"}
+                      variant="primary"
+                      size="lg"
+                      onPress={handleCharge}
+                      disabled={!!cooldownText}
+                    />
+                    <View style={styles.actionRow}>
+                      <TouchableOpacity
+                        style={styles.actionChip}
+                        onPress={() => { setShowCustomize(!showCustomize); hapticButtonPress(); }}
+                      >
+                        <Text style={styles.actionChipText}>
+                          {showCustomize ? "Done" : "Customize"}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionChip}
+                        onPress={() => { hapticButtonPress(); handleShare(block, shareCardRef); }}
+                      >
+                        <Text style={styles.actionChipText}>Share</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionChip}
+                        onPress={() => { hapticButtonPress(); handleTweet(block); }}
+                      >
+                        <Text style={styles.actionChipText}>Tweet</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+
+                {!isUnclaimed && !isOwner && block.owner && (
+                  <View style={styles.otherOwnerRow}>
+                    <View style={[styles.ownerDot, { backgroundColor: block.ownerColor }]} />
+                    <Text style={styles.otherOwnerText}>
+                      {block.name || truncateAddress(block.owner)}
+                    </Text>
+                    {block.stakedAmount > 0 && (
+                      <Text style={styles.stakedText}>{formatUsdc(block.stakedAmount)}</Text>
+                    )}
+                  </View>
                 )}
               </View>
             </View>
 
-            {/* ─── Energy bar (claimed blocks only) ─── */}
-            {!isUnclaimed && (
-              <View style={styles.energyRow}>
-                <ChargeBar charge={energyPct} size="sm" />
-                <Text style={[styles.energyPct, { color: getChargeColor(energyPct) }]}>
-                  {Math.round(energyPct)}%
-                </Text>
-              </View>
-            )}
-
-            {/* ─── Primary CTA ─── */}
-            <View style={styles.ctaSection}>
-              {isUnclaimed && (
-                isWalletConnected ? (
-                  <Button
-                    title="CLAIM THIS BLOCK"
-                    variant="primary"
-                    size="lg"
-                    onPress={() => setShowClaimModal(true)}
-                  />
-                ) : (
-                  <Button
-                    title="Connect Wallet to Claim"
-                    variant="secondary"
-                    size="lg"
-                    onPress={() => { hapticButtonPress(); router.push("/connect"); }}
-                  />
-                )
-              )}
-
-              {isOwner && (
-                <>
-                  <Button
-                    title={cooldownText || "CHARGE"}
-                    variant="primary"
-                    size="lg"
-                    onPress={handleCharge}
-                    disabled={!!cooldownText}
-                  />
-                  <View style={styles.actionRow}>
+            {/* ─── Scrollable customize panel (only when expanded) ─── */}
+            {showCustomize && isOwner && (
+              <ScrollView
+                style={styles.contentScroll}
+                contentContainerStyle={styles.customizeContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
+                <Text style={styles.sectionLabel}>STYLE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+                  {BLOCK_STYLES.map((s) => (
                     <TouchableOpacity
-                      style={styles.actionChip}
-                      onPress={() => { setShowCustomize(!showCustomize); hapticButtonPress(); }}
+                      key={s.id}
+                      style={[styles.cell, (block.style ?? 0) === s.id && styles.cellSelected]}
+                      onPress={() => handleStyleChange(s.id)}
                     >
-                      <Text style={styles.actionChipText}>
-                        {showCustomize ? "Done" : "Customize"}
+                      <Text style={styles.cellIcon}>{s.icon}</Text>
+                      <Text style={[styles.cellLabel, (block.style ?? 0) === s.id && styles.cellLabelSelected]}>
+                        {s.label}
                       </Text>
                     </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <Text style={styles.sectionLabel}>COLOR</Text>
+                <ColorPicker selected={block.ownerColor} onSelect={handleColorChange} />
+
+                <Text style={styles.sectionLabel}>EMOJI</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+                  {BLOCK_ICONS.slice(0, 20).map((icon) => (
                     <TouchableOpacity
-                      style={styles.actionChip}
-                      onPress={() => { hapticButtonPress(); handleShare(block, shareCardRef); }}
+                      key={icon}
+                      style={[styles.emojiCell, block.emoji === icon && styles.cellSelected]}
+                      onPress={() => handleEmojiChange(icon)}
                     >
-                      <Text style={styles.actionChipText}>Share</Text>
+                      <Text style={styles.emojiText}>{icon}</Text>
                     </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <Text style={styles.sectionLabel}>TEXTURE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+                  {BLOCK_TEXTURES.map((tex) => (
                     <TouchableOpacity
-                      style={styles.actionChip}
-                      onPress={() => { hapticButtonPress(); handleTweet(block); }}
+                      key={tex.id}
+                      style={[styles.cell, (block.textureId ?? 0) === tex.id && styles.cellSelected]}
+                      onPress={() => handleTextureChange(tex.id)}
                     >
-                      <Text style={styles.actionChipText}>Tweet</Text>
+                      <Text style={styles.cellIcon}>{tex.icon}</Text>
+                      <Text style={[styles.cellLabel, (block.textureId ?? 0) === tex.id && styles.cellLabelSelected]}>
+                        {tex.label}
+                      </Text>
                     </TouchableOpacity>
-                  </View>
-                </>
-              )}
+                  ))}
+                </ScrollView>
 
-              {!isUnclaimed && !isOwner && block.owner && (
-                <View style={styles.otherOwnerRow}>
-                  <View style={[styles.ownerDot, { backgroundColor: block.ownerColor }]} />
-                  <Text style={styles.otherOwnerText}>
-                    {block.name || truncateAddress(block.owner)}
-                  </Text>
-                  {block.stakedAmount > 0 && (
-                    <Text style={styles.stakedText}>{formatUsdc(block.stakedAmount)}</Text>
-                  )}
-                </View>
-              )}
-            </View>
-
-            {/* ─── Customize panel (collapsed by default) ─── */}
-            {showCustomize && isOwner && (
-              <ScrollView style={styles.customizeScroll} showsVerticalScrollIndicator={false}>
-                <View style={styles.customizeSection}>
-                  <Text style={styles.sectionLabel}>STYLE</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                    {BLOCK_STYLES.map((s) => (
-                      <TouchableOpacity
-                        key={s.id}
-                        style={[styles.cell, (block.style ?? 0) === s.id && styles.cellSelected]}
-                        onPress={() => handleStyleChange(s.id)}
-                      >
-                        <Text style={styles.cellIcon}>{s.icon}</Text>
-                        <Text style={[styles.cellLabel, (block.style ?? 0) === s.id && styles.cellLabelSelected]}>
-                          {s.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-
-                  <Text style={styles.sectionLabel}>COLOR</Text>
-                  <ColorPicker selected={block.ownerColor} onSelect={handleColorChange} />
-
-                  <Text style={styles.sectionLabel}>EMOJI</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                    {BLOCK_ICONS.slice(0, 20).map((icon) => (
-                      <TouchableOpacity
-                        key={icon}
-                        style={[styles.emojiCell, block.emoji === icon && styles.cellSelected]}
-                        onPress={() => handleEmojiChange(icon)}
-                      >
-                        <Text style={styles.emojiText}>{icon}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-
-                  <Text style={styles.sectionLabel}>TEXTURE</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                    {BLOCK_TEXTURES.map((tex) => (
-                      <TouchableOpacity
-                        key={tex.id}
-                        style={[styles.cell, (block.textureId ?? 0) === tex.id && styles.cellSelected]}
-                        onPress={() => handleTextureChange(tex.id)}
-                      >
-                        <Text style={styles.cellIcon}>{tex.icon}</Text>
-                        <Text style={[styles.cellLabel, (block.textureId ?? 0) === tex.id && styles.cellLabelSelected]}>
-                          {tex.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-
-                  <Text style={styles.sectionLabel}>NAME</Text>
-                  <View style={styles.nameRow}>
-                    <TextInput
-                      style={styles.nameInput}
-                      value={nameInput}
-                      onChangeText={(t) => setNameInput(t.slice(0, 12))}
-                      placeholder={block.name || "My Block"}
-                      placeholderTextColor={COLORS.textMuted}
-                      maxLength={12}
-                      returnKeyType="done"
-                      onSubmitEditing={handleNameSubmit}
-                    />
-                    <TouchableOpacity style={styles.nameButton} onPress={handleNameSubmit}>
-                      <Text style={styles.nameButtonText}>Set</Text>
-                    </TouchableOpacity>
-                  </View>
+                <Text style={styles.sectionLabel}>NAME</Text>
+                <View style={styles.nameRow}>
+                  <TextInput
+                    style={styles.nameInput}
+                    value={nameInput}
+                    onChangeText={(t) => setNameInput(t.slice(0, 12))}
+                    placeholder={block.name || "My Block"}
+                    placeholderTextColor={COLORS.textMuted}
+                    maxLength={12}
+                    returnKeyType="done"
+                    onSubmitEditing={handleNameSubmit}
+                  />
+                  <TouchableOpacity style={styles.nameButton} onPress={handleNameSubmit}>
+                    <Text style={styles.nameButtonText}>Set</Text>
+                  </TouchableOpacity>
                 </View>
               </ScrollView>
             )}
-          </View>
+          </>
         )}
       </Animated.View>
 
@@ -520,10 +532,10 @@ async function handleShare(block: { layer: number; index: number; energy: number
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
-    maxHeight: PANEL_HEIGHT,
+    minHeight: 180,
+    maxHeight: "50%",
     backgroundColor: COLORS.glassElevated,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
@@ -562,7 +574,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
-  content: {
+  fixedSection: {
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.sm,
+  },
+  contentScroll: {
+    flexShrink: 1,
+    maxHeight: 220,
+  },
+  customizeContent: {
     paddingBottom: SPACING.md,
   },
   // ─── Header ───
@@ -587,7 +607,7 @@ const styles = StyleSheet.create({
   blockName: {
     fontFamily: FONT_FAMILY.heading,
     color: COLORS.text,
-    fontSize: 17,
+    fontSize: 18,
     letterSpacing: 0.3,
   },
   ownerLabel: {
@@ -622,6 +642,7 @@ const styles = StyleSheet.create({
   // ─── CTA ───
   ctaSection: {
     gap: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   actionRow: {
     flexDirection: "row",
@@ -667,11 +688,8 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   // ─── Customize ───
-  customizeScroll: {
-    maxHeight: 200,
-    marginTop: SPACING.sm,
-  },
   customizeSection: {
+    marginTop: SPACING.sm,
     gap: SPACING.xs,
   },
   sectionLabel: {
