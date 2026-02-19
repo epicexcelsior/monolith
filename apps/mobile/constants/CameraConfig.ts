@@ -10,8 +10,8 @@ export const CAMERA_CONFIG = {
   zoom: {
     overview: 40,
     neighborhood: 18,
-    block: 12,           // Block inspect — close but outside tower geometry
-    min: 12,             // Matches block zoom — can't clip inside tower
+    block: 10,           // Block inspect — 20% closer for detail
+    min: 10,             // Matches block zoom — can't clip inside tower
     max: 55,
     overviewThreshold: 29, // zoom >= this → "overview" tier
   },

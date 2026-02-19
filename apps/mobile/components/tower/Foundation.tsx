@@ -19,11 +19,11 @@ import {
  * - depthWrite true for correct occlusion
  */
 
-// Foundation dimensions
-const FOUNDATION_TOP_SCALE = 1.6;   // wider than tower footprint
-const FOUNDATION_DEPTH = 50;        // how far down it extends
-const FOUNDATION_SEGMENTS = 16;     // radial segments
-const FOUNDATION_TAPER = 0.7;       // bottom is 70% of top width
+// Foundation dimensions — shallow visible platform
+const FOUNDATION_TOP_SCALE = 2.2;   // wide pedestal beyond tower footprint
+const FOUNDATION_DEPTH = 4;         // shallow — fully visible
+const FOUNDATION_SEGMENTS = 12;     // radial segments
+const FOUNDATION_TAPER = 0.9;       // subtle taper
 
 const foundationVertexShader = /* glsl */ `
   precision highp float;
@@ -92,10 +92,10 @@ const foundationFragmentShader = /* glsl */ `
     float cracks = max(crackX, max(crackY, crackZ)) * 0.6;
 
     // ─── Base rock colors ────────────────────────────
-    vec3 rockDark  = vec3(0.20, 0.15, 0.10);   // visible stone
-    vec3 rockMid   = vec3(0.30, 0.22, 0.14);   // mid weathered stone
-    vec3 rockLight = vec3(0.40, 0.30, 0.18);   // lighter patches
-    vec3 crackColor = vec3(0.12, 0.09, 0.06);  // dark cracks
+    vec3 rockDark  = vec3(0.30, 0.24, 0.18);   // visible stone
+    vec3 rockMid   = vec3(0.42, 0.34, 0.24);   // mid weathered stone
+    vec3 rockLight = vec3(0.50, 0.40, 0.28);   // lighter patches
+    vec3 crackColor = vec3(0.18, 0.14, 0.10);  // dark cracks
 
     // Mix rock variations
     vec3 rockColor = mix(rockDark, rockMid, rockNoise);
@@ -103,9 +103,9 @@ const foundationFragmentShader = /* glsl */ `
     rockColor = mix(rockColor, crackColor, cracks);
 
     // ─── Golden top glow ─────────────────────────────
-    // Top of the foundation picks up tower's warm light
-    float topGlow = smoothstep(0.25, 0.0, vDepth);
-    rockColor += vec3(0.22, 0.14, 0.05) * topGlow;
+    // Strong warm light from the tower above
+    float topGlow = smoothstep(0.5, 0.0, vDepth);
+    rockColor += vec3(0.30, 0.20, 0.08) * topGlow;
 
     // ─── Face shading ────────────────────────────────
     vec3 lightDir = normalize(vec3(0.4, 0.8, 0.3));
@@ -117,17 +117,9 @@ const foundationFragmentShader = /* glsl */ `
     float fresnel = pow(1.0 - NdotV, 3.0);
     vec3 rimColor = vec3(0.18, 0.12, 0.06) * fresnel;
 
-    // ─── Depth fade to darkness ──────────────────────
-    // Gradually darken as we go deeper
-    float depthFade = 1.0 - vDepth * 0.7;
-    // Additional fog-like fade at the very bottom
-    float bottomFog = smoothstep(0.6, 1.0, vDepth);
-    vec3 fogColor = vec3(0.03, 0.02, 0.01);
-
     // ─── Combine ─────────────────────────────────────
-    vec3 color = rockColor * faceBrightness * depthFade;
+    vec3 color = rockColor * faceBrightness;
     color += rimColor;
-    color = mix(color, fogColor, bottomFog);
 
     // Emissive floor — foundation is always visible, never blends with void
     float minBrightness = 0.14;
@@ -152,8 +144,8 @@ export default function Foundation() {
       (botRadiusX + botRadiusZ) / 2,
       FOUNDATION_DEPTH,
       FOUNDATION_SEGMENTS,
-      4, // height segments for depth gradient
-      false, // open-ended at bottom (hidden by fog anyway)
+      2, // height segments
+      false, // closed — top face visible and reflects light
     );
 
     // Scale X and Z to make it oval matching the rectangular tower footprint
@@ -177,7 +169,7 @@ export default function Foundation() {
     <mesh
       geometry={geometry}
       material={material}
-      position={[0, -FOUNDATION_DEPTH / 2 - 1.0, 0]}
+      position={[0, -FOUNDATION_DEPTH / 2 - 0.5, 0]}
     />
   );
 }

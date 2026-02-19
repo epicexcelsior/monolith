@@ -129,7 +129,7 @@ interface CameraState {
 function SceneSetup() {
   const { scene } = useThree();
   useMemo(() => {
-    scene.fog = new THREE.FogExp2(0x1a1008, 0.005);
+    scene.fog = new THREE.FogExp2(0x3a2818, 0.003);
   }, [scene]);
   return null;
 }
@@ -324,21 +324,16 @@ function CameraRig({
 // ─── GroundGrid ───────────────────────────────────────────
 
 /**
- * GroundPlane — Styled rectangular liquid ground beneath the tower.
- * Dark and dimmed, with subtle animated caustic/liquid ripple effects.
- * Matches tower footprint but wider (2.5×), doesn't distract from the tower.
+ * GroundPlane — Static radial gradient ground beneath the tower.
+ * No animated caustics — uses cheap hash grain for texture.
+ * Wider plane for better environment anchoring.
  */
 function GroundPlane() {
-  const matRef = useRef<THREE.ShaderMaterial>(null);
-
   const groundMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       transparent: true,
       depthWrite: false,
-      uniforms: {
-        uTime: { value: 0 },
-      },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
         varying vec3 vWorldPos;
@@ -353,24 +348,6 @@ function GroundPlane() {
         precision highp float;
         varying vec2 vUv;
         varying vec3 vWorldPos;
-        uniform float uTime;
-
-        float hash21(vec2 p) {
-          p = fract(p * vec2(233.34, 851.73));
-          p += dot(p, p + 23.45);
-          return fract(p.x * p.y);
-        }
-
-        float noise2D(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          f = f * f * (3.0 - 2.0 * f);
-          float a = hash21(i);
-          float b = hash21(i + vec2(1.0, 0.0));
-          float c = hash21(i + vec2(0.0, 1.0));
-          float d = hash21(i + vec2(1.0, 1.0));
-          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-        }
 
         void main() {
           vec2 center = vUv - 0.5;
@@ -380,31 +357,19 @@ function GroundPlane() {
           float fadeY = smoothstep(0.5, 0.3, abs(center.y));
           float rectFade = fadeX * fadeY;
 
-          // Liquid caustic ripples (2 slow-moving octaves)
-          vec2 uv1 = vWorldPos.xz * 0.12 + uTime * 0.03;
-          vec2 uv2 = vWorldPos.xz * 0.2 - uTime * 0.02;
-          float caustic1 = noise2D(uv1) * noise2D(uv1 * 1.5 + 50.0);
-          float caustic2 = noise2D(uv2 + 100.0) * noise2D(uv2 * 1.3 + 150.0);
-          float caustic = (caustic1 + caustic2) * 0.5;
+          // Static hash grain (no noise2D, no uTime)
+          float grain = fract(sin(dot(vWorldPos.xz, vec2(12.9898, 78.233))) * 43758.5453);
 
-          // Gentle ripple rings emanating from center
-          float dist = length(center) * 8.0;
-          float ripple = sin(dist - uTime * 0.5) * 0.5 + 0.5;
-          ripple *= smoothstep(0.5, 0.15, length(center));
-          ripple *= 0.12;
+          // Base color: golden sand center, darker warm edges
+          vec3 darkBase = vec3(0.18, 0.14, 0.08);
+          vec3 warmCenter = vec3(0.50, 0.38, 0.18);
+          vec3 color = mix(warmCenter, darkBase, smoothstep(0.0, 0.35, length(center)));
 
-          // Base color: warm dark, golden tint near center (brighter)
-          vec3 darkBase = vec3(0.07, 0.05, 0.03);
-          vec3 warmCenter = vec3(0.18, 0.12, 0.06);
-          vec3 color = mix(warmCenter, darkBase, smoothstep(0.0, 0.4, length(center)));
+          // Add grain texture + subtle warm variation
+          color += vec3(0.06, 0.04, 0.02) * (grain - 0.5);
 
-          // Add caustic light with golden tint (stronger)
-          vec3 causticColor = vec3(0.28, 0.18, 0.06);
-          color += causticColor * caustic * 0.5;
-          color += vec3(0.15, 0.10, 0.04) * ripple;
-
-          // Overall dimness (slightly more visible)
-          float alpha = rectFade * 0.8;
+          // Brighter overall — ground should read clearly against sky
+          float alpha = rectFade * 0.9;
 
           gl_FragColor = vec4(color, alpha);
         }
@@ -412,23 +377,13 @@ function GroundPlane() {
     });
   }, []);
 
-  // Animate liquid
-  useFrame((_, delta) => {
-    if (matRef.current) {
-      matRef.current.uniforms.uTime.value += delta;
-    }
-  });
-
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, -0.3, 0]}
-      ref={(mesh) => {
-        if (mesh) matRef.current = mesh.material as THREE.ShaderMaterial;
-      }}
       material={groundMaterial}
     >
-      <planeGeometry args={[40, 40]} />
+      <planeGeometry args={[50, 50]} />
     </mesh>
   );
 }
@@ -561,15 +516,15 @@ function GoldenSkybox() {
           float sunAngle = max(dot(dir, sunDir), 0.0);
 
           // ─── Sky gradient — richer golden sunset ───
-          vec3 zenithColor    = vec3(0.05, 0.035, 0.025);     // deep dark (more contrast)
-          vec3 upperSky       = vec3(0.15, 0.09, 0.04);       // dark warm
-          vec3 midSky         = vec3(0.50, 0.28, 0.10);       // deep copper
-          vec3 horizonPeak    = vec3(1.2, 0.78, 0.30);        // intense warm gold (HDR)
-          vec3 horizonGlow    = vec3(1.0, 0.60, 0.20);        // rich golden glow
-          vec3 horizonBand    = vec3(0.65, 0.35, 0.10);       // deep amber band
-          vec3 horizonWarm    = vec3(0.45, 0.25, 0.10);       // warm amber (visible!)
-          vec3 belowHorizon   = vec3(0.35, 0.20, 0.08);       // rich amber below
-          vec3 nadirColor     = vec3(0.25, 0.14, 0.06);        // warm ground radiance
+          vec3 zenithColor    = vec3(0.06, 0.04, 0.08);       // cool indigo-dark (contrast w/ warm horizon)
+          vec3 upperSky       = vec3(0.12, 0.08, 0.14);       // dusky purple (reads as "sky" not "brown")
+          vec3 midSky         = vec3(0.45, 0.22, 0.12);       // warm copper transition
+          vec3 horizonPeak    = vec3(1.3, 0.85, 0.35);        // intense warm gold (HDR)
+          vec3 horizonGlow    = vec3(1.1, 0.65, 0.22);        // rich golden glow
+          vec3 horizonBand    = vec3(0.70, 0.38, 0.12);       // deep amber band
+          vec3 horizonWarm    = vec3(0.55, 0.32, 0.14);       // warm amber
+          vec3 belowHorizon   = vec3(0.42, 0.28, 0.14);       // amber below
+          vec3 nadirColor     = vec3(0.20, 0.14, 0.08);        // dark ground (contrast with bright ground plane)
 
           // Smooth multi-stop gradient with wider, more dramatic horizon band
           vec3 skyColor;
@@ -679,7 +634,7 @@ function GoldenSkybox() {
 
   return (
     <mesh material={skyMaterial}>
-      <sphereGeometry args={[800, 64, 48]} />
+      <sphereGeometry args={[800, 24, 16]} />
     </mesh>
   );
 }
@@ -719,6 +674,8 @@ export default function TowerScene() {
   const prevTouch = useRef({ x: 0, y: 0 });
   const prevLayerRef = useRef(getLayerFromY(TOWER_CENTER_Y));
   const prevZoomTierRef = useRef<ZoomTier>("overview");
+  // Tracks when a block was just selected (to suppress double-tap reset)
+  const blockJustSelected = useRef(false);
 
   // Pinch state
   const isPinching = useRef(false);
@@ -884,19 +841,36 @@ export default function TowerScene() {
   // ─── Touch handlers (double-tap + tap-to-deselect) ──────
   // Uses onTouchEnd with drag guard so drags never trigger double-tap.
   // onTouchStart only records time; actual logic runs at touch end.
+  // Track block selection to suppress double-tap reset when tapping blocks
+  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
+  useEffect(() => {
+    if (selectedBlockId) {
+      blockJustSelected.current = true;
+      // Clear after a frame so subsequent empty-space double-taps still work
+      const timer = setTimeout(() => { blockJustSelected.current = false; }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedBlockId]);
+
   const handleTouchStart = useCallback(() => {
     // Mark that we haven't dragged yet for this touch
     isDragging.current = false;
-  }, []);
+    // Clear stale gesture state — prevents isGestureActive from getting stuck
+    // if a previous PanResponder release was missed
+    setGestureActive(false);
+  }, [setGestureActive]);
 
   const handleTouchEnd = useCallback(() => {
     // Skip if this touch was a drag (PanResponder handled it)
     if (isDragging.current) return;
+    // Skip double-tap reset if a block was just selected by R3F click —
+    // prevents two quick block taps from triggering camera reset
+    if (blockJustSelected.current) return;
 
     const now = Date.now();
 
     if (now - lastTapTime.current < DOUBLE_TAP_WINDOW) {
-      // Double-tap detected — reset camera
+      // Double-tap detected on empty space — reset camera
       if (tapTimer.current) {
         clearTimeout(tapTimer.current);
         tapTimer.current = null;
@@ -965,6 +939,6 @@ export default function TowerScene() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0d0804",
+    backgroundColor: "#0e0a12",
   },
 });

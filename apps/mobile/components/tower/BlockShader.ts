@@ -34,6 +34,7 @@ const vertexShader = /* glsl */ `
   attribute float aTextureId;
   attribute float aFade;
   attribute float aHighlight;
+  attribute float aImageIndex;
 
   // Passed to fragment
   varying float vEnergy;
@@ -49,19 +50,28 @@ const vertexShader = /* glsl */ `
   varying float vTextureId;
   varying float vFade;
   varying float vHighlight;
+  varying float vImageIndex;
+  varying vec3 vWorldNormal;
+  varying vec2 vFaceUV;
+  varying vec3 vLocalPos;       // raw local-space position (for interior mapping)
+  varying vec3 vBlockCenter;    // world-space block center
 
   void main() {
     // Apply instance transform with optional highlight scale-up
     vec3 localPos = position * (1.0 + aHighlight * 0.08);
     vec4 worldPos = instanceMatrix * vec4(localPos, 1.0);
 
-    // Pop-out: push highlighted block radially outward from tower axis
-    vec3 blockCenter = vec3(instanceMatrix[3][0], 0.0, instanceMatrix[3][2]);
-    float centerDist = length(blockCenter);
-    if (centerDist > 0.1) {
-      worldPos.xyz += (blockCenter / centerDist) * aHighlight * 0.5;
+    // Pop-out: push highlighted block radially away from tower center (Y-axis)
+    // This works correctly for all faces including corners
+    vec3 radialDir = vec3(worldPos.x, 0.0, worldPos.z);
+    float radialLen = length(radialDir);
+    if (radialLen > 0.01) {
+      radialDir /= radialLen;
+    } else {
+      radialDir = vec3(0.0, 0.0, 1.0); // fallback for center blocks
     }
-    worldPos.y += aHighlight * 0.15; // subtle upward float
+    worldPos.xyz += radialDir * aHighlight * 0.6;
+    worldPos.y += aHighlight * 0.12; // subtle upward float
 
     vec4 mvPosition = modelViewMatrix * worldPos;
 
@@ -77,10 +87,34 @@ const vertexShader = /* glsl */ `
     vTextureId = aTextureId;
     vFade = aFade;
     vHighlight = aHighlight;
+    vImageIndex = aImageIndex;
+    vLocalPos = position; // raw local-space vertex position
+    // Block center from instance matrix translation column
+    vBlockCenter = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
 
-    // View-space normal for fresnel (transform normal by instance rotation)
-    mat3 normalMat = mat3(instanceMatrix);
-    vNormal = normalize(normalMatrix * normalMat * normal);
+    // Instance rotation matrix (3x3)
+    mat3 instRot = mat3(instanceMatrix);
+
+    // View-space normal for fresnel
+    vNormal = normalize(normalMatrix * instRot * normal);
+
+    // World-space normal for face detection (not view-space!)
+    vWorldNormal = normalize(instRot * normal);
+
+    // Face UV: computed per-face from local position + local normal.
+    // Each face of the box uses the correct tangent axes for UV mapping.
+    // BLOCK_SIZE=0.8, so *1.25 maps [-0.4,0.4] to [0,1]
+    vec3 aN = abs(normal);
+    if (aN.x > aN.y && aN.x > aN.z) {
+      // X-facing local face: use local Z,Y
+      vFaceUV = vec2(position.z * sign(normal.x), position.y) * 1.25 + 0.5;
+    } else if (aN.z > aN.y) {
+      // Z-facing local face: use local X,Y
+      vFaceUV = vec2(position.x * sign(normal.z), position.y) * 1.25 + 0.5;
+    } else {
+      // Y-facing (top/bottom): use X,Z — filtered out by face detection anyway
+      vFaceUV = position.xz * 1.25 + 0.5;
+    }
 
     // View direction for fresnel
     vViewDir = normalize(-mvPosition.xyz);
@@ -101,6 +135,8 @@ const fragmentShader = /* glsl */ `
   uniform float uFogDensity;
   uniform float uSpireThreshold;
   uniform float uTowerHeight;
+  uniform sampler2D uImageAtlas;
+  uniform vec3 uCameraPos;
 
   varying float vEnergy;
   varying vec3 vOwnerColor;
@@ -115,6 +151,11 @@ const fragmentShader = /* glsl */ `
   varying float vTextureId;
   varying float vFade;
   varying float vHighlight;
+  varying float vImageIndex;
+  varying vec3 vWorldNormal;
+  varying vec2 vFaceUV;
+  varying vec3 vLocalPos;
+  varying vec3 vBlockCenter;
 
   // ─── Utility: hash/noise for textures ──────────────────
   float hash21(vec2 p) {
@@ -237,7 +278,7 @@ const fragmentShader = /* glsl */ `
 
     // If block is dead/unowned, use neutral dark stone as base
     float isOwned = step(0.01, energy);
-    vec3 neutralColor = vec3(0.10, 0.07, 0.05);
+    vec3 neutralColor = vec3(0.25, 0.20, 0.15);
     baseColor = mix(neutralColor, baseColor, isOwned);
 
     // Apply texture pattern (skip for dead blocks and no-texture)
@@ -247,22 +288,97 @@ const fragmentShader = /* glsl */ `
       baseColor *= texPattern;
     }
 
-    // Smooth flowing noise for owned blocks with no custom texture
-    // Uses triplanar blending so noise flows consistently on all faces
+    // Per-block color variation (uses instance offset, NOT per-pixel hash)
     if (energy > 0.01 && texId == 0) {
-      vec3 blend = abs(N);
-      blend = pow(blend, vec3(4.0)); // sharpen blend to reduce overlap
-      blend /= (blend.x + blend.y + blend.z); // normalize
+      float blockVar = fract(vInstanceOffset * 0.37) * 0.10;
+      baseColor *= 0.95 + blockVar;
+    }
 
-      float t = uTime * 0.03;
-      float nXZ = noise2D(vWorldPos.xz * 1.5 + t);
-      float nXY = noise2D(vWorldPos.xy * 1.5 + t + vec2(53.0, 17.0));
-      float nYZ = noise2D(vWorldPos.yz * 1.5 + t + vec2(91.0, 37.0));
-      float flowNoise = nXZ * blend.y + nXY * blend.z + nYZ * blend.x;
+    // ═══════════════════════════════════════════════════════
+    // LAYER 1.5: INTERIOR MAPPING — "window into the block"
+    // ═══════════════════════════════════════════════════════
+    // ALL vertical faces become windows (not just outward face).
+    // Each face has proper UVs computed from local position.
+    // Interior mapping: ray from camera through fragment → virtual back wall.
+    if (vImageIndex > 0.5 && energy > 0.01) {
+      // Skip top/bottom faces (Y-dominant normals)
+      float isVerticalFace = step(abs(vWorldNormal.y), 0.5);
 
-      // Subtle: just enough to break flatness, not enough to distract
-      float noiseStrength = 0.06 + energy * 0.10;
-      baseColor *= 1.0 + (flowNoise - 0.5) * noiseStrength;
+      if (isVerticalFace > 0.5) {
+        // Face UV already computed correctly per-face in the vertex shader
+        vec2 faceUV = clamp(vFaceUV, 0.0, 1.0);
+
+        // ── Interior mapping ray-box intersection ──
+        vec3 viewRay = normalize(vWorldPos - uCameraPos);
+
+        // Face-local coordinate frame from world normal
+        vec3 faceN = normalize(vWorldNormal);
+        vec3 faceTanX = normalize(cross(vec3(0.0, 1.0, 0.0), faceN));
+        vec3 faceTanY = vec3(0.0, 1.0, 0.0);
+
+        // Project view ray into face-local axes
+        float rayN = dot(viewRay, faceN);   // depth into block
+        float rayU = dot(viewRay, faceTanX); // horizontal shift
+        float rayV = dot(viewRay, faceTanY); // vertical shift
+
+        // Room depth: how far "inside" the back wall sits
+        float roomDepth = 0.55;
+
+        // Find where ray intersects back wall
+        float interiorU = faceUV.x;
+        float interiorV = faceUV.y;
+        if (rayN > 0.001) {
+          float t = roomDepth / rayN;
+          interiorU = faceUV.x + rayU * t;
+          interiorV = faceUV.y + rayV * t;
+        }
+        interiorU = clamp(interiorU, 0.03, 0.97);
+        interiorV = clamp(interiorV, 0.03, 0.97);
+
+        // Atlas UV: 2x2 grid, slots 1-4
+        float slot = vImageIndex - 1.0;
+        float atlasCol = mod(slot, 2.0);
+        float atlasRow = floor(slot / 2.0);
+        vec2 atlasUV = (vec2(interiorU, interiorV) + vec2(atlasCol, atlasRow)) * 0.5;
+
+        vec4 imgColor = texture2D(uImageAtlas, atlasUV);
+
+        // ── Window frame ──
+        float frameW = 0.08;
+        float frameMask = smoothstep(0.0, frameW, faceUV.x)
+                        * smoothstep(0.0, frameW, 1.0 - faceUV.x)
+                        * smoothstep(0.0, frameW, faceUV.y)
+                        * smoothstep(0.0, frameW, 1.0 - faceUV.y);
+
+        // Depth darkening (room corners dimmer)
+        float depthFade = 1.0 - length(vec2(interiorU - 0.5, interiorV - 0.5)) * 0.35;
+        depthFade = clamp(depthFade, 0.4, 1.0);
+
+        // Vignette + scanlines
+        vec2 vigUV = faceUV * 2.0 - 1.0;
+        float vignette = clamp(1.0 - dot(vigUV, vigUV) * 0.2, 0.0, 1.0);
+        float scanline = 0.96 + 0.04 * sin(faceUV.y * 100.0 + uTime * 1.5);
+
+        // Edge glow + chromatic aberration
+        float edgeDist = min(min(faceUV.x, 1.0 - faceUV.x), min(faceUV.y, 1.0 - faceUV.y));
+        float edgeGlow = smoothstep(0.12, 0.0, edgeDist) * energy * 0.6;
+        float chromaStr = max((1.0 - edgeDist * 8.0) * 0.005, 0.0);
+        vec2 chromaOff = vec2(chromaStr, 0.0);
+        float rCh = texture2D(uImageAtlas, atlasUV + chromaOff).r;
+        float bCh = texture2D(uImageAtlas, atlasUV - chromaOff).b;
+        vec3 chromaImg = vec3(rCh, imgColor.g, bCh);
+
+        // Compose with depth + effects
+        vec3 imgFinal = chromaImg * depthFade * scanline * vignette;
+        imgFinal *= (0.85 + energy * 0.45); // energy brightness
+        vec3 imgGlow = imgFinal * energy * 0.2;
+
+        // Blend: image dominates inside window frame
+        float blendStrength = max(imgColor.a, 0.4) * 0.92 * frameMask;
+        baseColor = mix(baseColor, imgFinal, blendStrength);
+        baseColor += imgGlow * frameMask;
+        baseColor += vOwnerColor * edgeGlow;
+      }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -353,7 +469,7 @@ const fragmentShader = /* glsl */ `
     float bottomFace = max(0.0, -N.y);
     float sideFace = 1.0 - abs(N.y);
 
-    float faceBrightness = 0.55 + 0.35 * NdotL;
+    float faceBrightness = 0.65 + 0.30 * NdotL;
     faceBrightness += topFace * 0.25;
     faceBrightness -= bottomFace * 0.15;
 
@@ -390,18 +506,13 @@ const fragmentShader = /* glsl */ `
 
     vec3 glowColor = energyGlowColor(energy);
 
-    // Specular — GGX-like distribution (skip for matte)
+    // Specular — Blinn-Phong (skip for matte)
     vec3 specColor = vec3(0.0);
     if (style != 3) {
       vec3 H = normalize(lightDir + V);
       float NdotH = max(dot(N, H), 0.0);
-      // Roughness varies with energy: smooth when charged, rough when dim
-      float roughness = mix(0.7, 0.2, energy);
-      float alpha2 = roughness * roughness;
-      alpha2 *= alpha2;
-      float denom = NdotH * NdotH * (alpha2 - 1.0) + 1.0;
-      float ggx = alpha2 / (3.14159 * denom * denom + 0.0001);
-      float spec = ggx * 0.12 * step(0.1, energy);
+      float exponent = mix(8.0, 32.0, energy);
+      float spec = pow(NdotH, exponent) * 0.15 * step(0.1, energy);
       spec *= (0.3 + energy * 0.7);
       specColor = vec3(1.0, 0.92, 0.7) * spec;
     }
@@ -414,12 +525,7 @@ const fragmentShader = /* glsl */ `
       rimContrib = rimTint * 2.2 * rimStrength;
     }
 
-    // Edge highlights (normal curvature)
-    float edgeHighlight = 0.0;
-    if (energy > 0.1 && style != 3) {
-      float normalVariance = length(fwidth(N));
-      edgeHighlight = smoothstep(0.3, 0.8, normalVariance) * 0.4 * energy;
-    }
+    // Edge highlights removed — fwidth() too expensive on mobile
 
     // Inner glow (core emission for owned blocks)
     float innerGlow = 0.0;
@@ -464,31 +570,51 @@ const fragmentShader = /* glsl */ `
     color += glowColor * spireGlow * 0.5;
     color += glowColor * radiate;
     color += glowColor * innerGlow;
-    color += vec3(1.0, 0.9, 0.7) * edgeHighlight;
 
-    // ─── Dead blocks: warm obsidian with flowing amber veins ──
+    // ─── Dead blocks: dark glass with glowing amber edges ──
     float deadMask = smoothstep(0.0, 0.06, energy);
 
-    // Warm obsidian base
-    vec3 obsidianBase = vec3(0.08, 0.06, 0.05);
+    // ── Edge detection from local box position ──
+    // vLocalPos is raw box-space coords: ranges ~[-0.4, 0.4]
+    vec3 lp = abs(vLocalPos);
+    float halfExt = 0.4;    // half-extent of block geometry
+    float edgeW = 0.035;    // edge line width
 
-    // Flowing marble veins using turbulent noise
-    float t = uTime * 0.04; // very slow flow
-    vec2 veinUV = vWorldPos.xz * 1.8 + vec2(t, t * 0.7);
-    float turb = noise2D(veinUV) * 2.0
-               + noise2D(veinUV * 2.3 + vec2(13.7, 41.2)) * 1.0
-               + noise2D(veinUV * 5.1 + vec2(73.1, 19.8)) * 0.5;
-    float veins = pow(1.0 - abs(sin(vWorldPos.x * 3.0 + vWorldPos.z * 2.0 + turb)), 4.0);
+    // Each axis: 1.0 when near the face boundary, 0.0 in the interior
+    float eX = smoothstep(halfExt - edgeW, halfExt, lp.x);
+    float eY = smoothstep(halfExt - edgeW, halfExt, lp.y);
+    float eZ = smoothstep(halfExt - edgeW, halfExt, lp.z);
 
-    // Height gradient: deep ember at bottom, pale gold at top
-    vec3 veinColorLow = vec3(0.35, 0.12, 0.04);  // deep ember
-    vec3 veinColorHigh = vec3(0.55, 0.38, 0.10);  // pale gold
-    vec3 veinColor = mix(veinColorLow, veinColorHigh, vLayerNorm);
+    // Wireframe = where 2+ axes are at the boundary (the 12 cube edges)
+    float wireframe = max(eX * eY, max(eY * eZ, eX * eZ));
 
-    vec3 deadColor = obsidianBase + veinColor * veins * 0.35;
+    // Also add single-axis face borders (softer, wider) for the face outlines
+    float faceEdgeW = 0.06;
+    float fX = smoothstep(halfExt - faceEdgeW, halfExt, lp.x);
+    float fY = smoothstep(halfExt - faceEdgeW, halfExt, lp.y);
+    float fZ = smoothstep(halfExt - faceEdgeW, halfExt, lp.z);
+    float faceOutline = max(fX, max(fY, fZ)) * 0.3; // subtle face borders
 
-    // Subtle warm fresnel glow
-    deadColor += vec3(0.12, 0.06, 0.02) * fresnel * 0.5;
+    float edgeGlow = max(wireframe, faceOutline);
+
+    // ── Dark glass interior ──
+    // Very dark tinted surface — block is clearly there but dormant
+    vec3 glassBase = vec3(0.08, 0.06, 0.05);
+    // Slight face shading so it reads as 3D
+    glassBase += vec3(0.03, 0.025, 0.02) * max(0.0, N.y);
+    glassBase += vec3(0.02, 0.015, 0.01) * max(0.0, dot(N, normalize(vec3(0.4, 0.6, -0.3))));
+
+    // ── Amber edge color — height-graded ──
+    vec3 edgeColorLow = vec3(0.50, 0.25, 0.08);   // warm amber
+    vec3 edgeColorHigh = vec3(0.70, 0.50, 0.15);   // pale gold
+    vec3 edgeColor = mix(edgeColorLow, edgeColorHigh, vLayerNorm);
+
+    // Compose: dark glass + glowing edges
+    vec3 deadColor = glassBase + edgeColor * edgeGlow;
+
+    // Fresnel rim — amber glow at viewing angle edges
+    float rimPulse = 0.85 + 0.15 * sin(uTime * 0.6 + vInstanceOffset * 2.0);
+    deadColor += vec3(0.15, 0.08, 0.03) * fresnel * 0.6 * rimPulse;
 
     color = mix(deadColor, color, deadMask);
 
@@ -496,16 +622,31 @@ const fragmentShader = /* glsl */ `
     // LAYER 5: INSPECT MODE (dim + highlight)
     // ═══════════════════════════════════════════════════════
 
-    // Dim non-focused blocks — subtle darken, selected block gets emissive boost
-    color *= mix(0.55, 1.0, vFade);
+    // Dim non-focused blocks — subtle darken (less for image blocks so images stay visible)
+    float hasImg = step(0.5, vImageIndex) * step(0.01, energy);
+    float dimFloor = mix(0.55, 0.70, hasImg); // image blocks dim less
+    color *= mix(dimFloor, 1.0, vFade);
 
-    // Highlight selected block (emissive boost + bright rim)
+    // Highlight selected block
     if (vHighlight > 0.01) {
-      vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.9, 0.6), 0.35);
-      color += emissive * vHighlight * 0.35;
-      color *= 1.0 + vHighlight * 0.25;
+      float hlHasImage = step(0.5, vImageIndex) * step(0.01, energy);
       float hlRim = pow(1.0 - NdotV, 2.5);
-      color += vec3(1.0, 0.92, 0.7) * hlRim * vHighlight * 0.6;
+      vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.92, 0.7), 0.4);
+
+      if (hlHasImage > 0.5) {
+        // IMAGE BLOCKS: rim-only glow — no emissive flood on the face.
+        // Bright owner-colored outline so you know it's selected,
+        // but the image stays fully visible.
+        color += rimColor * hlRim * vHighlight * 1.0;
+        // Very subtle overall brightness lift (just enough to "pop")
+        color *= 1.0 + vHighlight * 0.05;
+      } else {
+        // NON-IMAGE BLOCKS: full emissive highlight as before
+        vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.9, 0.6), 0.35);
+        color += emissive * vHighlight * 0.35;
+        color *= 1.0 + vHighlight * 0.25;
+        color += rimColor * hlRim * vHighlight * 0.6;
+      }
     }
 
     // ─── Fog ─────────────────────────────────────────────
@@ -539,10 +680,12 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
     fragmentShader,
     uniforms: {
       uTime: { value: 0 },
-      uFogColor: { value: new THREE.Color(0x1a1008) },
-      uFogDensity: { value: 0.004 },
+      uFogColor: { value: new THREE.Color(0x3a2818) },
+      uFogDensity: { value: 0.003 },
       uSpireThreshold: { value: SPIRE_START_LAYER / DEFAULT_TOWER_CONFIG.layerCount },
       uTowerHeight: { value: getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount) },
+      uImageAtlas: { value: null },
+      uCameraPos: { value: new THREE.Vector3() },
     },
     fog: false,
     toneMapped: false,
@@ -573,13 +716,16 @@ const glowVertexShader = /* glsl */ `
     vec3 localPos = (position + normal * 0.04) * (1.0 + aHighlight * 0.08);
     vec4 worldPos = instanceMatrix * vec4(localPos, 1.0);
 
-    // Pop-out: match main shader
-    vec3 blockCenter = vec3(instanceMatrix[3][0], 0.0, instanceMatrix[3][2]);
-    float centerDist = length(blockCenter);
-    if (centerDist > 0.1) {
-      worldPos.xyz += (blockCenter / centerDist) * aHighlight * 0.5;
+    // Pop-out: match main shader — radially away from tower center
+    vec3 radialDir = vec3(worldPos.x, 0.0, worldPos.z);
+    float radialLen = length(radialDir);
+    if (radialLen > 0.01) {
+      radialDir /= radialLen;
+    } else {
+      radialDir = vec3(0.0, 0.0, 1.0);
     }
-    worldPos.y += aHighlight * 0.15;
+    worldPos.xyz += radialDir * aHighlight * 0.6;
+    worldPos.y += aHighlight * 0.12;
 
     vec4 mvPosition = modelViewMatrix * worldPos;
 

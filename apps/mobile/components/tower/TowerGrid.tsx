@@ -16,6 +16,7 @@ import {
 } from "@monolith/common";
 import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
+import { getImageAtlasTexture } from "@/utils/image-atlas";
 
 export interface BlockMeta {
   id: string;
@@ -65,6 +66,14 @@ export default function TowerGrid() {
   const material = useMemo(() => {
     const mat = createBlockMaterial();
     materialRef.current = mat;
+    // Load pre-encoded image atlas (100% reliable in React Native — no DOM Image)
+    try {
+      const atlasTex = getImageAtlasTexture();
+      mat.uniforms.uImageAtlas.value = atlasTex;
+      if (__DEV__) console.log(`[TowerGrid] Atlas loaded: ${atlasTex.image.width}x${atlasTex.image.height}`);
+    } catch (e) {
+      console.error("[TowerGrid] Atlas load failed:", e);
+    }
     return mat;
   }, []);
 
@@ -243,15 +252,29 @@ export default function TowerGrid() {
       geo.setAttribute("aLayerNorm", new THREE.InstancedBufferAttribute(layerNormArray, 1));
     }
 
-    // Style attribute (0=Default, 1-6 for custom styles)
+    // Style, texture, and image attributes
     const styleArray = new Float32Array(count);
     const textureArray = new Float32Array(count);
+    const imageIndexArray = new Float32Array(count);
     for (let i = 0; i < count; i++) {
+      const block = blockData[i];
       const storeBlock = demoBlocks.find(
-        (b) => b.layer === blockData[i].layer && b.index === blockData[i].index,
+        (b) => b.layer === block.layer && b.index === block.index,
       );
       styleArray[i] = storeBlock?.style ?? 0;
       textureArray[i] = storeBlock?.textureId ?? 0;
+
+      // Image index: use store value if available, otherwise compute
+      // deterministically from block position so images always show
+      let imgIdx = storeBlock?.imageIndex ?? 0;
+      if (imgIdx === 0 && block.owner) {
+        // 75% of owned blocks get a demo image (deterministic hash)
+        const hash = ((block.layer * 31 + block.index * 7 + 137) & 0xffff);
+        if (hash % 4 < 3) { // 75%
+          imgIdx = (hash % 4) + 1; // 1-4
+        }
+      }
+      imageIndexArray[i] = imgIdx;
     }
     const existingStyle = geo.getAttribute("aStyle") as THREE.InstancedBufferAttribute | null;
     if (existingStyle && existingStyle.count === count) {
@@ -268,6 +291,15 @@ export default function TowerGrid() {
       existingTexture.needsUpdate = true;
     } else {
       geo.setAttribute("aTextureId", new THREE.InstancedBufferAttribute(textureArray, 1));
+    }
+
+    // Image index attribute (0=None, 1-4=atlas slot)
+    const existingImage = geo.getAttribute("aImageIndex") as THREE.InstancedBufferAttribute | null;
+    if (existingImage && existingImage.count === count) {
+      existingImage.set(imageIndexArray);
+      existingImage.needsUpdate = true;
+    } else {
+      geo.setAttribute("aImageIndex", new THREE.InstancedBufferAttribute(imageIndexArray, 1));
     }
 
     // ─── Inspect mode attributes (fade + highlight) ──────────
@@ -335,10 +367,11 @@ export default function TowerGrid() {
     }
   }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
 
-  // Per-frame: update time uniform + claim flash
-  useFrame((_state, delta) => {
+  // Per-frame: update time uniform + camera pos + claim flash
+  useFrame((state, delta) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += delta;
+      materialRef.current.uniforms.uCameraPos.value.copy(state.camera.position);
     }
     if (glowMaterialRef.current) {
       glowMaterialRef.current.uniforms.uTime.value += delta;
@@ -475,15 +508,13 @@ export default function TowerGrid() {
 
   const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
-    if (useTowerStore.getState().isGestureActive) return;
+    const gestureActive = useTowerStore.getState().isGestureActive;
+    if (gestureActive) return;
 
     if (event.instanceId == null) return;
     const meta = blockMetaRef.current[event.instanceId];
     if (!meta) return;
 
-    if (__DEV__) {
-      console.log(`[BlockSelect] ${meta.id} (L${meta.layer} I${meta.index})`);
-    }
     selectBlock(meta.id);
   }, [selectBlock]);
 

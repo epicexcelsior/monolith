@@ -365,7 +365,8 @@ function classifyStakingError(error: any): string {
     if (code === "InsufficientBalance") return "Insufficient balance for withdrawal";
     if (code === "InvalidMint") return "Invalid token — only USDC accepted";
     if (message.includes("failed on-chain")) return message;
-    if (message.includes("User rejected")) return "Transaction rejected by user";
+    if (message.includes("User rejected") || message.includes("CancellationException"))
+        return "Transaction cancelled — please approve in your wallet";
     if (message.includes("authorization") || message.includes("reauthorize"))
         return "Wallet session expired — please try again";
     if (message.includes("not connected")) return "Please connect your wallet first";

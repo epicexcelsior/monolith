@@ -2,6 +2,18 @@
 
 > **Living document.** Add new entries at the top. Review periodically and prune anything no longer relevant.
 
+## 2026-02-18
+
+- **React Native texture loading — DataTexture workaround**: THREE.TextureLoader fails in React Native (no DOM Image). expo-three's `loadAsync` unreliable on device. **Solution**: Pre-encode atlas as base64 RGBA bytes (1.4MB string) → `THREE.DataTexture`. Bypasses all image loading. Include manual base64 decoder as fallback if `atob()` unavailable. Works 100% reliably.
+
+- **Shader coordinate space confusion — local vs world**: When computing per-face UVs for all sides of a cube, using `vWorldNormal` (world-space, after rotation) to decide how to read `vLocalPos` (local-space, before rotation) causes mismatch after instance rotation. **Solution**: Compute face UVs in vertex shader using raw `normal` (local-space), before any transforms. Each face uses correct tangent axes (X-face: local Z,Y; Z-face: local X,Y).
+
+- **Interior mapping for 3D depth illusion**: To make flat images feel 3D, cast ray from camera through fragment into a virtual room. Ray hits "back wall" at depth 0.55, creating parallax that shifts with camera movement. Apply on all 4 vertical faces (skip top/bottom). Adds depth darkening, window frame mask, scanlines, chromatic aberration for sci-fi feel.
+
+- **Highlight visibility on image blocks**: Standard emissive highlight (additive glow + brightness multiply) washes out images on selected blocks. **Solution**: Branch by `vImageIndex` — image blocks get rim-only highlight (no flat emissive), non-image blocks get full highlight. Keeps images readable while still showing selection feedback.
+
+- **Block pop-out direction for rectangular tower**: Using `mat3(instanceMatrix) * vec3(0,0,1)` (local +Z) for pop-out fails on corner blocks of rectangular tower — they push toward +Z instead of diagonally outward. **Solution**: Radial direction from tower center in XZ plane (`normalize(vec3(worldPos.x, 0, worldPos.z))`). Works correctly for all faces including corners.
+
 ## 2026-02-16
 
 - **3D camera gesture design — avoid mode ambiguity**: Initial approach used single-finger behavior that changed based on zoom level (orbit at overview, vertical pan when zoomed in). This felt confusing — users couldn't predict what a gesture would do. **Solution**: Clear, mode-free gesture model — 1 finger always orbits, 2 fingers always pinch+pan. LayerIndicator scrubber handles precision vertical navigation. Predictability > fewest gestures.

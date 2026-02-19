@@ -185,24 +185,24 @@ export const LOD_DISTANCES = {
 } as const;
 
 // ─── Block Customization ──────────────────────────────────
-/** Available block colors (curated neon/cyberpunk palette) */
+/** Available block colors (desaturated jewel tones + warm earths) */
 export const BLOCK_COLORS = [
-  "#00ffff", // Cyan
-  "#ff00ff", // Magenta
-  "#ff6600", // Neon Orange
-  "#00ff66", // Neon Green
-  "#6600ff", // Electric Purple
-  "#ffff00", // Yellow
-  "#ff0066", // Hot Pink
-  "#0066ff", // Electric Blue
-  "#ff3300", // Red-Orange
-  "#33ff00", // Lime
-  "#ff0099", // Fuschia
-  "#00ccff", // Sky Cyan
-  "#ff6699", // Salmon
-  "#9900ff", // Violet
-  "#00ff99", // Mint
-  "#ffcc00", // Gold
+  "#5b8fb9", // Steel Blue
+  "#7b6b8a", // Dusty Plum
+  "#6b9e7a", // Sage Green
+  "#c98042", // Bronze
+  "#cc6644", // Copper Rust
+  "#8a7e72", // Warm Stone
+  "#b8860b", // Dark Goldenrod
+  "#9e7c5a", // Driftwood
+  "#7a8f6e", // Moss
+  "#a5736e", // Rosewood
+  "#d4a055", // Honey
+  "#6e8898", // Slate
+  "#b5784a", // Amber Clay
+  "#8b7355", // Khaki
+  "#9a6b4c", // Sienna
+  "#7c9a92", // Teal Stone
 ] as const;
 
 /** Available block icons (emoji) */
