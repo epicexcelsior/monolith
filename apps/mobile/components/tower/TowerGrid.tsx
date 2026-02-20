@@ -17,6 +17,7 @@ import {
 import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
+import { CAMERA_CONFIG } from "@/constants/CameraConfig";
 
 export interface BlockMeta {
   id: string;
@@ -55,6 +56,9 @@ export default function TowerGrid() {
 
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
+  // Reusable Color objects to avoid per-frame GC pressure
+  const tmpColorRef = useRef(new THREE.Color());
+  const goldColorRef = useRef(new THREE.Color(1.0, 0.85, 0.2));
 
   // Inspect focus animation state
   const fadeTargetsRef = useRef<Float32Array | null>(null);
@@ -62,6 +66,12 @@ export default function TowerGrid() {
   const highlightTargetsRef = useRef<Float32Array | null>(null);
   const highlightCurrentRef = useRef<Float32Array | null>(null);
   const prevSelectedIdRef = useRef<string | null>(null);
+
+  // Pop-out animation state
+  const popOutTargetRef = useRef<Float32Array | null>(null);
+  const popOutCurrentRef = useRef<Float32Array | null>(null);
+  // Reusable Object3D for per-frame matrix updates (avoids GC)
+  const tempObjRef = useRef(new THREE.Object3D());
 
   const material = useMemo(() => {
     const mat = createBlockMaterial();
@@ -93,11 +103,11 @@ export default function TowerGrid() {
     return new RoundedBoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 1, BLOCK_SIZE * 0.04);
   }, []);
 
-  const HIT_SCALE = 1.8;
+  const HIT_SCALE = 1.15; // Modest enlargement for easier tapping without wrong-block selection
 
   // Build position layout (stable, config-based) — uses shared layout functions
   const layoutData = useMemo(() => {
-    const layout: { x: number; y: number; z: number; rotY: number; layer: number; index: number }[] = [];
+    const layout: { x: number; y: number; z: number; rotY: number; tileScale: number; layer: number; index: number }[] = [];
 
     for (let layer = 0; layer < config.layerCount; layer++) {
       const count = config.blocksPerLayer[layer];
@@ -116,6 +126,15 @@ export default function TowerGrid() {
     return layout;
   }, [config]);
 
+  // Fast lookup map for demoBlocks by layer+index (avoids O(n²) find)
+  const demoBlockMap = useMemo(() => {
+    const map = new Map<number, typeof demoBlocks[0]>();
+    for (const b of demoBlocks) {
+      map.set(b.layer * 1000 + b.index, b);
+    }
+    return map;
+  }, [demoBlocks]);
+
   // Build block meta from store data + layout positions
   const blockData = useMemo(() => {
     if (demoBlocks.length === 0) return [];
@@ -123,9 +142,7 @@ export default function TowerGrid() {
     const data: BlockMeta[] = [];
     for (let i = 0; i < layoutData.length; i++) {
       const layout = layoutData[i];
-      const storeBlock = demoBlocks.find(
-        (b) => b.layer === layout.layer && b.index === layout.index,
-      );
+      const storeBlock = demoBlockMap.get(layout.layer * 1000 + layout.index);
 
       data.push({
         id: storeBlock?.id ?? `block-${layout.layer}-${layout.index}`,
@@ -140,20 +157,22 @@ export default function TowerGrid() {
     }
 
     return data;
-  }, [layoutData, demoBlocks]);
+  }, [layoutData, demoBlocks, demoBlockMap]);
 
   // Update blockMetaRef for click handler
   useEffect(() => {
     blockMetaRef.current = blockData;
   }, [blockData]);
 
-  // Apply transforms (runs once when layout is ready, resets on blockData identity change)
+  // Apply transforms once when layout is ready.
+  // Matrices only depend on layoutData (positions/rotations), NOT on blockData (energy/color).
+  // Do NOT reset transformsApplied when blockData changes — positions never change at runtime.
   const transformsApplied = useRef(false);
-  const prevBlockDataRef = useRef(blockData);
-  if (prevBlockDataRef.current !== blockData) {
-    // blockData reference changed — need to re-apply transforms
+  const prevLayoutRef = useRef(layoutData);
+  if (prevLayoutRef.current !== layoutData) {
+    // Layout changed — need to recompute matrices
     transformsApplied.current = false;
-    prevBlockDataRef.current = blockData;
+    prevLayoutRef.current = layoutData;
   }
 
   useEffect(() => {
@@ -176,8 +195,10 @@ export default function TowerGrid() {
 
         tempObj.position.copy(block.position);
 
-        // Uniform scale — geometry is already BLOCK_SIZE wide, just apply layer scaling
-        tempObj.scale.set(layerScale, layerScale, layerScale);
+        // Scale: tileScale stretches the block's local X so blocks tile the face perfectly.
+        // rotY aligns block face with tower face tangent, so local X = face direction.
+        const ts = layoutItem.tileScale;
+        tempObj.scale.set(layerScale * ts, layerScale, layerScale);
 
         // Exact rotation from layout — no noise
         tempObj.rotation.set(0, layoutItem.rotY, 0);
@@ -194,8 +215,7 @@ export default function TowerGrid() {
         // Glow mesh: same position, slightly larger for subtle halo
         if (glowMesh) {
           glowObj.position.copy(block.position);
-          const glowScale = GLOW_SCALE * layerScale;
-          glowObj.scale.set(glowScale, glowScale, glowScale);
+          glowObj.scale.set(GLOW_SCALE * layerScale * ts, GLOW_SCALE * layerScale, GLOW_SCALE * layerScale);
           glowObj.rotation.set(0, layoutItem.rotY, 0);
           glowObj.updateMatrix();
           glowMesh.setMatrixAt(i, glowObj.matrix);
@@ -258,9 +278,7 @@ export default function TowerGrid() {
     const imageIndexArray = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       const block = blockData[i];
-      const storeBlock = demoBlocks.find(
-        (b) => b.layer === block.layer && b.index === block.index,
-      );
+      const storeBlock = demoBlockMap.get(block.layer * 1000 + block.index);
       styleArray[i] = storeBlock?.style ?? 0;
       textureArray[i] = storeBlock?.textureId ?? 0;
 
@@ -271,7 +289,7 @@ export default function TowerGrid() {
         // 75% of owned blocks get a demo image (deterministic hash)
         const hash = ((block.layer * 31 + block.index * 7 + 137) & 0xffff);
         if (hash % 4 < 3) { // 75%
-          imgIdx = (hash % 4) + 1; // 1-4
+          imgIdx = (hash % 5) + 1; // 1-5
         }
       }
       imageIndexArray[i] = imgIdx;
@@ -293,7 +311,7 @@ export default function TowerGrid() {
       geo.setAttribute("aTextureId", new THREE.InstancedBufferAttribute(textureArray, 1));
     }
 
-    // Image index attribute (0=None, 1-4=atlas slot)
+    // Image index attribute (0=None, 1-5=atlas slot)
     const existingImage = geo.getAttribute("aImageIndex") as THREE.InstancedBufferAttribute | null;
     if (existingImage && existingImage.count === count) {
       existingImage.set(imageIndexArray);
@@ -302,12 +320,14 @@ export default function TowerGrid() {
       geo.setAttribute("aImageIndex", new THREE.InstancedBufferAttribute(imageIndexArray, 1));
     }
 
-    // ─── Inspect mode attributes (fade + highlight) ──────────
+    // ─── Inspect mode attributes (fade + highlight + pop-out) ──
     if (!fadeCurrentRef.current || fadeCurrentRef.current.length !== count) {
       fadeCurrentRef.current = new Float32Array(count).fill(1.0);
       fadeTargetsRef.current = new Float32Array(count).fill(1.0);
       highlightCurrentRef.current = new Float32Array(count).fill(0.0);
       highlightTargetsRef.current = new Float32Array(count).fill(0.0);
+      popOutCurrentRef.current = new Float32Array(count).fill(0.0);
+      popOutTargetRef.current = new Float32Array(count).fill(0.0);
     }
     const existingFade = geo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
     if (!existingFade || existingFade.count !== count) {
@@ -352,7 +372,7 @@ export default function TowerGrid() {
         }
       }
     }
-  }, [blockData, config, layoutData, demoBlocks]);
+  }, [blockData, config, layoutData, demoBlockMap]);
 
   // Handle claim flash trigger
   useEffect(() => {
@@ -368,13 +388,15 @@ export default function TowerGrid() {
   }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
 
   // Per-frame: update time uniform + camera pos + claim flash
+  // Cap delta to prevent visual jumps after frame stalls
   useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.1);
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value += delta;
+      materialRef.current.uniforms.uTime.value += dt;
       materialRef.current.uniforms.uCameraPos.value.copy(state.camera.position);
     }
     if (glowMaterialRef.current) {
-      glowMaterialRef.current.uniforms.uTime.value += delta;
+      glowMaterialRef.current.uniforms.uTime.value += dt;
     }
 
     // Claim flash: golden celebration burst for 2 seconds
@@ -415,8 +437,8 @@ export default function TowerGrid() {
           // Blend between brilliant gold and owner color
           const block = blockData[flash.blockIndex];
           if (block) {
-            const tempColor = new THREE.Color(block.ownerColor);
-            const gold = new THREE.Color(1.0, 0.85, 0.2); // brilliant gold
+            const tempColor = tmpColorRef.current.set(block.ownerColor);
+            const gold = goldColorRef.current.set(1.0, 0.85, 0.2);
             const blended = gold.lerp(tempColor, 1 - flashIntensity);
             colorAttr.array[flash.blockIndex * 3] = blended.r;
             colorAttr.array[flash.blockIndex * 3 + 1] = blended.g;
@@ -430,7 +452,7 @@ export default function TowerGrid() {
             energyAttr.array[flash.blockIndex] = block.energy / 100;
             energyAttr.needsUpdate = true;
 
-            const tempColor = new THREE.Color(block.ownerColor);
+            const tempColor = tmpColorRef.current.set(block.ownerColor);
             colorAttr.array[flash.blockIndex * 3] = tempColor.r;
             colorAttr.array[flash.blockIndex * 3 + 1] = tempColor.g;
             colorAttr.array[flash.blockIndex * 3 + 2] = tempColor.b;
@@ -441,22 +463,24 @@ export default function TowerGrid() {
       }
     }
 
-    // ─── Inspect mode: fade + highlight animation ──────────
+    // ─── Inspect mode: fade + highlight + pop-out animation ──
     if (selectedBlockId !== prevSelectedIdRef.current) {
       prevSelectedIdRef.current = selectedBlockId;
       const count = blockData.length;
-      if (fadeTargetsRef.current && highlightTargetsRef.current && count > 0) {
+      if (fadeTargetsRef.current && highlightTargetsRef.current && popOutTargetRef.current && count > 0) {
         if (selectedBlockId) {
           const selectedIdx = blockData.findIndex((b) => b.id === selectedBlockId);
           for (let i = 0; i < count; i++) {
             fadeTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.6;
             highlightTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
+            popOutTargetRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
           }
         } else {
           // No selection — restore all blocks to normal
           for (let i = 0; i < count; i++) {
             fadeTargetsRef.current[i] = 1.0;
             highlightTargetsRef.current[i] = 0.0;
+            popOutTargetRef.current[i] = 0.0;
           }
         }
       }
@@ -469,7 +493,7 @@ export default function TowerGrid() {
     const hlTgt = highlightTargetsRef.current;
     if (fadeCur && fadeTgt && hlCur && hlTgt && meshRef.current) {
       let needsFadeUpdate = false;
-      const FADE_LERP = 0.1;
+      const FADE_LERP = 0.14;
       for (let i = 0; i < fadeCur.length; i++) {
         const fd = fadeTgt[i] - fadeCur[i];
         if (Math.abs(fd) > 0.001) {
@@ -504,6 +528,138 @@ export default function TowerGrid() {
         }
       }
     }
+
+    // ─── Pop-out animation: lerp + recompute matrices ────────
+    const popCur = popOutCurrentRef.current;
+    const popTgt = popOutTargetRef.current;
+    if (popCur && popTgt && meshRef.current) {
+      let needsMatrixUpdate = false;
+      const POP_LERP = 0.12;
+      const POP_DISTANCE = CAMERA_CONFIG.inspect.popDistance;
+
+      for (let i = 0; i < popCur.length; i++) {
+        const pd = popTgt[i] - popCur[i];
+        if (Math.abs(pd) > 0.001) {
+          popCur[i] += pd * POP_LERP;
+          needsMatrixUpdate = true;
+        }
+      }
+
+      if (needsMatrixUpdate) {
+        const tempObj = tempObjRef.current;
+        const GLOW_SCALE = 1.08;
+
+        for (let i = 0; i < popCur.length; i++) {
+          if (popCur[i] < 0.001) continue; // skip blocks not popping
+
+          const block = blockData[i];
+          const layoutItem = layoutData[i];
+          if (!block || !layoutItem) continue;
+
+          const layerScale = getLayerScale(block.layer, config.layerCount);
+          const popOffset = popCur[i] * POP_DISTANCE;
+
+          // Pop direction: perpendicular to face (derived from rotY)
+          const px = block.position.x;
+          const pz = block.position.z;
+          const len = Math.sqrt(px * px + pz * pz);
+          const nx = Math.sin(layoutItem.rotY);
+          const nz = Math.cos(layoutItem.rotY);
+          const dot = nx * px + nz * pz;
+
+          let offX: number, offY: number, offZ: number;
+          if (len < 0.01) {
+            // Pinnacle block at origin — pop upward
+            offX = 0; offY = popOffset; offZ = 0;
+          } else if (dot > 0.01) {
+            // Face normal points outward — use it (perpendicular to face)
+            offX = nx * popOffset;
+            offY = 0;
+            offZ = nz * popOffset;
+          } else {
+            // Corner where normal points inward — fall back to radial
+            offX = (px / len) * popOffset;
+            offY = 0;
+            offZ = (pz / len) * popOffset;
+          }
+
+          tempObj.position.set(
+            block.position.x + offX,
+            block.position.y + offY,
+            block.position.z + offZ,
+          );
+          const ts = layoutItem.tileScale;
+          tempObj.scale.set(layerScale * ts, layerScale, layerScale);
+          tempObj.rotation.set(0, layoutItem.rotY, 0);
+          tempObj.updateMatrix();
+          meshRef.current!.setMatrixAt(i, tempObj.matrix);
+
+          // Sync hit mesh
+          if (hitMeshRef.current) {
+            tempObj.scale.multiplyScalar(HIT_SCALE);
+            tempObj.updateMatrix();
+            hitMeshRef.current.setMatrixAt(i, tempObj.matrix);
+          }
+
+          // Sync glow mesh
+          if (glowMeshRef.current) {
+            tempObj.position.set(
+              block.position.x + offX,
+              block.position.y + offY,
+              block.position.z + offZ,
+            );
+            tempObj.scale.set(GLOW_SCALE * layerScale * ts, GLOW_SCALE * layerScale, GLOW_SCALE * layerScale);
+            tempObj.rotation.set(0, layoutItem.rotY, 0);
+            tempObj.updateMatrix();
+            glowMeshRef.current.setMatrixAt(i, tempObj.matrix);
+          }
+        }
+
+        meshRef.current.instanceMatrix.needsUpdate = true;
+        if (hitMeshRef.current) hitMeshRef.current.instanceMatrix.needsUpdate = true;
+        if (glowMeshRef.current) glowMeshRef.current.instanceMatrix.needsUpdate = true;
+
+        // When all pops return to zero, restore base matrices directly
+        const allZero = popCur.every((v) => v < 0.001);
+        if (allZero) {
+          const restoreObj = tempObjRef.current;
+          const GLOW_SCALE = 1.08;
+
+          for (let i = 0; i < blockData.length; i++) {
+            const block = blockData[i];
+            const layoutItem = layoutData[i];
+            if (!block || !layoutItem) continue;
+
+            const layerScale = getLayerScale(block.layer, config.layerCount);
+
+            const rts = layoutItem.tileScale;
+            restoreObj.position.copy(block.position);
+            restoreObj.scale.set(layerScale * rts, layerScale, layerScale);
+            restoreObj.rotation.set(0, layoutItem.rotY, 0);
+            restoreObj.updateMatrix();
+            meshRef.current!.setMatrixAt(i, restoreObj.matrix);
+
+            if (hitMeshRef.current) {
+              restoreObj.scale.multiplyScalar(HIT_SCALE);
+              restoreObj.updateMatrix();
+              hitMeshRef.current.setMatrixAt(i, restoreObj.matrix);
+            }
+
+            if (glowMeshRef.current) {
+              restoreObj.position.copy(block.position);
+              restoreObj.scale.set(GLOW_SCALE * layerScale * rts, GLOW_SCALE * layerScale, GLOW_SCALE * layerScale);
+              restoreObj.rotation.set(0, layoutItem.rotY, 0);
+              restoreObj.updateMatrix();
+              glowMeshRef.current.setMatrixAt(i, restoreObj.matrix);
+            }
+          }
+
+          meshRef.current!.instanceMatrix.needsUpdate = true;
+          if (hitMeshRef.current) hitMeshRef.current.instanceMatrix.needsUpdate = true;
+          if (glowMeshRef.current) glowMeshRef.current.instanceMatrix.needsUpdate = true;
+        }
+      }
+    }
   });
 
   const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
@@ -528,7 +684,7 @@ export default function TowerGrid() {
       <instancedMesh
         ref={meshRef}
         args={[roundedGeometry, undefined, instanceCount]}
-        frustumCulled={true}
+        frustumCulled={false}
         material={material}
       />
 
@@ -536,7 +692,7 @@ export default function TowerGrid() {
       <instancedMesh
         ref={glowMeshRef}
         args={[undefined, undefined, instanceCount]}
-        frustumCulled={true}
+        frustumCulled={false}
         material={glowMaterial}
       >
         <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
@@ -545,7 +701,7 @@ export default function TowerGrid() {
       <instancedMesh
         ref={hitMeshRef}
         args={[undefined, undefined, instanceCount]}
-        frustumCulled={true}
+        frustumCulled={false}
         material={hitMaterial}
         onClick={handleClick}
       >

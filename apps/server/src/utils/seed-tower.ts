@@ -203,6 +203,8 @@ export function seedTower(blocks: MapSchema<BlockSchema>): void {
         block.ownerColor = BLOCK_COLORS[0];
         block.owner = "";
         block.stakedAmount = 0;
+        // 40% of unclaimed blocks show mike's image (slot 5)
+        block.imageIndex = rng() < 0.4 ? 5 : 0;
       } else {
         // Pick persona
         const nearestHood = findNearestNeighborhood(layer, i, neighborhoods);
@@ -243,6 +245,9 @@ export function seedTower(blocks: MapSchema<BlockSchema>): void {
         block.appearance.emoji = persona.emoji;
         block.appearance.name = persona.name;
         block.appearance.color = persona.color;
+
+        // 75% of owned blocks get a demo image (slots 1-5)
+        block.imageIndex = rng() < 0.75 ? Math.floor(rng() * 5) + 1 : 0;
       }
 
       blocks.set(blockId, block);

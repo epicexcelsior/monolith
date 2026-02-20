@@ -42,6 +42,7 @@ function serializeBlock(block: BlockSchema) {
     lastChargeTime: block.lastChargeTime,
     streak: block.streak,
     lastStreakDate: block.lastStreakDate,
+    imageIndex: block.imageIndex,
     appearance: {
       color: block.appearance.color,
       emoji: block.appearance.emoji,

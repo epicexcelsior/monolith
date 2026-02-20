@@ -29,6 +29,7 @@ export class BlockSchema extends Schema {
   lastChargeTime: number = 0;
   streak: number = 0;
   lastStreakDate: string = "";
+  imageIndex: number = 0;   // 0=none, 1-5=atlas slot
   appearance: BlockAppearanceSchema = new BlockAppearanceSchema();
 }
 
@@ -43,6 +44,7 @@ defineTypes(BlockSchema, {
   lastChargeTime: "number",
   streak: "uint16",
   lastStreakDate: "string",
+  imageIndex: "uint8",
   appearance: BlockAppearanceSchema,
 });
 

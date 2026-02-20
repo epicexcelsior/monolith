@@ -30,6 +30,7 @@ interface ServerBlock {
   lastChargeTime: number;
   streak: number;
   lastStreakDate: string;
+  imageIndex: number;
   appearance: {
     color: string;
     emoji: string;
@@ -137,22 +138,76 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     name: block.appearance?.name || undefined,
     style: block.appearance?.style || 0,
     textureId: block.appearance?.textureId || 0,
+    imageIndex: block.imageIndex || 0,
     lastChargeTime: block.lastChargeTime || undefined,
     streak: block.streak || 0,
     lastStreakDate: block.lastStreakDate || undefined,
   };
 }
 
-/** Apply full tower state from server */
+/** Apply full tower state from server — diffs to avoid unnecessary re-renders */
 function applyFullState(data: ServerState) {
   // Skip duplicate ticks (e.g. from Strict Mode double-mount)
   if (data.tick != null && data.tick === lastAppliedTick) return;
   lastAppliedTick = data.tick ?? -1;
 
-  const blocks = data.blocks.map(serverBlockToDemo);
-  if (blocks.length > 0) {
-    useTowerStore.getState().setDemoBlocks(blocks);
-    if (__DEV__) console.log(`[Multiplayer] Full state: ${blocks.length} blocks, tick ${data.tick}`);
+  if (!data.blocks || data.blocks.length === 0) return;
+
+  const store = useTowerStore.getState();
+  const existing = store.demoBlocks;
+
+  // First load — no diffing needed
+  if (existing.length === 0) {
+    const blocks = data.blocks.map(serverBlockToDemo);
+    store.setDemoBlocks(blocks);
+    if (__DEV__) console.log(`[Multiplayer] Initial state: ${blocks.length} blocks, tick ${data.tick}`);
+    return;
+  }
+
+  // Build a fast lookup of existing blocks by layer+index
+  const existingMap = new Map<number, number>(); // cacheKey → index in existing[]
+  for (let i = 0; i < existing.length; i++) {
+    existingMap.set(cacheKey(existing[i].layer, existing[i].index), i);
+  }
+
+  // Diff: only update blocks whose mutable fields actually changed
+  let changed = false;
+  const updated = existing.slice(); // shallow copy only if we need to mutate
+
+  for (const serverBlock of data.blocks) {
+    const key = cacheKey(serverBlock.layer, serverBlock.index);
+    const idx = existingMap.get(key);
+    if (idx == null) {
+      // New block not in existing array — add it
+      updated.push(serverBlockToDemo(serverBlock));
+      changed = true;
+      continue;
+    }
+
+    const cur = existing[idx];
+    // Compare mutable fields — skip position/layer/index (immutable)
+    if (
+      cur.energy !== serverBlock.energy ||
+      cur.owner !== (serverBlock.owner || null) ||
+      cur.ownerColor !== (serverBlock.ownerColor || "#00ffff") ||
+      cur.stakedAmount !== (serverBlock.stakedAmount || 0) ||
+      cur.streak !== (serverBlock.streak || 0) ||
+      cur.style !== (serverBlock.appearance?.style || 0) ||
+      cur.textureId !== (serverBlock.appearance?.textureId || 0) ||
+      cur.imageIndex !== (serverBlock.imageIndex || 0) ||
+      cur.emoji !== (serverBlock.appearance?.emoji || undefined) ||
+      cur.name !== (serverBlock.appearance?.name || undefined)
+    ) {
+      updated[idx] = serverBlockToDemo(serverBlock);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    store.setDemoBlocks(updated);
+    if (__DEV__) console.log(`[Multiplayer] Diff state: tick ${data.tick} (changed)`);
+  } else {
+    if (__DEV__) console.log(`[Multiplayer] Diff state: tick ${data.tick} (no changes)`);
   }
 }
 
@@ -163,12 +218,27 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
   const existing = store.demoBlocks;
 
   // Find and replace the matching block
+  const key = cacheKey(serverBlock.layer, serverBlock.index);
   const idx = existing.findIndex(
-    (b) => b.layer === updated.layer && b.index === updated.index,
+    (b) => cacheKey(b.layer, b.index) === key,
   );
 
   if (idx >= 0) {
-    const newBlocks = [...existing];
+    // Check if anything actually changed before triggering a store update
+    const cur = existing[idx];
+    if (
+      cur.energy === updated.energy &&
+      cur.owner === updated.owner &&
+      cur.ownerColor === updated.ownerColor &&
+      cur.stakedAmount === updated.stakedAmount &&
+      cur.streak === updated.streak &&
+      cur.style === updated.style &&
+      cur.textureId === updated.textureId
+    ) {
+      return; // No meaningful change — skip re-render
+    }
+
+    const newBlocks = existing.slice();
     newBlocks[idx] = updated;
     store.setDemoBlocks(newBlocks);
   }

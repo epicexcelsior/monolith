@@ -377,6 +377,8 @@ export function generateSeedTower(seed: number = _config.seed): DemoBlock[] {
       const isEmpty = roll >= layerDensity;
 
       if (isEmpty) {
+        // 40% of unclaimed blocks show mike's image
+        const unclaimedImage = rng() < 0.4 ? 5 : 0;
         blocks.push({
           id: `block-${layer}-${i}`,
           layer,
@@ -386,6 +388,7 @@ export function generateSeedTower(seed: number = _config.seed): DemoBlock[] {
           owner: null,
           stakedAmount: 0,
           position: usable[i],
+          imageIndex: unclaimedImage,
         });
         continue;
       }
@@ -426,8 +429,8 @@ export function generateSeedTower(seed: number = _config.seed): DemoBlock[] {
         lastStreakDate = d.toISOString().slice(0, 10);
       }
 
-      // 75% of owned blocks get a demo image (1-4)
-      const imageIndex = rng() < 0.75 ? Math.floor(rng() * 4) + 1 : 0;
+      // 75% of owned blocks get a demo image (1-5)
+      const imageIndex = rng() < 0.75 ? Math.floor(rng() * 5) + 1 : 0;
 
       blocks.push({
         id: `block-${layer}-${i}`,

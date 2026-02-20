@@ -8,7 +8,7 @@
  * procedural 4-color test atlas so the shader pipeline is never broken.
  */
 import * as THREE from "three";
-import { ATLAS_WIDTH, ATLAS_HEIGHT, ATLAS_DATA_BASE64 } from "./image-atlas-data";
+import { ATLAS_WIDTH, ATLAS_HEIGHT, ATLAS_COLS, ATLAS_ROWS, ATLAS_DATA_BASE64 } from "./image-atlas-data";
 
 // base64 → Uint8Array (handles large strings via chunked decode)
 function base64ToUint8Array(b64: string): Uint8Array {
@@ -135,10 +135,14 @@ export function getImageAtlasTexture(): THREE.DataTexture {
   return texture;
 }
 
+/** Re-export atlas grid dimensions for shader UV math */
+export { ATLAS_COLS, ATLAS_ROWS };
+
 /** Demo image names mapped to atlas slot indices (1-based) */
 export const DEMO_IMAGES: Record<string, number> = {
   solana: 1,
   dogecoin: 2,
   quicknode: 3,
   toly: 4,
+  mike: 5,
 };

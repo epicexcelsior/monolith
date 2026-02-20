@@ -136,6 +136,8 @@ const fragmentShader = /* glsl */ `
   uniform float uSpireThreshold;
   uniform float uTowerHeight;
   uniform sampler2D uImageAtlas;
+  uniform float uAtlasCols;
+  uniform float uAtlasRows;
   uniform vec3 uCameraPos;
 
   varying float vEnergy;
@@ -335,11 +337,14 @@ const fragmentShader = /* glsl */ `
         interiorU = clamp(interiorU, 0.03, 0.97);
         interiorV = clamp(interiorV, 0.03, 0.97);
 
-        // Atlas UV: 2x2 grid, slots 1-4
+        // Atlas UV: dynamic grid (cols x rows), slots 1-based
         float slot = vImageIndex - 1.0;
-        float atlasCol = mod(slot, 2.0);
-        float atlasRow = floor(slot / 2.0);
-        vec2 atlasUV = (vec2(interiorU, interiorV) + vec2(atlasCol, atlasRow)) * 0.5;
+        float atlasCol = mod(slot, uAtlasCols);
+        float atlasRow = floor(slot / uAtlasCols);
+        vec2 atlasUV = vec2(
+          (interiorU + atlasCol) / uAtlasCols,
+          (interiorV + atlasRow) / uAtlasRows
+        );
 
         vec4 imgColor = texture2D(uImageAtlas, atlasUV);
 
@@ -469,7 +474,7 @@ const fragmentShader = /* glsl */ `
     float bottomFace = max(0.0, -N.y);
     float sideFace = 1.0 - abs(N.y);
 
-    float faceBrightness = 0.65 + 0.30 * NdotL;
+    float faceBrightness = 0.72 + 0.30 * NdotL;
     faceBrightness += topFace * 0.25;
     faceBrightness -= bottomFace * 0.15;
 
@@ -597,16 +602,23 @@ const fragmentShader = /* glsl */ `
 
     float edgeGlow = max(wireframe, faceOutline);
 
-    // ── Dark glass interior ──
-    // Very dark tinted surface — block is clearly there but dormant
-    vec3 glassBase = vec3(0.08, 0.06, 0.05);
-    // Slight face shading so it reads as 3D
-    glassBase += vec3(0.03, 0.025, 0.02) * max(0.0, N.y);
-    glassBase += vec3(0.02, 0.015, 0.01) * max(0.0, dot(N, normalize(vec3(0.4, 0.6, -0.3))));
+    // ── Dark glass interior with subtle inner warmth ──
+    vec3 glassBase = vec3(0.16, 0.12, 0.09);
+    // Face shading so it reads as 3D
+    glassBase += vec3(0.04, 0.03, 0.02) * max(0.0, N.y);
+    glassBase += vec3(0.03, 0.02, 0.01) * max(0.0, dot(N, normalize(vec3(0.4, 0.6, -0.3))));
+
+    // Subtle height-based ambient warmth — unclaimed blocks glow faintly near the base
+    float dormantWarmth = 0.06 + 0.04 * vLayerNorm;
+    glassBase += vec3(0.18, 0.10, 0.04) * dormantWarmth;
+
+    // Gentle breathing pulse — the tower is alive even where unclaimed
+    float dormantPulse = 0.9 + 0.1 * sin(uTime * 0.4 + vInstanceOffset * 1.5);
+    glassBase *= dormantPulse;
 
     // ── Amber edge color — height-graded ──
-    vec3 edgeColorLow = vec3(0.50, 0.25, 0.08);   // warm amber
-    vec3 edgeColorHigh = vec3(0.70, 0.50, 0.15);   // pale gold
+    vec3 edgeColorLow = vec3(0.55, 0.28, 0.10);   // warm amber
+    vec3 edgeColorHigh = vec3(0.75, 0.55, 0.18);   // pale gold
     vec3 edgeColor = mix(edgeColorLow, edgeColorHigh, vLayerNorm);
 
     // Compose: dark glass + glowing edges
@@ -614,7 +626,7 @@ const fragmentShader = /* glsl */ `
 
     // Fresnel rim — amber glow at viewing angle edges
     float rimPulse = 0.85 + 0.15 * sin(uTime * 0.6 + vInstanceOffset * 2.0);
-    deadColor += vec3(0.15, 0.08, 0.03) * fresnel * 0.6 * rimPulse;
+    deadColor += vec3(0.18, 0.10, 0.04) * fresnel * 0.7 * rimPulse;
 
     color = mix(deadColor, color, deadMask);
 
@@ -622,30 +634,29 @@ const fragmentShader = /* glsl */ `
     // LAYER 5: INSPECT MODE (dim + highlight)
     // ═══════════════════════════════════════════════════════
 
-    // Dim non-focused blocks — subtle darken (less for image blocks so images stay visible)
+    // Dim non-focused blocks — aggressive darken for night scene contrast
     float hasImg = step(0.5, vImageIndex) * step(0.01, energy);
-    float dimFloor = mix(0.55, 0.70, hasImg); // image blocks dim less
+    float dimFloor = mix(0.30, 0.45, hasImg); // dark scene needs stronger dim
     color *= mix(dimFloor, 1.0, vFade);
 
-    // Highlight selected block
+    // Highlight selected block — punchy for dark scene
     if (vHighlight > 0.01) {
       float hlHasImage = step(0.5, vImageIndex) * step(0.01, energy);
-      float hlRim = pow(1.0 - NdotV, 2.5);
-      vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.92, 0.7), 0.4);
+      float hlRim = pow(1.0 - NdotV, 2.0); // wider rim (was 2.5)
+      vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.92, 0.7), 0.3);
 
       if (hlHasImage > 0.5) {
-        // IMAGE BLOCKS: rim-only glow — no emissive flood on the face.
-        // Bright owner-colored outline so you know it's selected,
-        // but the image stays fully visible.
-        color += rimColor * hlRim * vHighlight * 1.0;
-        // Very subtle overall brightness lift (just enough to "pop")
-        color *= 1.0 + vHighlight * 0.05;
+        // IMAGE BLOCKS: bright rim glow + moderate face lift
+        color += rimColor * hlRim * vHighlight * 1.8;
+        color *= 1.0 + vHighlight * 0.2;
+        // Warm edge emission so the block pops from the darkness
+        color += vOwnerColor * vHighlight * 0.15;
       } else {
-        // NON-IMAGE BLOCKS: full emissive highlight as before
-        vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.9, 0.6), 0.35);
-        color += emissive * vHighlight * 0.35;
-        color *= 1.0 + vHighlight * 0.25;
-        color += rimColor * hlRim * vHighlight * 0.6;
+        // NON-IMAGE BLOCKS: strong emissive highlight
+        vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.9, 0.6), 0.3);
+        color += emissive * vHighlight * 0.7;
+        color *= 1.0 + vHighlight * 0.4;
+        color += rimColor * hlRim * vHighlight * 1.2;
       }
     }
 
@@ -680,11 +691,13 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
     fragmentShader,
     uniforms: {
       uTime: { value: 0 },
-      uFogColor: { value: new THREE.Color(0x3a2818) },
-      uFogDensity: { value: 0.003 },
+      uFogColor: { value: new THREE.Color(0x2a1828) },
+      uFogDensity: { value: 0.0 },
       uSpireThreshold: { value: SPIRE_START_LAYER / DEFAULT_TOWER_CONFIG.layerCount },
       uTowerHeight: { value: getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount) },
       uImageAtlas: { value: null },
+      uAtlasCols: { value: 3.0 },
+      uAtlasRows: { value: 2.0 },
       uCameraPos: { value: new THREE.Vector3() },
     },
     fog: false,
@@ -755,36 +768,46 @@ const glowFragmentShader = /* glsl */ `
   void main() {
     float energy = clamp(vEnergy, 0.0, 1.0);
 
-    // Steep energy falloff — only very high-energy blocks glow
-    float glowStrength = energy * energy * energy * energy;
-
-    // Discard low-energy fragments (GPU skips most blocks)
-    if (glowStrength < 0.2) discard;
-
     vec3 N = normalize(vNormal);
     vec3 V = normalize(vViewDir);
     float NdotV = max(dot(N, V), 0.0);
-
-    // Fresnel: stronger glow at edges, transparent at center
     float fresnel = pow(1.0 - NdotV, 2.5);
 
-    // Glow color: blend owner color with warm gold
+    // Owned blocks: steep energy falloff for bright glow
+    float glowStrength = energy * energy * energy * energy;
+
+    // Unclaimed blocks: very subtle ambient halo
+    float isDead = step(energy, 0.01);
+    float dormantGlow = isDead * 0.08;
+
+    // Discard truly invisible fragments
+    if (glowStrength < 0.2 && dormantGlow < 0.01) discard;
+
+    // Glow color: blend owner color with warm gold for owned,
+    // warm amber for unclaimed
     vec3 warmGold = vec3(1.0, 0.8, 0.3);
+    vec3 dormantAmber = vec3(0.7, 0.4, 0.12);
     vec3 glowColor = mix(vOwnerColor, warmGold, 0.4) * 1.5;
+    glowColor = mix(glowColor, dormantAmber, isDead);
 
     // Subtle pulse
     float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + vOwnerColor.r * 10.0);
+    // Slower, gentler pulse for dormant blocks
+    float dormantPulse = 0.9 + 0.1 * sin(uTime * 0.5 + vOwnerColor.g * 8.0);
+    pulse = mix(pulse, dormantPulse, isDead);
 
-    float alpha = fresnel * glowStrength * pulse * 0.35;
+    float alpha = fresnel * max(glowStrength, dormantGlow) * pulse * 0.35;
 
     // Inspect mode: fade glow on non-selected, boost on selected
-    alpha *= mix(0.3, 1.0, vFade);
+    alpha *= mix(0.15, 1.0, vFade); // stronger fade in night scene
     if (vHighlight > 0.01) {
-      alpha += vHighlight * glowStrength * 0.5;
-      glowColor *= 1.0 + vHighlight * 0.5;
+      // Force glow visible on highlighted block even at moderate energy
+      float hlGlow = max(glowStrength, 0.4);
+      alpha += vHighlight * hlGlow * 0.8;
+      glowColor *= 1.0 + vHighlight * 0.8;
     }
 
-    gl_FragColor = vec4(glowColor * glowStrength, alpha);
+    gl_FragColor = vec4(glowColor * max(glowStrength, dormantGlow), alpha);
   }
 `;
 

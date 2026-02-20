@@ -21,7 +21,7 @@ const ONBOARDING_KEY = SECURE_STORE_KEYS.HAS_COMPLETED_ONBOARDING;
 
 // Bump this whenever the seed algorithm changes to force a re-seed.
 // Users who already have persisted data will get the new bots on next launch.
-const CURRENT_TOWER_VERSION = "10";
+const CURRENT_TOWER_VERSION = "15";
 
 async function readTowerFile(): Promise<string | null> {
   try {
@@ -106,7 +106,7 @@ export interface DemoBlock {
   name?: string;
   style?: number; // 0=Default, 1=Holographic, 2=Neon, 3=Matte, 4=Glass, 5=Fire, 6=Ice
   textureId?: number; // 0=None, 1=Bricks, 2=Circuits, 3=Scales, 4=Camo, 5=Marble, 6=Carbon
-  imageIndex?: number; // 0=None, 1-4=atlas slot (solana, dogecoin, quicknode, toly)
+  imageIndex?: number; // 0=None, 1-5=atlas slot (solana, dogecoin, quicknode, toly, mike)
   lastChargeTime?: number;
   streak?: number;
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
