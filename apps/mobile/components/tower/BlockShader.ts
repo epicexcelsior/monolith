@@ -302,7 +302,7 @@ const fragmentShader = /* glsl */ `
     // ALL vertical faces become windows (not just outward face).
     // Each face has proper UVs computed from local position.
     // Interior mapping: ray from camera through fragment → virtual back wall.
-    if (vImageIndex > 0.5 && energy > 0.01) {
+    if (vImageIndex > 0.5) {
       // Skip top/bottom faces (Y-dominant normals)
       float isVerticalFace = step(abs(vWorldNormal.y), 0.5);
 
@@ -375,7 +375,8 @@ const fragmentShader = /* glsl */ `
 
         // Compose with depth + effects
         vec3 imgFinal = chromaImg * depthFade * scanline * vignette;
-        imgFinal *= (0.85 + energy * 0.45); // energy brightness
+        float imgBrightness = max(0.35, 0.35 + energy * 0.95); // dim at 0 energy, bright when charged
+        imgFinal *= imgBrightness;
         vec3 imgGlow = imgFinal * energy * 0.2;
 
         // Blend: image dominates inside window frame
@@ -635,13 +636,13 @@ const fragmentShader = /* glsl */ `
     // ═══════════════════════════════════════════════════════
 
     // Dim non-focused blocks — aggressive darken for night scene contrast
-    float hasImg = step(0.5, vImageIndex) * step(0.01, energy);
+    float hasImg = step(0.5, vImageIndex);
     float dimFloor = mix(0.30, 0.45, hasImg); // dark scene needs stronger dim
     color *= mix(dimFloor, 1.0, vFade);
 
     // Highlight selected block — punchy for dark scene
     if (vHighlight > 0.01) {
-      float hlHasImage = step(0.5, vImageIndex) * step(0.01, energy);
+      float hlHasImage = step(0.5, vImageIndex);
       float hlRim = pow(1.0 - NdotV, 2.0); // wider rim (was 2.5)
       vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.92, 0.7), 0.3);
 
