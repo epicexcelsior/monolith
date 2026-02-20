@@ -62,6 +62,11 @@ export const CAMERA_CONFIG = {
     lookAtYOverscroll: 2,
   },
 
+  // ─── Inspect ───────────────────────────────────────────────
+  inspect: {
+    popDistance: 1.2,      // World units the selected block pops outward
+  },
+
   // ─── Transition ─────────────────────────────────────────────
   transition: {
     completionThreshold: 0.5,
@@ -71,6 +76,7 @@ export const CAMERA_CONFIG = {
   overview: {
     azimuth: Math.PI / 5,
     yFloor: 0.5,         // camera Y never goes below this
+    lookAtY: 0.45,       // multiplied by TOWER_HEIGHT for overview center
   },
 } as const;
 

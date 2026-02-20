@@ -4,6 +4,8 @@
 
 ## 2026-02-18
 
+- **Workflow improvement — Shader validation checklist**: After multiple coordinate space bugs during interior mapping implementation, added comprehensive shader validation to `/wrapup` workflow. Checklist covers: varying coordinate space labels, UV computation consistency, uniform updates, attribute counts, `needsUpdate` flags, debug color removal, LOD checks, and transparency pitfalls. Created `react-native-three` skill (`~/.agents/skills/react-native-three/`) with texture loading patterns and shader debugging references.
+
 - **React Native texture loading — DataTexture workaround**: THREE.TextureLoader fails in React Native (no DOM Image). expo-three's `loadAsync` unreliable on device. **Solution**: Pre-encode atlas as base64 RGBA bytes (1.4MB string) → `THREE.DataTexture`. Bypasses all image loading. Include manual base64 decoder as fallback if `atob()` unavailable. Works 100% reliably.
 
 - **Shader coordinate space confusion — local vs world**: When computing per-face UVs for all sides of a cube, using `vWorldNormal` (world-space, after rotation) to decide how to read `vLocalPos` (local-space, before rotation) causes mismatch after instance rotation. **Solution**: Compute face UVs in vertex shader using raw `normal` (local-space), before any transforms. Each face uses correct tangent axes (X-face: local Z,Y; Z-face: local X,Y).

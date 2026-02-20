@@ -33,7 +33,7 @@ describe("createBlockMaterial", () => {
 
   it("should have uSpireThreshold uniform", () => {
     expect(material.uniforms.uSpireThreshold).toBeDefined();
-    expect(material.uniforms.uSpireThreshold.value).toBeCloseTo(18 / 22);
+    expect(material.uniforms.uSpireThreshold.value).toBeCloseTo(16 / 25);
   });
 
   it("should have uTowerHeight uniform", () => {

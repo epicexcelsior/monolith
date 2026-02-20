@@ -18,8 +18,10 @@ import {
     getAssociatedTokenAddress,
 } from "@solana/spl-token";
 
+import * as SecureStore from "expo-secure-store";
+
 import { connection } from "@/services/solana";
-import { APP_IDENTITY, getMwaChain } from "@/services/mwa";
+import { APP_IDENTITY, getMwaChain, SECURE_STORE_KEYS } from "@/services/mwa";
 import {
     MONOLITH_PROGRAM_ID,
     DEVNET_USDC_MINT,
@@ -197,9 +199,24 @@ export function useAnchorProgram() {
 
             if (authToken && isAuthError) {
                 console.warn(TAG, "Reauthorize failed, retrying with fresh authorize:", firstErr?.message);
+
+                // Clear stale auth token so future calls don't retry it
+                await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.AUTH_TOKEN);
+                if (publicKey) {
+                    useWalletStore.getState().setConnected({
+                        publicKey,
+                        authToken: "",
+                        base64Address: useWalletStore.getState().base64Address ?? "",
+                        walletUriBase: walletUriBase ?? "",
+                    });
+                }
+
+                // Brief delay to let MWA close the failed session cleanly
+                await new Promise(r => setTimeout(r, 500));
+
+                // Retry WITHOUT walletUriBase — stale deep-link may be the problem
                 signedTx = await transact(
                     (wallet) => signTransaction(wallet, null),
-                    transactOptions,
                 );
             } else {
                 throw firstErr;

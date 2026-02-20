@@ -19,8 +19,8 @@ import { ENERGY_COLOR_STOPS } from "@/components/tower/BlockShader";
 describe("Monolith tower config", () => {
   const config = DEFAULT_TOWER_CONFIG;
 
-  it("should have 22 layers by default", () => {
-    expect(config.layerCount).toBe(22);
+  it("should have 25 layers by default", () => {
+    expect(config.layerCount).toBe(25);
   });
 
   it("should have shape set to 'monolith'", () => {
@@ -48,10 +48,15 @@ describe("Monolith tower config", () => {
     }
   });
 
-  it("should have the very top layer with few blocks (penthouse)", () => {
-    const topCount = config.blocksPerLayer[config.layerCount - 1];
-    expect(topCount).toBeGreaterThanOrEqual(1);
-    expect(topCount).toBeLessThanOrEqual(12);
+  it("should have exactly one pinnacle layer (1 block) with no blocks above", () => {
+    // Find the highest layer with blocks
+    const lastOccupied = config.blocksPerLayer.findLastIndex((n) => n > 0);
+    expect(lastOccupied).toBeGreaterThan(0);
+    expect(config.blocksPerLayer[lastOccupied]).toBe(1);
+    // Everything above should be 0 (padding for scale consistency)
+    for (let i = lastOccupied + 1; i < config.layerCount; i++) {
+      expect(config.blocksPerLayer[i]).toBe(0);
+    }
   });
 
   it("should have blocksPerLayer array length matching layerCount", () => {

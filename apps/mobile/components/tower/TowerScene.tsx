@@ -20,6 +20,8 @@ import {
 
 const TOWER_HEIGHT = getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount);
 const TOWER_CENTER_Y = TOWER_HEIGHT / 2;
+const OVERVIEW_LOOKAT_Y = TOWER_HEIGHT * CAMERA_CONFIG.overview.lookAtY;
+// ≈ 12.2 instead of 13.6 — shifts viewport down ~5 units so foundation is visible
 
 // ─── Camera Configuration (see CameraConfig.ts for all tunable parameters) ───
 // All camera parameters are now centralized in CAMERA_CONFIG for easy iteration
@@ -129,7 +131,7 @@ interface CameraState {
 function SceneSetup() {
   const { scene } = useThree();
   useMemo(() => {
-    scene.fog = new THREE.FogExp2(0x3a2818, 0.003);
+    scene.fog = null; // No fog — night darkness + lighting falloff provide depth cues
   }, [scene]);
   return null;
 }
@@ -161,6 +163,8 @@ function CameraRig({
   const setZoomTier = useTowerStore((s) => s.setZoomTier);
   const prevSelectedRef = useRef<string | null>(null);
   const prevTierRef = useRef<ZoomTier>("overview");
+  const prevLayerRef = useRef<number>(-1);
+  const prevNearRef = useRef<number>(0);
 
   useFrame(() => {
     const cs = cameraState.current;
@@ -178,13 +182,28 @@ function CameraRig({
       if (selectedBlockId) {
         const block = getDemoBlockById(selectedBlockId);
         if (block) {
-          cs.targetAzimuth = nearestAzimuth(cs.azimuth, Math.atan2(block.position.x, block.position.z));
+          // Compute pop-out offset (radial from tower Y-axis)
+          const POP_DIST = CAMERA_CONFIG.inspect.popDistance;
+          const bx = block.position.x;
+          const bz = block.position.z;
+          const len = Math.sqrt(bx * bx + bz * bz);
+          let popX = 0, popY = 0, popZ = 0;
+          if (len < 0.01) {
+            popY = POP_DIST; // pinnacle pops up
+          } else {
+            popX = (bx / len) * POP_DIST;
+            popZ = (bz / len) * POP_DIST;
+          }
+
+          const targetX = bx + popX;
+          const targetZ = bz + popZ;
+          cs.targetAzimuth = nearestAzimuth(cs.azimuth, Math.atan2(targetX, targetZ));
           cs.targetElevation = BLOCK_ELEVATION;
           cs.targetZoom = ZOOM_BLOCK;
           cs.targetLookAt.set(
-            block.position.x,
-            block.position.y,
-            block.position.z,
+            targetX,
+            block.position.y + popY,
+            targetZ,
           );
           cs.velocityAzimuth = 0;
           cs.velocityElevation = 0;
@@ -196,7 +215,7 @@ function CameraRig({
         // Deselect → smoothly return to full cinematic overview
         cs.targetZoom = ZOOM_OVERVIEW;
         cs.targetElevation = OVERVIEW_ELEVATION;
-        cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
+        cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y, 0);
         cs.velocityAzimuth = 0;
         cs.velocityElevation = 0;
         cs.velocityLookAtY = 0;
@@ -266,7 +285,7 @@ function CameraRig({
       cs.targetLookAt.x += (0 - cs.targetLookAt.x) * 0.02;
       cs.targetLookAt.z += (0 - cs.targetLookAt.z) * 0.02;
       // Gently return Y to tower center too
-      cs.targetLookAt.y += (TOWER_CENTER_Y - cs.targetLookAt.y) * 0.01;
+      cs.targetLookAt.y += (OVERVIEW_LOOKAT_Y - cs.targetLookAt.y) * 0.01;
     }
 
     // ─── Spring-damped interpolation ────────────
@@ -306,16 +325,24 @@ function CameraRig({
 
     // Dynamic near plane: tighter when zoomed in for close detail,
     // relaxed when zoomed out to avoid z-fighting
-    camera.near = Math.max(CAMERA_NEAR, cs.zoom * CAMERA_CONFIG.nearPlaneScale);
-    camera.far = CAMERA_FAR;
-    camera.updateProjectionMatrix();
+    const newNear = Math.max(CAMERA_NEAR, cs.zoom * CAMERA_CONFIG.nearPlaneScale);
+    if (Math.abs(newNear - prevNearRef.current) > 0.01) {
+      camera.near = newNear;
+      camera.far = CAMERA_FAR;
+      camera.updateProjectionMatrix();
+      prevNearRef.current = newNear;
+    }
 
     // ─── Push state for UI overlays ─────────────
     if (currentTier !== prevTierRef.current) {
       setZoomTier(currentTier);
       prevTierRef.current = currentTier;
     }
-    setFocusedLayer(getLayerFromY(cs.lookAt.y));
+    const currentLayer = getLayerFromY(cs.lookAt.y);
+    if (currentLayer !== prevLayerRef.current) {
+      setFocusedLayer(currentLayer);
+      prevLayerRef.current = currentLayer;
+    }
   });
 
   return null;
@@ -324,54 +351,166 @@ function CameraRig({
 // ─── GroundGrid ───────────────────────────────────────────
 
 /**
- * GroundPlane — Static radial gradient ground beneath the tower.
- * No animated caustics — uses cheap hash grain for texture.
- * Wider plane for better environment anchoring.
+ * GroundPlane — Polished stone ground with concentric rings.
+ * Creates a visible surface the foundation sits on, plus a warm light pool.
+ * Positioned at foundation bottom so the tower doesn't float.
  */
 function GroundPlane() {
+  // Foundation: 4 tiers (1.0 + 1.4 + 1.8 + 1.2 = 5.4) starting at y=-0.5
+  const FOUNDATION_BOTTOM = -5.9;
+
+  // Solid ground with carved concentric rings — matches circular foundation
   const groundMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
-      transparent: true,
-      depthWrite: false,
       vertexShader: /* glsl */ `
         varying vec2 vUv;
-        varying vec3 vWorldPos;
         void main() {
           vUv = uv;
-          vec4 wp = modelMatrix * vec4(position, 1.0);
-          vWorldPos = wp.xyz;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: /* glsl */ `
         precision highp float;
         varying vec2 vUv;
-        varying vec3 vWorldPos;
+
+        float hash21(vec2 p) {
+          p = fract(p * vec2(233.34, 851.73));
+          p += dot(p, p + 23.45);
+          return fract(p.x * p.y);
+        }
 
         void main() {
           vec2 center = vUv - 0.5;
+          float dist = length(center);
+          float ang = atan(center.y, center.x);
 
-          // Rectangular fade — stronger on the short edges, softer on long
-          float fadeX = smoothstep(0.5, 0.3, abs(center.x));
-          float fadeY = smoothstep(0.5, 0.3, abs(center.y));
-          float rectFade = fadeX * fadeY;
+          // ─── Base stone color with subtle noise ──
+          vec2 noiseUV = vUv * 8.0;
+          float noise = hash21(floor(noiseUV)) * 0.08;
+          vec3 stoneColor = vec3(0.14, 0.11, 0.08) + noise;
 
-          // Static hash grain (no noise2D, no uTime)
-          float grain = fract(sin(dot(vWorldPos.xz, vec2(12.9898, 78.233))) * 43758.5453);
+          // ─── Concentric ring grooves (carved stone circles) ──
+          float ringFreq = dist * 35.0; // ring density
+          float ring = smoothstep(0.40, 0.50, abs(fract(ringFreq) - 0.5));
+          stoneColor = mix(stoneColor, vec3(0.10, 0.08, 0.06), ring * 0.5);
 
-          // Base color: golden sand center, darker warm edges
-          vec3 darkBase = vec3(0.18, 0.14, 0.08);
-          vec3 warmCenter = vec3(0.50, 0.38, 0.18);
-          vec3 color = mix(warmCenter, darkBase, smoothstep(0.0, 0.35, length(center)));
+          // ─── Radial spoke lines (pie-slice divisions) ──
+          float spokes = 24.0;
+          float spoke = smoothstep(0.47, 0.50, abs(fract(ang * spokes / 6.2832) - 0.5));
+          stoneColor = mix(stoneColor, vec3(0.10, 0.08, 0.06), spoke * 0.3 * step(dist, 0.25));
 
-          // Add grain texture + subtle warm variation
-          color += vec3(0.06, 0.04, 0.02) * (grain - 0.5);
+          // ─── Warm tower light pool — bright center ──
+          float warmth = smoothstep(0.30, 0.0, dist);
+          stoneColor += vec3(0.45, 0.28, 0.10) * warmth * warmth;
 
-          // Brighter overall — ground should read clearly against sky
-          float alpha = rectFade * 0.9;
+          // Mid-range warm glow
+          float midWarmth = smoothstep(0.40, 0.08, dist);
+          stoneColor += vec3(0.18, 0.10, 0.04) * midWarmth;
 
-          gl_FragColor = vec4(color, alpha);
+          // ─── Outer ambient — visible but dark (not void) ──
+          stoneColor += vec3(0.04, 0.03, 0.02) * smoothstep(0.45, 0.25, dist);
+
+          // ─── Ring highlight near foundation base ──
+          // Bright concentric ring right where foundation meets ground
+          float foundationRing = smoothstep(0.02, 0.0, abs(dist - 0.10));
+          stoneColor += vec3(0.40, 0.25, 0.08) * foundationRing * 0.6;
+
+          // ─── Circular fade — far edges go transparent ──
+          float edgeFade = smoothstep(0.50, 0.38, dist);
+
+          gl_FragColor = vec4(stoneColor, edgeFade);
+        }
+      `,
+      transparent: true,
+      depthWrite: true,
+    });
+  }, []);
+
+  // Warm additive light pool overlay
+  const lightPoolMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        varying vec2 vUv;
+
+        void main() {
+          vec2 center = vUv - 0.5;
+          float dist = length(center);
+
+          vec3 warmColor = vec3(0.50, 0.30, 0.10);
+          float alpha = smoothstep(0.25, 0.0, dist) * 0.35;
+
+          gl_FragColor = vec4(warmColor, alpha);
+        }
+      `,
+    });
+  }, []);
+
+  return (
+    <group>
+      {/* Solid stone ground — concentric ring pattern */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, FOUNDATION_BOTTOM - 0.05, 0]}
+        material={groundMaterial}
+      >
+        <circleGeometry args={[100, 64]} />
+      </mesh>
+      {/* Additive warm light pool on top */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, FOUNDATION_BOTTOM, 0]}
+        material={lightPoolMaterial}
+      >
+        <circleGeometry args={[60, 48]} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * AtmosphericHaze — Warm volumetric-like glow around tower base.
+ * Additive-blended plane that creates atmospheric depth.
+ * 1 extra draw call, trivial shader.
+ */
+function AtmosphericHaze() {
+  const hazeMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        varying vec2 vUv;
+
+        void main() {
+          vec2 center = vUv - 0.5;
+          float dist = length(center);
+
+          vec3 hazeColor = vec3(0.35, 0.22, 0.08);
+          float alpha = smoothstep(0.45, 0.0, dist) * 0.20;
+
+          gl_FragColor = vec4(hazeColor, alpha);
         }
       `,
     });
@@ -380,10 +519,10 @@ function GroundPlane() {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -0.3, 0]}
-      material={groundMaterial}
+      position={[0, -3.5, 0]}
+      material={hazeMaterial}
     >
-      <planeGeometry args={[50, 50]} />
+      <planeGeometry args={[160, 160]} />
     </mesh>
   );
 }
@@ -431,19 +570,17 @@ function BackgroundPlane() {
 }
 
 /**
- * Golden Hour Skybox — Stunning procedural sky with atmospheric effects.
+ * Night Monument Skybox — Dark sky where the tower is the light source.
  *
  * Features:
- * - Sun disk with warm corona bloom at horizon
- * - Atmospheric scattering gradient (golden hour palette)
- * - Procedural cloud wisps lit from below by golden light
- * - Radial god rays from sun position
- * - Twinkling warm starfield in upper hemisphere
+ * - Dark night sky with visible stars across the full upper hemisphere
+ * - Warm ambient horizon glow (tower light scattering in atmosphere)
+ * - Below horizon: warm amber wash (tower lighting the ground/air)
+ * - No sun disk — the tower IS the light
  *
- * Performance: Single draw call, all computation in fragment shader.
- * No textures needed — runs perfectly in React Native.
+ * Performance: Single draw call, simple gradient + star hash.
  */
-function GoldenSkybox() {
+function NightSkybox() {
   const skyMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       side: THREE.BackSide,
@@ -464,36 +601,6 @@ function GoldenSkybox() {
         varying vec3 vWorldPosition;
         uniform float uTime;
 
-        // ─── Noise functions for clouds ───────────────
-        float hash21(vec2 p) {
-          p = fract(p * vec2(233.34, 851.73));
-          p += dot(p, p + 23.45);
-          return fract(p.x * p.y);
-        }
-
-        float noise2D(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          f = f * f * (3.0 - 2.0 * f);
-          float a = hash21(i);
-          float b = hash21(i + vec2(1.0, 0.0));
-          float c = hash21(i + vec2(0.0, 1.0));
-          float d = hash21(i + vec2(1.0, 1.0));
-          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-        }
-
-        float fbm(vec2 p) {
-          float val = 0.0;
-          float amp = 0.5;
-          for (int i = 0; i < 3; i++) {
-            val += amp * noise2D(p);
-            p *= 2.1;
-            amp *= 0.5;
-          }
-          return val;
-        }
-
-        // ─── Star hash ───────────────────────────────
         float hash3D(vec3 p) {
           p = fract(p * 0.3183099 + 0.1);
           p *= 17.0;
@@ -503,121 +610,109 @@ function GoldenSkybox() {
         void main() {
           vec3 dir = normalize(vWorldPosition);
 
-          // ─── Smooth latitude mapping ───────────────
-          // Use atan2 for Y vs XZ-plane to avoid acos pole singularity
           float elevation = atan(dir.y, length(dir.xz));
-          // Map: +PI/2 (zenith) → 0, 0 (horizon) → 0.5, -PI/2 (nadir) → 1
+          // lat: 0 = zenith, 0.5 = horizon, 1.0 = nadir
           float lat = 0.5 - elevation / 3.14159265;
-          float aboveHorizon = smoothstep(0.52, 0.48, lat);
           float azimuth = atan(dir.x, dir.z);
 
-          // ─── Sun position (low on horizon for dramatic golden hour) ──
-          vec3 sunDir = normalize(vec3(0.3, 0.06, -1.0));
-          float sunAngle = max(dot(dir, sunDir), 0.0);
+          // ─── Night sky gradient (Solana-inspired: deep purple → teal horizon) ──
+          // nadirColor matches canvas bg (#120e18) for seamless bottom edge
+          vec3 zenithColor   = vec3(0.06, 0.04, 0.18);    // deep indigo
+          vec3 upperSky      = vec3(0.10, 0.06, 0.22);    // purple-blue
+          vec3 midSky        = vec3(0.14, 0.08, 0.25);    // clear purple
+          vec3 lowerMidSky   = vec3(0.10, 0.12, 0.24);    // purple-teal transition
+          vec3 horizonGlow   = vec3(0.06, 0.18, 0.20);    // muted teal-green
+          vec3 belowHorizon  = vec3(0.10, 0.10, 0.14);    // dark purple-grey
+          vec3 nadirColor    = vec3(0.07, 0.055, 0.094);   // matches canvas #120e18
 
-          // ─── Sky gradient — richer golden sunset ───
-          vec3 zenithColor    = vec3(0.06, 0.04, 0.08);       // cool indigo-dark (contrast w/ warm horizon)
-          vec3 upperSky       = vec3(0.12, 0.08, 0.14);       // dusky purple (reads as "sky" not "brown")
-          vec3 midSky         = vec3(0.45, 0.22, 0.12);       // warm copper transition
-          vec3 horizonPeak    = vec3(1.3, 0.85, 0.35);        // intense warm gold (HDR)
-          vec3 horizonGlow    = vec3(1.1, 0.65, 0.22);        // rich golden glow
-          vec3 horizonBand    = vec3(0.70, 0.38, 0.12);       // deep amber band
-          vec3 horizonWarm    = vec3(0.55, 0.32, 0.14);       // warm amber
-          vec3 belowHorizon   = vec3(0.42, 0.28, 0.14);       // amber below
-          vec3 nadirColor     = vec3(0.20, 0.14, 0.08);        // dark ground (contrast with bright ground plane)
-
-          // Smooth multi-stop gradient with wider, more dramatic horizon band
+          // Smooth gradient — wide overlapping bands, no hard edges
           vec3 skyColor;
-          if (lat < 0.06) {
-            skyColor = mix(zenithColor, upperSky, lat / 0.06);
-          } else if (lat < 0.18) {
-            skyColor = mix(upperSky, midSky, (lat - 0.06) / 0.12);
-          } else if (lat < 0.32) {
-            skyColor = mix(midSky, horizonPeak, (lat - 0.18) / 0.14);
-          } else if (lat < 0.42) {
-            // Near horizon — brightest, widest glow
-            skyColor = mix(horizonPeak, horizonGlow, (lat - 0.32) / 0.10);
-          } else if (lat < 0.50) {
-            skyColor = mix(horizonGlow, horizonBand, (lat - 0.42) / 0.08);
-          } else if (lat < 0.58) {
-            // Below horizon — amber falloff
-            skyColor = mix(horizonBand, horizonWarm, (lat - 0.50) / 0.08);
-          } else if (lat < 0.72) {
-            skyColor = mix(horizonWarm, belowHorizon, (lat - 0.58) / 0.14);
+          if (lat < 0.12) {
+            skyColor = mix(zenithColor, upperSky, lat / 0.12);
+          } else if (lat < 0.30) {
+            skyColor = mix(upperSky, midSky, (lat - 0.12) / 0.18);
+          } else if (lat < 0.38) {
+            skyColor = mix(midSky, lowerMidSky, (lat - 0.30) / 0.08);
+          } else if (lat < 0.48) {
+            skyColor = mix(lowerMidSky, horizonGlow, (lat - 0.38) / 0.10);
+          } else if (lat < 0.62) {
+            // Wide smooth horizon-to-below transition
+            skyColor = mix(horizonGlow, belowHorizon, (lat - 0.48) / 0.14);
           } else {
-            skyColor = mix(belowHorizon, nadirColor, smoothstep(0.72, 1.0, lat));
+            // Gradual fade all the way to nadir — no hard cutoff
+            skyColor = mix(belowHorizon, nadirColor, smoothstep(0.62, 0.95, lat));
           }
 
-          // Warm radiance at the very bottom — gives sense of ground
-          float nadirBoost = smoothstep(0.55, 1.0, lat) * 0.15;
-          skyColor += vec3(0.20, 0.12, 0.05) * nadirBoost;
+          // ─── Nebula wisps + aurora (sin-based, no noise) ────────
+          // Bold flowing energy wisps — must be clearly visible on mobile
+          // wispFade: STRONGEST at horizon (where camera actually sees sky),
+          // fades toward zenith. Camera viewport top is ~lat 0.48.
+          if (lat < 0.55) {
+            float wispFade = smoothstep(0.55, 0.30, lat);
 
-          // ─── Sun disk + corona (richer) ────────────
-          float sunDisk = pow(sunAngle, 500.0) * 3.5;
-          vec3 sunColor = vec3(1.0, 0.92, 0.55);
+            // Wisp 1: broad purple-magenta band
+            float w1 = sin(azimuth * 2.0 + lat * 8.0 + uTime * 0.08) *
+                        sin(azimuth * 3.0 - lat * 5.0 - uTime * 0.05);
+            w1 = smoothstep(0.2, 0.7, w1 * 0.5 + 0.5);
+            vec3 wispColor1 = vec3(0.45, 0.18, 0.70); // bold purple
+            skyColor += wispColor1 * w1 * wispFade * 0.9;
 
-          float corona = pow(sunAngle, 6.0) * 0.9;
-          vec3 coronaColor = vec3(1.0, 0.6, 0.18);
+            // Wisp 2: teal-cyan wisps
+            // NOTE: all azimuth multipliers MUST be integers to avoid seam
+            // at atan2 wrap point (azimuth jumps +π → -π)
+            float w2 = sin(azimuth * 5.0 + lat * 12.0 - uTime * 0.06) *
+                        sin(azimuth * 2.0 + lat * 4.0 + uTime * 0.04);
+            w2 = smoothstep(0.4, 0.85, w2 * 0.5 + 0.5);
+            vec3 wispColor2 = vec3(0.12, 0.40, 0.55); // vivid teal
+            skyColor += wispColor2 * w2 * wispFade * 0.8;
 
-          float atmoGlow = pow(sunAngle, 2.0) * 0.45;
-          vec3 atmoColor = vec3(0.95, 0.5, 0.12);
+            // Wisp 3: teal-green energy near horizon (Solana accent)
+            float w3 = sin(azimuth * 4.0 - lat * 6.0 + uTime * 0.03);
+            w3 = smoothstep(0.5, 0.9, w3 * 0.5 + 0.5);
+            float horizonWisp = smoothstep(0.05, 0.35, lat) * smoothstep(0.55, 0.35, lat);
+            vec3 wispColor3 = vec3(0.08, 0.40, 0.30); // teal-green
+            skyColor += wispColor3 * w3 * horizonWisp * 0.7;
 
-          // ─── God rays (2 octaves, above horizon) ───
-          float rayAngle = atan(dir.x - sunDir.x, dir.z - sunDir.z);
-          float rays = 0.0;
-          for (float i = 1.0; i <= 2.0; i += 1.0) {
-            float freq = 6.0 * i;
-            float ray = pow(max(sin(rayAngle * freq + uTime * 0.05 * i), 0.0), 12.0);
-            ray *= pow(sunAngle, 3.0) * (0.18 / i);
-            rays += ray;
+            // Wisp 4: emerald aurora — northern lights accent
+            float w4 = sin(azimuth * 4.0 + lat * 10.0 + uTime * 0.07) *
+                        sin(azimuth * 2.0 - lat * 7.0 - uTime * 0.04);
+            w4 = smoothstep(0.3, 0.8, w4 * 0.5 + 0.5);
+            vec3 wispColor4 = vec3(0.10, 0.50, 0.22); // bold emerald
+            skyColor += wispColor4 * w4 * wispFade * 0.65;
+
+            // Wisp 5: horizon aurora band — teal-green for visible camera range
+            float horizBand = smoothstep(0.55, 0.45, lat) * smoothstep(0.30, 0.40, lat);
+            float w5 = sin(azimuth * 2.0 + lat * 15.0 + uTime * 0.06) *
+                        sin(azimuth * 3.0 - lat * 8.0 - uTime * 0.03);
+            w5 = smoothstep(0.2, 0.65, w5 * 0.5 + 0.5);
+            vec3 wispColor5 = vec3(0.06, 0.35, 0.28); // Solana teal
+            skyColor += wispColor5 * w5 * horizBand * 0.8;
           }
-          vec3 rayColor = vec3(1.0, 0.7, 0.25) * rays * aboveHorizon;
 
-          // ─── Procedural clouds (richer, more visible) ──
-          vec2 cloudUV = vec2(azimuth * 1.5, lat * 6.0);
-          cloudUV += uTime * 0.008;
-
-          float cloudNoise = fbm(cloudUV * 1.5);
-          float cloudMask = smoothstep(0.08, 0.22, lat) * smoothstep(0.52, 0.28, lat);
-          float clouds = smoothstep(0.30, 0.65, cloudNoise) * cloudMask * 0.8;
-
-          // Cloud color: golden-lit from below
-          vec3 cloudLitColor = mix(
-            vec3(0.55, 0.30, 0.10),
-            vec3(1.0, 0.72, 0.28),
-            pow(sunAngle, 1.5) * 0.5 + 0.5
-          );
-
-          // ─── Stars (upper sky only) ────────────────
+          // ─── Stars (visible across most of upper hemisphere) ──
           vec3 starContrib = vec3(0.0);
-          if (lat < 0.25) {
-            vec3 starPos = dir * 80.0;
-            float starVal = hash3D(floor(starPos));
-            if (starVal > 0.997) {
-              float twinkle = 0.5 + 0.5 * sin(uTime * 2.5 + starVal * 80.0);
-              float brightness = (starVal - 0.997) * 333.0 * twinkle;
-              float starFade = smoothstep(0.25, 0.10, lat);
-              starContrib = vec3(1.0, 0.88, 0.55) * brightness * starFade;
+          if (lat < 0.48) {
+            // Two densities of stars for depth
+            vec3 starPos1 = dir * 100.0;
+            float sv1 = hash3D(floor(starPos1));
+            if (sv1 > 0.994) {
+              float twinkle = 0.6 + 0.4 * sin(uTime * 2.0 + sv1 * 100.0);
+              float brightness = (sv1 - 0.994) * 166.0 * twinkle * 1.5;
+              float fade = smoothstep(0.48, 0.15, lat);
+              vec3 starColor = mix(vec3(0.8, 0.85, 1.0), vec3(1.0, 0.9, 0.7), sv1 * 3.0);
+              starContrib = starColor * brightness * fade;
+            }
+            // Dimmer background stars
+            vec3 starPos2 = dir * 200.0;
+            float sv2 = hash3D(floor(starPos2));
+            if (sv2 > 0.993) {
+              float brightness = (sv2 - 0.993) * 60.0;
+              float fade = smoothstep(0.48, 0.10, lat);
+              starContrib += vec3(0.7, 0.75, 0.9) * brightness * fade;
             }
           }
 
-          // ─── Combine everything ────────────────────
-          vec3 color = skyColor;
-
-          // Sun + corona + atmospheric glow
-          float sunVis = smoothstep(0.58, 0.46, lat);
-          color += sunColor * sunDisk * sunVis;
-          color += coronaColor * corona * sunVis;
-          color += atmoColor * atmoGlow * sunVis;
-
-          // God rays
-          color += rayColor;
-
-          // Blend clouds
-          color = mix(color, cloudLitColor, clouds);
-
-          // Stars
-          color += starContrib * (1.0 - clouds);
+          vec3 color = skyColor + starContrib;
 
           gl_FragColor = vec4(color, 1.0);
         }
@@ -625,16 +720,15 @@ function GoldenSkybox() {
     });
   }, []);
 
-  // Animate
   useFrame((_, delta) => {
     if (skyMaterial.uniforms.uTime) {
-      skyMaterial.uniforms.uTime.value += delta;
+      skyMaterial.uniforms.uTime.value += Math.min(delta, 0.1);
     }
   });
 
   return (
     <mesh material={skyMaterial}>
-      <sphereGeometry args={[800, 24, 16]} />
+      <sphereGeometry args={[800, 32, 32]} />
     </mesh>
   );
 }
@@ -659,8 +753,8 @@ export default function TowerScene() {
     targetAzimuth: OVERVIEW_AZIMUTH,
     targetElevation: OVERVIEW_ELEVATION,
     targetZoom: ZOOM_OVERVIEW,
-    lookAt: new THREE.Vector3(0, TOWER_CENTER_Y, 0),
-    targetLookAt: new THREE.Vector3(0, TOWER_CENTER_Y, 0),
+    lookAt: new THREE.Vector3(0, OVERVIEW_LOOKAT_Y, 0),
+    targetLookAt: new THREE.Vector3(0, OVERVIEW_LOOKAT_Y, 0),
     velocityAzimuth: 0,
     velocityElevation: 0,
     velocityLookAtY: 0,
@@ -706,7 +800,7 @@ export default function TowerScene() {
     // Keep current rotation — only reset zoom, elevation, and lookAt
     cs.targetElevation = OVERVIEW_ELEVATION;
     cs.targetZoom = ZOOM_OVERVIEW;
-    cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
+    cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y, 0);
     cs.velocityAzimuth = 0;
     cs.velocityElevation = 0;
     cs.velocityLookAtY = 0;
@@ -899,7 +993,7 @@ export default function TowerScene() {
           alpha: false,
           powerPreference: "high-performance",
         }}
-        camera={{ position: [0, TOWER_CENTER_Y, ZOOM_OVERVIEW], fov: 50, near: CAMERA_NEAR, far: CAMERA_FAR }}
+        camera={{ position: [0, OVERVIEW_LOOKAT_Y, ZOOM_OVERVIEW], fov: 50, near: CAMERA_NEAR, far: CAMERA_FAR }}
       >
         <SceneSetup />
         <CameraRig
@@ -907,30 +1001,54 @@ export default function TowerScene() {
           lastTouchTime={lastTouchTime}
         />
 
-        {/* ─── Lighting (warm golden radiance, optimized) ── */}
-        <ambientLight intensity={0.45} color="#FFE8C0" />
-        {/* Hemisphere: golden sky + warm earth fill — replaces multiple fill lights */}
-        <hemisphereLight args={['#FFD080', '#3D2010', 0.5]} />
-        {/* Main key light */}
-        <directionalLight position={[12, 30, 8]} intensity={1.4} color="#FFF0D0" />
-        {/* Warm fill from side */}
-        <directionalLight position={[-15, 15, -5]} intensity={0.5} color="#D4A050" />
-        {/* Spire crown glow */}
+        {/* ─── Lighting (urban night — tower floods its surroundings) ── */}
+        {/* Ambient: warm tint, enough to see foundation + ground clearly */}
+        <ambientLight intensity={0.30} color="#D4C4A0" />
+        {/* Hemisphere: cool sky above + warm tower bounce below */}
+        <hemisphereLight args={['#3a2850', '#8A5820', 0.5]} />
+        {/* Subtle cool key light — night fill, reads as moonlight */}
+        <directionalLight position={[12, 40, 8]} intensity={0.45} color="#C0C8E0" />
+        {/* Tower base uplight — strong warm glow flooding the foundation */}
+        <pointLight
+          position={[0, 1, 0]}
+          intensity={5.0}
+          color="#FFB040"
+          distance={50}
+          decay={1.2}
+        />
+        {/* Spire crown glow — the tower's beacon */}
         <pointLight
           position={[0, TOWER_HEIGHT - 2, 0]}
-          intensity={2.0}
+          intensity={6.0}
           color="#FFD700"
-          distance={18}
-          decay={1.5}
+          distance={40}
+          decay={1.0}
+        />
+        {/* Mid-tower warm fill — represents aggregate block energy */}
+        <pointLight
+          position={[0, TOWER_HEIGHT * 0.5, 0]}
+          intensity={3.5}
+          color="#FFA030"
+          distance={35}
+          decay={1.2}
+        />
+        {/* Foundation down-light — ensures the pedestal steps are visible */}
+        <pointLight
+          position={[0, 4, 0]}
+          intensity={4.0}
+          color="#FFCC60"
+          distance={30}
+          decay={1.4}
         />
 
         {/* ─── Scene Content ────────────────────────── */}
-        <GoldenSkybox />
+        <NightSkybox />
         <BackgroundPlane />
         <TowerGrid />
         <Particles />
         <Foundation />
         <GroundPlane />
+        <AtmosphericHaze />
       </Canvas>
     </View>
   );
@@ -939,6 +1057,6 @@ export default function TowerScene() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0e0a12",
+    backgroundColor: "#120e18", // matches sky nadirColor for seamless edge
   },
 });

@@ -101,21 +101,21 @@ export function getTowerHeight(totalLayers: number): number {
 }
 
 /** Layer index where the spire (converging crown) begins */
-export const SPIRE_START_LAYER = 18;
+export const SPIRE_START_LAYER = 16;
 
 // Legacy aliases (kept for any external references)
 export const BASE_RADIUS = MONOLITH_HALF_W;
 export const TOP_RADIUS = 1;
 
 /**
- * How many blocks fit edge-to-edge on a single face of the given width
- * at the given layer scale. Uses Math.round so blocks tile tightly
- * (minor overlaps preferred over visible gaps for a solid monolith).
+ * How many blocks fit on a single face of the given width at the given
+ * layer scale. Uses Math.round for the best fit — the layout system
+ * applies a per-face tileScale to eliminate any remaining gap/overlap.
  */
 export function computeBlocksForFace(faceWidth: number, scale: number): number {
   const blockWidth = BLOCK_SIZE * scale;
   if (faceWidth < blockWidth * 0.5) return 0; // face too small
-  return Math.max(1, Math.round(faceWidth / (blockWidth + BLOCK_GAP)));
+  return Math.max(1, Math.round(faceWidth / blockWidth));
 }
 
 /**
@@ -129,7 +129,7 @@ export function getSpireDimensions(
 ): { hw: number; hd: number; shrink: number } {
   const spireProgress =
     (layer - SPIRE_START_LAYER) / (totalLayers - 1 - SPIRE_START_LAYER);
-  const shrink = 1 - spireProgress * 0.75;
+  const shrink = Math.pow(1 - spireProgress, 1.5);
   return { hw: halfW * shrink, hd: halfD * shrink, shrink };
 }
 
@@ -142,11 +142,18 @@ export function getSpireDimensions(
  *
  * Target: ~600-900 total blocks (single InstancedMesh = 1 draw call)
  */
-export function generateTowerConfig(layerCount: number = 22): TowerConfig {
+export function generateTowerConfig(layerCount: number = 25): TowerConfig {
   const blocksPerLayer: number[] = [];
+  let pinnacleReached = false;
 
   for (let i = 0; i < layerCount; i++) {
     const scale = getLayerScale(i, layerCount);
+
+    if (pinnacleReached) {
+      // After the pinnacle, emit 0-block layers to preserve scale indexing
+      blocksPerLayer.push(0);
+      continue;
+    }
 
     if (i < SPIRE_START_LAYER) {
       // Body layer — face-fitted count + 4 corner blocks
@@ -159,9 +166,19 @@ export function generateTowerConfig(layerCount: number = 22): TowerConfig {
       const front = computeBlocksForFace(2 * hw, scale);
       const side = computeBlocksForFace(2 * hd, scale);
       const faceTotal = 2 * front + 2 * side;
-      // Add corners only when there are blocks on both face directions
+      // Add corners only when faces are large enough — skip at spire tip
+      // where blocks are wider than the face (corners would overlap face blocks)
+      const blockWidth = BLOCK_SIZE * scale;
       const corners = (front > 0 && side > 0) ? 4 : 0;
-      blocksPerLayer.push(Math.max(1, faceTotal + corners));
+      const count = Math.max(1, faceTotal + corners);
+
+      if (count === 1) {
+        // Single pinnacle block — crown of the tower
+        blocksPerLayer.push(1);
+        pinnacleReached = true;
+      } else {
+        blocksPerLayer.push(count);
+      }
     }
   }
 
@@ -173,8 +190,8 @@ export function generateTowerConfig(layerCount: number = 22): TowerConfig {
   };
 }
 
-/** Default tower: 22 layers (18 body + 4 spire), ~700+ blocks */
-export const DEFAULT_TOWER_CONFIG = generateTowerConfig(22);
+/** Default tower: 25 layers (16 body + 9 spire tapering to 1 pinnacle block) */
+export const DEFAULT_TOWER_CONFIG = generateTowerConfig(25);
 
 // ─── LOD Distances ────────────────────────────────────────
 /** Distance thresholds for Level of Detail tiers */
