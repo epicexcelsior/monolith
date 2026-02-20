@@ -1,124 +1,362 @@
 # Lessons Learned
 
-> **Living document.** Add new entries at the top. Review periodically and prune anything no longer relevant.
+> **Living document.** Add new entries at the top of the relevant section. Review periodically and prune anything no longer relevant.
 
-## 2026-02-18
+## Topic Index
 
-- **Workflow improvement — Shader validation checklist**: After multiple coordinate space bugs during interior mapping implementation, added comprehensive shader validation to `/wrapup` workflow. Checklist covers: varying coordinate space labels, UV computation consistency, uniform updates, attribute counts, `needsUpdate` flags, debug color removal, LOD checks, and transparency pitfalls. Created `react-native-three` skill (`~/.agents/skills/react-native-three/`) with texture loading patterns and shader debugging references.
+- [Camera & Gestures](#camera--gestures)
+- [Shaders & 3D Rendering](#shaders--3d-rendering)
+- [Multiplayer & Networking](#multiplayer--networking)
+- [Solana & Anchor](#solana--anchor)
+- [React Native & Expo](#react-native--expo)
+- [Performance](#performance)
+- [Deployment & DevOps](#deployment--devops)
+- [UI/UX & Design System](#uiux--design-system)
+- [Development Workflow](#development-workflow)
 
-- **React Native texture loading — DataTexture workaround**: THREE.TextureLoader fails in React Native (no DOM Image). expo-three's `loadAsync` unreliable on device. **Solution**: Pre-encode atlas as base64 RGBA bytes (1.4MB string) → `THREE.DataTexture`. Bypasses all image loading. Include manual base64 decoder as fallback if `atob()` unavailable. Works 100% reliably.
+---
 
-- **Shader coordinate space confusion — local vs world**: When computing per-face UVs for all sides of a cube, using `vWorldNormal` (world-space, after rotation) to decide how to read `vLocalPos` (local-space, before rotation) causes mismatch after instance rotation. **Solution**: Compute face UVs in vertex shader using raw `normal` (local-space), before any transforms. Each face uses correct tangent axes (X-face: local Z,Y; Z-face: local X,Y).
+## Camera & Gestures
 
-- **Interior mapping for 3D depth illusion**: To make flat images feel 3D, cast ray from camera through fragment into a virtual room. Ray hits "back wall" at depth 0.55, creating parallax that shifts with camera movement. Apply on all 4 vertical faces (skip top/bottom). Adds depth darkening, window frame mask, scanlines, chromatic aberration for sci-fi feel.
+### Camera State Must Fully Reset on Block Deselect (2026-02-15)
+**Problem**: When closing a block viewer, only lookAt X/Z were reset but zoom stayed at `ZOOM_BLOCK` — camera clipped inside tower.
+**Solution**: On deselect, reset ALL camera targets (zoom, elevation, lookAt) to overview state:
+```typescript
+cs.targetZoom = ZOOM_OVERVIEW;
+cs.targetElevation = OVERVIEW_ELEVATION;
+cs.targetLookAt.set(0, TOWER_CENTER_Y, 0);
+cs.isTransitioning = true;
+```
+**Key Insight**: Programmatic camera transitions must reset every axis — partial resets cause clipping or disorientation.
 
-- **Highlight visibility on image blocks**: Standard emissive highlight (additive glow + brightness multiply) washes out images on selected blocks. **Solution**: Branch by `vImageIndex` — image blocks get rim-only highlight (no flat emissive), non-image blocks get full highlight. Keeps images readable while still showing selection feedback.
+### Azimuth Normalization Causes Rotation Jumps (2026-02-15)
+**Problem**: Independently normalizing `azimuth` and `targetAzimuth` to `[-PI, PI]` every frame causes visible camera snaps when one wraps while the other doesn't.
+**Solution**: Let azimuth grow unboundedly. Float64 handles years of continuous rotation. Only use a local copy for trig:
+```typescript
+const theta = cs.azimuth;
+camera.position.x = Math.sin(theta) * radius;
+```
+**Key Insight**: Never normalize angular values that are being interpolated — let them grow and use local copies for trig.
 
-- **Block pop-out direction for rectangular tower**: Using `mat3(instanceMatrix) * vec3(0,0,1)` (local +Z) for pop-out fails on corner blocks of rectangular tower — they push toward +Z instead of diagonally outward. **Solution**: Radial direction from tower center in XZ plane (`normalize(vec3(worldPos.x, 0, worldPos.z))`). Works correctly for all faces including corners.
+### Azimuth Unwinding on Reset (2026-02-16)
+**Problem**: Unbounded azimuth means resetting to a fixed `OVERVIEW_AZIMUTH` caused multi-revolution unwinding.
+**Solution**: `nearestAzimuth(current, target)` normalizes target to within ±PI of current azimuth — always takes the shortest rotational path. Apply to all programmatic azimuth changes.
+**Key Insight**: Use shortest-arc normalization for programmatic rotation targets, not continuous drag values.
 
-## 2026-02-16
+### Avoid Mode-Ambiguous Camera Gestures (2026-02-16)
+**Problem**: Single-finger behavior that changed based on zoom level (orbit at overview, vertical pan when zoomed) confused users — they couldn't predict what a gesture would do.
+**Solution**: Clear, mode-free gesture model — 1 finger always orbits, 2 fingers always pinch+pan. LayerIndicator scrubber handles precision vertical navigation.
+**Key Insight**: Predictability > fewest gestures. Users should always know what their finger will do.
 
-- **3D camera gesture design — avoid mode ambiguity**: Initial approach used single-finger behavior that changed based on zoom level (orbit at overview, vertical pan when zoomed in). This felt confusing — users couldn't predict what a gesture would do. **Solution**: Clear, mode-free gesture model — 1 finger always orbits, 2 fingers always pinch+pan. LayerIndicator scrubber handles precision vertical navigation. Predictability > fewest gestures.
+### Camera Clipping Issues in R3F (2026-02-16)
+**Problem**: `ZOOM_MIN=6` caused blocks to disappear because the tower extends ~7 units from center. At low elevation angles, horizontal distance shrinks, letting camera clip inside geometry.
+**Solution**: (1) `ZOOM_MIN=12` keeps camera outside tower, (2) `ELEVATION_MIN=0.3` prevents near-horizontal views, (3) Dynamic near plane `max(0.1, zoom * 0.03)`, (4) Camera Y floor at 0.5.
+**Key Insight**: Camera bounds must account for the full geometry extent at all zoom/elevation combinations, not just center distance.
 
-- **Camera clipping issues in R3F**: ZOOM_MIN=6 caused blocks to disappear when camera got close because the tower extends ~7 units from center. At low elevation angles, horizontal distance shrinks (`r × sin(φ)`), letting camera clip inside geometry. **Fixes**: (1) ZOOM_MIN=12 keeps camera outside tower, (2) ELEVATION_MIN=0.3 prevents near-horizontal views, (3) Dynamic near plane `max(0.1, zoom * 0.03)` tightens frustum when zoomed in, (4) Camera Y floor at 0.5 prevents underground views.
+### Camera Angle Psychology (2026-02-16)
+**Problem**: Initial camera elevations were too steep (bird's-eye), undermining the "admire from outside" design principle.
+**Solution**: Lower angles (overview: 0.45 rad/26deg, inspect: 0.38 rad/22deg) create dramatic, monumental feel. Eye-level > bird's-eye for emotional impact.
+**Key Insight**: Camera angle is a design decision, not a technical one — it communicates the relationship between player and object.
 
-- **Azimuth unwinding problem**: Azimuth grows unboundedly by design (to avoid wrap jumps during continuous drag), but resetting to a fixed `OVERVIEW_AZIMUTH` caused the camera to visually unwind multiple full rotations. **Solution**: `nearestAzimuth(current, target)` normalizes target to be within ±PI of current azimuth — always takes the shortest rotational path. Apply to all programmatic azimuth changes (reset, fly-to-block).
+### Soft Magnetic Zoom Beats Hard Tier Snapping (2026-02-13)
+**Problem**: Hard-snapping zoom to fixed tiers (40/18/8) on pinch release felt broken — users zoom to 25, it snaps back to 40.
+**Solution**: Free zoom with soft magnetic pull near tier centers:
+```typescript
+function applySoftMagnetic(zoom: number): number {
+  const tiers = [8, 18, 40];
+  for (const tier of tiers) {
+    const dist = Math.abs(zoom - tier);
+    if (dist < 2.5 && dist > 0.1) return zoom + (tier - zoom) * 0.03;
+  }
+  return zoom;
+}
+```
+**Key Insight**: Soft attraction feels natural; hard snapping feels hostile. Use dual lerp (fast 0.14 for interactive, slow 0.045 for transitions).
 
-- **React Native PanResponder touch coordinate issues**: `locationY` (component-relative) is unreliable in PanResponder on Animated views — coordinate system shifts during animations. **Solution**: Use `pageY` (absolute screen coords) + `measureInWindow` to get container's absolute position once on layout. All touch math uses stable page coordinates.
+### Mobile 3D Camera Feel Best Practices (2026-02-12)
+**Problem**: Basic lerp-only camera orbit felt sluggish and unresponsive on mobile.
+**Solution**: (1) Momentum with friction decay 0.92 after release, (2) Higher sensitivity 0.006 rad/px, (3) Snappy lerp 0.12, (4) Kill momentum on programmatic moves.
+**Key Insight**: Inertia and friction make a 3D camera feel physical; the right sensitivity/lerp values must be tuned empirically.
 
-- **Interactive UI stealing gestures from 3D scene**: LayerIndicator needed to prevent TowerScene's PanResponder from stealing touches mid-scrub. **Solution**: `onPanResponderTerminationRequest: () => false` in LayerIndicator's PanResponder — parent can't steal once child claims the gesture.
+### PanResponder Touch Coordinate Reliability (2026-02-16)
+**Problem**: `locationY` (component-relative) is unreliable in PanResponder on Animated views — coordinate system shifts during animations.
+**Solution**: Use `pageY` (absolute screen coords) + `measureInWindow` to get container's absolute position once on layout. All touch math uses stable page coordinates.
+**Key Insight**: Never trust component-relative coordinates in animated contexts — always use absolute page coordinates.
 
-- **Camera angle psychology — "admire from outside"**: Initial camera elevations were too steep (looking down on the tower). Lower angles (overview: 0.45 rad/26°, inspect: 0.38 rad/22°) create a more dramatic, monumental feel that aligns with "tower is something you look AT, not live inside" design principle. Eye-level > bird's-eye for emotional impact.
+### Interactive UI Stealing Gestures from 3D Scene (2026-02-16)
+**Problem**: LayerIndicator needed to prevent TowerScene's PanResponder from stealing touches mid-scrub.
+**Solution**: `onPanResponderTerminationRequest: () => false` in LayerIndicator's PanResponder — parent can't steal once child claims the gesture.
+**Key Insight**: Nested PanResponders require explicit termination control; the default allows parent to steal.
 
-## 2026-02-10
+### Gesture Handler + R3F Canvas Touch Conflicts (2026-02-12)
+**Problem**: `onStartShouldSetPanResponder: () => true` captures all touches immediately, preventing R3F Canvas from receiving taps for raycasting/onClick.
+**Solution**: Use `onStartShouldSetPanResponder: () => false` and `onMoveShouldSetPanResponder` with a drag threshold (6px). Taps pass through to R3F, drags captured for orbit.
+```typescript
+PanResponder.create({
+  onStartShouldSetPanResponder: () => false,
+  onMoveShouldSetPanResponder: (_, gesture) =>
+    Math.abs(gesture.dx) > 6 || Math.abs(gesture.dy) > 6,
+});
+```
+**Key Insight**: Let taps through by deferring PanResponder capture to move phase; use a drag threshold to distinguish taps from drags.
 
-- **pnpm path limits on Windows**: pnpm's default symlinked `node_modules` layout creates deeply nested `.pnpm` paths that exceed Windows' 250-char `CMAKE_OBJECT_PATH_MAX`. Fix: add `node-linker=hoisted` and `shamefully-hoist=true` to `.npmrc`. This is also recommended by Expo for monorepo setups.
+### GestureHandlerRootView Required (2026-02-12)
+**Problem**: `GestureDetector must be used as a descendant of GestureHandlerRootView` runtime error.
+**Solution**: Wrap root layout with `GestureHandlerRootView style={{ flex: 1 }}`.
+**Key Insight**: This is a one-time setup — must be in the root layout before any gesture detectors work.
 
-- **Expo Go vs dev-client**: Expo Go cannot run native modules like MWA (Mobile Wallet Adapter). You MUST use a development build (`expo-dev-client`) for any Solana Mobile features. The `expo-dev-client` package must be both installed AND listed in `app.json` plugins.
+---
 
-- **MWA protocol**: The Solana Mobile MWA protocol works via Android intents (`solana-wallet://`). The dApp never touches private keys — it dispatches an intent, the wallet app signs, and returns the signed transaction. Seed Vault is wallet-level security, not something dApps integrate directly.
+## Shaders & 3D Rendering
 
-- **Anchor wallet adapter on mobile**: For Anchor integration on mobile, you need a custom wallet adapter that wraps MWA's `transact()` function. The adapter must implement `signTransaction`, `signAllTransactions`, and expose a `publicKey` getter. See `docs/SOLANA_MOBILE.md` for the exact pattern.
+### R3F Custom Shaders — All Lights Are Baked (2026-02-16)
+**Problem**: Added opaque TowerCore mesh for interior depth, but it created a dark void — R3F light components have zero effect because every mesh uses custom ShaderMaterial without `lights: true`.
+**Solution**: Replace opaque geometry with additive-blended warm glow:
+```typescript
+transparent: true, depthWrite: false,
+side: THREE.BackSide, blending: THREE.AdditiveBlending,
+// Fragment: ember/amber/gold gradient with edge fade + breathing pulse
+```
+**Key Insight**: Additive blending only adds light, never darkens — safe for interior glow. `depthWrite: false` prevents z-fighting.
 
-- **MWA auth token caching**: Auth token caching is critical for MWA UX. Without it, users must re-authorize with their wallet on every interaction. Use `expo-secure-store` (encrypted) instead of `AsyncStorage` for storing `auth_token` and `base64Address`.
+### R3F InstancedMesh — Child Geometry for Raycasting (2026-02-15)
+**Problem**: Passing geometry via `args` on a self-closing `<instancedMesh>` breaks R3F raycasting/onClick.
+**Solution**: Always use child `<boxGeometry>` for click-handling meshes. Visual-only meshes can use `args` geometry.
+```tsx
+<instancedMesh ref={hitRef} args={[undefined, undefined, count]} onClick={handleClick}>
+  <boxGeometry args={[size, size, size]} />
+</instancedMesh>
+```
+**Key Insight**: R3F raycasting requires child-declarative geometry; `args`-passed geometry doesn't register in the raycasting system.
 
-- **InstancedMesh for 1000+ blocks**: `InstancedMesh` in R3F is the correct approach for rendering 1000+ blocks — it reduces draw calls from 1000 to 1, achieving 60 FPS vs ~5 FPS with individual meshes.
+### Shader Coordinate Space Confusion — Local vs World (2026-02-18)
+**Problem**: Using `vWorldNormal` (world-space) to decide how to read `vLocalPos` (local-space) causes mismatch after instance rotation.
+**Solution**: Compute face UVs in vertex shader using raw `normal` (local-space) before any transforms. Each face uses correct tangent axes.
+**Key Insight**: Never mix coordinate spaces — if positions are local, normals must also be local.
 
-- **ADB screencap corruption**: When using `adb exec-out screencap -p > file.png` in PowerShell, the `>` operator outputs in UTF-16LE encoding, corrupting the binary PNG. Use `adb shell screencap -p /sdcard/screen.png; adb pull /sdcard/screen.png output.png` instead.
+### Interior Mapping for 3D Depth Illusion (2026-02-18)
+**Problem**: Flat images on block faces lacked depth and visual interest.
+**Solution**: Cast ray from camera through fragment into virtual room. Ray hits "back wall" at depth 0.55, creating parallax with camera movement. Apply on all 4 vertical faces. Add depth darkening, window frame mask, scanlines, chromatic aberration.
+**Key Insight**: Interior mapping fakes 3D rooms on flat surfaces using only ray-box math in the fragment shader — no extra geometry needed.
 
-- **gh repo create needs a commit**: `gh repo create --push` requires at least one commit to exist before it can push. Always `git commit` first, then create the repo with `--push`.
+### Highlight Visibility on Image Blocks (2026-02-18)
+**Problem**: Standard emissive highlight (additive glow + brightness multiply) washes out images on selected blocks.
+**Solution**: Branch by `vImageIndex` — image blocks get rim-only highlight (no flat emissive), non-image blocks get full highlight.
+**Key Insight**: Selection feedback must adapt to content type — what works for solid colors destroys legibility on images.
 
-- **EAS Build + pnpm**: EAS Build defaults to **yarn** if no `packageManager` field exists in root `package.json`. For pnpm monorepos, you MUST add `"packageManager": "pnpm@<version>"` or EAS won't resolve workspace packages.
+### Block Pop-Out Direction for Rectangular Tower (2026-02-18)
+**Problem**: Using `mat3(instanceMatrix) * vec3(0,0,1)` for pop-out fails on corners — they push toward +Z instead of diagonally outward.
+**Solution**: Radial direction from tower center: `normalize(vec3(worldPos.x, 0, worldPos.z))`. Works for all faces including corners.
+**Key Insight**: For non-cylindrical geometry, radial outward from the Y-axis is more robust than local face normals for pop-out effects.
 
-- **`.easignore` is separate from `.gitignore`**: EAS Build does NOT use `.gitignore`. You need a separate `.easignore` file. Critical exclusions for monorepos: `.agents/` (symlinks cause `EPERM` on Windows), `apps/mobile/android/` and `apps/mobile/ios/` (locally-generated native dirs have Windows paths baked in — EAS must run `expo prebuild` itself on Linux).
+### React Native Texture Loading — DataTexture Workaround (2026-02-18)
+**Problem**: `THREE.TextureLoader` fails in React Native (no DOM Image). expo-three's `loadAsync` unreliable on device.
+**Solution**: Pre-encode atlas as base64 RGBA bytes (1.4MB string) into a `THREE.DataTexture`. Include manual base64 decoder as `atob()` fallback.
+**Key Insight**: Bypass all image loading APIs entirely — raw byte data into DataTexture is 100% reliable in React Native.
 
-- **Metro + hoisted deps**: With `node-linker=hoisted`, Metro needs `nodeModulesPaths` pointing to both the monorepo root `node_modules/` AND the app-level `node_modules/`. Without this, Metro can't resolve hoisted dependencies on EAS or in release builds.
+### InstancedMesh for 1000+ Blocks (2026-02-10)
+**Problem**: Individual meshes for 1000+ blocks yielded ~5 FPS.
+**Solution**: `InstancedMesh` reduces draw calls from 1000 to 1, achieving 60 FPS.
+**Key Insight**: Instancing is mandatory for large block counts on mobile — batch everything into a single draw call.
 
-- **Debug APK for device testing**: `npx expo run:android --variant release` fails in monorepos because Gradle's `createBundleReleaseJsAndAssets` resolves `index.js` from the monorepo root instead of `apps/mobile/`. Fix: use **debug APK** for device testing — it works identically on physical devices.
+---
 
-- **Rapid iteration workflow**: Use debug APK (`npx expo run:android`) + `npx expo start --dev-client` for hot reload on physical devices. No need for EAS during active development. Save EAS for CI/CD and dApp Store distribution.
+## Multiplayer & Networking
 
-- **2026-02-11**: Migrated to WSL Ubuntu 24.04 for development. Rust/Anchor compilation is **5-10x faster** on native ext4 vs Windows NTFS through `/mnt/c`. Node/pnpm operations are **2-3x faster**. All Windows path issues (260 char limit, symlink errors) eliminated.
+### Multiplayer Block Positions Must Be Computed Client-Side (2026-02-17)
+**Problem**: Camera fly-to-block read `block.position` from the store, but in multiplayer mode `serverBlockToDemo()` set `position: {0,0,0}` because "TowerGrid computes from layout." Clicking any block flew camera to world origin.
+**Solution**: Pre-compute positions in a cache at connect time using shared `@monolith/common` layout functions:
+```typescript
+const positionCache = new Map<string, {x,y,z}>();
+// Build once from computeBodyLayerPositions / computeSpireLayerPositions
+// Use: position: getBlockPosition(block.layer, block.index)
+```
+**Key Insight**: All position-consuming code should read from a single source of truth — compute once at store boundaries, cache, and use everywhere.
 
-- **2026-02-11**: WSL2 requires `usbipd-win` for USB device passthrough. Install on Windows (`winget install dorssel.usbipd-win`), then use `usbipd bind --busid X-X` (persistent) and `usbipd attach --wsl --busid X-X` (per-session) to attach Android devices to WSL.
+### Colyseus JSON Messages > Schema Auto-Sync (2026-02-17)
+**Problem**: Schema auto-sync (`MapSchema<BlockSchema>`) failed silently — blocks decoded with `size: 0` due to `@colyseus/schema` version mismatch between server and client.
+**Solution**: Explicit JSON room messages: `room.send("tower_state", {...})` for full state + `room.send("block_update", blockJSON)` for mutations. Client uses `room.onMessage()` handlers.
+**Key Insight**: For MVP multiplayer, JSON messages are debuggable and version-stable; schema auto-sync breaks silently across version boundaries.
 
-- **2026-02-11**: When calling WSL commands via `wsl -e bash -lc "..."` from Windows, the Windows PATH leaks into the WSL session. Paths with spaces (like "Program Files") break bash export statements. Use `wsl -e bash -c "..."` (non-login shell) or run commands from within WSL directly.
+---
 
-- **2026-02-11**: Android SDK in WSL requires: (1) Java (OpenJDK 17+), (2) command-line tools from dl.google.com, (3) `sdkmanager` to install platform-tools, build-tools, platforms, and NDK (~2GB), (4) `ANDROID_HOME` and `ANDROID_SDK_ROOT` env vars in `~/.bashrc`. Total setup time: ~20-30 minutes.
+## Solana & Anchor
 
-- **2026-02-11**: VS Code with "Remote - WSL" extension is the ideal setup for WSL development. Run `code .` from WSL terminal — VS Code opens with WSL backend. All extensions, terminals, and file operations run natively in WSL. Hot reload works seamlessly with physical devices via `adb reverse tcp:8081 tcp:8081`.
+### BorshAccountsCoder Incompatibility with React Native (2026-02-13)
+**Problem**: Anchor's `BorshAccountsCoder.decode()` uses Node.js `Buffer.readUIntLE()` which doesn't exist in React Native's Buffer polyfill.
+**Solution**: Manual byte-level decoding using `DataView` and `Uint8Array`:
+```typescript
+function readU64(data: Uint8Array, offset: number): number {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  return view.getUint32(offset + 4, true) * 0x100000000 + view.getUint32(offset, true);
+}
+```
+**Key Insight**: Map Rust struct byte layouts exactly. Use `DataView` for integers, `Uint8Array.slice()` for pubkeys — no Buffer methods needed.
 
-## WSL Setup
+### MWA Auth Token Expiration — Always Fallback to Fresh Authorize (2026-02-17)
+**Problem**: `wallet.reauthorize({ auth_token })` fails when cached token is stale/expired. Transaction signing path had no fallback.
+**Solution**: Wrap `transact()` in try/catch — if `reauthorize()` fails with auth error, retry with `wallet.authorize()` (fresh approval).
+**Key Insight**: Any code path using MWA `reauthorize()` MUST have a fallback to `authorize()` — auth tokens are not reliable across sessions.
 
-**Primary development environment as of 2026-02-11.**
+### Public Devnet RPC Is Rate-Limited (2026-02-17)
+**Problem**: `api.devnet.solana.com` frequently returns 500/429 errors, killing deposit flows.
+**Solution**: `withRetry()` helper with up to 3 retries and linear backoff (1s, 2s) for `getLatestBlockhash`, `sendRawTransaction`, `confirmTransaction`.
+**Key Insight**: Always wrap Solana RPC calls in retry logic — even paid providers return transient errors.
 
-Repository location: `/home/epic/monolith` (native ext4)
-See `docs/WSL_SETUP.md` for complete setup guide.
+### Anchor 0.31 SPL Token Types (2026-02-12)
+**Problem**: Using plain `Account<TokenAccount>` caused silent IDL generation failures in Anchor 0.31.
+**Solution**: Must use `InterfaceAccount<TokenAccount>`, `InterfaceAccount<Mint>`, and `Interface<TokenInterface>`. Add `idl-build` feature for `anchor-spl` in `Cargo.toml`. Use `transfer_checked` (requires mint + decimals). All ATA accounts need `associated_token::token_program = token_program` constraint.
+**Key Insight**: Anchor 0.31 SPL integration requires Interface types, not plain Account types — failures are silent.
 
-Key benefits over Windows:
+### Program ID Sync After Anchor Build (2026-02-12)
+**Problem**: Deployed keypair in `target/deploy/` may differ from `declare_id!()` after `anchor build`, causing `DeclaredProgramIdMismatch`.
+**Solution**: Run `anchor keys sync` to update `lib.rs` and `Anchor.toml` automatically.
+**Key Insight**: Always `anchor keys sync` after builds to prevent program ID drift.
 
-- **8x faster** Anchor/Rust builds
-- **3x faster** pnpm installs
-- **2x faster** Expo prebuild
-- No path length limits
-- Native symlinks
-- Better git performance
+### Dynamic IDL TypeScript Casts (2026-02-12)
+**Problem**: Anchor 0.31 TS types don't expose account names from dynamically loaded IDLs.
+**Solution**: Use `(program.account as any).towerState` — works at runtime, needs TS bypass.
+**Key Insight**: Dynamic IDL loading in Anchor requires `as any` casts for account access.
 
-Physical device access: `usbipd-win` + `usbip` (USB passthrough to WSL)
+### MWA Protocol Basics (2026-02-10)
+**Problem**: Understanding how MWA integrates with dApps.
+**Solution**: MWA works via Android intents (`solana-wallet://`). The dApp never touches private keys — dispatches intent, wallet signs, returns signed tx. Seed Vault is wallet-level, not dApp-level. For Anchor, create a custom wallet adapter wrapping `transact()`. Cache auth tokens in `expo-secure-store` (encrypted).
+**Key Insight**: MWA is intent-based — the dApp is stateless regarding keys; all signing is delegated to the wallet app.
 
-## Ubuntu Transition Notes (Deprecated — Now Using WSL)
+### MWA Transaction Signing Flow (2026-02-12)
+**Problem**: Getting the full MWA signing flow right inside `transact()` sessions.
+**Solution**: Always try `reauthorize()` first with cached `authToken`, fall back to `authorize()`. Set fee payer from `authResult.accounts[0].address` (base64). Fetch `recentBlockhash` inside session, send raw tx after closing.
+**Key Insight**: The entire sign flow must happen inside a single `transact()` session — blockhash fetching included.
 
-When switching to Ubuntu, the following Windows-specific issues will disappear:
+---
 
-- CMake `CMAKE_OBJECT_PATH_MAX` warnings (shorter Linux paths)
-- PowerShell UTF-16LE binary output corruption
-- Symlink `EPERM` errors (Linux handles symlinks natively)
-- ADB instability (Linux USB is more reliable)
+## React Native & Expo
 
-Steps to set up on Ubuntu:
+### Expo Go vs Dev-Client (2026-02-10)
+**Problem**: Expo Go cannot run native modules like MWA.
+**Solution**: Must use development build (`expo-dev-client`). Package must be installed AND listed in `app.json` plugins.
+**Key Insight**: Any Solana Mobile feature requires `expo-dev-client` — Expo Go is insufficient.
 
-1. `git clone https://github.com/epicexcelsior/monolith.git`
-2. Install pnpm: `corepack enable && corepack prepare pnpm@10.13.1 --activate`
-3. `pnpm install`
-4. Install Android SDK + NDK via Android Studio or `sdkmanager`
-5. `cd apps/mobile && npx expo prebuild --platform android --clean`
-6. `npx expo run:android`
+### Expo Router Typed Routes (2026-02-12)
+**Problem**: New route files cause TS errors until generated type declarations regenerate.
+**Solution**: Use `pathname as any` cast or run `npx expo start` to regenerate types.
+**Key Insight**: Expo Router types are generated — they lag behind new file creation.
 
-## 2026-02-12: USDC Vault Rewrite
+### Metro + Hoisted Deps in Monorepos (2026-02-10)
+**Problem**: With `node-linker=hoisted`, Metro can't resolve hoisted dependencies on EAS or release builds.
+**Solution**: Set `nodeModulesPaths` in Metro config pointing to both monorepo root and app-level `node_modules/`.
+**Key Insight**: Metro needs explicit paths to all potential `node_modules` locations in a hoisted monorepo.
 
-- **Anchor 0.31 SPL Token types**: Must use `InterfaceAccount<TokenAccount>`, `InterfaceAccount<Mint>`, and `Interface<TokenInterface>` — **not** plain `Account<TokenAccount>`. The old pattern causes silent IDL generation failures. Also add `idl-build` feature for `anchor-spl` in `Cargo.toml`.
+### Debug APK for Device Testing (2026-02-10)
+**Problem**: `npx expo run:android --variant release` fails in monorepos because Gradle resolves `index.js` from monorepo root.
+**Solution**: Use debug APK for device testing — works identically on physical devices. Use `npx expo run:android` + `npx expo start --dev-client` for hot reload.
+**Key Insight**: Debug APKs are perfectly fine for device testing; save EAS/release builds for distribution.
 
-- **`transfer_checked` required**: Anchor 0.31 best practice for SPL token ops. Requires passing the mint account and decimals to prevent amount/decimal mismatches.
+---
 
-- **ATA constraints**: All ATA accounts must include `associated_token::token_program = token_program` constraint. Anchor 0.31 requires this explicit constraint.
+## Performance
 
-- **Program ID sync**: After `anchor build`, the deployed keypair in `target/deploy/` may differ from `declare_id!()`. Run `anchor keys sync` to update `lib.rs` and `Anchor.toml` automatically. Prevents `DeclaredProgramIdMismatch` errors.
+### Mobile 3D Performance Budget (2026-02-15)
+**Problem**: Need to understand the performance priority order for mobile GPUs.
+**Solution**: Priority order: (1) Fragment shader ALU ops — most expensive (hex pattern 3x/fragment was biggest cost, replace with `fract()` cracks), (2) Triangle count — RoundedBoxGeometry segments=2 is 96 tri/block x 650 = 62K, halve with segments=1, (3) Light count — hemisphere replaces 2-3 fill lights, (4) Texture/noise lookups — FBM 4 octaves costs 25% more than 3 for <6% visual return, (5) Particle count — 120->80 saves draw overhead.
+**Key Insight**: Shader ALU > triangles > lights > textures > particles — optimize in that order on mobile.
 
-- **Dynamic IDL TypeScript casts**: Anchor 0.31 TypeScript types don't expose account names from dynamically loaded IDLs. Use `(program.account as any).towerState` casts — works at runtime, just needs TS bypass.
+---
 
-- **Gitignore for Anchor workspace**: When Anchor workspace root is at monorepo root, `.gitignore` must cover `target/` and `.anchor/` at root level (not just `programs/monolith/`).
+## Deployment & DevOps
 
-- **Expo Router typed routes**: New route files (e.g., `deposit.tsx`) cause TS errors until the generated type declarations regenerate. Use `pathname as any` cast or run `npx expo start` to regenerate types.
+### pnpm Strict Isolation Breaks Transitive Deps in Docker (2026-02-17)
+**Problem**: Server crashed on Railway with `Cannot find module '@colyseus/schema'` — a transitive dep of `colyseus`, not declared directly.
+**Solution**: Declare ALL directly-imported packages in `package.json`, even transitive deps. Never add `pnpm install --prod` prune step with `--packages=external`. Check esbuild output: `grep 'require("' dist/index.js`.
+**Key Insight**: esbuild `--packages=external` + pnpm strict isolation = every `require()` must be a direct dependency.
 
-- **MWA transaction signing**: All signing happens inside `transact()` sessions. Always try `reauthorize()` first (with cached `authToken`), fall back to `authorize()`. Set fee payer from `authResult.accounts[0].address` (base64). Fetch `recentBlockhash` inside session, send raw tx after closing.
+### Railway Deployment Gotchas (2026-02-17)
+**Problem**: Multiple deployment issues with Colyseus on Railway.
+**Solution**: (1) Server must read `process.env.PORT` not hardcode 2567, (2) Dockerfile at repo root with Railway root dir `/`, (3) External URL is standard `wss://` — no port in client URL, (4) `EXPOSE` is informational only, (5) Auto-deploys on push to main, (6) For pnpm: `corepack enable && corepack prepare` in Dockerfile.
+**Key Insight**: Railway sets PORT dynamically and proxies connections — never hardcode ports or expose them in client URLs.
 
+### eas.json Env Vars Override .env Files (2026-02-17)
+**Problem**: `.env` had correct Alchemy RPC URL but `eas.json` `base.env` hardcoded the public devnet RPC. EAS builds used wrong RPC.
+**Solution**: Keep RPC URLs consistent between `.env` (local dev) and `eas.json` (EAS builds).
+**Key Insight**: `eas.json` env vars take precedence during EAS builds — always check both sources.
+
+### EAS Build + pnpm (2026-02-10)
+**Problem**: EAS Build defaults to yarn if no `packageManager` field exists in root `package.json`.
+**Solution**: Add `"packageManager": "pnpm@<version>"` to root `package.json`. Also need a separate `.easignore` (not `.gitignore`) with critical exclusions: `.agents/`, `android/`, `ios/` dirs.
+**Key Insight**: EAS needs explicit pnpm declaration and its own ignore file — it does not inherit git settings.
+
+### Gitignore for Anchor Workspace (2026-02-12)
+**Problem**: Anchor workspace at monorepo root means `target/` and `.anchor/` need root-level gitignore entries.
+**Solution**: Add `target/` and `.anchor/` to root `.gitignore`, not just `programs/monolith/`.
+**Key Insight**: Anchor outputs at workspace root regardless of program location.
+
+### ADB Screencap Corruption (2026-02-10)
+**Problem**: `adb exec-out screencap -p > file.png` in PowerShell corrupts PNG via UTF-16LE encoding.
+**Solution**: `adb shell screencap -p /sdcard/screen.png && adb pull /sdcard/screen.png output.png`.
+**Key Insight**: PowerShell's `>` operator mangles binary output — use two-step capture+pull.
+
+### gh repo create Needs a Commit (2026-02-10)
+**Problem**: `gh repo create --push` requires at least one commit to exist.
+**Solution**: Always `git commit` first, then create repo with `--push`.
+**Key Insight**: Git repos need at least one commit before they can push to a remote.
+
+### WSL Migration for Performance (2026-02-11)
+**Problem**: Windows NTFS through `/mnt/c` was 5-10x slower for Rust/Anchor builds, had 260-char path limits, and symlink issues.
+**Solution**: Migrate to WSL Ubuntu 24.04 on native ext4. Use `usbipd-win` for USB device passthrough (`usbipd bind --busid X-X` persistent, `usbipd attach --wsl --busid X-X` per-session). VS Code "Remote - WSL" extension for IDE. Android SDK requires Java 17+, cmdline-tools, `ANDROID_HOME` env var.
+**Key Insight**: WSL on native ext4 gives 8x faster Anchor builds, 3x faster pnpm, native symlinks, and no path limits.
+
+### Windows PATH Leaks into WSL (2026-02-11)
+**Problem**: `wsl -e bash -lc "..."` from Windows leaks Windows PATH with spaces, breaking bash exports.
+**Solution**: Use `wsl -e bash -c "..."` (non-login shell) or run commands from within WSL directly.
+**Key Insight**: Login shells in WSL inherit Windows PATH — use non-login shells when calling from Windows.
+
+### pnpm Path Limits on Windows (2026-02-10)
+**Problem**: pnpm's symlinked layout creates paths exceeding Windows' 250-char `CMAKE_OBJECT_PATH_MAX`.
+**Solution**: Add `node-linker=hoisted` and `shamefully-hoist=true` to `.npmrc`. Also recommended by Expo for monorepo setups.
+**Key Insight**: Hoisted node_modules avoids Windows path length limits and is Expo-recommended for monorepos.
+
+---
+
+## UI/UX & Design System
+
+### Bottom Sheet Panels Must Account for Absolute Tab Bars (2026-02-18)
+**Problem**: BlockInspector had `bottom: 0` but Expo Router tab bar uses `position: "absolute"` with height `60 + insets.bottom`. Panel content was hidden behind tab bar.
+**Solution**: Offset panel bottom: `bottom: 60 + Math.max(insets.bottom, 8)`. Fix PanResponder to use `onStartShouldSetPanResponder: () => false` so ScrollView works. Split panel into fixed section (header + CTA) and scrollable section (customize pickers).
+**Key Insight**: With absolute tab bars, ALL bottom-anchored UI must offset by tab bar height — check `_layout.tsx` tabBarStyle.
+
+### Design System: Interview → Plan → Build → Migrate (2026-02-13)
+**Problem**: Jumping into code without a design spec leads to inconsistent UI.
+**Solution**: Run structured design interview (10 questions) → produce `UI_SYSTEM.md` spec → build `theme.ts` + component library → write agent rules in `AGENTS.md` → create `UI_MIGRATION_PLAN.md` for screen-by-screen conversion.
+**Key Insight**: Build the component library and theme tokens BEFORE migrating existing screens — new components compile independently.
+
+### Use AGENTS.md + Barrel Exports to Prevent Component Drift (2026-02-13)
+**Problem**: Without guardrails, every new screen creates ad-hoc buttons/cards with inconsistent styling. AI agents especially prone to this.
+**Solution**: (1) Create `components/ui/index.ts` barrel export, (2) Per-app `AGENTS.md` with rules like "always use `<Button>`, never create raw `<TouchableOpacity>`", (3) Component table + typography rules + new screen template.
+**Key Insight**: Barrel exports + explicit agent rules make the design system discoverable and enforceable.
+
+### Theme Migration Requires Explicit Color Mapping (2026-02-13)
+**Problem**: Removing old theme tokens (e.g., `COLORS.cyan`) causes TypeScript errors everywhere.
+**Solution**: After any theme overhaul: (1) `npx tsc --noEmit` to find broken refs, (2) Fix with old→new mappings, (3) Create migration plan doc listing every file + substitutions.
+**Key Insight**: Theme changes are refactors — treat them like API migrations with explicit mapping tables.
+
+---
+
+## Development Workflow
+
+### Shader Validation Checklist in Wrapup (2026-02-18)
+**Problem**: Multiple coordinate space bugs during interior mapping implementation.
+**Solution**: Added shader validation to `/wrapup` workflow: varying coordinate space labels, UV computation consistency, uniform updates, attribute counts, `needsUpdate` flags, debug color removal, LOD checks, transparency pitfalls. Created `react-native-three` skill.
+**Key Insight**: Shaders fail silently — a systematic checklist catches bugs that visual inspection misses.
+
+### tsc --noEmit Hangs in Monorepos (2026-02-13)
+**Problem**: `npx tsc --noEmit --skipLibCheck` can hang indefinitely (30+ minutes) in monorepo workspaces.
+**Solution**: Always wrap with timeout:
+```bash
+timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
+```
+**Key Insight**: Exit 0 = clean, 124 = timed out. Applied to `/wrapup` and `/commit` workflows.
+
+### Commit Verification After Terminal Hangs (2026-02-13)
+**Problem**: Git commits can succeed even when the terminal hangs and doesn't return to prompt.
+**Solution**: Always verify: `git log --oneline -1` (shows latest commit) + `git status --short` (shows staged/unstaged). If message matches, commit succeeded.
+**Key Insight**: Never assume a commit failed just because the terminal hung — always verify with git log.

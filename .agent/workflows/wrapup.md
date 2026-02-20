@@ -54,11 +54,23 @@ Remove any dead code or leftover artifacts:
 - Remove any duplicate implementations (e.g., if you tried multiple approaches, keep only the final one)
 - Ensure no debug logs or temporary code remain
 
-## 5. Report
+## 5. Update CONTEXT.md
+
+Update the project's living state document (`CONTEXT.md` at project root):
+
+1. **Current State**: Move completed features between Working/Mocked/Not Started sections
+2. **File Map**: Add any new core files created this session (skip test files, minor helpers)
+3. **Gotchas**: Add any new critical patterns discovered
+4. **System Dependencies**: Add any new "Change X → Must Update Y" relationships discovered
+5. **Recent Changes**: Add a 1-line summary of this session's work at the top (format: `- **YYYY-MM-DD**: description`)
+
+Use Edit tool to update specific sections — don't rewrite the entire file.
+
+## 6. Report
 
 If there are any issues, blockers, or things the user should be aware of, surface them now before committing.
 
-## 5.5. Verify Git Status
+## 7. Verify Git Status
 
 Before declaring wrapup complete, check if changes are properly staged/committed:
 

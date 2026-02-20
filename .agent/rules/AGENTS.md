@@ -1,150 +1,85 @@
 # AGENTS.md — Agent Onboarding Guide
 
-> **Audience:** AI coding agents. Read this first when dropped into this repo.
+> **Audience:** AI coding agents (Claude Code, Antigravity, any tool). Read this when dropped into this repo.
+
+## Boot Sequence
+
+1. **Read `CONTEXT.md`** (project root) — living state document with current state, file map, data flow, gotchas, system dependencies, and common tasks. This is the single source of truth for project state.
+2. **Read `docs/LESSONS.md` index** — scan topic headers before touching any system. Lessons are indexed by topic (Camera, Shaders, Multiplayer, Solana, etc.)
+3. **Check skills** — if working on an unfamiliar domain, look for a specialized skill before proceeding. Available skills: `perf`, `ui-standards`, `build`, `anchor-test`, `solana-dev`, `react-native-three`, `find-skills`
 
 ## Project in One Sentence
 
-**The Monolith** is a multiplayer 3D staking game on Solana — stake crypto, own a glowing block on a massive shared tower, compete for status. Think r/Place meets DeFi, in 3D, on mobile.
+**The Monolith** is a multiplayer 3D staking game on Solana — stake crypto, own a glowing block on a massive shared tower, compete for status. r/Place meets DeFi, in 3D, on mobile.
 
 ## Environment
 
-| Item           | Detail                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| **OS**         | Windows (WSL2 → Ubuntu) — agent tools run from Windows but the repo lives in WSL at `~/monolith` |
-| **Runtime**    | Node ≥22, pnpm 10 (hoisted mode — see `.npmrc`)                                                  |
-| **Platform**   | Android-only mobile app, tested on **physical Solana Seeker device** via Android Studio + ADB    |
-| **Blockchain** | Solana Devnet, smart contracts in **Rust** (Anchor framework)                                    |
-| **Build**      | Expo SDK 54 with `expo-dev-client` (NOT Expo Go — native modules required)                       |
-
-> ⚠️ **WSL gotcha:** The repo is at `\\wsl.localhost\Ubuntu\home\epic\monolith` from Windows, but `/home/epic/monolith` from WSL. All build commands run inside WSL. ADB and Android Studio run from Windows. Be aware of path translation between the two.
-
-> ⚠️ **Solana + Rust:** The `programs/monolith/` directory contains Anchor/Rust code. Do NOT assume JavaScript tooling works here — use `anchor build`, `anchor test`, etc. Rust toolchain must be installed in WSL.
+| Item           | Detail                                                      |
+| -------------- | ----------------------------------------------------------- |
+| **OS**         | Linux (Ubuntu / WSL2)                                       |
+| **Runtime**    | Node >=22, pnpm 10 (hoisted mode — see `.npmrc`)           |
+| **Platform**   | Android-only, tested on physical Solana Seeker device       |
+| **Blockchain** | Solana Devnet, smart contracts in Rust (Anchor framework)   |
+| **Build**      | Expo SDK 54 with `expo-dev-client` (NOT Expo Go)            |
 
 ## Tech Stack
 
-| Layer          | Technology                                                 |
-| -------------- | ---------------------------------------------------------- |
-| Mobile app     | Expo 54, React Native 0.81, React 19, Expo Router          |
-| 3D rendering   | React Three Fiber v9, Three.js 0.170, expo-gl              |
-| Wallet         | Solana Mobile Wallet Adapter (MWA) → Seed Vault            |
-| Smart contract | Anchor (Rust), deployed on Devnet                          |
-| State          | Zustand                                                    |
-| Backend        | Supabase (DB + realtime), Game Server (Colyseus/WebSocket) |
-| Monorepo       | pnpm workspaces, hoisted `node_modules`                    |
-
-## Monorepo Layout
-
-```
-monolith/
-├── apps/
-│   ├── mobile/          # Expo React Native app (the product)
-│   │   ├── app/         # Expo Router screens
-│   │   ├── components/  # React + R3F components
-│   │   ├── services/    # Solana, Supabase clients
-│   │   ├── stores/      # Zustand stores
-│   │   └── constants/   # Theme, config
-│   └── server/          # Game server (Colyseus/WebSocket)
-│       └── src/         # Rooms, simulation, entropy
-├── packages/
-│   └── common/          # Shared types, constants, utils
-├── programs/
-│   └── monolith/        # Anchor Solana program (Rust)
-├── docs/                # Deep docs (ARCHITECTURE, SOLANA_MOBILE, LESSONS, etc.)
-└── .agent/              # Agent skills & workflows
-```
-
-## Quick Commands
-
-```bash
-# From monorepo root (inside WSL)
-pnpm install                              # Install all deps
-pnpm mobile                               # Start Metro bundler
-pnpm mobile:android                       # Build & run on connected device
-
-# From apps/mobile/
-npx expo start --dev-client --localhost    # Dev server with hot reload
-npx expo run:android                      # Build debug APK + install
-npx expo prebuild --platform android --clean  # Regenerate native project
-
-# EAS (cloud builds)
-eas build --profile preview --platform android
-
-# Anchor (from programs/monolith/, in WSL)
-anchor build
-anchor test
-anchor deploy
-```
+| Layer          | Technology                                      |
+| -------------- | ----------------------------------------------- |
+| Mobile app     | Expo 54, React Native 0.81, React 19            |
+| 3D rendering   | React Three Fiber v9, Three.js 0.170, expo-gl   |
+| Wallet         | Solana Mobile Wallet Adapter (MWA) → Seed Vault |
+| Smart contract | Anchor (Rust), deployed on Devnet               |
+| State          | Zustand                                         |
+| Multiplayer    | Colyseus 0.15 (JSON messages, Railway deploy)   |
+| Monorepo       | pnpm workspaces                                 |
 
 ## Key Conventions
 
-- **Package names:** `@monolith/mobile`, `@monolith/server`, `@monolith/common`
-- **Routing:** File-based via Expo Router (`app/` directory)
-- **State:** One Zustand store per domain (e.g., `stores/gameStore.ts`)
-- **Secrets:** Never commit. Use `.env` files (see `.env.example`)
-- **Native modules:** Always use `expo-dev-client`, never Expo Go
-- **Device testing:** Debug APK on physical device is the primary workflow. Release builds are for CI/CD only.
+- **Package names**: `@monolith/mobile`, `@monolith/server`, `@monolith/common`
+- **UI**: Use components from `components/ui/` — never create raw `<TouchableOpacity>` or `<Pressable>`
+- **Styling**: Use `theme.ts` tokens — never hardcode colors, font sizes, or spacing
+- **3D**: ALL lighting is baked in shaders. R3F light components have zero effect.
+- **Multiplayer**: JSON room messages, NOT Colyseus schema auto-sync
+- **Secrets**: Never commit. Use `.env` files
+- **Package manager**: pnpm only — never npm or yarn
+- **Tests**: `cd apps/mobile && npx jest` — always run after changes
+- **Typecheck**: `timeout 90 npx tsc --noEmit --project apps/mobile/tsconfig.json`
 
-## Testing Strategy
+## Don't
 
-### Current: Manual on Physical Device
+- Don't use `transparent: true` on InstancedMesh (650 instances + alpha sorting kills perf)
+- Don't hardcode ports for Railway (use `process.env.PORT`)
+- Don't normalize azimuth values that are being interpolated
+- Don't assume MWA auth tokens are valid — always fallback to fresh `authorize()`
+- Don't run `tsc` without `timeout` wrapper in this monorepo
+- Don't add R3F light components — they do nothing with custom shaders
+- Don't put CTA buttons inside ScrollViews in bottom panels
+- Don't use Expo Go — native modules require `expo-dev-client`
 
-Build debug APK → install via ADB → test on Solana Seeker device.
+## Workflows
 
-### Future: Automated E2E via Maestro
-
-[Maestro](https://maestro.mobile.dev/) is the recommended path for agent-driven E2E testing:
-
-- Tests are written in **simple YAML** — perfect for AI agents to generate and iterate on
-- Runs on real devices and emulators
-- Can tap, swipe, assert text, take screenshots — full UI automation
-- No app code changes required (uses accessibility layer)
-- Agents can: write tests → run them → read output → fix bugs → re-run, fully autonomously
-
-This unlocks a workflow where AI agents can **own the full test-debug loop** without human intervention for UI testing.
+When finishing work, use the **wrapup** workflow — it runs checks AND updates CONTEXT.md.
+When you learn a gotcha, use the **learn** workflow — it categorizes by topic into docs/LESSONS.md.
+When starting a session, use the **context** workflow — it loads CONTEXT.md and relevant docs.
 
 ## Anchor / Solana Patterns
 
-### Anchor 0.31 (Current Version)
-- **SPL tokens**: Use `InterfaceAccount<TokenAccount>`, `InterfaceAccount<Mint>`, `Interface<TokenInterface>` — not plain `Account<>` types. Required for IDL generation.
-- **Transfers**: Use `transfer_checked` (requires mint + decimals), not `transfer`.
-- **Cargo.toml**: Must include `idl-build` feature: `idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]`
-- **ATA constraints**: Include `associated_token::token_program = token_program` on all ATA accounts.
+- **Anchor 0.31**: Use `InterfaceAccount<TokenAccount>`, not plain `Account<>`. Use `transfer_checked`. Add `idl-build` feature.
+- **Program ID**: `Fu76EqtVLqX2LKCW5ZW8zWBqdgsQTbkvQ9nBDyykgwDh` (devnet)
+- **PDA Seeds**: Tower: `[b"tower"]`, Block: `[b"block", block_id.to_le_bytes()]`
+- **MWA signing**: All inside `transact()` sessions. Try `reauthorize()` first, fallback to `authorize()`.
+- **ID sync**: Run `anchor keys sync` after every `anchor build`
 
-### Program IDs
-- Must match across: `declare_id!()`, `Anchor.toml` (localnet + devnet), and `monolith-program.ts`.
-- Fix mismatches with `anchor keys sync`.
+## Docs Map
 
-### PDA Seeds
-- Tower: `[b"tower"]` — Block: `[b"block", block_id.to_le_bytes()]` (u32 LE)
-- Vault: ATA of tower PDA for USDC mint (`allowOwnerOffCurve: true`)
-
-### Devnet
-- **Program**: `Fu76EqtVLqX2LKCW5ZW8zWBqdgsQTbkvQ9nBDyykgwDh`
-- **USDC Mint**: `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`
-
-## MWA + Anchor on Mobile
-
-- All signing in `transact()` sessions — try `reauthorize()` first, fall back to `authorize()`.
-- Use a read-only `AnchorProvider` with dummy wallet — MWA handles signing separately.
-- Dynamic IDL: `(program.account as any).towerState` casts needed for TypeScript.
-- New Expo Router files need `pathname: "/route" as any` until types regenerate.
-
-## Deep Docs
-
-| Document                                  | What's Inside                                                                                   |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md)   | Full design bible — game mechanics, on-chain vs off-chain, LOD strategy, real-time architecture |
-| [SOLANA_MOBILE.md](docs/SOLANA_MOBILE.md) | MWA integration, wallet adapter pattern, Seed Vault details                                     |
-| [SETUP.md](docs/SETUP.md)                 | Developer environment setup                                                                     |
-| [LESSONS.md](docs/LESSONS.md)             | Battle-tested gotchas & lessons learned (regularly updated)                                     |
-| [APK_INSTALL.md](docs/APK_INSTALL.md)     | How to install APKs on device                                                                   |
-
-## Recent Lessons Learned
-
-- **2026-02-12**: Anchor 0.31 requires `InterfaceAccount` + `transfer_checked` for SPL tokens — older `Account<TokenAccount>` pattern silently breaks IDL generation.
-- **2026-02-12**: `DeclaredProgramIdMismatch` is fixed by `anchor keys sync`, not manual ID editing.
-- **2026-02-12**: Anchor 0.31 TS types don't expose account names from dynamic IDLs — use `(program.account as any)` casts.
-- **2026-02-12**: `.gitignore` must cover `target/` and `.anchor/` at monorepo root (Anchor puts build artifacts at workspace root, not under `programs/`).
-- **2026-02-12**: `Anchor.toml` `[provider] cluster` must be `localnet` for `anchor test` to spin up a local validator. If set to `devnet`, `anchor test` deploys to devnet instead — switch to `localnet` before testing, switch to `devnet` before deploying.
-
-
+| Doc | What it covers |
+|---|---|
+| `CONTEXT.md` | **Start here** — current state, file map, gotchas, tasks |
+| `docs/LESSONS.md` | Technical lessons indexed by topic |
+| `docs/ARCHITECTURE.md` | System design, tech decisions, game mechanics |
+| `docs/game-design/GDD.md` | Game Design Document (canonical) |
+| `docs/design/UI_SYSTEM.md` | Solarpunk design system spec |
+| `docs/MULTIPLAYER_DEPLOYMENT.md` | Colyseus + Railway setup |
+| `docs/ANCHOR_PROGRAM.md` | On-chain program details |
+| `docs/SOLANA_MOBILE.md` | MWA integration patterns |
