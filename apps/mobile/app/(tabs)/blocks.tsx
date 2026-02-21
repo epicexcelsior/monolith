@@ -7,7 +7,7 @@
  * Tab route: app/(tabs)/blocks.tsx → "Board"
  */
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { useWalletStore } from "@/stores/wallet-store";
@@ -18,6 +18,7 @@ import { ScreenLayout, Card, Badge, Button, ChargeBar } from "@/components/ui";
 import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { isBotOwner } from "@/utils/seed-tower";
+import { GAME_SERVER_URL } from "@/constants/network";
 
 // ─── Leaderboard categories from GDD §6.2 ──────────────────────
 type LeaderboardTab = "skyline" | "brightest" | "streak" | "territory";
@@ -35,6 +36,7 @@ interface LeaderboardEntry {
   address: string;
   value: string;
   isYou: boolean;
+  blockId?: string;
 }
 
 function truncAddr(addr: string): string {
@@ -62,13 +64,13 @@ function computeLeaderboard(
     byOwner.set(b.owner!, list);
   }
 
-  let entries: { owner: string; sortVal: number; display: string }[] = [];
+  let entries: { owner: string; sortVal: number; display: string; blockId?: string }[] = [];
 
   switch (tab) {
     case "skyline": {
       for (const [owner, obs] of byOwner) {
         const best = obs.reduce((a, b) => (b.layer > a.layer ? b : a), obs[0]);
-        entries.push({ owner, sortVal: best.layer, display: `Layer ${best.layer}` });
+        entries.push({ owner, sortVal: best.layer, display: `Layer ${best.layer}`, blockId: best.id });
       }
       entries.sort((a, b) => b.sortVal - a.sortVal);
       break;
@@ -76,7 +78,7 @@ function computeLeaderboard(
     case "brightest": {
       for (const [owner, obs] of byOwner) {
         const best = obs.reduce((a, b) => (b.energy > a.energy ? b : a), obs[0]);
-        entries.push({ owner, sortVal: best.energy, display: `${Math.round(best.energy)}%` });
+        entries.push({ owner, sortVal: best.energy, display: `${Math.round(best.energy)}%`, blockId: best.id });
       }
       entries.sort((a, b) => b.sortVal - a.sortVal);
       break;
@@ -86,7 +88,7 @@ function computeLeaderboard(
         const best = obs.reduce((a, b) => ((b.streak ?? 0) > (a.streak ?? 0) ? b : a), obs[0]);
         const s = best.streak ?? 0;
         const badge = s >= 30 ? " 👑" : s >= 7 ? " 🔥" : "";
-        entries.push({ owner, sortVal: s, display: `Day ${s}${badge}` });
+        entries.push({ owner, sortVal: s, display: `Day ${s}${badge}`, blockId: best.id });
       }
       entries.sort((a, b) => b.sortVal - a.sortVal);
       break;
@@ -106,15 +108,81 @@ function computeLeaderboard(
     address: displayName(e.owner),
     value: e.display,
     isYou: userAddress !== null && e.owner === userAddress,
+    blockId: e.blockId,
   }));
 }
 
-// ─── Activity feed (generated from demoBlocks) ─────────────────
+// ─── REST API base URL from WebSocket URL ────────────────────
+function getApiBaseUrl(): string {
+  const wsUrl = GAME_SERVER_URL;
+  const httpUrl = wsUrl.replace(/^ws/, "http");
+  return httpUrl.replace(/\/$/, "");
+}
+
+// ─── Activity feed ────────────────────────────────────────────
 interface ActivityItem {
   id: string;
   icon: string;
   text: string;
   time: string;
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+const EVENT_ICONS: Record<string, string> = {
+  claim: "🔥",
+  charge: "⚡",
+  customize: "🎨",
+  reclaim: "💀",
+  level_up: "🌟",
+};
+
+function formatServerEvent(evt: { id: number; type: string; block_id?: string; wallet?: string; data?: any; created_at: string }): ActivityItem {
+  const icon = EVENT_ICONS[evt.type] ?? "📡";
+  const who = evt.wallet ? truncAddr(evt.wallet) : "Someone";
+  const blockLabel = evt.block_id ?? "a block";
+  let text: string;
+  switch (evt.type) {
+    case "claim":
+      text = `${who} claimed ${blockLabel}`;
+      break;
+    case "charge":
+      text = `${who} charged ${blockLabel}`;
+      break;
+    case "customize":
+      text = `${who} customized ${blockLabel}`;
+      break;
+    case "reclaim":
+      text = `${who} reclaimed ${blockLabel}`;
+      break;
+    case "level_up":
+      text = `${who} reached Level ${evt.data?.level ?? "?"}`;
+      break;
+    default:
+      text = `${who} performed ${evt.type}`;
+  }
+  return { id: String(evt.id), icon, text, time: relativeTime(evt.created_at) };
+}
+
+async function fetchActivityFeed(): Promise<ActivityItem[] | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/events?limit=8`);
+    if (!res.ok) return null;
+    const events = await res.json();
+    return events.map(formatServerEvent);
+  } catch {
+    return null;
+  }
 }
 
 const TIME_STRINGS = ["just now", "2m ago", "15m ago", "1h ago", "3h ago", "6h ago", "1d ago", "2d ago"];
@@ -222,6 +290,7 @@ export default function BoardScreen() {
   const publicKey = useWalletStore((s) => s.publicKey);
   const stats = useTowerStore((s) => s.stats);
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
+  const selectBlock = useTowerStore((s) => s.selectBlock);
   const { fetchTowerState, fetchUserDeposit } = useStaking();
 
   const [towerInfo, setTowerInfo] = useState<TowerInfo | null>(null);
@@ -266,10 +335,28 @@ export default function BoardScreen() {
     [activeTab, demoBlocks, userAddress],
   );
 
-  const activityFeed = useMemo(
-    () => generateActivityFeed(demoBlocks, userAddress),
-    [demoBlocks, userAddress],
-  );
+  // Activity feed: try real events from API, fall back to generated
+  const [liveActivity, setLiveActivity] = useState<ActivityItem[] | null>(null);
+  const activityFetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (activityFetchedRef.current) return;
+    activityFetchedRef.current = true;
+    fetchActivityFeed().then((items) => {
+      if (items && items.length > 0) setLiveActivity(items);
+    });
+  }, []);
+
+  // Re-fetch on pull-to-refresh
+  const originalOnRefresh = onRefresh;
+  const onRefreshWithActivity = useCallback(async () => {
+    await originalOnRefresh();
+    const items = await fetchActivityFeed();
+    if (items && items.length > 0) setLiveActivity(items);
+    activityFetchedRef.current = true;
+  }, [originalOnRefresh]);
+
+  const activityFeed = liveActivity ?? generateActivityFeed(demoBlocks, userAddress);
 
   // Compute user's skyline rank for hero card
   const userSkylineRank = useMemo(() => {
@@ -310,7 +397,7 @@ export default function BoardScreen() {
     <ScreenLayout
       title="The Board"
       subtitle={`${stats.occupiedBlocks} keepers • ${stats.totalBlocks} blocks`}
-      onRefresh={onRefresh}
+      onRefresh={onRefreshWithActivity}
       refreshing={refreshing}
     >
       {/* ─── Hero: My Tower Status ─── */}
@@ -427,34 +514,45 @@ export default function BoardScreen() {
         {/* Entries */}
         <View style={styles.leaderboardList}>
           {leaderboardData.map((entry, i) => (
-            <Animated.View
+            <TouchableOpacity
               key={entry.rank}
-              entering={FadeInDown.delay(200 + i * 50).duration(250)}
-              style={[
-                styles.leaderboardRow,
-                entry.isYou && styles.leaderboardRowYou,
-              ]}
+              activeOpacity={0.7}
+              onPress={() => {
+                if (entry.blockId) {
+                  hapticButtonPress();
+                  selectBlock(entry.blockId);
+                  router.push("/(tabs)");
+                }
+              }}
             >
-              <Text style={[styles.rankCol, entry.rank <= 3 && styles.rankColTop]}>
-                {entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : `${entry.rank}`}
-              </Text>
-              <Text
+              <Animated.View
+                entering={FadeInDown.delay(200 + i * 50).duration(250)}
                 style={[
-                  styles.addressCol,
-                  entry.isYou && { color: COLORS.gold, fontFamily: FONT_FAMILY.bodySemibold },
+                  styles.leaderboardRow,
+                  entry.isYou && styles.leaderboardRowYou,
                 ]}
               >
-                {entry.isYou ? `${entry.address} (you)` : entry.address}
-              </Text>
-              <Text
-                style={[
-                  styles.valueCol,
-                  entry.isYou && { color: COLORS.gold },
-                ]}
-              >
-                {entry.value}
-              </Text>
-            </Animated.View>
+                <Text style={[styles.rankCol, entry.rank <= 3 && styles.rankColTop]}>
+                  {entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : `${entry.rank}`}
+                </Text>
+                <Text
+                  style={[
+                    styles.addressCol,
+                    entry.isYou && { color: COLORS.gold, fontFamily: FONT_FAMILY.bodySemibold },
+                  ]}
+                >
+                  {entry.isYou ? `${entry.address} (you)` : entry.address}
+                </Text>
+                <Text
+                  style={[
+                    styles.valueCol,
+                    entry.isYou && { color: COLORS.gold },
+                  ]}
+                >
+                  {entry.value}
+                </Text>
+              </Animated.View>
+            </TouchableOpacity>
           ))}
         </View>
       </Card>

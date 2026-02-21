@@ -3,7 +3,7 @@ import { Client, Room } from "colyseus.js";
 import { GAME_SERVER_URL } from "@/constants/network";
 import { useTowerStore } from "@/stores/tower-store";
 import type { DemoBlock } from "@/stores/tower-store";
-import type { ClaimMessage, ChargeMessage, CustomizeMessage } from "@monolith/common";
+import type { ClaimMessage, ChargeMessage, CustomizeMessage, ActivityEvent } from "@monolith/common";
 import {
   DEFAULT_TOWER_CONFIG,
   MONOLITH_HALF_W,
@@ -17,6 +17,7 @@ import {
 const RECONNECT_MAX_RETRIES = 10;
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30_000;
+const MAX_RECENT_EVENTS = 10;
 
 /** Server block shape (JSON message, not Colyseus schema) */
 interface ServerBlock {
@@ -38,6 +39,7 @@ interface ServerBlock {
     style: number;
     textureId: number;
   };
+  eventType?: "claim" | "charge" | "customize";
 }
 
 interface ServerState {
@@ -47,8 +49,44 @@ interface ServerState {
     occupiedBlocks: number;
     activeUsers: number;
     averageEnergy: number;
+    chargesToday?: number;
   };
   tick: number;
+}
+
+/** Charge result from server (enhanced with XP) */
+export interface ChargeResult {
+  success: boolean;
+  cooldownRemaining?: number;
+  streak?: number;
+  multiplier?: number;
+  chargeAmount?: number;
+  pointsEarned?: number;
+  combo?: number;
+  totalXp?: number;
+  level?: number;
+  levelUp?: boolean;
+}
+
+/** Claim result from server */
+export interface ClaimResult {
+  success: boolean;
+  blockId?: string;
+  pointsEarned?: number;
+  combo?: number;
+  totalXp?: number;
+  level?: number;
+  levelUp?: boolean;
+}
+
+/** Customize result from server */
+export interface CustomizeResult {
+  success: boolean;
+  pointsEarned?: number;
+  combo?: number;
+  totalXp?: number;
+  level?: number;
+  levelUp?: boolean;
 }
 
 interface MultiplayerStore {
@@ -57,6 +95,8 @@ interface MultiplayerStore {
   connecting: boolean;
   reconnecting: boolean;
   playerCount: number;
+  chargesToday: number;
+  recentEvents: ActivityEvent[];
 
   connect: () => Promise<boolean>;
   disconnect: () => void;
@@ -72,8 +112,14 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempt = 0;
 let lastAppliedTick = -1;
 
+// Callback refs for listener cleanup
+let chargeResultCallback: ((result: ChargeResult) => void) | null = null;
+let claimResultCallback: ((result: ClaimResult) => void) | null = null;
+let customizeResultCallback: ((result: CustomizeResult) => void) | null = null;
+let errorCallback: ((error: { message: string }) => void) | null = null;
+let playerSyncCallback: ((data: any) => void) | null = null;
+
 // ─── Position cache (computed once from shared layout) ───────
-// Numeric key = layer * 1000 + index (avoids string allocation on lookups)
 const positionCache = new Map<number, { x: number; y: number; z: number }>();
 let cacheBuilt = false;
 const ORIGIN = { x: 0, y: 0, z: 0 } as const;
@@ -112,7 +158,6 @@ function getBlockPosition(layer: number, index: number): { x: number; y: number;
   const pos = positionCache.get(cacheKey(layer, index));
   if (pos) return pos;
 
-  // Warn once per missing key in dev
   if (__DEV__) {
     const key = cacheKey(layer, index);
     if (!warnedMissing.has(key)) {
@@ -147,7 +192,6 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
 
 /** Apply full tower state from server — diffs to avoid unnecessary re-renders */
 function applyFullState(data: ServerState) {
-  // Skip duplicate ticks (e.g. from Strict Mode double-mount)
   if (data.tick != null && data.tick === lastAppliedTick) return;
   lastAppliedTick = data.tick ?? -1;
 
@@ -156,7 +200,6 @@ function applyFullState(data: ServerState) {
   const store = useTowerStore.getState();
   const existing = store.demoBlocks;
 
-  // First load — no diffing needed
   if (existing.length === 0) {
     const blocks = data.blocks.map(serverBlockToDemo);
     store.setDemoBlocks(blocks);
@@ -164,28 +207,24 @@ function applyFullState(data: ServerState) {
     return;
   }
 
-  // Build a fast lookup of existing blocks by layer+index
-  const existingMap = new Map<number, number>(); // cacheKey → index in existing[]
+  const existingMap = new Map<number, number>();
   for (let i = 0; i < existing.length; i++) {
     existingMap.set(cacheKey(existing[i].layer, existing[i].index), i);
   }
 
-  // Diff: only update blocks whose mutable fields actually changed
   let changed = false;
-  const updated = existing.slice(); // shallow copy only if we need to mutate
+  const updated = existing.slice();
 
   for (const serverBlock of data.blocks) {
     const key = cacheKey(serverBlock.layer, serverBlock.index);
     const idx = existingMap.get(key);
     if (idx == null) {
-      // New block not in existing array — add it
       updated.push(serverBlockToDemo(serverBlock));
       changed = true;
       continue;
     }
 
     const cur = existing[idx];
-    // Compare mutable fields — skip position/layer/index (immutable)
     if (
       cur.energy !== serverBlock.energy ||
       cur.owner !== (serverBlock.owner || null) ||
@@ -214,17 +253,16 @@ function applyFullState(data: ServerState) {
 /** Apply a single block update from server */
 function applySingleBlockUpdate(serverBlock: ServerBlock) {
   const store = useTowerStore.getState();
+  const towerStore = useTowerStore.getState();
   const updated = serverBlockToDemo(serverBlock);
   const existing = store.demoBlocks;
 
-  // Find and replace the matching block
   const key = cacheKey(serverBlock.layer, serverBlock.index);
   const idx = existing.findIndex(
     (b) => cacheKey(b.layer, b.index) === key,
   );
 
   if (idx >= 0) {
-    // Check if anything actually changed before triggering a store update
     const cur = existing[idx];
     if (
       cur.energy === updated.energy &&
@@ -235,12 +273,34 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
       cur.style === updated.style &&
       cur.textureId === updated.textureId
     ) {
-      return; // No meaningful change — skip re-render
+      return;
     }
 
     const newBlocks = existing.slice();
     newBlocks[idx] = updated;
     store.setDemoBlocks(newBlocks);
+  }
+
+  // Trigger visual effects based on eventType
+  if (serverBlock.eventType === "claim") {
+    towerStore.setRecentlyClaimedId(serverBlock.id);
+  } else if (serverBlock.eventType === "charge") {
+    towerStore.setRecentlyChargedId(serverBlock.id);
+  }
+
+  // Push to recent events
+  if (serverBlock.eventType) {
+    const event: ActivityEvent = {
+      id: `${serverBlock.id}-${Date.now()}`,
+      type: serverBlock.eventType,
+      blockId: serverBlock.id,
+      owner: serverBlock.owner || "Unknown",
+      ownerColor: serverBlock.ownerColor,
+      timestamp: Date.now(),
+    };
+    const mpStore = useMultiplayerStore.getState();
+    const events = [event, ...mpStore.recentEvents].slice(0, MAX_RECENT_EVENTS);
+    useMultiplayerStore.setState({ recentEvents: events });
   }
 }
 
@@ -257,30 +317,55 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   connecting: false,
   reconnecting: false,
   playerCount: 0,
+  chargesToday: 0,
+  recentEvents: [],
 
   connect: async () => {
     if (get().connected || get().connecting) return get().connected;
 
     set({ connecting: true, error: null });
     clearReconnectTimer();
+    lastAppliedTick = -1;
 
     try {
       client = new Client(GAME_SERVER_URL);
       room = await client.joinOrCreate("tower");
 
-      // ─── JSON message handlers (bypasses schema auto-sync) ────
+      // ─── JSON message handlers ────
 
-      // Full state: sent on join + every 15s
       room.onMessage("tower_state", (data: ServerState) => {
         applyFullState(data);
         if (data.stats) {
-          set({ playerCount: data.stats.activeUsers || 0 });
+          set({
+            playerCount: data.stats.activeUsers || 0,
+            chargesToday: data.stats.chargesToday || 0,
+          });
         }
       });
 
-      // Single block update: sent on claim/charge/customize
       room.onMessage("block_update", (data: ServerBlock) => {
         applySingleBlockUpdate(data);
+      });
+
+      // Result handlers — use callback refs so they can be updated without stacking
+      room.onMessage("charge_result", (data: ChargeResult) => {
+        chargeResultCallback?.(data);
+      });
+
+      room.onMessage("claim_result", (data: ClaimResult) => {
+        claimResultCallback?.(data);
+      });
+
+      room.onMessage("customize_result", (data: CustomizeResult) => {
+        customizeResultCallback?.(data);
+      });
+
+      room.onMessage("player_sync", (data: any) => {
+        playerSyncCallback?.(data);
+      });
+
+      room.onMessage("error", (data: { message: string }) => {
+        errorCallback?.(data);
       });
 
       room.onError((code, message) => {
@@ -294,7 +379,6 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         room = null;
         set({ connected: false, playerCount: 0 });
 
-        // Auto-reconnect on unexpected disconnects
         if (wasConnected && code !== 4000) {
           scheduleReconnect(set, get);
         }
@@ -320,7 +404,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     room?.leave(true).catch(() => {});
     room = null;
     client = null;
-    set({ connected: false, reconnecting: false, playerCount: 0 });
+    set({ connected: false, reconnecting: false, playerCount: 0, chargesToday: 0 });
   },
 
   sendClaim: (msg) => room?.send("claim", msg),
@@ -356,18 +440,27 @@ function scheduleReconnect(
   }, delay);
 }
 
-/** Subscribe to charge_result messages from server */
-export function onChargeResult(callback: (result: {
-  success: boolean;
-  cooldownRemaining?: number;
-  streak?: number;
-  multiplier?: number;
-  chargeAmount?: number;
-}) => void) {
-  room?.onMessage("charge_result", callback);
+/** Register a charge_result callback (replaces previous) */
+export function onChargeResult(callback: (result: ChargeResult) => void) {
+  chargeResultCallback = callback;
 }
 
-/** Subscribe to error messages from server */
+/** Register a claim_result callback (replaces previous) */
+export function onClaimResult(callback: (result: ClaimResult) => void) {
+  claimResultCallback = callback;
+}
+
+/** Register a customize_result callback (replaces previous) */
+export function onCustomizeResult(callback: (result: CustomizeResult) => void) {
+  customizeResultCallback = callback;
+}
+
+/** Register a server error callback (replaces previous) */
 export function onServerError(callback: (error: { message: string }) => void) {
-  room?.onMessage("error", callback);
+  errorCallback = callback;
+}
+
+/** Register a player_sync callback (replaces previous) */
+export function onPlayerSync(callback: (data: any) => void) {
+  playerSyncCallback = callback;
 }

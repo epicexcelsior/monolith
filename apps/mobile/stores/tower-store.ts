@@ -126,6 +126,7 @@ interface TowerStore {
   zoomTier: "overview" | "neighborhood" | "block";
   isGestureActive: boolean;
   recentlyClaimedId: string | null;
+  recentlyChargedId: string | null;
   onboardingDone: boolean;
   initialized: boolean;
   cameraStateRef: React.MutableRefObject<any> | null;
@@ -158,6 +159,9 @@ interface TowerStore {
   startBotSimulation: () => () => void;
   resetTower: () => Promise<void>;
   clearRecentlyClaimed: () => void;
+  setRecentlyClaimedId: (id: string | null) => void;
+  setRecentlyChargedId: (id: string | null) => void;
+  clearRecentlyCharged: () => void;
   completeOnboarding: () => void;
   resetOnboardingFlag: () => Promise<void>;
 
@@ -195,6 +199,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   zoomTier: "overview" as const,
   isGestureActive: false,
   recentlyClaimedId: null,
+  recentlyChargedId: null,
   onboardingDone: false,
   initialized: false,
   cameraStateRef: null,
@@ -419,6 +424,9 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   },
 
   clearRecentlyClaimed: () => set({ recentlyClaimedId: null }),
+  setRecentlyClaimedId: (id) => set({ recentlyClaimedId: id }),
+  setRecentlyChargedId: (id) => set({ recentlyChargedId: id }),
+  clearRecentlyCharged: () => set({ recentlyChargedId: null }),
 
   completeOnboarding: () => {
     set({ onboardingDone: true });

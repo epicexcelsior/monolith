@@ -25,7 +25,9 @@ import { useWalletStore } from "@/stores/wallet-store";
 import { useStaking } from "@/hooks/useStaking";
 import { ENERGY_THRESHOLDS, BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
-import { useMultiplayerStore, onChargeResult } from "@/stores/multiplayer-store";
+import { useMultiplayerStore, onChargeResult, onClaimResult, onCustomizeResult } from "@/stores/multiplayer-store";
+import type { ChargeResult, ClaimResult } from "@/stores/multiplayer-store";
+import { usePlayerStore } from "@/stores/player-store";
 import {
   hapticBlockDeselect,
   hapticBlockClaimed,
@@ -96,7 +98,7 @@ export default function BlockInspector() {
   const isWalletConnected = useWalletStore((s) => s.isConnected);
   const { deposit } = useStaking();
   const router = useRouter();
-  const mpConnected = useMultiplayerStore((s) => s.connected);
+  const mpConnected = useMultiplayerStore((s) => s.connected && !s.reconnecting);
   const sendClaim = useMultiplayerStore((s) => s.sendClaim);
   const sendCharge = useMultiplayerStore((s) => s.sendCharge);
   const sendCustomize = useMultiplayerStore((s) => s.sendCustomize);
@@ -156,6 +158,13 @@ export default function BlockInspector() {
     : false;
   const isUnclaimed = block ? block.owner === null : false;
 
+  // Dormant detection: 0 energy, not your block, not bot, old lastChargeTime
+  const DORMANT_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000;
+  const isDormant = block && !isUnclaimed && !isOwner && block.owner
+    && block.energy === 0
+    && block.lastChargeTime
+    && (Date.now() - block.lastChargeTime) > DORMANT_THRESHOLD_MS;
+
   // Handle claim
   const handleClaim = useCallback(async (amount: number, color: string) => {
     if (!publicKey || !selectedBlockId) throw new Error("Wallet not connected");
@@ -178,7 +187,8 @@ export default function BlockInspector() {
     hapticButtonPress();
 
     if (mpConnected) {
-      sendCharge({ blockId: selectedBlockId });
+      const wallet = publicKey?.toBase58() || "";
+      sendCharge({ blockId: selectedBlockId, wallet });
       playChargeTap();
     } else {
       const result = chargeBlock(selectedBlockId);
@@ -200,7 +210,7 @@ export default function BlockInspector() {
   // Listen for server charge results
   useEffect(() => {
     if (!mpConnected) return;
-    onChargeResult((result) => {
+    onChargeResult((result: ChargeResult) => {
       if (!result.success && result.cooldownRemaining) {
         const secs = Math.ceil(result.cooldownRemaining / 1000);
         setCooldownText(`Wait ${secs}s`);
@@ -211,6 +221,28 @@ export default function BlockInspector() {
         if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
           playStreakMilestone();
         }
+        // Feed XP to player store
+        if (result.pointsEarned) {
+          usePlayerStore.getState().addPoints({
+            pointsEarned: result.pointsEarned,
+            combo: result.combo,
+            totalXp: result.totalXp,
+            level: result.level,
+            levelUp: result.levelUp,
+          });
+        }
+      }
+    });
+
+    onClaimResult((result: ClaimResult) => {
+      if (result.success && result.pointsEarned) {
+        usePlayerStore.getState().addPoints({
+          pointsEarned: result.pointsEarned,
+          combo: result.combo,
+          totalXp: result.totalXp,
+          level: result.level,
+          levelUp: result.levelUp,
+        });
       }
     });
   }, [mpConnected]);
@@ -219,7 +251,8 @@ export default function BlockInspector() {
   const applyCustomize = useCallback((changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => {
     if (!selectedBlockId) return;
     if (mpConnected) {
-      sendCustomize({ blockId: selectedBlockId, changes });
+      const wallet = publicKey?.toBase58() || "";
+      sendCustomize({ blockId: selectedBlockId, wallet, changes });
     } else {
       customizeBlock(selectedBlockId, changes);
     }
@@ -381,15 +414,37 @@ export default function BlockInspector() {
                 )}
 
                 {!isUnclaimed && !isOwner && block.owner && (
-                  <View style={styles.otherOwnerRow}>
-                    <View style={[styles.ownerDot, { backgroundColor: block.ownerColor }]} />
-                    <Text style={styles.otherOwnerText}>
-                      {block.name || truncateAddress(block.owner)}
-                    </Text>
-                    {block.stakedAmount > 0 && (
-                      <Text style={styles.stakedText}>{formatUsdc(block.stakedAmount)}</Text>
+                  <>
+                    <View style={styles.otherOwnerRow}>
+                      <View style={[styles.ownerDot, { backgroundColor: block.ownerColor }]} />
+                      <Text style={styles.otherOwnerText}>
+                        {block.name || truncateAddress(block.owner)}
+                      </Text>
+                      {block.stakedAmount > 0 && (
+                        <Text style={styles.stakedText}>{formatUsdc(block.stakedAmount)}</Text>
+                      )}
+                    </View>
+                    {isDormant && (
+                      <>
+                        <Badge label="DORMANT" color={COLORS.dormant} />
+                        {isWalletConnected ? (
+                          <Button
+                            title="RECLAIM THIS BLOCK"
+                            variant="primary"
+                            size="lg"
+                            onPress={() => setShowClaimModal(true)}
+                          />
+                        ) : (
+                          <Button
+                            title="Connect Wallet to Reclaim"
+                            variant="secondary"
+                            size="lg"
+                            onPress={() => { hapticButtonPress(); router.push("/connect"); }}
+                          />
+                        )}
+                      </>
                     )}
-                  </View>
+                  </>
                 )}
               </View>
             </View>

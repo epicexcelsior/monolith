@@ -42,6 +42,7 @@
       ],
       "expo-web-browser",
       "expo-font",
+      "expo-updates",
       "expo-secure-store",
       [
         "expo-build-properties",
@@ -55,6 +56,12 @@
         }
       ]
     ],
+    "updates": {
+      "url": "https://u.expo.dev/d8909ef0-36b3-4c65-aa05-467a3fba6444"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "experiments": {
       "typedRoutes": true
     },

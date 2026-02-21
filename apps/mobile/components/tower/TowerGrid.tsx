@@ -53,9 +53,13 @@ export default function TowerGrid() {
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const recentlyClaimedId = useTowerStore((s) => s.recentlyClaimedId);
   const clearRecentlyClaimed = useTowerStore((s) => s.clearRecentlyClaimed);
+  const recentlyChargedId = useTowerStore((s) => s.recentlyChargedId);
+  const clearRecentlyCharged = useTowerStore((s) => s.clearRecentlyCharged);
 
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
+  // Track charge flash animation (multiple can be active)
+  const chargeFlashQueueRef = useRef<Array<{ blockIndex: number; time: number }>>([]);
   // Reusable Color objects to avoid per-frame GC pressure
   const tmpColorRef = useRef(new THREE.Color());
   const goldColorRef = useRef(new THREE.Color(1.0, 0.85, 0.2));
@@ -387,6 +391,18 @@ export default function TowerGrid() {
     }
   }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
 
+  // Handle charge flash trigger
+  useEffect(() => {
+    if (recentlyChargedId) {
+      const idx = blockData.findIndex((b) => b.id === recentlyChargedId);
+      if (idx >= 0) {
+        chargeFlashQueueRef.current.push({ blockIndex: idx, time: 0 });
+      }
+      const timer = setTimeout(() => clearRecentlyCharged(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [recentlyChargedId, blockData, clearRecentlyCharged]);
+
   // Per-frame: update time uniform + camera pos + claim flash
   // Cap delta to prevent visual jumps after frame stalls
   useFrame((state, delta) => {
@@ -459,6 +475,69 @@ export default function TowerGrid() {
             colorAttr.needsUpdate = true;
           }
           claimFlashRef.current = null;
+        }
+      }
+    }
+
+    // Charge flash: quick blue-white pulse for 1.2 seconds
+    if (chargeFlashQueueRef.current.length > 0 && meshRef.current) {
+      const geo = meshRef.current.geometry;
+      const energyAttr = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+      const colorAttr = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+
+      if (energyAttr && colorAttr) {
+        const completed: number[] = [];
+        for (let fi = 0; fi < chargeFlashQueueRef.current.length; fi++) {
+          const cf = chargeFlashQueueRef.current[fi];
+          cf.time += delta;
+          const t = cf.time;
+
+          if (t < 1.2) {
+            const block = blockData[cf.blockIndex];
+            if (block) {
+              let intensity: number;
+              if (t < 0.3) {
+                // White-blue flash
+                intensity = 1.0;
+                energyAttr.array[cf.blockIndex] = 1.0;
+              } else if (t < 0.8) {
+                // Pulse back to owner color
+                intensity = 0.6 * (1 - (t - 0.3) / 0.5);
+                energyAttr.array[cf.blockIndex] = block.energy / 100 + (1 - block.energy / 100) * intensity;
+              } else {
+                // Settle
+                intensity = Math.max(0, 0.2 * (1 - (t - 0.8) / 0.4));
+                energyAttr.array[cf.blockIndex] = block.energy / 100;
+              }
+              energyAttr.needsUpdate = true;
+
+              // Blend white-blue with owner color
+              const tempColor = tmpColorRef.current.set(block.ownerColor);
+              const flashColor = new THREE.Color(0.8, 0.9, 1.0); // white-blue
+              const blended = flashColor.lerp(tempColor, 1 - intensity);
+              colorAttr.array[cf.blockIndex * 3] = blended.r;
+              colorAttr.array[cf.blockIndex * 3 + 1] = blended.g;
+              colorAttr.array[cf.blockIndex * 3 + 2] = blended.b;
+              colorAttr.needsUpdate = true;
+            }
+          } else {
+            // Complete — restore
+            const block = blockData[cf.blockIndex];
+            if (block) {
+              energyAttr.array[cf.blockIndex] = block.energy / 100;
+              energyAttr.needsUpdate = true;
+              const tempColor = tmpColorRef.current.set(block.ownerColor);
+              colorAttr.array[cf.blockIndex * 3] = tempColor.r;
+              colorAttr.array[cf.blockIndex * 3 + 1] = tempColor.g;
+              colorAttr.array[cf.blockIndex * 3 + 2] = tempColor.b;
+              colorAttr.needsUpdate = true;
+            }
+            completed.push(fi);
+          }
+        }
+        // Remove completed flashes (reverse order to keep indices valid)
+        for (let i = completed.length - 1; i >= 0; i--) {
+          chargeFlashQueueRef.current.splice(completed[i], 1);
         }
       }
     }

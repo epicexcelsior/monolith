@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
+import { usePlayerStore } from "@/stores/player-store";
+import XPBar from "@/components/ui/XPBar";
 import { getClusterName } from "@/services/mwa";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { ScreenLayout, Card, Button, Badge, ChargeBar } from "@/components/ui";
@@ -29,6 +31,12 @@ export default function MeScreen() {
   const cluster = getClusterName();
   const [showSettings, setShowSettings] = useState(false);
 
+  const xp = usePlayerStore((s) => s.xp);
+  const level = usePlayerStore((s) => s.level);
+  const totalClaims = usePlayerStore((s) => s.totalClaims);
+  const totalCharges = usePlayerStore((s) => s.totalCharges);
+  const comboBest = usePlayerStore((s) => s.comboBest);
+
   // Derive my blocks
   const myBlocks = publicKey
     ? demoBlocks.filter((b) => b.owner === publicKey.toBase58())
@@ -36,6 +44,7 @@ export default function MeScreen() {
   const totalEnergy = myBlocks.length > 0
     ? Math.round(myBlocks.reduce((sum, b) => sum + b.energy, 0) / myBlocks.length)
     : 0;
+  const bestStreak = myBlocks.reduce((max, b) => Math.max(max, b.streak ?? 0), 0);
 
   const handleDisconnect = () => {
     Alert.alert(
@@ -111,7 +120,7 @@ export default function MeScreen() {
           </View>
           <View style={styles.identityStatDivider} />
           <View style={styles.identityStatItem}>
-            <Text style={styles.identityStatValue}>Day 1</Text>
+            <Text style={styles.identityStatValue}>{bestStreak > 0 ? `Day ${bestStreak}` : "—"}</Text>
             <Text style={styles.identityStatLabel}>Streak</Text>
           </View>
         </View>
@@ -168,6 +177,30 @@ export default function MeScreen() {
         )}
       </Card>
 
+      {/* ─── XP Progress ─── */}
+      <Card>
+        <Text style={TEXT.overline}>EXPERIENCE</Text>
+        <View style={{ marginTop: SPACING.sm }}>
+          <XPBar xp={xp} level={level} size="md" />
+        </View>
+        <View style={[styles.identityStats, { marginTop: SPACING.md }]}>
+          <View style={styles.identityStatItem}>
+            <Text style={styles.identityStatValue}>{totalClaims}</Text>
+            <Text style={styles.identityStatLabel}>Claims</Text>
+          </View>
+          <View style={styles.identityStatDivider} />
+          <View style={styles.identityStatItem}>
+            <Text style={styles.identityStatValue}>{totalCharges}</Text>
+            <Text style={styles.identityStatLabel}>Charges</Text>
+          </View>
+          <View style={styles.identityStatDivider} />
+          <View style={styles.identityStatItem}>
+            <Text style={[styles.identityStatValue, { color: COLORS.gold }]}>{comboBest}x</Text>
+            <Text style={styles.identityStatLabel}>Best Combo</Text>
+          </View>
+        </View>
+      </Card>
+
       {/* ─── Badges (Mock for now) ─── */}
       <Card>
         <Text style={TEXT.overline}>BADGES</Text>
@@ -190,6 +223,16 @@ export default function MeScreen() {
           </View>
         </View>
       </Card>
+
+      {/* ─── Get Test Tokens ─── */}
+      <Button
+        title="Get Test Tokens"
+        variant="ghost"
+        onPress={() => {
+          hapticButtonPress();
+          router.push("/faucet" as any);
+        }}
+      />
 
       {/* ─── Settings (Collapsible) ─── */}
       <TouchableOpacity

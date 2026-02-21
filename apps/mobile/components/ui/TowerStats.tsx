@@ -3,17 +3,21 @@ import { View, Text, StyleSheet } from "react-native";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
+import { useMultiplayerStore } from "@/stores/multiplayer-store";
+import { usePlayerStore } from "@/stores/player-store";
 import { isBotOwner } from "@/utils/seed-tower";
 
 /**
  * TowerStats — Semi-transparent stat pills on the tower HUD.
  *
- * Shows: Keepers (unique owners), Your Blocks, Avg Charge.
- * Gives immediate context: "this tower is alive, other people are here."
+ * Shows: Keepers, Claimed %, Avg Charge, Mine, Online, Today, Level.
  */
 export default function TowerStats() {
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const publicKey = useWalletStore((s) => s.publicKey);
+  const playerCount = useMultiplayerStore((s) => s.playerCount);
+  const chargesToday = useMultiplayerStore((s) => s.chargesToday);
+  const level = usePlayerStore((s) => s.level);
 
   const stats = useMemo(() => {
     const owned = demoBlocks.filter((b) => b.owner !== null);
@@ -38,6 +42,15 @@ export default function TowerStats() {
 
   return (
     <View style={styles.container}>
+      {playerCount > 0 && (
+        <>
+          <View style={styles.pill}>
+            <Text style={[styles.pillValue, { color: COLORS.success }]}>{playerCount}</Text>
+            <Text style={styles.pillLabel}>Online</Text>
+          </View>
+          <View style={styles.divider} />
+        </>
+      )}
       <View style={styles.pill}>
         <Text style={styles.pillValue}>{stats.keepers}</Text>
         <Text style={styles.pillLabel}>Keepers</Text>
@@ -52,12 +65,30 @@ export default function TowerStats() {
         <Text style={styles.pillValue}>{stats.avgEnergy}%</Text>
         <Text style={styles.pillLabel}>Avg Charge</Text>
       </View>
+      {chargesToday > 0 && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.pill}>
+            <Text style={styles.pillValue}>{chargesToday}</Text>
+            <Text style={styles.pillLabel}>Today</Text>
+          </View>
+        </>
+      )}
       {publicKey && stats.myBlocks > 0 && (
         <>
           <View style={styles.divider} />
           <View style={styles.pill}>
             <Text style={[styles.pillValue, { color: COLORS.goldLight }]}>{stats.myBlocks}</Text>
             <Text style={styles.pillLabel}>Mine</Text>
+          </View>
+        </>
+      )}
+      {publicKey && level > 1 && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.pill}>
+            <Text style={[styles.pillValue, { color: COLORS.gold }]}>Lv.{level}</Text>
+            <Text style={styles.pillLabel}>Level</Text>
           </View>
         </>
       )}

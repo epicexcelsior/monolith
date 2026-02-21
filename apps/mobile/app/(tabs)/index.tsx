@@ -4,7 +4,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
@@ -12,11 +14,16 @@ import LayerIndicator from "@/components/ui/LayerIndicator";
 import { OnboardingFlow } from "@/components/onboarding";
 import ActionPrompt from "@/components/ui/ActionPrompt";
 import TowerStats from "@/components/ui/TowerStats";
+import FloatingPoints from "@/components/ui/FloatingPoints";
+import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
+import ActivityTicker from "@/components/ui/ActivityTicker";
+import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
-import { useMultiplayerStore } from "@/stores/multiplayer-store";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { useMultiplayerStore, onPlayerSync } from "@/stores/multiplayer-store";
+import { usePlayerStore } from "@/stores/player-store";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { initAudio } from "@/utils/audio";
 
@@ -32,6 +39,7 @@ export default function TowerScreen() {
   const resetOnboardingFlag = useTowerStore((s) => s.resetOnboardingFlag);
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
+  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
 
   const multiplayerConnected = useMultiplayerStore((s) => s.connected);
 
@@ -40,6 +48,13 @@ export default function TowerScreen() {
   const initOnboarding = useOnboardingStore((s) => s.init);
   const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
   const isOnboarding = onboardingPhase !== "done";
+
+  // Register player sync handler
+  useEffect(() => {
+    onPlayerSync((data) => {
+      usePlayerStore.getState().setFromServer(data);
+    });
+  }, []);
 
   // Initialize tower: try multiplayer, fall back to local
   useEffect(() => {
@@ -59,7 +74,7 @@ export default function TowerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Start decay loop + bot simulation only when NOT in multiplayer (server handles these)
+  // Start decay loop + bot simulation only when NOT in multiplayer
   useEffect(() => {
     if (!initialized || multiplayerConnected) return;
     const cleanupDecay = startDecayLoop();
@@ -72,9 +87,18 @@ export default function TowerScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
+
       {/* 3D Tower (full screen) */}
       <View style={styles.canvasContainer}>
-        <TowerScene />
+        {initialized ? (
+          <TowerScene />
+        ) : (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.gold} />
+            <Text style={styles.loadingText}>Loading tower...</Text>
+          </View>
+        )}
       </View>
 
       {/* HUD Overlay — hidden during onboarding for cleaner experience */}
@@ -116,8 +140,14 @@ export default function TowerScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Connection status */}
+          <ConnectionBanner />
+
           {/* Tower stats bar */}
           {initialized && <TowerStats />}
+
+          {/* Activity ticker (hidden during block inspect) */}
+          {!selectedBlockId && <ActivityTicker />}
 
           {/* Spacer to push bottom content down */}
           <View style={{ flex: 1 }} />
@@ -136,6 +166,12 @@ export default function TowerScreen() {
 
       {/* Contextual action prompt */}
       {initialized && onboardingDone && !isOnboarding && <ActionPrompt />}
+
+      {/* Floating XP points animation */}
+      <FloatingPoints />
+
+      {/* Level up celebration */}
+      <LevelUpCelebration />
 
       {/* Block Inspector panel */}
       <BlockInspector />
@@ -157,6 +193,18 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: SPACING.md,
+  },
+  loadingText: {
+    color: COLORS.textOnDark,
+    fontFamily: FONT_FAMILY.bodyMedium,
+    fontSize: 14,
+    opacity: 0.6,
   },
   hud: {
     flex: 1,

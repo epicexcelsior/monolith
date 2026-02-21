@@ -22,6 +22,7 @@ import {
   JetBrainsMono_700Bold,
 } from "@expo-google-fonts/jetbrains-mono";
 import { useAuthorization } from "@/hooks/useAuthorization";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { COLORS } from "@/constants/theme";
 
 // Prevent splash from auto-hiding
@@ -83,6 +84,7 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    <ErrorBoundary>
     <GestureHandlerRootView style={styles.container}>
       <StatusBar style="dark" />
       <Stack
@@ -111,6 +113,16 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="faucet"
+          options={{
+            presentation: "formSheet",
+            animation: "slide_from_bottom",
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 24,
+            contentStyle: { backgroundColor: COLORS.glassElevated },
+          }}
+        />
+        <Stack.Screen
           name="withdraw"
           options={{
             presentation: "formSheet",
@@ -122,6 +134,7 @@ export default function RootLayout() {
         />
       </Stack>
     </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

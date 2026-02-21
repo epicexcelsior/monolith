@@ -1,7 +1,7 @@
 # Monolith — Project Context
 
 > **Living state document.** Auto-updated by `/wrapup` workflow.
-> **Last updated:** 2026-02-19
+> **Last updated:** 2026-02-21
 
 ## What Is This?
 
@@ -27,19 +27,36 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - Colyseus multiplayer (server-authoritative, JSON messages, Railway)
 - Interactive onboarding (3-phase: title reveal → ghost claim → charge → CTA)
 - Liquid glass UI design system (solarpunk palette)
+- **Supabase persistence** (blocks, players, events — hosted, migration applied)
+- **XP / level system** (claim=100xp, charge=25xp, combo up to 3x, 10 levels)
+- **FloatingPoints** ("+25 XP" animation after actions)
+- **LevelUpCelebration** (full-screen overlay + haptic on level-up)
+- **XPBar** (progress bar in settings + block inspector)
+- **ActivityTicker** (real-time event feed on tower HUD)
+- **ConnectionBanner** (connecting/reconnecting/offline states)
+- **ErrorBoundary** (crash recovery wrapper)
+- **Faucet screen** (SOL airdrop + USDC faucet link from Me tab)
+- **Charge pulse animation** (blue-white flash on tower when someone charges)
+- **Dormant block reclaim** ("RECLAIM" CTA on blocks at 0 energy 3+ days)
+- **Tappable leaderboard** (tap entry → camera flies to block)
+- **Real activity feed on Board tab** (fetches from /api/events, fallback to generated)
+- **EAS Update / OTA** (expo-updates configured, channel: preview)
+- **Ownership enforcement** (can't charge/customize another player's block)
+- **REST endpoints** (GET /api/events, GET /api/leaderboard)
+- **Server hardening** (try/catch all handlers, error messages to client)
 
 ### Mocked / Stubbed
-- Leaderboard tabs (shows `generateMockLeaderboard()`)
-- Activity feed (hardcoded `MOCK_ACTIVITY`)
-- Supabase client (imported but unused)
+- Activity feed on Board tab falls back to generated data when server has no events
+- Sound effects exist but not all wired to interactions
 
 ### Not Started
 - Push notifications
-- Dormant block reclaim mechanic (blocks at 0 charge for 3+ days → claimable)
-- Sound effects wired to interactions
+- Sound effects fully wired
 - Poke system (social re-engagement)
 - Guided onboarding camera flight
 - Demo video / pitch deck
+- Gravity Tax implementation
+- Lighthouse glow radius mechanic
 
 ---
 
@@ -49,7 +66,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | File | Purpose |
 |------|---------|
 | `apps/mobile/components/tower/TowerScene.tsx` | Camera rig, gestures, scene orchestration |
-| `apps/mobile/components/tower/TowerGrid.tsx` | InstancedMesh block rendering loop |
+| `apps/mobile/components/tower/TowerGrid.tsx` | InstancedMesh block rendering + claim/charge flash animations |
 | `apps/mobile/components/tower/BlockShader.ts` | Custom GLSL shader (AO, SSS, specular, windows) |
 | `apps/mobile/components/tower/TowerCore.tsx` | Top-level R3F Canvas wrapper |
 | `apps/mobile/components/tower/Foundation.tsx` | Ground plane / base geometry |
@@ -58,62 +75,72 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 ### UI Components
 | File | Purpose |
 |------|---------|
-| `apps/mobile/components/ui/BlockInspector.tsx` | Selected block detail panel |
+| `apps/mobile/components/ui/BlockInspector.tsx` | Selected block detail panel + charge/claim/dormant CTA |
 | `apps/mobile/components/ui/LayerIndicator.tsx` | Floor scrubber / layer nav |
 | `apps/mobile/components/ui/ClaimModal.tsx` | Block claim confirmation modal |
-| `apps/mobile/components/ui/BottomPanel.tsx` | Slide-up glass bottom sheet |
+| `apps/mobile/components/ui/TowerStats.tsx` | HUD stats bar (keepers, charge %, online count, level) |
+| `apps/mobile/components/ui/ActivityTicker.tsx` | Real-time event feed on tower HUD |
+| `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator (connecting/offline/reconnecting) |
+| `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions |
+| `apps/mobile/components/ui/LevelUpCelebration.tsx` | Full-screen level-up overlay + haptic |
+| `apps/mobile/components/ui/XPBar.tsx` | XP progress bar component |
+| `apps/mobile/components/ErrorBoundary.tsx` | React error boundary for crash recovery |
 | `apps/mobile/components/ui/Button.tsx` | Glass button (4 variants) |
 | `apps/mobile/components/ui/Card.tsx` | Glass card container |
 
 ### State Management
 | File | Purpose |
 |------|---------|
-| `apps/mobile/stores/tower-store.ts` | Block data, selection, charge, decay loop |
-| `apps/mobile/stores/multiplayer-store.ts` | Colyseus connection, state sync, position cache |
+| `apps/mobile/stores/tower-store.ts` | Block data, selection, charge, decay loop, recentlyChargedId |
+| `apps/mobile/stores/multiplayer-store.ts` | Colyseus connection, state sync, recentEvents, chargesToday |
+| `apps/mobile/stores/player-store.ts` | XP, level, combo, lastPointsEarned, levelUp state |
 | `apps/mobile/stores/wallet-store.ts` | Wallet connection + balance |
 | `apps/mobile/stores/onboarding-store.ts` | Onboarding flow progress |
-
-### Hooks
-| File | Purpose |
-|------|---------|
-| `apps/mobile/hooks/useAuthorization.ts` | MWA authorization flow |
-| `apps/mobile/hooks/useAnchorProgram.ts` | Anchor program + USDC vault transactions |
-| `apps/mobile/hooks/useStaking.ts` | USDC deposit/withdraw |
 
 ### Screens (Expo Router)
 | File | Purpose |
 |------|---------|
-| `apps/mobile/app/(tabs)/index.tsx` | Home screen (tower view) |
-| `apps/mobile/app/(tabs)/blocks.tsx` | Block list / management |
-| `apps/mobile/app/(tabs)/settings.tsx` | Settings |
+| `apps/mobile/app/(tabs)/index.tsx` | Home screen (tower + HUD + FloatingPoints + LevelUp + ActivityTicker) |
+| `apps/mobile/app/(tabs)/blocks.tsx` | Board: leaderboard (tappable) + real activity feed |
+| `apps/mobile/app/(tabs)/settings.tsx` | Me tab: XP stats, best streak, faucet button |
+| `apps/mobile/app/faucet.tsx` | Devnet faucet (SOL airdrop + USDC link) |
 | `apps/mobile/app/connect.tsx` | Wallet connect |
 | `apps/mobile/app/deposit.tsx` | USDC deposit |
 
-### Config
+### Config / Constants
 | File | Purpose |
 |------|---------|
-| `apps/mobile/constants/CameraConfig.ts` | Camera limits, zoom, elevation values |
 | `apps/mobile/constants/theme.ts` | Colors, glass styles, typography |
+| `apps/mobile/constants/network.ts` | GAME_SERVER_URL from env |
+| `apps/mobile/app.json` | EAS project config, expo-updates URL |
+| `apps/mobile/eas.json` | Build profiles (dev/preview/prod) + Supabase env vars |
 
 ### Game Server
 | File | Purpose |
 |------|---------|
-| `apps/server/src/index.ts` | Colyseus server entrypoint |
-| `apps/server/src/rooms/TowerRoom.ts` | Game room: claims, decay, bot sim |
+| `apps/server/src/index.ts` | Colyseus server entrypoint + REST endpoints |
+| `apps/server/src/rooms/TowerRoom.ts` | Game room: claims, decay, XP, persistence, ownership enforcement |
+| `apps/server/src/utils/supabase.ts` | Supabase client + CRUD helpers (fire-and-forget writes) |
+| `apps/server/src/utils/xp.ts` | XP computation, level thresholds, combo tracking |
 
 ### Shared Package
 | File | Purpose |
 |------|---------|
 | `packages/common/src/layout.ts` | Tower geometry / block position math |
 | `packages/common/src/constants.ts` | Shared tower dimensions, limits |
-| `packages/common/src/types.ts` | Shared TypeScript types |
+| `packages/common/src/types.ts` | Shared TypeScript types (ClaimMessage, ChargeMessage, ActivityEvent) |
+
+### Database
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/001_initial.sql` | Schema: blocks, players, events + RLS policies |
+| `supabase/config.toml` | Supabase CLI config (linked to project pscgsbdznfitscxflxrm) |
 
 ### Anchor Program
 | File | Purpose |
 |------|---------|
 | `programs/monolith/src/lib.rs` | Instructions (claim, charge, deposit, withdraw) |
 | `programs/monolith/src/state.rs` | On-chain account structures |
-| `programs/monolith/src/error.rs` | Custom program error codes |
 
 ---
 
@@ -123,7 +150,13 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 User gesture → TowerScene.tsx (camera)
 Block tap → TowerGrid.tsx (raycast) → tower-store.ts (select) → BlockInspector.tsx (UI)
 Claim/Charge → multiplayer-store.ts → Colyseus room.send() → TowerRoom.ts (server)
-Server mutation → room.broadcast("block_update") → multiplayer-store.ts → tower-store.ts → TowerGrid re-render
+  → XP computed → updatePlayerXp() → Supabase players table
+  → insertEvent() → Supabase events table
+  → upsertBlock() → Supabase blocks table
+  → charge_result/claim_result → BlockInspector → player-store → FloatingPoints/LevelUp
+Server mutation → room.broadcast("block_update", { eventType }) → multiplayer-store.ts
+  → tower-store.ts → TowerGrid re-render (claim flash gold / charge flash blue-white)
+  → recentEvents → ActivityTicker (HUD)
 Position math → @monolith/common/layout.ts (shared) → positionCache (client-side Map)
 USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-chain)
 ```
@@ -142,6 +175,35 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 8. **Colyseus uses JSON messages** — NOT schema auto-sync (version mismatch breaks silently)
 9. **Azimuth grows unbounded** — use `nearestAzimuth()` for programmatic changes, never normalize
 10. **tsc hangs in monorepo** — always wrap with `timeout 90`
+11. **Supabase writes are fire-and-forget** — `upsertBlock`, `updatePlayerXp`, `insertEvent` return `void`, not `Promise`. Don't `await` them.
+12. **Supabase uses service role key on server** — the anon/publishable key (`sb_publishable_...`) is for mobile only. Server needs `eyJ...` service role key.
+13. **`mpConnected` includes reconnecting guard** — `connected && !reconnecting`. Never use raw `connected` for action routing in BlockInspector.
+14. **Android physical device can't reach `localhost`** — use `adb reverse tcp:2567 tcp:2567` over USB, or LAN IP, or prod URL.
+15. **Supabase lazy init** — client initializes on first TowerRoom.onCreate(), not at server startup. Now also eagerly inits + verifies at server start.
+
+---
+
+## Environment Setup
+
+### Mobile env files
+| File | Used when | Server target |
+|------|-----------|---------------|
+| `.env` | `npx expo start` (Expo Go / bare) | LAN IP (`ws://192.168.1.21:2567`) |
+| `.env.local` | Overrides `.env` — current active | LAN IP (`ws://192.168.1.21:2567`) |
+| `eas.json` | EAS builds (preview/prod APK) | prod Railway (`wss://...railway.app`) |
+
+### Server env (apps/server/.env — gitignored)
+```
+SUPABASE_URL=https://pscgsbdznfitscxflxrm.supabase.co
+SUPABASE_SERVICE_KEY=eyJ...   ← service_role key from Supabase dashboard
+```
+
+### Local dev with physical Android device
+```bash
+adb reverse tcp:2567 tcp:2567   # forward device → laptop
+cd apps/server && pnpm dev       # start local server
+cd apps/mobile && npx expo start --dev-client
+```
 
 ---
 
@@ -149,14 +211,13 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 
 ### Test
 ```bash
-cd apps/mobile && npx jest              # 165 tests, 0 failing
+cd apps/mobile && npx jest              # 178 tests, 14 suites
+cd apps/server && npx jest              # 26 tests, 2 suites
 ```
 
 ### Typecheck
 ```bash
-# Mobile (always use timeout)
 timeout 90 npx tsc --noEmit --project apps/mobile/tsconfig.json
-# Server
 cd apps/server && npx tsc --noEmit
 ```
 
@@ -167,8 +228,18 @@ cd apps/mobile && npx expo start --dev-client
 
 ### Deploy server
 ```bash
-git push origin main   # Railway auto-deploys
+git push origin main   # Railway auto-deploys (~2 min)
 # Server URL: wss://monolith-server-production.up.railway.app
+```
+
+### OTA update (no APK rebuild)
+```bash
+cd apps/mobile && eas update --branch preview --message "description"
+```
+
+### Apply DB migration
+```bash
+npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ```
 
 ---
@@ -184,6 +255,8 @@ git push origin main   # Railway auto-deploys
 | Tab bar height in `_layout.tsx` | All bottom-anchored UI (BlockInspector, BottomPanel, etc.) |
 | Tower dimensions in `constants.ts` | Both client and server use this — redeploy server too |
 | `TowerRoom.ts` message format | Client handlers in `multiplayer-store.ts` |
+| `supabase/migrations/` | Run `npx supabase db push` to apply to hosted DB |
+| Supabase table schema | Update `BlockRow` / `PlayerRow` interfaces in `supabase.ts` |
 
 ---
 
@@ -198,18 +271,17 @@ git push origin main   # Railway auto-deploys
 | `docs/game-design/GDD.md` | Game Design Document (canonical) |
 | `docs/design/UI_SYSTEM.md` | Solarpunk design system spec |
 | `docs/MULTIPLAYER_DEPLOYMENT.md` | Colyseus + Railway setup |
-| `AGENTS.md` | Legacy lessons (being merged into LESSONS.md) |
-| `mvp_roadmap.md` | Original roadmap (see Current State above for latest) |
+| `docs/TESTER_GUIDE.md` | Tester onboarding: install, get tokens, how to play |
+| `docs/TESTING.md` | Developer testing guide: local setup, feature checklist |
 
 ---
 
 ## Recent Changes
 
-- **2026-02-19**: Documentation system overhaul (CONTEXT.md, CLAUDE.md, topic-indexed LESSONS.md, workflow updates)
+- **2026-02-21**: Full "alive game" feature set — XP/levels, Supabase persistence, ActivityTicker, ConnectionBanner, LevelUpCelebration, FloatingPoints, XPBar, faucet, dormant reclaim, charge flash, tappable leaderboard, OTA config, ErrorBoundary (204 tests)
+- **2026-02-19**: Documentation system overhaul (CONTEXT.md, CLAUDE.md, topic-indexed LESSONS.md)
 - **2026-02-18**: Interior-mapped image windows with 3D parallax depth
 - **2026-02-18**: Fixed BlockInspector panel visibility above tab bar
-- **2026-02-18**: Shader validation checklist in `/wrapup` workflow
 - **2026-02-17**: Colyseus multiplayer fully working (JSON messages, Railway deploy)
-- **2026-02-17**: Multiplayer position computation fix (positionCache)
 - **2026-02-16**: Camera system overhaul (dramatic side-on view, clean gesture model)
 - **2026-02-16**: Bot simulation (21 personas, 6 archetypes)

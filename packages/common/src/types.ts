@@ -171,10 +171,12 @@ export interface ClaimMessage {
 
 export interface ChargeMessage {
   blockId: string;
+  wallet: string;
 }
 
 export interface CustomizeMessage {
   blockId: string;
+  wallet: string;
   changes: {
     color?: string;
     emoji?: string;
@@ -182,4 +184,15 @@ export interface CustomizeMessage {
     style?: number;
     textureId?: number;
   };
+}
+
+/** Activity event for real-time feed */
+export interface ActivityEvent {
+  id: string;
+  type: "claim" | "charge" | "customize";
+  blockId: string;
+  owner: string;
+  ownerColor?: string;
+  timestamp: number;
+  data?: Record<string, any>;
 }
