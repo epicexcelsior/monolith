@@ -26,7 +26,7 @@ import { useStaking } from "@/hooks/useStaking";
 import { ENERGY_THRESHOLDS, BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
 import { useMultiplayerStore, onChargeResult, onClaimResult, onCustomizeResult } from "@/stores/multiplayer-store";
-import type { ChargeResult, ClaimResult } from "@/stores/multiplayer-store";
+import type { ChargeResult, ClaimResult, CustomizeResult } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
 import {
   hapticBlockDeselect,
@@ -51,6 +51,10 @@ const BLOCK_STYLES = [
   { id: 4, label: "Glass", icon: "💎" },
   { id: 5, label: "Fire", icon: "🔥" },
   { id: 6, label: "Ice", icon: "❄️" },
+  { id: 7, label: "Lava", icon: "🌋" },
+  { id: 8, label: "Aurora", icon: "🌌" },
+  { id: 9, label: "Crystal", icon: "💠" },
+  { id: 10, label: "Nature", icon: "🌿" },
 ] as const;
 
 const PANEL_HEIGHT = 420;
@@ -110,8 +114,10 @@ export default function BlockInspector() {
 
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
+  const [showMoreStyles, setShowMoreStyles] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [cooldownText, setCooldownText] = useState<string | null>(null);
+  const recentlyClaimedId = useTowerStore((s) => s.recentlyClaimedId);
 
   // Swipe-to-dismiss — only on drag handle, not content
   const panResponder = useMemo(
@@ -147,10 +153,18 @@ export default function BlockInspector() {
 
     if (!isVisible) {
       setShowCustomize(false);
+      setShowMoreStyles(false);
       setShowClaimModal(false);
       dragOffset.setValue(0);
     }
   }, [isVisible, slideAnim, dragOffset]);
+
+  // Auto-expand customize panel after claiming a block
+  useEffect(() => {
+    if (recentlyClaimedId && selectedBlockId && recentlyClaimedId === selectedBlockId) {
+      setShowCustomize(true);
+    }
+  }, [recentlyClaimedId, selectedBlockId]);
 
   const block = selectedBlockId ? getDemoBlockById(selectedBlockId) : null;
   const isOwner = block?.owner && publicKey
@@ -176,6 +190,12 @@ export default function BlockInspector() {
       sendClaim({ blockId: selectedBlockId, wallet, amount: amount * 1_000_000, color });
     } else {
       claimBlock(selectedBlockId, wallet, amount * 1_000_000, color);
+      // Local XP feedback for demo mode
+      const blocks = useTowerStore.getState().demoBlocks;
+      const isFirst = !blocks.some((b) => b.owner === wallet && b.id !== selectedBlockId);
+      const pts = isFirst ? 300 : 100;
+      const pStore = usePlayerStore.getState();
+      pStore.addPoints({ pointsEarned: pts, totalXp: pStore.xp + pts, level: pStore.level });
     }
     hapticBlockClaimed();
     playBlockClaim();
@@ -203,6 +223,10 @@ export default function BlockInspector() {
         if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
           playStreakMilestone();
         }
+        // Local XP feedback for demo mode
+        const pts = 25;
+        const store = usePlayerStore.getState();
+        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level });
       }
     }
   }, [selectedBlockId, chargeBlock, mpConnected, sendCharge]);
@@ -245,6 +269,18 @@ export default function BlockInspector() {
         });
       }
     });
+
+    onCustomizeResult((result: CustomizeResult) => {
+      if (result.success && result.pointsEarned) {
+        usePlayerStore.getState().addPoints({
+          pointsEarned: result.pointsEarned,
+          combo: result.combo,
+          totalXp: result.totalXp,
+          level: result.level,
+          levelUp: result.levelUp,
+        });
+      }
+    });
   }, [mpConnected]);
 
   // Customize helper
@@ -255,6 +291,10 @@ export default function BlockInspector() {
       sendCustomize({ blockId: selectedBlockId, wallet, changes });
     } else {
       customizeBlock(selectedBlockId, changes);
+      // Local XP feedback for demo mode
+      const pts = 10;
+      const store = usePlayerStore.getState();
+      store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level });
     }
   }, [selectedBlockId, mpConnected, sendCustomize, customizeBlock]);
 
@@ -458,25 +498,11 @@ export default function BlockInspector() {
                 keyboardShouldPersistTaps="handled"
                 nestedScrollEnabled
               >
-                <Text style={styles.sectionLabel}>STYLE</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                  {BLOCK_STYLES.map((s) => (
-                    <TouchableOpacity
-                      key={s.id}
-                      style={[styles.cell, (block.style ?? 0) === s.id && styles.cellSelected]}
-                      onPress={() => handleStyleChange(s.id)}
-                    >
-                      <Text style={styles.cellIcon}>{s.icon}</Text>
-                      <Text style={[styles.cellLabel, (block.style ?? 0) === s.id && styles.cellLabelSelected]}>
-                        {s.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
+                {/* Primary: COLOR — all swatches visible, no scroll */}
                 <Text style={styles.sectionLabel}>COLOR</Text>
                 <ColorPicker selected={block.ownerColor} onSelect={handleColorChange} />
 
+                {/* EMOJI — 2-row scroll */}
                 <Text style={styles.sectionLabel}>EMOJI</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
                   {BLOCK_ICONS.slice(0, 20).map((icon) => (
@@ -490,38 +516,68 @@ export default function BlockInspector() {
                   ))}
                 </ScrollView>
 
-                <Text style={styles.sectionLabel}>TEXTURE</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                  {BLOCK_TEXTURES.map((tex) => (
-                    <TouchableOpacity
-                      key={tex.id}
-                      style={[styles.cell, (block.textureId ?? 0) === tex.id && styles.cellSelected]}
-                      onPress={() => handleTextureChange(tex.id)}
-                    >
-                      <Text style={styles.cellIcon}>{tex.icon}</Text>
-                      <Text style={[styles.cellLabel, (block.textureId ?? 0) === tex.id && styles.cellLabelSelected]}>
-                        {tex.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                {/* More styles expander */}
+                <TouchableOpacity
+                  style={styles.moreStylesButton}
+                  onPress={() => { setShowMoreStyles(!showMoreStyles); hapticButtonPress(); }}
+                >
+                  <Text style={styles.moreStylesText}>
+                    {showMoreStyles ? "Less options" : "More styles \u203A"}
+                  </Text>
+                </TouchableOpacity>
 
-                <Text style={styles.sectionLabel}>NAME</Text>
-                <View style={styles.nameRow}>
-                  <TextInput
-                    style={styles.nameInput}
-                    value={nameInput}
-                    onChangeText={(t) => setNameInput(t.slice(0, 12))}
-                    placeholder={block.name || "My Block"}
-                    placeholderTextColor={COLORS.textMuted}
-                    maxLength={12}
-                    returnKeyType="done"
-                    onSubmitEditing={handleNameSubmit}
-                  />
-                  <TouchableOpacity style={styles.nameButton} onPress={handleNameSubmit}>
-                    <Text style={styles.nameButtonText}>Set</Text>
-                  </TouchableOpacity>
-                </View>
+                {showMoreStyles && (
+                  <>
+                    <Text style={styles.sectionLabel}>STYLE</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+                      {BLOCK_STYLES.map((s) => (
+                        <TouchableOpacity
+                          key={s.id}
+                          style={[styles.cell, (block.style ?? 0) === s.id && styles.cellSelected]}
+                          onPress={() => handleStyleChange(s.id)}
+                        >
+                          <Text style={styles.cellIcon}>{s.icon}</Text>
+                          <Text style={[styles.cellLabel, (block.style ?? 0) === s.id && styles.cellLabelSelected]}>
+                            {s.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    <Text style={styles.sectionLabel}>TEXTURE</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+                      {BLOCK_TEXTURES.map((tex) => (
+                        <TouchableOpacity
+                          key={tex.id}
+                          style={[styles.cell, (block.textureId ?? 0) === tex.id && styles.cellSelected]}
+                          onPress={() => handleTextureChange(tex.id)}
+                        >
+                          <Text style={styles.cellIcon}>{tex.icon}</Text>
+                          <Text style={[styles.cellLabel, (block.textureId ?? 0) === tex.id && styles.cellLabelSelected]}>
+                            {tex.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    <Text style={styles.sectionLabel}>NAME</Text>
+                    <View style={styles.nameRow}>
+                      <TextInput
+                        style={styles.nameInput}
+                        value={nameInput}
+                        onChangeText={(t) => setNameInput(t.slice(0, 12))}
+                        placeholder={block.name || "My Block"}
+                        placeholderTextColor={COLORS.textMuted}
+                        maxLength={12}
+                        returnKeyType="done"
+                        onSubmitEditing={handleNameSubmit}
+                      />
+                      <TouchableOpacity style={styles.nameButton} onPress={handleNameSubmit}>
+                        <Text style={styles.nameButtonText}>Set</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </ScrollView>
             )}
           </>
@@ -627,7 +683,7 @@ const styles = StyleSheet.create({
   closeText: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: FONT_FAMILY.bodyBold,
   },
   fixedSection: {
     paddingTop: SPACING.xs,
@@ -635,7 +691,7 @@ const styles = StyleSheet.create({
   },
   contentScroll: {
     flexShrink: 1,
-    maxHeight: 220,
+    maxHeight: 300,
   },
   customizeContent: {
     paddingBottom: SPACING.md,
@@ -741,6 +797,18 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.mono,
     fontSize: 12,
     color: COLORS.textMuted,
+  },
+  // ─── More styles expander ───
+  moreStylesButton: {
+    paddingVertical: SPACING.sm,
+    marginTop: SPACING.xs,
+    alignSelf: "flex-start",
+  },
+  moreStylesText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 13,
+    color: COLORS.gold,
+    letterSpacing: 0.3,
   },
   // ─── Customize ───
   customizeSection: {

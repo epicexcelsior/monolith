@@ -60,7 +60,7 @@ export const BOT_CONFIG = {
   seed: 42,
 
   /** Fraction of blocks that start as bot-owned (0.0–1.0) */
-  botDensity: 0.7,
+  botDensity: 0.88,
 
   /**
    * Energy distribution for bot blocks.
@@ -68,11 +68,11 @@ export const BOT_CONFIG = {
    * Controls how "alive" the tower looks at first launch.
    */
   energyDistribution: {
-    blazing: 0.15,  // 15% at 80-100 energy (bright & active)
-    thriving: 0.30, // 30% at 50-79 energy (healthy)
-    fading: 0.25,   // 25% at 20-49 energy (dimming)
-    flickering: 0.20, // 20% at 1-19 energy (danger zone)
-    dormant: 0.10,  // 10% at 0 energy (dark, claimable)
+    blazing: 0.25,  // 25% at 80-100 energy (bright & active)
+    thriving: 0.35, // 35% at 50-79 energy (healthy)
+    fading: 0.20,   // 20% at 20-49 energy (dimming)
+    flickering: 0.12, // 12% at 1-19 energy (danger zone)
+    dormant: 0.08,  // 8% at 0 energy (dark, claimable)
   },
 
   /** How many neighborhoods (clusters of same-persona blocks) to create */

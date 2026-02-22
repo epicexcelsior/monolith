@@ -22,10 +22,12 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - MWA wallet connect (Seed Vault / Phantom)
 - On-chain USDC vault (deposit / withdraw, devnet)
 - Charge system (decay + daily tap + streaks 1x-3x)
-- Block customization (color, emoji, name)
-- Bot simulation (21 personas, 6 archetypes, ~450 blocks)
+- Block customization (color, emoji, name, style, textureId) — fully networked + persisted
+- Bot simulation (21 personas, 6 archetypes, ~450 blocks, denser energy distribution)
 - Colyseus multiplayer (server-authoritative, JSON messages, Railway)
-- Interactive onboarding (3-phase: title reveal → ghost claim → charge → CTA)
+- Interactive onboarding (stakes-first: "yours to keep — or lose" → claim → color → reveal with decay warning)
+- 4 new animated block styles (Lava, Aurora, Crystal, Nature — GLSL, styles 7-10)
+- Demo mode XP feedback (claim 100/300xp, charge 25xp, customize 10xp — offline-first)
 - Liquid glass UI design system (solarpunk palette)
 - **Supabase persistence** (blocks, players, events — hosted, migration applied)
 - **XP / level system** (claim=100xp, charge=25xp, combo up to 3x, 10 levels)
@@ -279,6 +281,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-21**: Demo sprint "aha moment" — stakes-first onboarding rewrite, 4 new GLSL block styles (Lava/Aurora/Crystal/Nature), demo mode XP, brighter bot population, customize XP callback fix, stronger text contrast
 - **2026-02-21**: Remotion content engine — 23s ShowcaseDemo video w/ real GLSL shaders, globalShowcasePath (no transition glitches), camera lerp, beat-sync music, text overlays, `apps/video/GUIDE.md` doc
 - **2026-02-21**: Full "alive game" feature set — XP/levels, Supabase persistence, ActivityTicker, ConnectionBanner, LevelUpCelebration, FloatingPoints, XPBar, faucet, dormant reclaim, charge flash, tappable leaderboard, OTA config, ErrorBoundary (204 tests)
 - **2026-02-19**: Documentation system overhaul (CONTEXT.md, CLAUDE.md, topic-indexed LESSONS.md)

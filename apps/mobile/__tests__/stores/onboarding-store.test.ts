@@ -71,7 +71,7 @@ describe("onboarding-store", () => {
     });
 
     describe("advancePhase", () => {
-        it("should transition title → claim → charge → complete → done", () => {
+        it("should transition title → claim → customize → reveal → done", () => {
             const { advancePhase } = useOnboardingStore.getState();
 
             expect(useOnboardingStore.getState().phase).toBe("title");
@@ -80,10 +80,10 @@ describe("onboarding-store", () => {
             expect(useOnboardingStore.getState().phase).toBe("claim");
 
             advancePhase();
-            expect(useOnboardingStore.getState().phase).toBe("charge");
+            expect(useOnboardingStore.getState().phase).toBe("customize");
 
             advancePhase();
-            expect(useOnboardingStore.getState().phase).toBe("complete");
+            expect(useOnboardingStore.getState().phase).toBe("reveal");
 
             advancePhase();
             expect(useOnboardingStore.getState().phase).toBe("done");
@@ -96,7 +96,7 @@ describe("onboarding-store", () => {
         });
 
         it("should persist flag when reaching done", () => {
-            useOnboardingStore.setState({ phase: "complete" });
+            useOnboardingStore.setState({ phase: "reveal" });
             useOnboardingStore.getState().advancePhase();
             expect(useOnboardingStore.getState().phase).toBe("done");
             // SecureStore.setItemAsync is called asynchronously
@@ -140,7 +140,7 @@ describe("onboarding-store", () => {
     describe("completeOnboarding", () => {
         it("should jump to done and clear ghost block", () => {
             useOnboardingStore.setState({
-                phase: "complete",
+                phase: "reveal",
                 ghostBlockId: "block-8-0",
             });
 
@@ -169,7 +169,7 @@ describe("onboarding-store", () => {
 
     describe("isOnboarding", () => {
         it("should return true for all phases except done", () => {
-            const phases = ["title", "claim", "charge", "complete"] as const;
+            const phases = ["title", "claim", "customize", "reveal"] as const;
             for (const p of phases) {
                 useOnboardingStore.setState({ phase: p });
                 expect(useOnboardingStore.getState().isOnboarding()).toBe(true);

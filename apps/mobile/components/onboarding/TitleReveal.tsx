@@ -1,14 +1,17 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
-import { COLORS, FONT_FAMILY } from "@/constants/theme";
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from "react-native";
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW } from "@/constants/theme";
+import { hapticButtonPress } from "@/utils/haptics";
 
 /**
- * TitleReveal — Stylish animated "THE MONOLITH" title for first launch.
+ * TitleReveal — First thing the user sees over the live tower.
  *
- * Features:
- * - Staggered letter-by-letter scale-up animation
- * - Gold glow text shadow
- * - Fades out after 2.5 seconds or when `visible` becomes false
+ * Communicates the value prop in 3 seconds:
+ * - "THE MONOLITH" (branding)
+ * - "650 blocks. One tower. Yours to keep — or lose." (stakes)
+ * - "Find Your Spot" CTA
+ *
+ * Dark scrim ensures text reads over any tower state.
  */
 
 interface TitleRevealProps {
@@ -18,113 +21,172 @@ interface TitleRevealProps {
 
 export default function TitleReveal({ visible, onComplete }: TitleRevealProps) {
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const scaleAnim = useRef(new Animated.Value(0.7)).current;
     const subtitleFade = useRef(new Animated.Value(0)).current;
+    const ctaFade = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         if (visible) {
-            // Entrance: scale + fade in
-            Animated.parallel([
-                Animated.spring(scaleAnim, {
-                    toValue: 1,
-                    tension: 40,
-                    friction: 6,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 800,
-                    useNativeDriver: true,
-                }),
-            ]).start(() => {
-                // After title lands, fade in subtitle
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 500,
+                useNativeDriver: true,
+            }).start(() => {
                 Animated.timing(subtitleFade, {
                     toValue: 1,
-                    duration: 500,
+                    duration: 400,
                     useNativeDriver: true,
-                }).start();
-
-                // Auto-advance after 2.5s
-                setTimeout(() => {
-                    Animated.parallel([
-                        Animated.timing(fadeAnim, {
-                            toValue: 0,
-                            duration: 600,
-                            useNativeDriver: true,
-                        }),
-                        Animated.timing(subtitleFade, {
-                            toValue: 0,
-                            duration: 400,
-                            useNativeDriver: true,
-                        }),
-                    ]).start(() => {
-                        onComplete?.();
-                    });
-                }, 2500);
+                }).start(() => {
+                    Animated.timing(ctaFade, {
+                        toValue: 1,
+                        duration: 300,
+                        useNativeDriver: true,
+                    }).start();
+                });
             });
         }
     }, [visible]);
 
     if (!visible) return null;
 
-    return (
-        <Animated.View
-            style={[
-                styles.container,
-                {
-                    opacity: fadeAnim,
-                },
-            ]}
-            pointerEvents="none"
-        >
-            <Animated.Text
-                style={[
-                    styles.title,
-                    {
-                        transform: [{ scale: scaleAnim }],
-                    },
-                ]}
-            >
-                THE MONOLITH
-            </Animated.Text>
+    const handleFindSpot = () => {
+        hapticButtonPress();
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+            Animated.timing(subtitleFade, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.timing(ctaFade, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
+            onComplete?.();
+        });
+    };
 
-            <Animated.Text
-                style={[
-                    styles.subtitle,
-                    { opacity: subtitleFade },
-                ]}
-            >
-                A living tower. Every block tells a story.
-            </Animated.Text>
-        </Animated.View>
+    return (
+        <View style={styles.container} pointerEvents="box-none">
+            {/* Full-screen dark scrim — guarantees text contrast */}
+            <View style={styles.scrim} pointerEvents="none" />
+
+            {/* Title + value prop */}
+            <View style={styles.titleArea} pointerEvents="none">
+                <Animated.Text style={[styles.title, { opacity: fadeAnim }]}>
+                    THE MONOLITH
+                </Animated.Text>
+
+                <Animated.View style={[styles.taglineContainer, { opacity: subtitleFade }]}>
+                    <Text style={styles.tagline}>
+                        650 blocks. One tower.
+                    </Text>
+                    <Text style={styles.taglineAccent}>
+                        Yours to keep — or lose.
+                    </Text>
+                </Animated.View>
+            </View>
+
+            {/* CTA at bottom */}
+            <Animated.View style={[styles.ctaContainer, { opacity: ctaFade }]}>
+                <TouchableOpacity
+                    style={styles.ctaButton}
+                    onPress={handleFindSpot}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.ctaText}>Find Your Spot</Text>
+                </TouchableOpacity>
+
+                <Animated.Text style={[styles.ctaHint, { opacity: ctaFade }]}>
+                    Charge daily or someone takes it
+                </Animated.Text>
+            </Animated.View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         ...StyleSheet.absoluteFillObject,
+        zIndex: 200,
+        justifyContent: "space-between",
+    },
+    scrim: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(6, 8, 16, 0.6)",
+    },
+    titleArea: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "rgba(6, 8, 16, 0.5)",
-        zIndex: 200,
+        paddingTop: 60,
     },
     title: {
         fontFamily: FONT_FAMILY.headingBlack,
         fontSize: 36,
         letterSpacing: 8,
         color: COLORS.goldLight,
-        textShadowColor: COLORS.gold,
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 20,
+        textShadowColor: "rgba(0, 0, 0, 0.9)",
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 30,
         textAlign: "center",
     },
-    subtitle: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 15,
+    taglineContainer: {
+        alignItems: "center",
+        marginTop: SPACING.lg,
+    },
+    tagline: {
+        fontFamily: FONT_FAMILY.bodyMedium,
+        fontSize: 17,
         color: COLORS.textOnDark,
-        letterSpacing: 1,
-        marginTop: 12,
-        opacity: 0.8,
+        letterSpacing: 0.5,
         textAlign: "center",
+        textShadowColor: "rgba(0, 0, 0, 0.8)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 12,
+    },
+    taglineAccent: {
+        fontFamily: FONT_FAMILY.bodySemibold,
+        fontSize: 17,
+        color: COLORS.gold,
+        letterSpacing: 0.5,
+        marginTop: SPACING.xs,
+        textAlign: "center",
+        textShadowColor: "rgba(0, 0, 0, 0.8)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 12,
+    },
+    ctaContainer: {
+        alignItems: "center",
+        paddingBottom: 120,
+    },
+    ctaButton: {
+        backgroundColor: COLORS.gold,
+        paddingHorizontal: SPACING.xxl,
+        paddingVertical: SPACING.md,
+        borderRadius: RADIUS.md,
+        borderCurve: "continuous",
+        boxShadow: SHADOW.gold,
+    },
+    ctaText: {
+        fontFamily: FONT_FAMILY.bodyBold,
+        fontSize: 18,
+        color: COLORS.textOnGold,
+        letterSpacing: 1,
+    },
+    ctaHint: {
+        fontFamily: FONT_FAMILY.body,
+        fontSize: 13,
+        color: COLORS.textMuted,
+        marginTop: SPACING.sm,
+        letterSpacing: 0.3,
+        textShadowColor: "rgba(0, 0, 0, 0.7)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 8,
     },
 });

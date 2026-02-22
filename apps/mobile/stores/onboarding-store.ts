@@ -7,24 +7,24 @@ import { SECURE_STORE_KEYS } from "@/services/mwa";
 /**
  * Onboarding phases — each maps to an interactive step:
  *
- *   title   → Stylish "THE MONOLITH" title reveal, camera flies to dormant block
- *   claim   → User taps highlighted block, ghost-claims it (celebration!)
- *   charge  → Block decays, user taps to charge (learns retention loop)
- *   complete → "Ready to play for real?" CTA card
- *   done    → Onboarding finished, never shown again
+ *   title      → "THE MONOLITH" over live tower, "Find Your Spot" CTA
+ *   claim      → Camera flies to block, golden pulse, big CLAIM button
+ *   customize  → Inline color picker: "Make it yours"
+ *   reveal     → Camera pulls back, "You're keeper #N" floating text
+ *   done       → Onboarding finished, never shown again
  */
 export type OnboardingPhase =
     | "title"
     | "claim"
-    | "charge"
-    | "complete"
+    | "customize"
+    | "reveal"
     | "done";
 
 const PHASE_ORDER: OnboardingPhase[] = [
     "title",
     "claim",
-    "charge",
-    "complete",
+    "customize",
+    "reveal",
     "done",
 ];
 

@@ -8,8 +8,8 @@ import {
   getTowerHeight,
 } from "@monolith/common";
 
-const PARTICLE_COUNT = 120;
-const PARTICLE_SIZE = 0.30;
+const PARTICLE_COUNT = 80;
+const PARTICLE_SIZE = 0.45;
 const TOWER_HEIGHT = getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount);
 const MARGIN = 4; // extra space around the monolith
 const DRIFT_SPEED = 0.3;

@@ -18,6 +18,7 @@ export const ENERGY_COLOR_STOPS = {
 /**
  * Block styles (matched to BLOCK_STYLES in BlockInspector):
  * 0=Default, 1=Holographic, 2=Neon, 3=Matte, 4=Glass, 5=Fire, 6=Ice
+ * 7=Lava, 8=Aurora, 9=Crystal, 10=Nature
  *
  * Block textures (procedural patterns):
  * 0=None, 1=Bricks, 2=Circuits, 3=Scales, 4=Camo, 5=Marble, 6=Carbon
@@ -463,6 +464,103 @@ const fragmentShader = /* glsl */ `
       baseColor += vec3(0.3, 0.4, 0.5) * frost * 0.3;
       // Ice rim glow
       baseColor += vec3(0.4, 0.6, 1.0) * fresnel * 0.8;
+    }
+
+    // --- Style 7: Lava (flowing magma with glowing cracks) ---
+    if (style == 7 && energy > 0.01) {
+      vec2 lavaUV = vWorldPos.xz * 2.5 + uTime * 0.15;
+      float flow = noise2D(lavaUV) * 0.5
+                  + noise2D(lavaUV * 2.0 + vec2(uTime * 0.1, 0.0)) * 0.3
+                  + noise2D(lavaUV * 4.0 + 50.0) * 0.2;
+      // Cracks: sharp threshold on noise
+      float cracks = smoothstep(0.35, 0.5, flow);
+      // Lava gradient: dark rock → orange → bright yellow
+      vec3 rockColor = vec3(0.12, 0.06, 0.03);
+      vec3 magmaColor = mix(vec3(0.9, 0.3, 0.0), vec3(1.2, 0.8, 0.1), flow);
+      vec3 lavaColor = mix(rockColor, magmaColor, cracks);
+      // Pulsing glow in cracks
+      float lavaPulse = 0.8 + 0.2 * sin(uTime * 2.0 + vInstanceOffset);
+      lavaColor *= lavaPulse;
+      baseColor = mix(baseColor, lavaColor, 0.75);
+      // Emissive rim
+      baseColor += vec3(0.8, 0.2, 0.0) * fresnel * 0.5;
+    }
+
+    // --- Style 8: Aurora (northern lights shimmer) ---
+    if (style == 8 && energy > 0.01) {
+      float auroraT = uTime * 0.3 + vWorldPos.y * 0.8;
+      // Multi-frequency color waves
+      float wave1 = sin(vWorldPos.y * 3.0 + uTime * 0.5 + vWorldPos.x * 2.0) * 0.5 + 0.5;
+      float wave2 = sin(vWorldPos.y * 5.0 - uTime * 0.3 + vWorldPos.z * 1.5) * 0.5 + 0.5;
+      float wave3 = sin(vWorldPos.y * 2.0 + uTime * 0.7) * 0.5 + 0.5;
+      // HSV-based color: hue shifts through green→teal→purple
+      float hue = fract(0.35 + wave1 * 0.3 + wave2 * 0.15 + uTime * 0.02);
+      vec3 auroraColor = hsv2rgb(vec3(hue, 0.7 + wave3 * 0.2, 0.9 + wave1 * 0.3));
+      // Curtain pattern: stronger in vertical bands
+      float curtain = smoothstep(0.2, 0.8, wave1 * wave2);
+      baseColor = mix(baseColor, auroraColor, curtain * 0.7);
+      // Soft edge glow
+      baseColor += auroraColor * fresnel * 0.4;
+    }
+
+    // --- Style 9: Crystal (sparkling facets) ---
+    if (style == 9 && energy > 0.01) {
+      // Voronoi-like cells for faceted look
+      vec2 crystalUV = vWorldPos.xz * 4.0;
+      vec2 cellId = floor(crystalUV);
+      vec2 cellUV = fract(crystalUV) - 0.5;
+      // Distance to nearest cell center
+      float minDist = 1.0;
+      for (int j = -1; j <= 1; j++) {
+        for (int k = -1; k <= 1; k++) {
+          vec2 neighbor = vec2(float(j), float(k));
+          vec2 nc = cellId + neighbor;
+          // Generate pseudo-random 2D point from two hash calls
+          float hx = hash21(nc);
+          float hy = hash21(nc + vec2(127.0, 311.0));
+          vec2 point = vec2(hx, hy) * 0.8 - 0.4;
+          float d = length(cellUV - neighbor - point);
+          minDist = min(minDist, d);
+        }
+      }
+      // Facet edges
+      float facetEdge = smoothstep(0.05, 0.12, minDist);
+      // Specular pings — sharp sparkles that move with time
+      float sparkle = pow(max(0.0, 1.0 - minDist * 3.0), 8.0);
+      float sparkleTime = sin(uTime * 4.0 + hash21(cellId) * 20.0) * 0.5 + 0.5;
+      sparkle *= sparkleTime;
+      // Crystal base: translucent with prismatic hints
+      vec3 crystalBase = mix(baseColor, vec3(0.8, 0.9, 1.0), 0.3);
+      crystalBase *= facetEdge;
+      crystalBase += vec3(1.0, 0.95, 0.8) * sparkle * 1.5;
+      // Prismatic edge color
+      float prismHue = fract(hash21(cellId) + uTime * 0.05);
+      crystalBase += hsv2rgb(vec3(prismHue, 0.5, 0.4)) * (1.0 - facetEdge) * 0.5;
+      baseColor = mix(baseColor, crystalBase, 0.7);
+      // Strong specular rim
+      baseColor += vec3(0.6, 0.7, 1.0) * fresnel * 1.0;
+    }
+
+    // --- Style 10: Nature (mossy solarpunk growth) ---
+    if (style == 10 && energy > 0.01) {
+      // Green noise tendrils growing over the block
+      float moss1 = noise2D(vWorldPos.xz * 3.0 + uTime * 0.05);
+      float moss2 = noise2D(vWorldPos.xy * 4.0 - uTime * 0.03);
+      float mossPattern = moss1 * 0.6 + moss2 * 0.4;
+      // Growth from bottom up
+      float growthMask = smoothstep(-0.4, 0.2, vLocalPos.y + mossPattern * 0.3);
+      // Green palette: deep forest → bright spring → golden tips
+      vec3 deepGreen = vec3(0.05, 0.18, 0.06);
+      vec3 brightGreen = vec3(0.15, 0.45, 0.12);
+      vec3 goldTip = vec3(0.5, 0.45, 0.1);
+      vec3 mossColor = mix(deepGreen, brightGreen, mossPattern);
+      mossColor = mix(mossColor, goldTip, smoothstep(0.7, 0.95, mossPattern));
+      // Subtle life pulse
+      float lifePulse = 0.9 + 0.1 * sin(uTime * 0.8 + vInstanceOffset * 2.0);
+      mossColor *= lifePulse;
+      baseColor = mix(baseColor, mossColor, growthMask * 0.7);
+      // Bioluminescent rim
+      baseColor += vec3(0.1, 0.3, 0.05) * fresnel * 0.6;
     }
 
     // ═══════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { BLOCK_COLORS } from "@monolith/common";
-import { SPACING, RADIUS, COLORS } from "@/constants/theme";
+import { SPACING, RADIUS, COLORS, FONT_FAMILY } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 
 interface ColorPickerProps {
@@ -24,7 +24,11 @@ export default function ColorPicker({ selected, onSelect }: ColorPickerProps) {
             onSelect(color);
             hapticButtonPress();
           }}
-        />
+        >
+          {selected === color && (
+            <Text style={styles.check}>✓</Text>
+          )}
+        </TouchableOpacity>
       ))}
     </View>
   );
@@ -37,14 +41,24 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   cell: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     borderRadius: RADIUS.sm,
     borderWidth: 2,
     borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
   },
   cellSelected: {
     borderColor: COLORS.text,
     borderWidth: 3,
+  },
+  check: {
+    fontSize: 18,
+    fontFamily: FONT_FAMILY.bodyBold,
+    color: COLORS.textOnDark,
+    textShadowColor: COLORS.bgTower,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });

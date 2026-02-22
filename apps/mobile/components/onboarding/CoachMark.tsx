@@ -114,14 +114,14 @@ const styles = StyleSheet.create({
         zIndex: 100,
     },
     bubble: {
-        backgroundColor: "rgba(10, 12, 20, 0.85)",
+        backgroundColor: "rgba(10, 12, 20, 0.92)",
         paddingHorizontal: SPACING.lg,
         paddingVertical: SPACING.md,
         borderRadius: 16,
         borderWidth: 1.5,
         borderCurve: "continuous",
         maxWidth: 300,
-        boxShadow: "0 4px 20px rgba(212, 168, 71, 0.25)",
+        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4), 0 0 30px rgba(212, 168, 71, 0.2)",
     },
     message: {
         fontFamily: FONT_FAMILY.bodySemibold,

@@ -5,194 +5,199 @@ import {
     StyleSheet,
     Animated,
     TouchableOpacity,
-    useWindowDimensions,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useTowerStore } from "@/stores/tower-store";
 import TitleReveal from "./TitleReveal";
 import CoachMark from "./CoachMark";
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, TIMING } from "@/constants/theme";
+import { BLOCK_COLORS } from "@monolith/common";
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW } from "@/constants/theme";
 import { hapticBlockClaimed, hapticButtonPress } from "@/utils/haptics";
-import { playBlockClaim, playChargeTap } from "@/utils/audio";
+import { playBlockClaim } from "@/utils/audio";
 
 /**
- * OnboardingFlow — Main orchestrator for the interactive onboarding.
+ * OnboardingFlow — 30-second first session that communicates the GAME, not just the UI.
  *
- * Replaces the old 3-card text overlay with a learn-by-doing flow:
- *   0. Title reveal → camera flies to dormant block
- *   1. User taps block → ghost claim with celebration
- *   2. Block decays → user charges it
- *   3. Completion card → Connect Wallet / Keep Exploring
+ * What the user should understand after onboarding:
+ *   1. This is a shared tower where real people own blocks
+ *   2. You just claimed YOUR block on it
+ *   3. You must come back and charge it, or you lose it
+ *   4. Your block is now visible to everyone
+ *
+ * Flow:
+ *   title     → "650 blocks. One tower. Yours to keep — or lose."
+ *   claim     → Camera flies to block → "CLAIM IT" with urgency
+ *   customize → Pick a color (only — high visual impact, fast)
+ *   reveal    → Camera pulls back → "Block #N is yours. Charge it daily or lose it."
  */
 
-/** Find a good dormant block to use for the tutorial */
+const ONBOARDING_COLORS = BLOCK_COLORS.slice(0, 8);
+
+/** Find a good unclaimed block for the tutorial */
 function pickTutorialBlock(
     demoBlocks: { id: string; owner: string | null; layer: number }[],
 ): string | null {
-    // Prefer unclaimed blocks in mid layers (more visually interesting)
     const unclaimed = demoBlocks.filter((b) => b.owner === null);
     if (unclaimed.length === 0) return null;
-
-    // Pick from middle layers for better camera framing
     const sorted = [...unclaimed].sort(
         (a, b) => Math.abs(a.layer - 8) - Math.abs(b.layer - 8),
     );
     return sorted[0].id;
 }
 
-export default function OnboardingFlow() {
-    const router = useRouter();
-    const { height } = useWindowDimensions();
+/** Step indicator */
+function StepDots({ current, total }: { current: number; total: number }) {
+    return (
+        <View style={styles.stepDotsRow}>
+            {Array.from({ length: total }, (_, i) => (
+                <View
+                    key={i}
+                    style={[
+                        styles.stepDot,
+                        i < current && styles.stepDotCompleted,
+                        i === current && styles.stepDotActive,
+                    ]}
+                />
+            ))}
+        </View>
+    );
+}
 
-    // Onboarding state
+export default function OnboardingFlow() {
     const phase = useOnboardingStore((s) => s.phase);
     const advancePhase = useOnboardingStore((s) => s.advancePhase);
     const ghostBlockId = useOnboardingStore((s) => s.ghostBlockId);
     const setGhostBlock = useOnboardingStore((s) => s.setGhostBlock);
     const skipOnboarding = useOnboardingStore((s) => s.skipOnboarding);
 
-    // Tower state
     const demoBlocks = useTowerStore((s) => s.demoBlocks);
     const ghostClaimBlock = useTowerStore((s) => s.ghostClaimBlock);
-    const ghostChargeBlock = useTowerStore((s) => s.ghostChargeBlock);
-    const ghostDecayBlock = useTowerStore((s) => s.ghostDecayBlock);
+    const ghostCustomizeBlock = useTowerStore((s) => s.ghostCustomizeBlock);
     const clearGhostBlock = useTowerStore((s) => s.clearGhostBlock);
     const selectBlock = useTowerStore((s) => s.selectBlock);
-    const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
     const completeOnboarding = useTowerStore((s) => s.completeOnboarding);
     const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
 
     // Animations
-    const cardAnim = useRef(new Animated.Value(0)).current;
-    const fadeAnim = useRef(new Animated.Value(1)).current;
-    const toastAnim = useRef(new Animated.Value(0)).current;
+    const revealFade = useRef(new Animated.Value(0)).current;
+    const claimFade = useRef(new Animated.Value(0)).current;
+    const claimScale = useRef(new Animated.Value(0.8)).current;
+    const customizeFade = useRef(new Animated.Value(0)).current;
+    const customizeSlide = useRef(new Animated.Value(60)).current;
 
-    // Local state
-    const [showToast, setShowToast] = useState(false);
-    const [toastMessage, setToastMessage] = useState("");
-    const [hasDecayed, setHasDecayed] = useState(false);
-    const decayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [keeperNumber, setKeeperNumber] = useState(0);
+
+    useEffect(() => {
+        const occupied = demoBlocks.filter((b) => b.owner !== null).length;
+        setKeeperNumber(occupied);
+    }, [demoBlocks]);
+
+    // ─── Animate claim entrance ──────────────────
+    useEffect(() => {
+        if (phase !== "claim") return;
+        Animated.parallel([
+            Animated.timing(claimFade, {
+                toValue: 1,
+                duration: 400,
+                delay: 600,
+                useNativeDriver: true,
+            }),
+            Animated.spring(claimScale, {
+                toValue: 1,
+                tension: 60,
+                friction: 8,
+                delay: 600,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [phase, claimFade, claimScale]);
+
+    // ─── Animate customize entrance ──────────────
+    useEffect(() => {
+        if (phase !== "customize") return;
+        Animated.parallel([
+            Animated.timing(customizeFade, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+            Animated.spring(customizeSlide, {
+                toValue: 0,
+                tension: 50,
+                friction: 10,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [phase, customizeFade, customizeSlide]);
 
     // ─── Phase: TITLE ─────────────────────────────
-    // After title reveal fades, pick a tutorial block and advance to claim
     const handleTitleComplete = useCallback(() => {
         const blockId = pickTutorialBlock(demoBlocks);
         if (blockId) {
             setGhostBlock(blockId);
-            selectBlock(blockId); // This triggers camera fly-to
+            selectBlock(blockId);
             advancePhase(); // → claim
         } else {
-            // No unclaimed block found — skip to complete phase
             skipOnboarding();
         }
     }, [demoBlocks, setGhostBlock, selectBlock, advancePhase, skipOnboarding]);
 
     // ─── Phase: CLAIM ─────────────────────────────
-    // When user taps "Claim This Block" in the claim card
-    const handleGhostClaim = useCallback(() => {
+    const handleClaim = useCallback(() => {
         if (!ghostBlockId) return;
-        if (typeof ghostClaimBlock === 'function') ghostClaimBlock(ghostBlockId);
+        ghostClaimBlock(ghostBlockId);
         hapticBlockClaimed();
         playBlockClaim();
+        customizeFade.setValue(0);
+        customizeSlide.setValue(60);
+        advancePhase(); // → customize
+    }, [ghostBlockId, ghostClaimBlock, advancePhase, customizeFade, customizeSlide]);
 
-        // Show toast
-        setToastMessage("🔥 Your block is BLAZING!");
-        setShowToast(true);
-        Animated.sequence([
-            Animated.timing(toastAnim, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-            }),
-            Animated.delay(1800),
-            Animated.timing(toastAnim, {
-                toValue: 0,
-                duration: 400,
-                useNativeDriver: true,
-            }),
-        ]).start(() => {
-            setShowToast(false);
-            advancePhase(); // → charge
-        });
-    }, [ghostBlockId, ghostClaimBlock, advancePhase, toastAnim]);
-
-    // ─── Phase: CHARGE ────────────────────────────
-    // Start accelerated decay when entering charge phase
-    useEffect(() => {
-        if (phase !== "charge" || !ghostBlockId) return;
-
-        // Start rapid decay after a short delay
-        decayTimerRef.current = setTimeout(() => {
-            if (typeof ghostDecayBlock === 'function') ghostDecayBlock(ghostBlockId, 60); // Drop from 100 to ~40
-            setHasDecayed(true);
-        }, 1500);
-
-        return () => {
-            if (decayTimerRef.current) clearTimeout(decayTimerRef.current);
-        };
-    }, [phase, ghostBlockId, ghostDecayBlock]);
-
-    // Handle charge tap
-    const handleGhostCharge = useCallback(() => {
+    // ─── Phase: CUSTOMIZE ─────────────────────────
+    const handleColorPick = useCallback((color: string) => {
         if (!ghostBlockId) return;
-        const result = typeof ghostChargeBlock === 'function'
-            ? ghostChargeBlock(ghostBlockId)
-            : { success: false };
-        if (result?.success) {
-            hapticButtonPress();
-            playChargeTap();
+        ghostCustomizeBlock(ghostBlockId, { color });
+        hapticButtonPress();
+    }, [ghostBlockId, ghostCustomizeBlock]);
 
-            // Show streak info toast
-            setToastMessage("Charge daily → build streaks → earn multipliers 🔥");
-            setShowToast(true);
-            Animated.sequence([
-                Animated.timing(toastAnim, {
-                    toValue: 1,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
-                Animated.delay(2500),
-                Animated.timing(toastAnim, {
-                    toValue: 0,
-                    duration: 400,
-                    useNativeDriver: true,
-                }),
-            ]).start(() => {
-                setShowToast(false);
-                advancePhase(); // → complete
-            });
-        }
-    }, [ghostBlockId, ghostChargeBlock, advancePhase, toastAnim]);
+    const handleCustomizeDone = useCallback(() => {
+        hapticButtonPress();
+        selectBlock(null);
+        advancePhase(); // → reveal
+    }, [selectBlock, advancePhase]);
 
-    // ─── Phase: COMPLETE ──────────────────────────
-    // Show completion card with slide-up animation
+    // Auto-advance from customize after 8s
     useEffect(() => {
-        if (phase === "complete") {
-            selectBlock(null); // Deselect block, camera pulls back
-            Animated.spring(cardAnim, {
-                toValue: 1,
-                ...TIMING.spring,
+        if (phase !== "customize") return;
+        const timer = setTimeout(handleCustomizeDone, 8000);
+        return () => clearTimeout(timer);
+    }, [phase, handleCustomizeDone]);
+
+    // ─── Phase: REVEAL ────────────────────────────
+    useEffect(() => {
+        if (phase !== "reveal") return;
+
+        Animated.timing(revealFade, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+        }).start();
+
+        const timer = setTimeout(() => {
+            Animated.timing(revealFade, {
+                toValue: 0,
+                duration: 500,
                 useNativeDriver: true,
-            }).start();
-        }
-    }, [phase, cardAnim, selectBlock]);
+            }).start(() => {
+                completeOnboarding();
+                skipOnboarding();
+            });
+        }, 5000);
 
-    const handleConnectWallet = useCallback(() => {
-        hapticButtonPress();
-        if (typeof clearGhostBlock === 'function') clearGhostBlock();
-        completeOnboarding();
-        skipOnboarding();
-        router.push("/connect");
-    }, [clearGhostBlock, completeOnboarding, skipOnboarding, router]);
+        return () => clearTimeout(timer);
+    }, [phase, revealFade, completeOnboarding, skipOnboarding]);
 
-    const handleKeepExploring = useCallback(() => {
-        hapticButtonPress();
-        if (typeof clearGhostBlock === 'function') clearGhostBlock();
-        completeOnboarding();
-        skipOnboarding();
-    }, [clearGhostBlock, completeOnboarding, skipOnboarding]);
-
+    // ─── Skip handler ─────────────────────────────
     const handleSkip = useCallback(() => {
         hapticButtonPress();
         if (typeof clearGhostBlock === 'function') clearGhostBlock();
@@ -200,384 +205,300 @@ export default function OnboardingFlow() {
         skipOnboarding();
     }, [clearGhostBlock, completeOnboarding, skipOnboarding]);
 
-    // ─── Don't render if done ─────────────────────
     if (phase === "done") return null;
 
-    // Get the ghost block's current energy for charge phase UI
     const ghostBlock = ghostBlockId ? getDemoBlockById(ghostBlockId) : null;
+    const stepIndex = phase === "claim" ? 0 : phase === "customize" ? 1 : phase === "reveal" ? 2 : -1;
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            {/* Skip button (always visible during onboarding) */}
+            {/* Skip button */}
             <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
                 <Text style={styles.skipText}>Skip</Text>
             </TouchableOpacity>
 
-            {/* ─── Phase: TITLE ────────────────────── */}
+            {/* ─── TITLE ─────────────────────────── */}
             <TitleReveal
                 visible={phase === "title"}
                 onComplete={handleTitleComplete}
             />
 
-            {/* ─── Phase: CLAIM ────────────────────── */}
+            {/* ─── CLAIM ─────────────────────────── */}
             {phase === "claim" && (
                 <>
                     <CoachMark
-                        message="This dark block needs a keeper. Tap below to claim it!"
+                        message="This block is unclaimed"
                         position="center"
                         arrow="down"
                         visible
                     />
 
-                    {/* Ghost claim action card */}
-                    <View style={styles.actionCardContainer}>
-                        <View style={styles.actionCard}>
-                            <Text style={styles.actionCardTitle}>
-                                {ghostBlock
-                                    ? `Layer ${ghostBlock.layer} / Block ${ghostBlock.index}`
-                                    : "Unclaimed Block"}
-                            </Text>
-                            <Text style={styles.actionCardSubtitle}>
-                                Stake to make it yours. Your block glows when you're active.
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.claimButton}
-                                onPress={handleGhostClaim}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.claimButtonText}>Claim This Block</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </>
-            )}
-
-            {/* ─── Phase: CHARGE ───────────────────── */}
-            {phase === "charge" && (
-                <>
-                    {!hasDecayed && (
-                        <CoachMark
-                            message="Watch your block glow..."
-                            position="center"
-                            visible
-                        />
-                    )}
-
-                    {hasDecayed && (
-                        <>
-                            <CoachMark
-                                message="Your block is fading! Tap to charge it"
-                                position="center"
-                                arrow="down"
-                                visible
-                            />
-
-                            <View style={styles.actionCardContainer}>
-                                <View style={styles.actionCard}>
-                                    {/* Mini charge bar */}
-                                    <View style={styles.chargeBarContainer}>
-                                        <View
-                                            style={[
-                                                styles.chargeBarFill,
-                                                {
-                                                    width: `${ghostBlock?.energy ?? 0}%`,
-                                                    backgroundColor:
-                                                        (ghostBlock?.energy ?? 0) > 50
-                                                            ? COLORS.blazing
-                                                            : (ghostBlock?.energy ?? 0) > 20
-                                                                ? COLORS.fading
-                                                                : COLORS.flickering,
-                                                },
-                                            ]}
-                                        />
-                                    </View>
-                                    <Text style={styles.chargeLabel}>
-                                        {Math.round(ghostBlock?.energy ?? 0)}% Charge
-                                    </Text>
-
-                                    <TouchableOpacity
-                                        style={styles.chargeButton}
-                                        onPress={handleGhostCharge}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.chargeButtonText}>⚡ CHARGE</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </>
-                    )}
-                </>
-            )}
-
-            {/* ─── Phase: COMPLETE ─────────────────── */}
-            {phase === "complete" && (
-                <View style={styles.completionOverlay}>
-                    <Animated.View
-                        style={[
-                            styles.completionCard,
-                            {
-                                transform: [
-                                    {
-                                        translateY: cardAnim.interpolate({
-                                            inputRange: [0, 1],
-                                            outputRange: [300, 0],
-                                        }),
-                                    },
-                                ],
-                                opacity: cardAnim,
-                            },
-                        ]}
-                    >
-                        <Text style={styles.completionEmoji}>🏛️</Text>
-                        <Text style={styles.completionTitle}>Ready to play for real?</Text>
-                        <Text style={styles.completionSubtitle}>
-                            Connect your wallet to claim a block on the live tower.
-                            Your stake earns yield while your block glows.
-                        </Text>
-
+                    <Animated.View style={[
+                        styles.claimContainer,
+                        { opacity: claimFade, transform: [{ scale: claimScale }] },
+                    ]}>
+                        <StepDots current={0} total={3} />
                         <TouchableOpacity
-                            style={styles.walletButton}
-                            onPress={handleConnectWallet}
+                            style={styles.claimButton}
+                            onPress={handleClaim}
                             activeOpacity={0.8}
                         >
-                            <Text style={styles.walletButtonText}>Connect Wallet</Text>
+                            <Text style={styles.claimButtonText}>CLAIM IT</Text>
                         </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.exploreButton}
-                            onPress={handleKeepExploring}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.exploreButtonText}>Keep Exploring</Text>
-                        </TouchableOpacity>
+                        <Text style={styles.claimHint}>
+                            Make it yours before someone else does
+                        </Text>
                     </Animated.View>
-                </View>
+                </>
             )}
 
-            {/* ─── Toast overlay ───────────────────── */}
-            {showToast && (
+            {/* ─── CUSTOMIZE ─────────────────────── */}
+            {phase === "customize" && (
+                <Animated.View style={[
+                    styles.customizeContainer,
+                    { opacity: customizeFade, transform: [{ translateY: customizeSlide }] },
+                ]}>
+                    <StepDots current={1} total={3} />
+                    <Text style={styles.customizeLabel}>Pick your color</Text>
+                    <Text style={styles.customizeSub}>
+                        Everyone on the tower will see this
+                    </Text>
+
+                    <View style={styles.colorRow}>
+                        {ONBOARDING_COLORS.map((color) => (
+                            <TouchableOpacity
+                                key={color}
+                                style={[
+                                    styles.colorSwatch,
+                                    { backgroundColor: color },
+                                    ghostBlock?.ownerColor === color && styles.colorSwatchSelected,
+                                ]}
+                                onPress={() => handleColorPick(color)}
+                            />
+                        ))}
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.doneButton}
+                        onPress={handleCustomizeDone}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.doneButtonText}>Done</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+            )}
+
+            {/* ─── REVEAL ────────────────────────── */}
+            {phase === "reveal" && (
                 <Animated.View
-                    style={[styles.toast, { opacity: toastAnim }]}
+                    style={[styles.revealContainer, { opacity: revealFade }]}
                     pointerEvents="none"
                 >
-                    <Text style={styles.toastText}>{toastMessage}</Text>
+                    <View style={styles.revealScrim} />
+                    <StepDots current={2} total={3} />
+                    <Text style={styles.revealTitle}>
+                        You're keeper #{keeperNumber}
+                    </Text>
+                    <View style={styles.revealDivider} />
+                    <Text style={styles.revealStakes}>
+                        Your block decays every day.{"\n"}
+                        Charge it to keep it alive.
+                    </Text>
+                    <Text style={styles.revealWarning}>
+                        Miss 3 days and anyone can take it.
+                    </Text>
                 </Animated.View>
             )}
         </View>
     );
 }
 
-// ─── Styles ─────────────────────────────────────
-
 const styles = StyleSheet.create({
     skipButton: {
         position: "absolute",
         top: 54,
-        right: 16,
+        right: SPACING.md,
         zIndex: 300,
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm,
         borderRadius: RADIUS.full,
-        backgroundColor: "rgba(0, 0, 0, 0.4)",
+        backgroundColor: "rgba(10, 12, 20, 0.80)",
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.15)",
+        borderColor: COLORS.hudBorder,
     },
     skipText: {
         fontFamily: FONT_FAMILY.bodySemibold,
         fontSize: 13,
-        color: "rgba(255, 255, 255, 0.7)",
+        color: COLORS.textMuted,
         letterSpacing: 0.5,
     },
 
-    // Action card (claim / charge phases)
-    actionCardContainer: {
+    // ─── Step dots ──────────────────────────────
+    stepDotsRow: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: SPACING.sm,
+        marginBottom: SPACING.md,
+    },
+    stepDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "rgba(255, 255, 255, 0.2)",
+    },
+    stepDotActive: {
+        backgroundColor: COLORS.gold,
+        width: 24,
+        borderRadius: 4,
+    },
+    stepDotCompleted: {
+        backgroundColor: COLORS.goldLight,
+    },
+
+    // ─── Claim ──────────────────────────────────
+    claimContainer: {
         position: "absolute",
-        bottom: 60,
+        bottom: 100,
+        left: SPACING.lg,
+        right: SPACING.lg,
+        alignItems: "center",
+        zIndex: 100,
+    },
+    claimButton: {
+        backgroundColor: COLORS.gold,
+        paddingHorizontal: SPACING.xxl * 1.5,
+        paddingVertical: SPACING.md + 4,
+        borderRadius: RADIUS.md,
+        borderCurve: "continuous",
+        alignItems: "center",
+        boxShadow: SHADOW.gold,
+    },
+    claimButtonText: {
+        fontFamily: FONT_FAMILY.headingBlack,
+        fontSize: 24,
+        color: COLORS.textOnGold,
+        letterSpacing: 3,
+    },
+    claimHint: {
+        fontFamily: FONT_FAMILY.bodyMedium,
+        fontSize: 14,
+        color: COLORS.textOnDark,
+        marginTop: SPACING.md,
+        letterSpacing: 0.3,
+        textShadowColor: "rgba(0, 0, 0, 0.8)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 8,
+    },
+
+    // ─── Customize ──────────────────────────────
+    customizeContainer: {
+        position: "absolute",
+        bottom: 80,
         left: SPACING.md,
         right: SPACING.md,
         alignItems: "center",
         zIndex: 100,
-    },
-    actionCard: {
-        backgroundColor: "rgba(10, 12, 20, 0.88)",
+        backgroundColor: "rgba(10, 12, 20, 0.90)",
         borderRadius: RADIUS.lg,
         borderWidth: 1,
-        borderColor: "rgba(212, 168, 71, 0.3)",
+        borderColor: COLORS.goldGlow,
         borderCurve: "continuous",
-        padding: SPACING.lg,
-        width: "100%",
-        maxWidth: 360,
-        alignItems: "center",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+        paddingTop: SPACING.md,
+        paddingBottom: SPACING.lg,
+        paddingHorizontal: SPACING.lg,
     },
-    actionCardTitle: {
-        fontFamily: FONT_FAMILY.headingSemibold,
-        fontSize: 17,
-        color: COLORS.textOnDark,
+    customizeLabel: {
+        fontFamily: FONT_FAMILY.heading,
+        fontSize: 20,
+        color: COLORS.goldLight,
         letterSpacing: 0.5,
-        marginBottom: 4,
     },
-    actionCardSubtitle: {
+    customizeSub: {
         fontFamily: FONT_FAMILY.body,
         fontSize: 13,
-        color: "rgba(240, 236, 230, 0.65)",
-        textAlign: "center",
-        lineHeight: 18,
+        color: COLORS.textMuted,
+        marginTop: SPACING.xs,
         marginBottom: SPACING.md,
     },
-
-    // Claim button
-    claimButton: {
+    colorRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: SPACING.sm,
+        marginBottom: SPACING.md,
+    },
+    colorSwatch: {
+        width: 48,
+        height: 48,
+        borderRadius: RADIUS.sm,
+        borderWidth: 3,
+        borderColor: "transparent",
+    },
+    colorSwatchSelected: {
+        borderColor: COLORS.textOnDark,
+        borderWidth: 3,
+    },
+    doneButton: {
         backgroundColor: COLORS.gold,
         paddingHorizontal: SPACING.xl,
-        paddingVertical: 14,
+        paddingVertical: SPACING.sm + 2,
         borderRadius: RADIUS.md,
         borderCurve: "continuous",
-        width: "100%",
-        alignItems: "center",
-        boxShadow: "0 4px 20px rgba(212, 168, 71, 0.35)",
     },
-    claimButtonText: {
-        fontFamily: FONT_FAMILY.bodyBold,
-        fontSize: 16,
+    doneButtonText: {
+        fontFamily: FONT_FAMILY.bodySemibold,
+        fontSize: 15,
         color: COLORS.textOnGold,
         letterSpacing: 0.5,
     },
 
-    // Charge bar
-    chargeBarContainer: {
-        width: "100%",
-        height: 8,
-        backgroundColor: "rgba(255, 255, 255, 0.1)",
-        borderRadius: 4,
-        overflow: "hidden",
-        marginBottom: SPACING.sm,
-    },
-    chargeBarFill: {
-        height: "100%",
-        borderRadius: 4,
-    },
-    chargeLabel: {
-        fontFamily: FONT_FAMILY.mono,
-        fontSize: 13,
-        color: COLORS.textOnDark,
-        marginBottom: SPACING.md,
-    },
-
-    // Charge button
-    chargeButton: {
-        backgroundColor: COLORS.blazing,
-        paddingHorizontal: SPACING.xl,
-        paddingVertical: 14,
-        borderRadius: RADIUS.md,
-        borderCurve: "continuous",
-        width: "100%",
-        alignItems: "center",
-        boxShadow: "0 4px 20px rgba(255, 184, 0, 0.35)",
-    },
-    chargeButtonText: {
-        fontFamily: FONT_FAMILY.bodyBold,
-        fontSize: 16,
-        color: "#1A1612",
-        letterSpacing: 1,
-    },
-
-    // Completion card
-    completionOverlay: {
+    // ─── Reveal ─────────────────────────────────
+    revealContainer: {
         ...StyleSheet.absoluteFillObject,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "rgba(6, 8, 16, 0.6)",
+        paddingHorizontal: SPACING.xl,
         zIndex: 200,
-        paddingHorizontal: SPACING.lg,
     },
-    completionCard: {
-        backgroundColor: "rgba(10, 12, 20, 0.92)",
-        borderRadius: RADIUS.xl,
-        borderWidth: 1,
-        borderColor: "rgba(212, 168, 71, 0.25)",
-        borderCurve: "continuous",
-        padding: SPACING.xl,
-        width: "100%",
-        maxWidth: 340,
-        alignItems: "center",
-        boxShadow: "0 12px 48px rgba(0, 0, 0, 0.6)",
+    revealScrim: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(6, 8, 16, 0.55)",
     },
-    completionEmoji: {
-        fontSize: 48,
-        marginBottom: SPACING.md,
-    },
-    completionTitle: {
+    revealTitle: {
         fontFamily: FONT_FAMILY.heading,
-        fontSize: 22,
+        fontSize: 26,
         color: COLORS.goldLight,
         textAlign: "center",
         letterSpacing: 0.5,
-        marginBottom: SPACING.sm,
+        textShadowColor: "rgba(0, 0, 0, 0.9)",
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 16,
     },
-    completionSubtitle: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 14,
-        color: "rgba(240, 236, 230, 0.7)",
-        textAlign: "center",
-        lineHeight: 20,
-        marginBottom: SPACING.lg,
+    revealDivider: {
+        width: 40,
+        height: 2,
+        backgroundColor: COLORS.goldGlow,
+        marginVertical: SPACING.md,
+        borderRadius: 1,
     },
-    walletButton: {
-        backgroundColor: COLORS.gold,
-        paddingHorizontal: SPACING.xl,
-        paddingVertical: 14,
-        borderRadius: RADIUS.md,
-        borderCurve: "continuous",
-        width: "100%",
-        alignItems: "center",
-        marginBottom: SPACING.sm,
-        boxShadow: "0 4px 20px rgba(212, 168, 71, 0.35)",
-    },
-    walletButtonText: {
-        fontFamily: FONT_FAMILY.bodyBold,
+    revealStakes: {
+        fontFamily: FONT_FAMILY.bodyMedium,
         fontSize: 16,
-        color: COLORS.textOnGold,
-        letterSpacing: 0.5,
+        color: COLORS.textOnDark,
+        textAlign: "center",
+        lineHeight: 24,
+        textShadowColor: "rgba(0, 0, 0, 0.8)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 10,
     },
-    exploreButton: {
-        paddingVertical: 12,
-        paddingHorizontal: SPACING.lg,
-        borderRadius: RADIUS.md,
-        borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.15)",
-        width: "100%",
-        alignItems: "center",
-    },
-    exploreButtonText: {
+    revealWarning: {
         fontFamily: FONT_FAMILY.bodySemibold,
         fontSize: 14,
-        color: "rgba(240, 236, 230, 0.7)",
-        letterSpacing: 0.3,
-    },
-
-    // Toast
-    toast: {
-        position: "absolute",
-        top: 100,
-        left: SPACING.lg,
-        right: SPACING.lg,
-        alignItems: "center",
-        zIndex: 250,
-    },
-    toastText: {
-        fontFamily: FONT_FAMILY.bodySemibold,
-        fontSize: 15,
-        color: COLORS.textOnDark,
-        backgroundColor: "rgba(10, 12, 20, 0.85)",
-        paddingHorizontal: SPACING.lg,
-        paddingVertical: SPACING.md,
-        borderRadius: RADIUS.md,
-        borderWidth: 1,
-        borderColor: "rgba(212, 168, 71, 0.3)",
-        borderCurve: "continuous",
+        color: COLORS.fading,
         textAlign: "center",
-        overflow: "hidden",
-        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
+        marginTop: SPACING.md,
+        textShadowColor: "rgba(0, 0, 0, 0.8)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 8,
     },
 });

@@ -450,7 +450,7 @@ function GroundPlane() {
           float dist = length(center);
 
           vec3 warmColor = vec3(0.50, 0.30, 0.10);
-          float alpha = smoothstep(0.25, 0.0, dist) * 0.35;
+          float alpha = smoothstep(0.25, 0.0, dist) * 0.45;
 
           gl_FragColor = vec4(warmColor, alpha);
         }
@@ -508,7 +508,7 @@ function AtmosphericHaze() {
           float dist = length(center);
 
           vec3 hazeColor = vec3(0.35, 0.22, 0.08);
-          float alpha = smoothstep(0.45, 0.0, dist) * 0.20;
+          float alpha = smoothstep(0.45, 0.0, dist) * 0.28;
 
           gl_FragColor = vec4(hazeColor, alpha);
         }

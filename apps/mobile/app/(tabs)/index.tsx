@@ -101,6 +101,13 @@ export default function TowerScreen() {
         )}
       </View>
 
+      {/* Activity ticker — visible during onboarding title phase for social proof */}
+      {(onboardingPhase === "title" || !isOnboarding) && !selectedBlockId && (
+        <View style={styles.tickerOverlay} pointerEvents="none">
+          <ActivityTicker />
+        </View>
+      )}
+
       {/* HUD Overlay — hidden during onboarding for cleaner experience */}
       {!isOnboarding && (
         <View style={styles.hud} pointerEvents="box-none">
@@ -146,7 +153,7 @@ export default function TowerScreen() {
           {/* Tower stats bar */}
           {initialized && <TowerStats />}
 
-          {/* Activity ticker (hidden during block inspect) */}
+          {/* Activity ticker (hidden during block inspect, already shown via overlay during onboarding) */}
           {!selectedBlockId && <ActivityTicker />}
 
           {/* Spacer to push bottom content down */}
@@ -248,6 +255,13 @@ const styles = StyleSheet.create({
   connectedText: {
     color: COLORS.success,
     fontFamily: FONT_FAMILY.mono,
+  },
+  tickerOverlay: {
+    position: "absolute",
+    top: SPACING.xxl * 2,
+    left: SPACING.md,
+    right: SPACING.md,
+    zIndex: 50,
   },
   bottomArea: {
     alignItems: "center",

@@ -21,7 +21,7 @@ const ONBOARDING_KEY = SECURE_STORE_KEYS.HAS_COMPLETED_ONBOARDING;
 
 // Bump this whenever the seed algorithm changes to force a re-seed.
 // Users who already have persisted data will get the new bots on next launch.
-const CURRENT_TOWER_VERSION = "15";
+const CURRENT_TOWER_VERSION = "16";
 
 async function readTowerFile(): Promise<string | null> {
   try {
@@ -169,6 +169,7 @@ interface TowerStore {
   ghostClaimBlock: (blockId: string) => void;
   ghostChargeBlock: (blockId: string) => { success: boolean; chargeAmount?: number };
   ghostDecayBlock: (blockId: string, amount?: number) => void;
+  ghostCustomizeBlock: (blockId: string, changes: { color?: string; emoji?: string; style?: number }) => void;
   clearGhostBlock: () => void;
 
   // ─── Computed ─────────────────────────────
@@ -480,6 +481,21 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       demoBlocks: state.demoBlocks.map((b) =>
         b.id === blockId
           ? { ...b, energy: Math.max(0, b.energy - amount) }
+          : b,
+      ),
+    }));
+  },
+
+  ghostCustomizeBlock: (blockId, changes) => {
+    set((state) => ({
+      demoBlocks: state.demoBlocks.map((b) =>
+        b.id === blockId
+          ? {
+            ...b,
+            ...(changes.color !== undefined && { ownerColor: changes.color }),
+            ...(changes.emoji !== undefined && { emoji: changes.emoji }),
+            ...(changes.style !== undefined && { style: changes.style }),
+          }
           : b,
       ),
     }));
