@@ -54,7 +54,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - Sound effects fully wired
 - Poke system (social re-engagement)
 - Guided onboarding camera flight
-- Demo video / pitch deck
+- Demo video / pitch deck — **Remotion system built** (`apps/video/`), 23s ShowcaseDemo renders
 - Gravity Tax implementation
 - Lighthouse glow radius mechanic
 
@@ -273,11 +273,13 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `docs/MULTIPLAYER_DEPLOYMENT.md` | Colyseus + Railway setup |
 | `docs/TESTER_GUIDE.md` | Tester onboarding: install, get tokens, how to play |
 | `docs/TESTING.md` | Developer testing guide: local setup, feature checklist |
+| `apps/video/GUIDE.md` | **Content engine guide** — how to make marketing videos with Remotion + real tower |
 
 ---
 
 ## Recent Changes
 
+- **2026-02-21**: Remotion content engine — 23s ShowcaseDemo video w/ real GLSL shaders, globalShowcasePath (no transition glitches), camera lerp, beat-sync music, text overlays, `apps/video/GUIDE.md` doc
 - **2026-02-21**: Full "alive game" feature set — XP/levels, Supabase persistence, ActivityTicker, ConnectionBanner, LevelUpCelebration, FloatingPoints, XPBar, faucet, dormant reclaim, charge flash, tappable leaderboard, OTA config, ErrorBoundary (204 tests)
 - **2026-02-19**: Documentation system overhaul (CONTEXT.md, CLAUDE.md, topic-indexed LESSONS.md)
 - **2026-02-18**: Interior-mapped image windows with 3D parallax depth

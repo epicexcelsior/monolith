@@ -29,3 +29,4 @@
 - `.agent/rules/AGENTS.md` — full shared agent guide (conventions, don'ts, tech stack, Anchor patterns)
 - `CONTEXT.md` — living project state (primary reference)
 - `docs/LESSONS.md` — technical lessons indexed by topic
+- `apps/video/GUIDE.md` — **content engine**: making marketing videos with Remotion + real tower shaders. Never modify mobile app files when working in `apps/video/`.

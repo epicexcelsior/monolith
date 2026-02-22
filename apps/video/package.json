@@ -1,0 +1,30 @@
+{
+  "name": "@monolith/video",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts ShowcaseDemo out/ShowcaseDemo.mp4",
+    "render:spiral": "remotion render src/index.ts SpiralReveal out/SpiralReveal.mp4",
+    "render:orbit": "remotion render src/index.ts OrbitPunch out/OrbitPunch.mp4",
+    "render:dolly": "remotion render src/index.ts DollyParallax out/DollyParallax.mp4",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@monolith/common": "workspace:*",
+    "@react-three/fiber": "^8.17.0",
+    "@remotion/google-fonts": "4.0.242",
+    "@remotion/three": "4.0.242",
+    "@remotion/transitions": "4.0.242",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.242",
+    "three": "~0.170.0"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.242",
+    "@types/react": "19.1.0",
+    "@types/three": "~0.170.0",
+    "typescript": "~5.9.2"
+  }
+}

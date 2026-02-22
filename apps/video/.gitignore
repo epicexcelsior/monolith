@@ -1,0 +1,4 @@
+# Remotion render output
+out/
+.cache/
+node_modules/
