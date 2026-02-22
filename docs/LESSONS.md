@@ -109,6 +109,16 @@ PanResponder.create({
 
 ## Shaders & 3D Rendering
 
+### GLSL Voronoi: hash21() Returns float, Not vec2 (2026-02-21)
+**Problem**: Crystal style used a Voronoi cell loop with `vec2 point = hash21(nc) * vec2(0.8, 0.8)` — `hash21()` returns `float`, so multiplying by `vec2` caused a GLSL type error and compiled to black blocks at runtime.
+**Solution**: Call `hash21` twice with offset seeds to get two independent floats for x/y:
+```glsl
+float hx = hash21(nc);
+float hy = hash21(nc + vec2(127.0, 311.0));
+vec2 point = vec2(hx, hy) * 0.8 - 0.4;
+```
+**Key Insight**: GLSL `hash21()` (vec2→float) vs `hash22()` (vec2→vec2) — always check return type before using in vec2 context; a black shader is often a type error, not a logic error.
+
 ### R3F Custom Shaders — All Lights Are Baked (2026-02-16)
 **Problem**: Added opaque TowerCore mesh for interior depth, but it created a dark void — R3F light components have zero effect because every mesh uses custom ShaderMaterial without `lights: true`.
 **Solution**: Replace opaque geometry with additive-blended warm glow:
@@ -162,6 +172,11 @@ side: THREE.BackSide, blending: THREE.AdditiveBlending,
 ---
 
 ## Multiplayer & Networking
+
+### Result Callbacks Must Be Registered, Not Just Imported (2026-02-21)
+**Problem**: `onCustomizeResult` was imported and the `CustomizeResult` type was used — TypeScript was happy — but the callback was never actually *called* to register it. Server correctly sent `customize_result` with XP, but `customizeResultCallback` was always `null`, silently dropping the XP animation.
+**Solution**: In the `useEffect` that registers `onChargeResult` and `onClaimResult`, add `onCustomizeResult` too. Also import the type explicitly: `import type { ..., CustomizeResult }`.
+**Key Insight**: Callback-registration patterns (module-level refs + setter functions) can silently no-op if the registration call is forgotten — TypeScript won't catch it since the import is used for the type.
 
 ### Multiplayer Block Positions Must Be Computed Client-Side (2026-02-17)
 **Problem**: Camera fly-to-block read `block.position` from the store, but in multiplayer mode `serverBlockToDemo()` set `position: {0,0,0}` because "TowerGrid computes from layout." Clicking any block flew camera to world origin.
@@ -318,6 +333,16 @@ function readU64(data: Uint8Array, offset: number): number {
 ---
 
 ## UI/UX & Design System
+
+### Onboarding: Communicate Stakes, Not Features (2026-02-21)
+**Problem**: Early onboarding said "A living tower built by real people" and taught color-picking — felt like a cute toy. Users had no reason to return because they didn't understand what they'd lose.
+**Solution**: Lead with competitive tension: "650 blocks. One tower. Yours to keep — or lose." Reveal phase: "Miss 3 days and anyone can take it." Keep customize to just color (fastest visual payoff). Defer emoji/style to post-onboarding discovery.
+**Key Insight**: Onboarding must communicate the game loop's *stakes* in the first session — loss aversion ("you can lose this") is more motivating than features ("you can customize this").
+
+### useCallback Deps: Use getState() Instead of Subscribing For Infrequent Reads (2026-02-21)
+**Problem**: Added `demoBlocks` to a `useCallback` dependency array inside `BlockInspector` without extracting it from the store via `useTowerStore(s => s.demoBlocks)`. Runtime crash: `ReferenceError: Property 'demoBlocks' doesn't exist`.
+**Solution**: For values only needed *inside* a callback (not for rendering), read via `useTowerStore.getState().demoBlocks` — no subscription, no dep array entry. Same pattern as `usePlayerStore.getState().addPoints()`.
+**Key Insight**: `useStore.getState()` is the right tool inside callbacks/effects when you need a value once but don't need to re-render on changes — avoids the subscription + dep array pair entirely.
 
 ### Bottom Sheet Panels Must Account for Absolute Tab Bars (2026-02-18)
 **Problem**: BlockInspector had `bottom: 0` but Expo Router tab bar uses `position: "absolute"` with height `60 + insets.bottom`. Panel content was hidden behind tab bar.
