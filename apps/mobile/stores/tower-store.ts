@@ -408,9 +408,14 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   },
 
   decayTick: () => {
+    const blocks = get().demoBlocks;
+    // PERF: Skip if no owned block has energy > 0 (nothing to decay)
+    const hasDecayable = blocks.some((b) => b.owner && b.energy > 0);
+    if (!hasDecayable) return;
+
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
-        b.owner
+        b.owner && b.energy > 0
           ? { ...b, energy: Math.max(0, b.energy - DEMO_DECAY_AMOUNT) }
           : b,
       ),
@@ -430,6 +435,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     return startBotSim(
       () => get().demoBlocks,
       (blockId, changes) => get().updateDemoBlock(blockId, changes),
+      // PERF: batch-update path — 1 store update per tick instead of ~50
+      (blocks) => set({ demoBlocks: blocks }),
     );
   },
 

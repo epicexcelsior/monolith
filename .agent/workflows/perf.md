@@ -47,6 +47,25 @@ grep -c "pow\|fbm\|noise" apps/mobile/components/tower/TowerScene.tsx
 - Skip expensive ops for dead/low-energy blocks using `step()` guards
 - Use `step(0.1, energy)` to zero out specular/glow on dead blocks — avoids computing effects that contribute nothing visually
 
+### 2a. mediump Precision + Time Uniforms (CRITICAL)
+
+> ⚠️ **Progressive lag root cause**: `precision mediump float` uses float16 on mobile GPUs.
+> Any uniform that grows over time (`uTime`, frame count) will lose precision after ~10 minutes,
+> making `sin()`/`cos()` return garbage. The app gets progressively laggier.
+
+```bash
+# Check that ALL uTime uniforms in mediump shaders have highp override
+grep -B5 "uniform.*uTime" apps/mobile/components/tower/BlockShader.ts
+# Should see: uniform highp float uTime;
+# NOT: uniform float uTime; (inherits mediump → breaks after 10 min)
+```
+
+**Rules**:
+- Any `uniform float uTime` in a `precision mediump float` shader MUST be `uniform highp float uTime`
+- Other uniforms (colors, positions, intensities) are fine at mediump — they don't grow
+- mediump float16 precision: ±1 at value 1000, ±8 at 10000 — `sin()` is meaningless
+- This is invisible in short test sessions — only shows after 10+ minutes of continuous rendering
+
 ## 3. Light Count
 
 Each additional light = extra per-fragment computation for every lit object.
@@ -110,7 +129,44 @@ grep -A5 "Canvas" apps/mobile/components/tower/TowerScene.tsx | head -10
 grep -A3 "hitMesh\|onClick" apps/mobile/components/tower/TowerGrid.tsx
 ```
 
-## 8. Summary Checklist
+## 8. Per-Frame Allocation (GC Pressure)
+
+Mobile GC pauses cause visible frame drops. Any object allocation inside `useFrame` runs 60x/sec.
+
+```bash
+# Check for new allocations inside useFrame callbacks
+grep -n "new THREE\.\|\.clone()\|new Float32Array\|new Array" apps/mobile/components/tower/TowerGrid.tsx apps/mobile/components/tower/ClaimVFX.tsx apps/mobile/components/tower/TowerScene.tsx
+```
+
+**Red flags inside useFrame / render loops:**
+- `new THREE.Color()` — use `ref.current.set()` instead
+- `new THREE.Vector3()` / `.clone()` — use `ref.current.copy()` instead
+- `new Float32Array()` — pre-allocate in `useRef` or `useMemo`
+- `new THREE.Matrix4()` — reuse a single temp via `useRef`
+- `performance.now()` called multiple times — cache once per frame
+
+**Rules**:
+- Pre-allocate reusable objects in `useRef()` (Color, Vector3, Matrix4, Object3D)
+- Use `.set()` / `.copy()` instead of `new` / `.clone()` inside animation loops
+- Cache `performance.now()` once at the top of `useFrame` and reuse the value
+- If an array size is known and stable, allocate once and reuse
+
+## 9. Store Update Batching
+
+Zustand `set()` calls trigger React re-renders. In loops, each call cascades through useMemo → useEffect → attribute rebuild.
+
+**Red flags:**
+- `for (...) { updateDemoBlock(id, changes); }` — N calls = N cascades
+- `setInterval` that calls store actions for individual items
+- Bot simulation, decay loops, multiplayer sync hitting the store per-block
+
+**Rules**:
+- Collect all changes in a Map/array, apply in ONE `set({ demoBlocks: ... })` call
+- Bot sim: batch all bot changes per tick (was 50 individual calls → now 1)
+- Decay: skip tick entirely if no block has energy > 0
+- Multiplayer: `applyFullState` already diffs — make sure `applySingleBlockUpdate` isn't called in a loop
+
+## 10. Summary Checklist
 
 After reviewing, confirm:
 - [ ] Total geometry < 25K tris
@@ -121,3 +177,6 @@ After reviewing, confirm:
 - [ ] antialias: false, alpha: false
 - [ ] Hit meshes use child geometry for raycasting
 - [ ] Expensive shader ops guarded by energy level
+- [ ] All `uTime` uniforms in mediump shaders use `highp` override
+- [ ] No `new THREE.*` or `.clone()` inside useFrame callbacks
+- [ ] `performance.now()` cached once per frame (not called multiple times)

@@ -131,7 +131,10 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   precision mediump float;  // mediump sufficient for color math — ~2x faster on mobile GPU
 
-  uniform float uTime;
+  // PERF: uTime grows unboundedly — mediump float16 loses precision after ~10 min
+  // (sin(2400) has ±2 precision → visual garbage). highp override keeps time precise
+  // while all other math stays mediump for 2x GPU throughput.
+  uniform highp float uTime;
   uniform vec3 uFogColor;
   uniform float uFogDensity;
   uniform float uSpireThreshold;
@@ -893,7 +896,8 @@ const glowVertexShader = /* glsl */ `
 const glowFragmentShader = /* glsl */ `
   precision mediump float;  // mediump sufficient for glow color math
 
-  uniform float uTime;
+  // PERF: highp override — mediump uTime degrades after ~10 min on mobile
+  uniform highp float uTime;
 
   varying float vEnergy;
   varying vec3 vOwnerColor;

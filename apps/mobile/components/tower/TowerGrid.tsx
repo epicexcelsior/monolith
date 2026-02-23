@@ -22,7 +22,8 @@ import { CLAIM_PHASES, CLAIM_LIGHT } from "@/constants/ClaimEffectConfig";
 
 export interface BlockMeta {
   id: string;
-  position: THREE.Vector3;
+  /** Plain {x,y,z} — NOT THREE.Vector3. Avoids 650 constructor calls per rebuild. */
+  position: { x: number; y: number; z: number };
   layer: number;
   index: number;
   energy: number;
@@ -154,7 +155,7 @@ export default function TowerGrid() {
 
       data.push({
         id: storeBlock?.id ?? `block-${layout.layer}-${layout.index}`,
-        position: new THREE.Vector3(layout.x, layout.y, layout.z),
+        position: { x: layout.x, y: layout.y, z: layout.z },
         layer: layout.layer,
         index: layout.index,
         energy: storeBlock?.energy ?? 0,
@@ -201,7 +202,7 @@ export default function TowerGrid() {
         const layoutItem = layoutData[i];
         const layerScale = getLayerScale(block.layer, config.layerCount);
 
-        tempObj.position.copy(block.position);
+        tempObj.position.set(block.position.x, block.position.y, block.position.z);
 
         // Scale: tileScale stretches the block's local X so blocks tile the face perfectly.
         // rotY aligns block face with tower face tangent, so local X = face direction.
@@ -222,7 +223,7 @@ export default function TowerGrid() {
 
         // Glow mesh: same position, slightly larger for subtle halo
         if (glowMesh) {
-          glowObj.position.copy(block.position);
+          glowObj.position.set(block.position.x, block.position.y, block.position.z);
           glowObj.scale.set(GLOW_SCALE * layerScale * ts, GLOW_SCALE * layerScale, GLOW_SCALE * layerScale);
           glowObj.rotation.set(0, layoutItem.rotY, 0);
           glowObj.updateMatrix();
@@ -236,97 +237,82 @@ export default function TowerGrid() {
       transformsApplied.current = true;
     }
 
-    // Update per-instance attributes (energy, color, layerNorm)
+    // Update per-instance attributes (energy, color, layerNorm, style, texture, image)
+    // PERF: Write directly into existing attribute arrays — zero temp Float32Array allocations.
+    // On first run (no existing attrs), we create the buffers. After that, we reuse them.
     const count = blockData.length;
-    const energyArray = new Float32Array(count);
-    const colorArray = new Float32Array(count * 3);
-    const layerNormArray = new Float32Array(count);
-    const tempColor = new THREE.Color();
-
-    for (let i = 0; i < count; i++) {
-      const block = blockData[i];
-      energyArray[i] = block.energy / 100;
-
-      tempColor.set(block.ownerColor);
-      colorArray[i * 3] = tempColor.r;
-      colorArray[i * 3 + 1] = tempColor.g;
-      colorArray[i * 3 + 2] = tempColor.b;
-
-      layerNormArray[i] = block.layer / (config.layerCount - 1);
-    }
-
     const geo = mesh.geometry;
-    const existingEnergy = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
-    if (existingEnergy && existingEnergy.count === count) {
-      existingEnergy.set(energyArray);
-      existingEnergy.needsUpdate = true;
-    } else {
-      geo.setAttribute("aEnergy", new THREE.InstancedBufferAttribute(energyArray, 1));
+    const tempColor = tmpColorRef.current;
+
+    // ─── Ensure attribute buffers exist (first mount only) ──
+    let energyAttr = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+    if (!energyAttr || energyAttr.count !== count) {
+      energyAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aEnergy", energyAttr);
+    }
+    let colorAttr = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+    if (!colorAttr || colorAttr.count !== count) {
+      colorAttr = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
+      geo.setAttribute("aOwnerColor", colorAttr);
+    }
+    let layerAttr = geo.getAttribute("aLayerNorm") as THREE.InstancedBufferAttribute | null;
+    if (!layerAttr || layerAttr.count !== count) {
+      layerAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aLayerNorm", layerAttr);
+    }
+    let styleAttr = geo.getAttribute("aStyle") as THREE.InstancedBufferAttribute | null;
+    if (!styleAttr || styleAttr.count !== count) {
+      styleAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aStyle", styleAttr);
+    }
+    let textureAttr = geo.getAttribute("aTextureId") as THREE.InstancedBufferAttribute | null;
+    if (!textureAttr || textureAttr.count !== count) {
+      textureAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aTextureId", textureAttr);
+    }
+    let imageAttr = geo.getAttribute("aImageIndex") as THREE.InstancedBufferAttribute | null;
+    if (!imageAttr || imageAttr.count !== count) {
+      imageAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aImageIndex", imageAttr);
     }
 
-    const existingColor = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
-    if (existingColor && existingColor.count === count) {
-      existingColor.set(colorArray);
-      existingColor.needsUpdate = true;
-    } else {
-      geo.setAttribute("aOwnerColor", new THREE.InstancedBufferAttribute(colorArray, 3));
-    }
+    // ─── Write values directly into existing arrays ──
+    const eArr = energyAttr.array as Float32Array;
+    const cArr = colorAttr.array as Float32Array;
+    const lArr = layerAttr.array as Float32Array;
+    const sArr = styleAttr.array as Float32Array;
+    const tArr = textureAttr.array as Float32Array;
+    const iArr = imageAttr.array as Float32Array;
 
-    const existingLayer = geo.getAttribute("aLayerNorm") as THREE.InstancedBufferAttribute | null;
-    if (existingLayer && existingLayer.count === count) {
-      existingLayer.set(layerNormArray);
-      existingLayer.needsUpdate = true;
-    } else {
-      geo.setAttribute("aLayerNorm", new THREE.InstancedBufferAttribute(layerNormArray, 1));
-    }
-
-    // Style, texture, and image attributes
-    const styleArray = new Float32Array(count);
-    const textureArray = new Float32Array(count);
-    const imageIndexArray = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       const block = blockData[i];
       const storeBlock = demoBlockMap.get(block.layer * 1000 + block.index);
-      styleArray[i] = storeBlock?.style ?? 0;
-      textureArray[i] = storeBlock?.textureId ?? 0;
 
-      // Image index: use store value if available, otherwise compute
-      // deterministically from block position so images always show
+      eArr[i] = block.energy / 100;
+      lArr[i] = block.layer / (config.layerCount - 1);
+      sArr[i] = storeBlock?.style ?? 0;
+      tArr[i] = storeBlock?.textureId ?? 0;
+
+      tempColor.set(block.ownerColor);
+      cArr[i * 3] = tempColor.r;
+      cArr[i * 3 + 1] = tempColor.g;
+      cArr[i * 3 + 2] = tempColor.b;
+
+      // Image index
       let imgIdx = storeBlock?.imageIndex ?? 0;
       if (imgIdx === 0 && block.owner) {
-        // 75% of owned blocks get a demo image (deterministic hash)
         const hash = ((block.layer * 31 + block.index * 7 + 137) & 0xffff);
-        if (hash % 4 < 3) { // 75%
-          imgIdx = (hash % 5) + 1; // 1-5
-        }
+        if (hash % 4 < 3) { imgIdx = (hash % 5) + 1; }
       }
-      imageIndexArray[i] = imgIdx;
-    }
-    const existingStyle = geo.getAttribute("aStyle") as THREE.InstancedBufferAttribute | null;
-    if (existingStyle && existingStyle.count === count) {
-      existingStyle.set(styleArray);
-      existingStyle.needsUpdate = true;
-    } else {
-      geo.setAttribute("aStyle", new THREE.InstancedBufferAttribute(styleArray, 1));
+      iArr[i] = imgIdx;
     }
 
-    // Texture attribute (0=None, 1-6 for procedural patterns)
-    const existingTexture = geo.getAttribute("aTextureId") as THREE.InstancedBufferAttribute | null;
-    if (existingTexture && existingTexture.count === count) {
-      existingTexture.set(textureArray);
-      existingTexture.needsUpdate = true;
-    } else {
-      geo.setAttribute("aTextureId", new THREE.InstancedBufferAttribute(textureArray, 1));
-    }
-
-    // Image index attribute (0=None, 1-5=atlas slot)
-    const existingImage = geo.getAttribute("aImageIndex") as THREE.InstancedBufferAttribute | null;
-    if (existingImage && existingImage.count === count) {
-      existingImage.set(imageIndexArray);
-      existingImage.needsUpdate = true;
-    } else {
-      geo.setAttribute("aImageIndex", new THREE.InstancedBufferAttribute(imageIndexArray, 1));
-    }
+    energyAttr.needsUpdate = true;
+    colorAttr.needsUpdate = true;
+    layerAttr.needsUpdate = true;
+    styleAttr.needsUpdate = true;
+    textureAttr.needsUpdate = true;
+    imageAttr.needsUpdate = true;
 
     // ─── Inspect mode attributes (fade + highlight + pop-out) ──
     if (!fadeCurrentRef.current || fadeCurrentRef.current.length !== count) {
@@ -350,32 +336,33 @@ export default function TowerGrid() {
     if (glowMeshRef.current) {
       const glowGeo = glowMeshRef.current.geometry;
 
-      const existingGlowEnergy = glowGeo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
-      if (existingGlowEnergy && existingGlowEnergy.count === count) {
-        existingGlowEnergy.set(energyArray);
-        existingGlowEnergy.needsUpdate = true;
-      } else {
-        glowGeo.setAttribute("aEnergy", new THREE.InstancedBufferAttribute(new Float32Array(energyArray), 1));
+      // Reuse main mesh attribute data (eArr, cArr already populated above)
+      let glowEnergy = glowGeo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+      if (!glowEnergy || glowEnergy.count !== count) {
+        glowEnergy = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+        glowGeo.setAttribute("aEnergy", glowEnergy);
       }
+      (glowEnergy.array as Float32Array).set(eArr);
+      glowEnergy.needsUpdate = true;
 
-      const existingGlowColor = glowGeo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
-      if (existingGlowColor && existingGlowColor.count === count) {
-        existingGlowColor.set(colorArray);
-        existingGlowColor.needsUpdate = true;
-      } else {
-        glowGeo.setAttribute("aOwnerColor", new THREE.InstancedBufferAttribute(new Float32Array(colorArray), 3));
+      let glowColor = glowGeo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+      if (!glowColor || glowColor.count !== count) {
+        glowColor = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
+        glowGeo.setAttribute("aOwnerColor", glowColor);
       }
+      (glowColor.array as Float32Array).set(cArr);
+      glowColor.needsUpdate = true;
 
       // Glow inspect mode attributes
       if (fadeCurrentRef.current) {
-        const existingGlowFade = glowGeo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
-        if (!existingGlowFade || existingGlowFade.count !== count) {
+        let glowFade = glowGeo.getAttribute("aFade") as THREE.InstancedBufferAttribute | null;
+        if (!glowFade || glowFade.count !== count) {
           glowGeo.setAttribute("aFade", new THREE.InstancedBufferAttribute(new Float32Array(fadeCurrentRef.current), 1));
         }
       }
       if (highlightCurrentRef.current) {
-        const existingGlowHL = glowGeo.getAttribute("aHighlight") as THREE.InstancedBufferAttribute | null;
-        if (!existingGlowHL || existingGlowHL.count !== count) {
+        let glowHL = glowGeo.getAttribute("aHighlight") as THREE.InstancedBufferAttribute | null;
+        if (!glowHL || glowHL.count !== count) {
           glowGeo.setAttribute("aHighlight", new THREE.InstancedBufferAttribute(new Float32Array(highlightCurrentRef.current), 1));
         }
       }
@@ -769,7 +756,7 @@ export default function TowerGrid() {
             const layerScale = getLayerScale(block.layer, config.layerCount);
 
             const rts = layoutItem.tileScale;
-            restoreObj.position.copy(block.position);
+            restoreObj.position.set(block.position.x, block.position.y, block.position.z);
             restoreObj.scale.set(layerScale * rts, layerScale, layerScale);
             restoreObj.rotation.set(0, layoutItem.rotY, 0);
             restoreObj.updateMatrix();
@@ -782,7 +769,7 @@ export default function TowerGrid() {
             }
 
             if (glowMeshRef.current) {
-              restoreObj.position.copy(block.position);
+              restoreObj.position.set(block.position.x, block.position.y, block.position.z);
               restoreObj.scale.set(GLOW_SCALE * layerScale * rts, GLOW_SCALE * layerScale, GLOW_SCALE * layerScale);
               restoreObj.rotation.set(0, layoutItem.rotY, 0);
               restoreObj.updateMatrix();

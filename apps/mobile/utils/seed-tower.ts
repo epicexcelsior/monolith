@@ -468,6 +468,8 @@ export function generateSeedTower(seed: number = _config.seed): DemoBlock[] {
 export function startBotSimulation(
   getBlocks: () => DemoBlock[],
   updateBlock: (blockId: string, changes: Partial<DemoBlock>) => void,
+  /** Optional: batch-update all blocks at once (avoids 50x cascade per tick) */
+  setBlocks?: (blocks: DemoBlock[]) => void,
 ): () => void {
   if (!_config.simulation.enabled) {
     return () => {}; // noop cleanup
@@ -485,6 +487,12 @@ export function startBotSimulation(
   const interval = setInterval(() => {
     const blocks = getBlocks();
 
+    // PERF: Collect all changes and apply in ONE setDemoBlocks call.
+    // Previously, each updateDemoBlock call triggered a full cascade:
+    // new demoBlocks array → blockData rebuild (650 Vector3) → 6 Float32Arrays.
+    // With ~50 bot updates/tick, that was 50x cascade per 15 seconds = GC death.
+    const changes = new Map<string, Partial<DemoBlock>>();
+
     for (const block of blocks) {
       // Only simulate bot-owned blocks (not player blocks)
       if (!block.owner || !isBotOwner(block.owner)) continue;
@@ -495,7 +503,7 @@ export function startBotSimulation(
       // Bot charges their block
       if (simRng() < sim.chargeChance * persona.activityLevel) {
         const newEnergy = Math.min(100, block.energy + sim.chargeAmount);
-        updateBlock(block.id, {
+        changes.set(block.id, {
           energy: newEnergy,
           lastChargeTime: Date.now(),
         });
@@ -506,9 +514,25 @@ export function startBotSimulation(
       if (simRng() < sim.ambientFlickerChance) {
         const delta = (simRng() - 0.4) * sim.ambientFlickerRange; // slight bias toward decay
         const newEnergy = Math.max(0, Math.min(100, block.energy + delta));
-        updateBlock(block.id, {
+        changes.set(block.id, {
           energy: Math.round(newEnergy * 100) / 100,
         });
+      }
+    }
+
+    // Apply all changes in a single store update (1 cascade, not 50)
+    if (changes.size > 0) {
+      if (setBlocks) {
+        const updated = blocks.map((b) => {
+          const c = changes.get(b.id);
+          return c ? { ...b, ...c } : b;
+        });
+        setBlocks(updated);
+      } else {
+        // Fallback: individual updates (legacy path)
+        for (const [blockId, c] of changes) {
+          updateBlock(blockId, c);
+        }
       }
     }
   }, sim.tickIntervalMs);

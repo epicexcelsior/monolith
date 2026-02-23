@@ -271,6 +271,40 @@ function readU64(data: Uint8Array, offset: number): number {
 
 ## Performance
 
+### mediump uTime Causes Progressive Lag on Mobile (2026-02-23)
+**Problem**: Tower got progressively laggier the longer it ran — shaders and lights degraded over ~10 minutes. Root cause: fragment shaders used `precision mediump float` (float16 on mobile GPUs) and `uTime` grew unboundedly. At `uTime ≈ 600` (~10 min), `sin(uTime * 4.0) = sin(2400)` has mediump precision of ±2 — results are garbage. GPU computes meaningless values, causing visual artifacts and frame stalls.
+**Solution**: Declare time uniforms with explicit highp override while keeping everything else mediump:
+```glsl
+precision mediump float;  // 2x GPU throughput for color math
+uniform highp float uTime; // time grows unboundedly — must be precise
+```
+**Key Insight**: Any uniform that grows over time (elapsed seconds, frame count) MUST use `highp` in mediump shaders. mediump float16 has only ~3 decimal digits of precision — values above ~500 make `sin()`/`cos()` produce random noise. This is invisible during short test sessions but guaranteed to break after 10+ minutes.
+
+### Batch Store Updates — Individual Calls Cascade (2026-02-23)
+**Problem**: Bot simulation called `updateDemoBlock()` ~50 times per 15-second tick. Each call triggered: new demoBlocks array (650 spreads) → React re-render → blockData rebuild (650 objects) → attribute Float32Array rebuild (6 arrays). Over 30 minutes = ~6000 full cascades = millions of objects for GC.
+**Solution**: Collect all changes in a `Map`, apply in a single `setDemoBlocks()` call. 50 cascades → 1 cascade per tick.
+```typescript
+// BEFORE: 50 individual calls per tick
+for (const block of blocks) { updateBlock(block.id, changes); }
+// AFTER: 1 batched call per tick
+const changes = new Map();
+for (const block of blocks) { changes.set(block.id, delta); }
+setBlocks(blocks.map(b => changes.has(b.id) ? { ...b, ...changes.get(b.id) } : b));
+```
+**Key Insight**: Any loop that calls a Zustand setter N times triggers N re-render cascades. Always batch into one `set()` call.
+
+### Avoid `new` Inside useFrame — GC Pressure Kills Mobile Perf (2026-02-23)
+**Problem**: `new THREE.Color(0.8, 0.9, 1.0)` was created inside `useFrame` during charge flash animation — allocating a new object 60 times/sec for 1.2 seconds per charge. Over many charges, GC pressure caused frame drops.
+**Solution**: Pre-allocate reusable objects in `useRef` and call `.set()` to reuse:
+```typescript
+// BEFORE (bad — allocates every frame):
+const flashColor = new THREE.Color(0.8, 0.9, 1.0);
+// AFTER (good — reuses ref):
+const chargeFlashColorRef = useRef(new THREE.Color(0.8, 0.9, 1.0));
+const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0);
+```
+**Key Insight**: Never use `new` inside `useFrame`, `requestAnimationFrame`, or any per-frame callback. Pre-allocate Vector3, Color, Matrix4, Float32Array in refs. Same rule applies to `.clone()` — use `.copy()` instead.
+
 ### Mobile 3D Performance Budget (2026-02-15)
 **Problem**: Need to understand the performance priority order for mobile GPUs.
 **Solution**: Priority order: (1) Fragment shader ALU ops — most expensive (hex pattern 3x/fragment was biggest cost, replace with `fract()` cracks), (2) Triangle count — RoundedBoxGeometry segments=2 is 96 tri/block x 650 = 62K, halve with segments=1, (3) Light count — hemisphere replaces 2-3 fill lights, (4) Texture/noise lookups — FBM 4 octaves costs 25% more than 3 for <6% visual return, (5) Particle count — 120->80 saves draw overhead.
@@ -333,6 +367,21 @@ function readU64(data: Uint8Array, offset: number): number {
 ---
 
 ## UI/UX & Design System
+
+### Text Contrast Over 3D Scenes Needs Full Scrim, Not Just textShadow (2026-02-23)
+**Problem**: Text overlays on the onboarding were unreadable because the bright tower color (blazing/thriving blocks) overwhelmed text shadows and subtle vignettes.
+**Solution**: Use a `StyleSheet.absoluteFill` `<View>` with `backgroundColor: "rgba(6, 8, 16, 0.55-0.60)"` (the `BLUR.fallbackHudBg` token = 0.80 for panels, custom for scrims). Place it *behind* text in the Z order. Per-panel dark container (0.85-0.90 opacity) for inline UI. textShadow alone is insufficient.
+**Key Insight**: For any text over a live 3D scene, scrim first, shadows second — you control the background, not the renderer.
+
+### Demo Mode Must Mirror Server XP Feedback (2026-02-23)
+**Problem**: The full XP/level/combo/floating-points system was 100% server-side. In demo/offline mode (no multiplayer connection), claim, charge, and customize gave zero XP feedback — the game felt empty and non-progressive.
+**Solution**: In the `else` (demo) branches of `handleClaim`, `handleCharge`, `handleCustomize` in BlockInspector, call `usePlayerStore.getState().addPoints()` with the same XP values the server would award (claim: 100/300, charge: 25, customize: 10). Read tower state via `useTowerStore.getState()` to avoid adding deps.
+**Key Insight**: Any feedback that only works when connected creates a silent two-tier experience. Mirror server feedback locally for all core actions.
+
+### Reset Animated Values Synchronously Before Phase Transitions (2026-02-23)
+**Problem**: After claiming a block, the customize panel animated from its current value instead of sliding in from below — the animation started mid-frame if the previous effect had already run.
+**Solution**: Call `.setValue(initialValue)` synchronously on the animated refs *before* calling `advancePhase()`, in the same callback. This ensures the value is in the correct start position when the next phase's `useEffect` fires.
+**Key Insight**: Animated values are mutable refs — reset them synchronously in the transition callback, not in the destination phase's effect.
 
 ### Onboarding: Communicate Stakes, Not Features (2026-02-21)
 **Problem**: Early onboarding said "A living tower built by real people" and taught color-picking — felt like a cute toy. Users had no reason to return because they didn't understand what they'd lose.
