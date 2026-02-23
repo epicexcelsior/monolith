@@ -318,7 +318,7 @@ export default function BoardScreen() {
 
   useEffect(() => {
     refreshAll();
-    const interval = setInterval(refreshAll, 15_000);
+    const interval = setInterval(refreshAll, 60_000); // On-chain data; 60s is plenty
     return () => clearInterval(interval);
   }, [refreshAll]);
 

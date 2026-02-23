@@ -18,6 +18,7 @@ import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
+import { CLAIM_PHASES } from "@/constants/ClaimEffectConfig";
 
 export interface BlockMeta {
   id: string;
@@ -55,6 +56,7 @@ export default function TowerGrid() {
   const clearRecentlyClaimed = useTowerStore((s) => s.clearRecentlyClaimed);
   const recentlyChargedId = useTowerStore((s) => s.recentlyChargedId);
   const clearRecentlyCharged = useTowerStore((s) => s.clearRecentlyCharged);
+  const claimCelebrationRef = useTowerStore((s) => s.claimCelebrationRef);
 
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
@@ -413,6 +415,59 @@ export default function TowerGrid() {
     }
     if (glowMaterialRef.current) {
       glowMaterialRef.current.uniforms.uTime.value += dt;
+    }
+
+    // ─── Claim celebration: drive shockwave + light uniforms ──
+    if (claimCelebrationRef?.current && materialRef.current) {
+      const cel = claimCelebrationRef.current;
+      if (cel.active) {
+        const now = performance.now() / 1000;
+        const elapsed = now - cel.startTime;
+        const progress = Math.min(elapsed / cel.duration, 1.0);
+        const mat = materialRef.current;
+
+        // Shockwave: active during impact + celebration phases
+        if (progress >= CLAIM_PHASES.impact.start && progress <= CLAIM_PHASES.celebration.end) {
+          const waveElapsed = elapsed - CLAIM_PHASES.impact.start * cel.duration;
+          const waveFade = progress < CLAIM_PHASES.settle.start
+            ? 1.0
+            : 1.0 - (progress - CLAIM_PHASES.settle.start) / (1.0 - CLAIM_PHASES.settle.start);
+          mat.uniforms.uClaimWaveOrigin.value.set(cel.blockPosition.x, cel.blockPosition.y, cel.blockPosition.z);
+          mat.uniforms.uClaimWaveTime.value = waveElapsed;
+          mat.uniforms.uClaimWaveIntensity.value = Math.max(0, waveFade);
+        } else {
+          mat.uniforms.uClaimWaveIntensity.value = 0;
+        }
+
+        // Fake point light: peaks at impact, fades during celebration
+        if (progress >= CLAIM_PHASES.impact.start && progress < CLAIM_PHASES.settle.end) {
+          let lightI = 0;
+          if (progress < CLAIM_PHASES.impact.end) {
+            // Ramp up during impact
+            const t = (progress - CLAIM_PHASES.impact.start) / (CLAIM_PHASES.impact.end - CLAIM_PHASES.impact.start);
+            lightI = t;
+          } else if (progress < CLAIM_PHASES.celebration.end) {
+            // Hold + slow fade during celebration
+            const t = (progress - CLAIM_PHASES.impact.end) / (CLAIM_PHASES.celebration.end - CLAIM_PHASES.impact.end);
+            lightI = 1.0 - t * 0.6;
+          } else {
+            // Fade out during settle
+            const t = (progress - CLAIM_PHASES.celebration.end) / (CLAIM_PHASES.settle.end - CLAIM_PHASES.celebration.end);
+            lightI = 0.4 * (1.0 - t);
+          }
+          mat.uniforms.uClaimLightPos.value.set(cel.blockPosition.x, cel.blockPosition.y, cel.blockPosition.z);
+          mat.uniforms.uClaimLightIntensity.value = lightI * 4.0;
+        } else {
+          mat.uniforms.uClaimLightIntensity.value = 0;
+        }
+
+        // Clean up when done
+        if (progress >= 1.0) {
+          mat.uniforms.uClaimWaveIntensity.value = 0;
+          mat.uniforms.uClaimLightIntensity.value = 0;
+          cel.active = false;
+        }
+      }
     }
 
     // Claim flash: golden celebration burst for 2 seconds

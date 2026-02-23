@@ -30,18 +30,17 @@ import type { ChargeResult, ClaimResult, CustomizeResult } from "@/stores/multip
 import { usePlayerStore } from "@/stores/player-store";
 import {
   hapticBlockDeselect,
-  hapticBlockClaimed,
   hapticButtonPress,
   hapticError,
 } from "@/utils/haptics";
 import {
-  playBlockClaim,
   playChargeTap,
   playBlockSelect,
   playBlockDeselect,
   playStreakMilestone,
   playError,
 } from "@/utils/audio";
+import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
 const BLOCK_STYLES = [
   { id: 0, label: "Default", icon: "🔲" },
@@ -102,6 +101,9 @@ export default function BlockInspector() {
   const isWalletConnected = useWalletStore((s) => s.isConnected);
   const { deposit } = useStaking();
   const router = useRouter();
+  const { triggerCelebration } = useClaimCelebration();
+  // Use getState() for one-shot reads inside callbacks to avoid stale closures
+  const getStoreState = useTowerStore.getState;
   const mpConnected = useMultiplayerStore((s) => s.connected && !s.reconnecting);
   const sendClaim = useMultiplayerStore((s) => s.sendClaim);
   const sendCharge = useMultiplayerStore((s) => s.sendCharge);
@@ -197,9 +199,15 @@ export default function BlockInspector() {
       const pStore = usePlayerStore.getState();
       pStore.addPoints({ pointsEarned: pts, totalXp: pStore.xp + pts, level: pStore.level });
     }
-    hapticBlockClaimed();
-    playBlockClaim();
-  }, [publicKey, selectedBlockId, deposit, claimBlock, mpConnected, sendClaim]);
+    // Trigger claim celebration (particles, shockwave, haptics, sound)
+    const { demoBlocks } = getStoreState();
+    const claimedBlock = demoBlocks.find((b) => b.id === selectedBlockId);
+    if (claimedBlock) {
+      const walletStr = publicKey!.toBase58();
+      const isFirst = !demoBlocks.some((b) => b.owner === walletStr && b.id !== selectedBlockId);
+      triggerCelebration(claimedBlock.position, -1, isFirst);
+    }
+  }, [publicKey, selectedBlockId, deposit, claimBlock, mpConnected, sendClaim, triggerCelebration, getStoreState]);
 
   // Handle charge
   const handleCharge = useCallback(() => {

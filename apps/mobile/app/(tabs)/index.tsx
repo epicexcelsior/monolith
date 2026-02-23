@@ -18,6 +18,7 @@ import FloatingPoints from "@/components/ui/FloatingPoints";
 import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
 import ActivityTicker from "@/components/ui/ActivityTicker";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
+import ScreenFlash from "@/components/ui/ScreenFlash";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -88,6 +89,7 @@ export default function TowerScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
+      <ScreenFlash />
 
       {/* 3D Tower (full screen) */}
       <View style={styles.canvasContainer}>

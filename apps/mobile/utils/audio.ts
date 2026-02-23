@@ -66,6 +66,7 @@ export async function initAudio(): Promise<void> {
         await loadPlayer("blockDeselect", require("../assets/sfx/block-deselect.wav"));
         await loadPlayer("streakMilestone", require("../assets/sfx/streak-milestone.wav"));
         await loadPlayer("error", require("../assets/sfx/error.wav"));
+        await loadPlayer("claimCelebration", require("../assets/sfx/claim-celebration.wav"));
 
         initialized = true;
     } catch {
@@ -119,6 +120,9 @@ export function playStreakMilestone() { play("streakMilestone"); }
 
 /** Muted buzz for errors */
 export function playError() { play("error"); }
+
+/** Epic multi-phase celebration sound */
+export function playClaimCelebration() { play("claimCelebration"); }
 
 // ─── Settings ─────────────────────────────────────────────
 

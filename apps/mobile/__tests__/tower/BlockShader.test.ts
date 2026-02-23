@@ -124,6 +124,29 @@ describe("createBlockMaterial", () => {
     // Owner color used as base
     expect(material.fragmentShader).toContain("baseColor = vOwnerColor");
   });
+
+  // ─── Claim celebration uniforms ────────────────────────
+  it("should have claim shockwave uniforms with correct defaults", () => {
+    expect(material.uniforms.uClaimWaveOrigin).toBeDefined();
+    expect(material.uniforms.uClaimWaveTime.value).toBe(-1);
+    expect(material.uniforms.uClaimWaveIntensity.value).toBe(0);
+  });
+
+  it("should have claim light uniforms with correct defaults", () => {
+    expect(material.uniforms.uClaimLightPos).toBeDefined();
+    expect(material.uniforms.uClaimLightIntensity.value).toBe(0);
+  });
+
+  it("fragment shader should contain claim wave GLSL code", () => {
+    expect(material.fragmentShader).toContain("uClaimWaveIntensity");
+    expect(material.fragmentShader).toContain("uClaimWaveOrigin");
+    expect(material.fragmentShader).toContain("uClaimWaveTime");
+  });
+
+  it("fragment shader should contain claim light GLSL code", () => {
+    expect(material.fragmentShader).toContain("uClaimLightIntensity");
+    expect(material.fragmentShader).toContain("uClaimLightPos");
+  });
 });
 
 describe("ENERGY_COLOR_STOPS", () => {

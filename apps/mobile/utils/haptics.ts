@@ -85,6 +85,78 @@ export function hapticButtonPress() {
     );
 }
 
+/**
+ * Multi-phase claim celebration haptic sequence.
+ * Inspired by Duolingo's escalating-then-resolving pattern.
+ * Builds tension → explosive impact → satisfying settle.
+ */
+export function hapticClaimCelebration(isFirstClaim: boolean) {
+    if (!HAPTICS_ENABLED) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    // ─── Buildup: escalating taps that build anticipation ───
+    const buildupTaps = isFirstClaim
+        ? [
+            { delay: 0,   style: Haptics.ImpactFeedbackStyle.Light },
+            { delay: 150, style: Haptics.ImpactFeedbackStyle.Light },
+            { delay: 280, style: Haptics.ImpactFeedbackStyle.Light },
+            { delay: 400, style: Haptics.ImpactFeedbackStyle.Medium },
+            { delay: 520, style: Haptics.ImpactFeedbackStyle.Medium },
+            { delay: 640, style: Haptics.ImpactFeedbackStyle.Medium },
+            { delay: 780, style: Haptics.ImpactFeedbackStyle.Heavy },
+            { delay: 900, style: Haptics.ImpactFeedbackStyle.Heavy },
+          ]
+        : [
+            { delay: 0,   style: Haptics.ImpactFeedbackStyle.Light },
+            { delay: 120, style: Haptics.ImpactFeedbackStyle.Light },
+            { delay: 240, style: Haptics.ImpactFeedbackStyle.Medium },
+            { delay: 360, style: Haptics.ImpactFeedbackStyle.Medium },
+            { delay: 480, style: Haptics.ImpactFeedbackStyle.Heavy },
+          ];
+
+    for (const tap of buildupTaps) {
+        timers.push(setTimeout(() => {
+            Haptics.impactAsync(tap.style).catch(() => {});
+        }, tap.delay));
+    }
+
+    // ─── Impact: BOOM — double Heavy + Success for maximum punch ───
+    const impactDelay = isFirstClaim ? 1000 : 600;
+    timers.push(setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    }, impactDelay));
+    // Double tap for extra weight
+    timers.push(setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    }, impactDelay + 40));
+    // Success notification for the "ding" resolution
+    timers.push(setTimeout(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }, impactDelay + 120));
+
+    // ─── Celebration: rhythmic pulses during the sparkle phase ───
+    const celebTaps = isFirstClaim
+        ? [1400, 1700, 2000, 2400]
+        : [1000, 1300];
+    for (const delay of celebTaps) {
+        timers.push(setTimeout(() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        }, delay));
+    }
+
+    // ─── Settle: gentle fade-out pulses ───
+    const settleTaps = isFirstClaim
+        ? [4000, 4300, 4600]
+        : [2400, 2700];
+    for (const delay of settleTaps) {
+        timers.push(setTimeout(() => {
+            Haptics.selectionAsync().catch(() => {});
+        }, delay));
+    }
+
+    return timers;
+}
+
 /** Error occurred — warning vibration */
 export function hapticError() {
     safeHaptic(() =>

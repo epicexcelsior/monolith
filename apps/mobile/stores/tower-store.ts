@@ -112,6 +112,16 @@ export interface DemoBlock {
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
 }
 
+/** Mutable ref state for claim celebration, readable by useFrame loops */
+export interface ClaimCelebrationState {
+  active: boolean;
+  startTime: number;         // performance.now() / 1000
+  duration: number;          // seconds
+  blockPosition: { x: number; y: number; z: number };
+  blockIndex: number;
+  isFirstClaim: boolean;
+}
+
 interface TowerStore {
   // ─── State ────────────────────────────────
   blocks: Block[];
@@ -130,6 +140,7 @@ interface TowerStore {
   onboardingDone: boolean;
   initialized: boolean;
   cameraStateRef: React.MutableRefObject<any> | null;
+  claimCelebrationRef: React.MutableRefObject<ClaimCelebrationState | null> | null;
   multiplayerMode: boolean;
 
   // ─── Actions ──────────────────────────────
@@ -146,6 +157,7 @@ interface TowerStore {
   setZoomTier: (tier: "overview" | "neighborhood" | "block") => void;
   setGestureActive: (active: boolean) => void;
   setCameraStateRef: (ref: React.MutableRefObject<any>) => void;
+  setClaimCelebrationRef: (ref: React.MutableRefObject<ClaimCelebrationState | null>) => void;
   setMultiplayerMode: (enabled: boolean) => void;
 
   // ─── Game Actions ─────────────────────────
@@ -204,6 +216,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   onboardingDone: false,
   initialized: false,
   cameraStateRef: null,
+  claimCelebrationRef: null,
   multiplayerMode: false,
 
   // ─── Actions ──────────────────────────────
@@ -233,6 +246,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setZoomTier: (tier) => set({ zoomTier: tier }),
   setGestureActive: (active) => set({ isGestureActive: active }),
   setCameraStateRef: (ref) => set({ cameraStateRef: ref }),
+  setClaimCelebrationRef: (ref) => set({ claimCelebrationRef: ref }),
   setMultiplayerMode: (enabled) => set({ multiplayerMode: enabled }),
 
   // ─── Game Actions ─────────────────────────

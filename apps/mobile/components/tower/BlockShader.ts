@@ -141,6 +141,13 @@ const fragmentShader = /* glsl */ `
   uniform float uAtlasRows;
   uniform vec3 uCameraPos;
 
+  // Claim celebration uniforms
+  uniform vec3 uClaimWaveOrigin;
+  uniform float uClaimWaveTime;
+  uniform float uClaimWaveIntensity;
+  uniform vec3 uClaimLightPos;
+  uniform float uClaimLightIntensity;
+
   varying float vEnergy;
   varying vec3 vOwnerColor;
   varying vec3 vNormal;
@@ -730,6 +737,44 @@ const fragmentShader = /* glsl */ `
     color = mix(deadColor, color, deadMask);
 
     // ═══════════════════════════════════════════════════════
+    // LAYER 4.5: CLAIM CELEBRATION (shockwave + fake light)
+    // ═══════════════════════════════════════════════════════
+    // Guarded by intensity checks — zero cost when inactive
+    if (uClaimWaveIntensity > 0.001) {
+      float waveDist = distance(vWorldPos, uClaimWaveOrigin);
+      float waveRadius = uClaimWaveTime * 12.0; // fast expansion for drama
+      float ringDist = abs(waveDist - waveRadius);
+
+      // Primary shockwave ring — wide, bright
+      float ring = smoothstep(2.5, 0.0, ringDist) * uClaimWaveIntensity;
+      // Inner bright core of the ring
+      float ringCore = smoothstep(1.0, 0.0, ringDist) * uClaimWaveIntensity;
+
+      // Gold-white shockwave with bright white core
+      vec3 waveColor = mix(vec3(1.0, 0.85, 0.3), vec3(1.5, 1.4, 1.1), ringCore);
+      color += waveColor * ring * 1.5;
+
+      // Secondary ripple (fainter, wider, slightly behind)
+      float rippleDist = abs(waveDist - waveRadius * 0.7);
+      float ripple = smoothstep(3.0, 0.0, rippleDist) * uClaimWaveIntensity * 0.3;
+      color += vec3(1.0, 0.7, 0.2) * ripple;
+
+      // Proximity bloom: blocks very near the origin get extra glow
+      float proxGlow = smoothstep(3.0, 0.0, waveDist) * uClaimWaveIntensity;
+      color += vec3(1.2, 1.0, 0.5) * proxGlow * 0.6;
+    }
+    if (uClaimLightIntensity > 0.001) {
+      float lightDist = distance(vWorldPos, uClaimLightPos);
+      // Wider, softer attenuation — lights up the whole tower
+      float atten = 1.0 / (1.0 + lightDist * lightDist * 0.02);
+      // Warm gold point light
+      color += vec3(1.0, 0.85, 0.4) * atten * uClaimLightIntensity;
+      // Additional orange tint for nearby blocks
+      float nearGlow = smoothstep(4.0, 0.0, lightDist) * uClaimLightIntensity;
+      color += vec3(0.8, 0.4, 0.1) * nearGlow * 0.5;
+    }
+
+    // ═══════════════════════════════════════════════════════
     // LAYER 5: INSPECT MODE (dim + highlight)
     // ═══════════════════════════════════════════════════════
 
@@ -798,6 +843,12 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
       uAtlasCols: { value: 3.0 },
       uAtlasRows: { value: 2.0 },
       uCameraPos: { value: new THREE.Vector3() },
+      // Claim celebration
+      uClaimWaveOrigin: { value: new THREE.Vector3() },
+      uClaimWaveTime: { value: -1 },
+      uClaimWaveIntensity: { value: 0 },
+      uClaimLightPos: { value: new THREE.Vector3() },
+      uClaimLightIntensity: { value: 0 },
     },
     fog: false,
     toneMapped: false,

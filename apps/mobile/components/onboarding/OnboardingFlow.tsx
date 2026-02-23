@@ -12,8 +12,8 @@ import TitleReveal from "./TitleReveal";
 import CoachMark from "./CoachMark";
 import { BLOCK_COLORS } from "@monolith/common";
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW } from "@/constants/theme";
-import { hapticBlockClaimed, hapticButtonPress } from "@/utils/haptics";
-import { playBlockClaim } from "@/utils/audio";
+import { hapticButtonPress } from "@/utils/haptics";
+import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
 /**
  * OnboardingFlow — 30-second first session that communicates the GAME, not just the UI.
@@ -77,6 +77,7 @@ export default function OnboardingFlow() {
     const selectBlock = useTowerStore((s) => s.selectBlock);
     const completeOnboarding = useTowerStore((s) => s.completeOnboarding);
     const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
+    const { triggerCelebration } = useClaimCelebration();
 
     // Animations
     const revealFade = useRef(new Animated.Value(0)).current;
@@ -146,12 +147,15 @@ export default function OnboardingFlow() {
     const handleClaim = useCallback(() => {
         if (!ghostBlockId) return;
         ghostClaimBlock(ghostBlockId);
-        hapticBlockClaimed();
-        playBlockClaim();
+        // Trigger full claim celebration (particles, shockwave, haptics, sound)
+        const block = getDemoBlockById(ghostBlockId);
+        if (block) {
+            triggerCelebration(block.position, -1, true);
+        }
         customizeFade.setValue(0);
         customizeSlide.setValue(60);
         advancePhase(); // → customize
-    }, [ghostBlockId, ghostClaimBlock, advancePhase, customizeFade, customizeSlide]);
+    }, [ghostBlockId, ghostClaimBlock, advancePhase, customizeFade, customizeSlide, getDemoBlockById, triggerCelebration]);
 
     // ─── Phase: CUSTOMIZE ─────────────────────────
     const handleColorPick = useCallback((color: string) => {

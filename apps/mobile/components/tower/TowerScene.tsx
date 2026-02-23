@@ -4,6 +4,7 @@ import { View, StyleSheet, PanResponder, type GestureResponderEvent } from "reac
 import * as THREE from "three";
 import TowerGrid from "./TowerGrid";
 import Particles from "./Particles";
+import ClaimParticles from "./ClaimParticles";
 import Foundation from "./Foundation";
 import { useTowerStore } from "@/stores/tower-store";
 import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG, getTowerHeight, getLayerY } from "@monolith/common";
@@ -15,6 +16,7 @@ import {
   hapticReset,
   hapticLayerCross,
 } from "@/utils/haptics";
+import { CLAIM_SHAKE, CLAIM_PHASES } from "@/constants/ClaimEffectConfig";
 
 // ─── Constants ────────────────────────────────────────────
 
@@ -161,10 +163,13 @@ function CameraRig({
   const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
   const setFocusedLayer = useTowerStore((s) => s.setFocusedLayer);
   const setZoomTier = useTowerStore((s) => s.setZoomTier);
+  const claimCelebrationRef = useTowerStore((s) => s.claimCelebrationRef);
   const prevSelectedRef = useRef<string | null>(null);
   const prevTierRef = useRef<ZoomTier>("overview");
   const prevLayerRef = useRef<number>(-1);
   const prevNearRef = useRef<number>(0);
+  const shakeRef = useRef<{ startTime: number; active: boolean }>({ startTime: 0, active: false });
+  const shakeTriggeredForRef = useRef<number>(0); // startTime of celebration we already triggered shake for
 
   useFrame(() => {
     const cs = cameraState.current;
@@ -322,6 +327,40 @@ function CameraRig({
       cs.lookAt.z + r * Math.sin(phi) * Math.cos(theta),
     );
     camera.lookAt(cs.lookAt);
+
+    // ─── Claim celebration camera shake ──────────
+    if (claimCelebrationRef?.current) {
+      const cel = claimCelebrationRef.current;
+      if (cel.active) {
+        const now = performance.now() / 1000;
+        const elapsed = now - cel.startTime;
+        const progress = elapsed / cel.duration;
+
+        // Trigger shake at impact phase
+        if (progress >= CLAIM_PHASES.impact.start && shakeTriggeredForRef.current !== cel.startTime) {
+          shakeRef.current = { startTime: now, active: true };
+          shakeTriggeredForRef.current = cel.startTime;
+        }
+      }
+    }
+
+    // Apply shake offset — multi-axis decaying oscillation
+    if (shakeRef.current.active) {
+      const now = performance.now() / 1000;
+      const shakeElapsed = now - shakeRef.current.startTime;
+      if (shakeElapsed < CLAIM_SHAKE.duration) {
+        const decay = Math.exp(-CLAIM_SHAKE.decay * shakeElapsed);
+        const mag = CLAIM_SHAKE.magnitude * decay;
+        const freq = CLAIM_SHAKE.frequency;
+        const t = shakeElapsed * freq * 6.2832;
+        // 3-axis shake with different frequencies for organic feel
+        camera.position.x += Math.sin(t) * mag;
+        camera.position.y += Math.cos(t * 1.3) * mag * 0.8;
+        camera.position.z += Math.sin(t * 0.7 + 2.0) * mag * 0.5;
+      } else {
+        shakeRef.current.active = false;
+      }
+    }
 
     // Dynamic near plane: tighter when zoomed in for close detail,
     // relaxed when zoomed out to avoid z-fighting
@@ -1046,6 +1085,7 @@ export default function TowerScene() {
         <BackgroundPlane />
         <TowerGrid />
         <Particles />
+        <ClaimParticles />
         <Foundation />
         <GroundPlane />
         <AtmosphericHaze />

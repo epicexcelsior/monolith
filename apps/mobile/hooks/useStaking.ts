@@ -284,24 +284,18 @@ export function useStaking() {
     const fetchTowerState = useCallback(async (): Promise<TowerInfo | null> => {
         try {
             const [towerPda] = getTowerPda();
-            console.log(TAG, "Fetching TowerState at:", towerPda.toBase58());
             const accountInfo = await connection.getAccountInfo(towerPda, "confirmed");
-            if (!accountInfo) {
-                console.log(TAG, "TowerState account not found");
-                return null;
-            }
+            if (!accountInfo) return null;
 
             const raw = decodeTowerState(accountInfo.data as Uint8Array);
-            const info: TowerInfo = {
+            return {
                 authority: raw.authority.toBase58(),
                 usdcMint: raw.usdcMint.toBase58(),
                 totalDeposited: unitsToUsdc(raw.totalDeposited),
                 totalUsers: raw.totalUsers,
             };
-            console.log(TAG, "✅ TowerState:", JSON.stringify(info));
-            return info;
-        } catch (err: any) {
-            console.error(TAG, "❌ fetchTowerState error:", err?.message, "| RPC:", connection.rpcEndpoint);
+        } catch {
+            // Non-fatal: on-chain vault info is display-only; game runs without it
             return null;
         }
     }, []);
@@ -316,23 +310,17 @@ export function useStaking() {
 
             try {
                 const [userDepositPda] = getUserDepositPda(userKey);
-                console.log(TAG, "Fetching UserDeposit at:", userDepositPda.toBase58(), "for user:", userKey.toBase58());
                 const accountInfo = await connection.getAccountInfo(userDepositPda, "confirmed");
-                if (!accountInfo) {
-                    console.log(TAG, "UserDeposit not found — user hasn't deposited yet");
-                    return null;
-                }
+                if (!accountInfo) return null;
 
                 const raw = decodeUserDeposit(accountInfo.data as Uint8Array);
-                const info: UserDepositInfo = {
+                return {
                     owner: raw.owner.toBase58(),
                     amount: unitsToUsdc(raw.amount),
                     lastDepositAt: raw.lastDepositAt,
                 };
-                console.log(TAG, "✅ UserDeposit:", JSON.stringify(info));
-                return info;
-            } catch (err: any) {
-                console.error(TAG, "❌ fetchUserDeposit error:", err?.message, "| RPC:", connection.rpcEndpoint);
+            } catch {
+                // Non-fatal: user deposit info is display-only; game runs without it
                 return null;
             }
         },
