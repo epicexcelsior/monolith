@@ -362,20 +362,21 @@ function CameraRig({
         const elapsed = now - cel.startTime;
         const cc = celebCameraRef.current;
 
-        // ── Phase 1: Zoom OUT before impact to frame the shockwave ──
-        const zoomOutAt = CLAIM_IMPACT_OFFSET_SECS - CLAIM_CAMERA.zoomOutTiming;
-        if (elapsed >= zoomOutAt && cc.triggeredForStartTime !== cel.startTime) {
+        // ── AT IMPACT: shake + zoom OUT + orbit all fire together ──
+        // Buildup phase (0→2.5s): camera holds still — user watches charge/VFX.
+        // At 2.5s: BOOM fires, camera pulls back to frame the full shockwave ring,
+        // then 1.4s later zooms in close to the claimed block.
+        if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && shakeTriggeredForRef.current !== cel.startTime) {
+          // Save zoom before any changes
           cc.triggeredForStartTime = cel.startTime;
-          cc.preZoom = cs.zoom;  // save user's original zoom
+          cc.preZoom = cs.zoom;
           cc.zoomedOut = true;
           cc.zoomedIn = false;
-          cc.orbiting = false;
+          cc.orbiting = true;
+          // Pull back to show full tower + expanding shockwave ring
           cs.targetZoom = Math.min(ZOOM_MAX, cs.zoom * CLAIM_CAMERA.zoomOutFactor);
           cs.isTransitioning = true;
-        }
-
-        // ── Phase 2: Shake + orbit start at impact ───────────────
-        if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && shakeTriggeredForRef.current !== cel.startTime) {
+          // Shake
           shakeRef.current = {
             startTime: now,
             active: true,
@@ -384,7 +385,6 @@ function CameraRig({
             decay: CLAIM_SHAKE.decay,
           };
           shakeTriggeredForRef.current = cel.startTime;
-          cc.orbiting = true;
         }
 
         // ── Slow orbit during celebration ────────────────────────

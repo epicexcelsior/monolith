@@ -82,14 +82,12 @@ export const CLAIM_SHAKE = {
 } as const;
 
 // ─── Cinematic Camera Orbit ────────────────────────────────
-// Phase 1: zoom OUT before impact to frame the shockwave
-// Phase 2: zoom IN after shockwave peaks so user can see + customize block
+// Sequence: buildup (camera still) → BOOM → zoom OUT (see full tower ripple) → zoom IN (see block)
 export const CLAIM_CAMERA = {
   orbitSpeed:     0.0025, // radians/frame at 60fps ≈ 9° over 3s — subtle cinematic drift
-  zoomOutFactor:  1.35,   // pull back 35% before impact to frame the shockwave ring
-  zoomOutTiming:  0.35,   // seconds before impact to start zoom out
-  zoomInFactor:   0.75,   // zoom in 25% after shockwave peaks (slightly closer than original)
-  zoomInDelay:    1.30,   // seconds after impact to start zoom in
+  zoomOutFactor:  1.40,   // pull back 40% at impact so shockwave ring fits the screen
+  zoomInFactor:   0.75,   // zoom in 25% after shockwave (slightly closer than original)
+  zoomInDelay:    1.40,   // seconds after impact to start zoom in (shockwave nearly done)
   zoomRestoreMs:  1200,   // ms after celebration end to restore zoom
 } as const;
 

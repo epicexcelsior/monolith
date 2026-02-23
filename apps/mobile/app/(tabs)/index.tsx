@@ -72,9 +72,10 @@ export default function TowerScreen() {
         console.log("[Tower] Multiplayer unavailable, using local mode");
         setMultiplayerMode(false);
       }
+      // Audio must be ready before tower UI — user can claim block during onboarding
+      await initAudio();
       await initTower();
       await initOnboarding();
-      initAudio();
     };
     init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
