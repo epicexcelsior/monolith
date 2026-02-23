@@ -4,6 +4,9 @@ import { CLAIM_DURATIONS } from "@/constants/ClaimEffectConfig";
 import { hapticClaimCelebration } from "@/utils/haptics";
 import { playClaimCelebration } from "@/utils/audio";
 
+// Guard: only one instance should own the store ref at a time.
+// Re-registered on every triggerCelebration call so the active caller always wins.
+
 /**
  * useClaimCelebration — Orchestrator hook for the block claim celebration.
  *
@@ -17,6 +20,7 @@ export function useClaimCelebration() {
   const hapticTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const setClaimCelebrationRef = useTowerStore((s) => s.setClaimCelebrationRef);
   const setCinematicMode = useTowerStore((s) => s.setCinematicMode);
+  const selectBlock = useTowerStore((s) => s.selectBlock);
 
   // Register the ref with the store on mount
   useEffect(() => {
@@ -35,6 +39,9 @@ export function useClaimCelebration() {
     // Cancel any in-progress celebration
     for (const t of hapticTimersRef.current) clearTimeout(t);
 
+    // Re-register our ref — ensures this instance wins if multiple hooks exist
+    setClaimCelebrationRef(celebrationRef);
+
     const duration = isFirstClaim ? CLAIM_DURATIONS.firstClaim : CLAIM_DURATIONS.normal;
 
     // Set celebration state (readable by useFrame loops)
@@ -46,6 +53,9 @@ export function useClaimCelebration() {
       blockIndex,
       isFirstClaim,
     };
+
+    // Dismiss any open block inspector before cinematic starts
+    selectBlock(null);
 
     // Enter cinematic mode — hide all UI overlays for the full experience
     setCinematicMode(true);
@@ -59,20 +69,23 @@ export function useClaimCelebration() {
     // Play celebration sound
     playClaimCelebration();
 
+    // Capture startTime so stale timers don't deactivate a newer celebration
+    const capturedStartTime = celebrationRef.current.startTime;
+
     // Exit cinematic mode after celebration (with a short buffer for settle phase)
     const cinematicEnd = setTimeout(() => {
       setCinematicMode(false);
     }, duration * 1000 + 300);
 
-    // Auto-deactivate after duration (safety net)
+    // Auto-deactivate after duration (safety net — guards against leaked active state)
     const cleanup = setTimeout(() => {
-      if (celebrationRef.current) {
+      if (celebrationRef.current?.startTime === capturedStartTime) {
         celebrationRef.current.active = false;
       }
     }, duration * 1000 + 500);
 
     hapticTimersRef.current.push(cinematicEnd, cleanup);
-  }, [setCinematicMode]);
+  }, [setCinematicMode, setClaimCelebrationRef, selectBlock]);
 
   return { triggerCelebration };
 }

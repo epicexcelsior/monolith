@@ -192,10 +192,11 @@ function CameraRig({
   // Camera orbit during celebration
   const celebCameraRef = useRef<{
     orbiting: boolean;
-    zoomedIn: boolean;
-    preZoom: number;
+    zoomedOut: boolean;  // zoom-out phase (before impact)
+    zoomedIn: boolean;   // zoom-in phase (after shockwave)
+    preZoom: number;     // user's zoom level before celebration
     triggeredForStartTime: number;
-  }>({ orbiting: false, zoomedIn: false, preZoom: 0, triggeredForStartTime: -1 });
+  }>({ orbiting: false, zoomedOut: false, zoomedIn: false, preZoom: 0, triggeredForStartTime: -1 });
 
   useFrame(() => {
     const cs = cameraState.current;
@@ -354,51 +355,52 @@ function CameraRig({
     );
     camera.lookAt(cs.lookAt);
 
-    // ─── Claim celebration: shake + orbit + zoom-in ──────────────
+    // ─── Claim celebration: zoom-out → shake → orbit → zoom-in ──────
     if (claimCelebrationRef?.current) {
       const cel = claimCelebrationRef.current;
       if (cel.active) {
-        const now2 = performance.now() / 1000;
-        const elapsed = now2 - cel.startTime;
+        const elapsed = now - cel.startTime;
+        const cc = celebCameraRef.current;
 
-        // ── Zoom in at impact moment ─────────────
-        if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && celebCameraRef.current.triggeredForStartTime !== cel.startTime) {
-          celebCameraRef.current.triggeredForStartTime = cel.startTime;
-          celebCameraRef.current.preZoom = cs.targetZoom;
-          celebCameraRef.current.zoomedIn = true;
-          celebCameraRef.current.orbiting = true;
-          // Zoom toward block — punch in for drama
-          cs.targetZoom = cs.zoom * CLAIM_CAMERA.zoomInFactor;
+        // ── Phase 1: Zoom OUT before impact to frame the shockwave ──
+        const zoomOutAt = CLAIM_IMPACT_OFFSET_SECS - CLAIM_CAMERA.zoomOutTiming;
+        if (elapsed >= zoomOutAt && cc.triggeredForStartTime !== cel.startTime) {
+          cc.triggeredForStartTime = cel.startTime;
+          cc.preZoom = cs.zoom;  // save user's original zoom
+          cc.zoomedOut = true;
+          cc.zoomedIn = false;
+          cc.orbiting = false;
+          cs.targetZoom = Math.min(ZOOM_MAX, cs.zoom * CLAIM_CAMERA.zoomOutFactor);
           cs.isTransitioning = true;
         }
 
-        // ── Slow orbit during celebration phase ──
-        if (celebCameraRef.current.orbiting && elapsed > CLAIM_IMPACT_OFFSET_SECS) {
-          cs.targetAzimuth += CLAIM_CAMERA.orbitSpeed;
-        }
-
-        // ── Trigger primary shake at impact ──────
+        // ── Phase 2: Shake + orbit start at impact ───────────────
         if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && shakeTriggeredForRef.current !== cel.startTime) {
           shakeRef.current = {
-            startTime: performance.now() / 1000,
+            startTime: now,
             active: true,
             magnitude: CLAIM_SHAKE.magnitude,
             duration: CLAIM_SHAKE.duration,
             decay: CLAIM_SHAKE.decay,
           };
           shakeTriggeredForRef.current = cel.startTime;
+          cc.orbiting = true;
         }
 
-        // ── Trigger aftershock ───────────────────
+        // ── Slow orbit during celebration ────────────────────────
+        if (cc.orbiting && elapsed > CLAIM_IMPACT_OFFSET_SECS) {
+          cs.targetAzimuth += CLAIM_CAMERA.orbitSpeed;
+        }
+
+        // ── Aftershock ────────────────────────────────────────────
         if (
           elapsed >= CLAIM_IMPACT_OFFSET_SECS + CLAIM_SHAKE.aftershock.delay &&
           aftershockTriggeredForRef.current !== cel.startTime
         ) {
           aftershockTriggeredForRef.current = cel.startTime;
-          // Only trigger aftershock if primary shake has subsided somewhat
-          if (!shakeRef.current.active || performance.now() / 1000 - shakeRef.current.startTime > 0.2) {
+          if (!shakeRef.current.active || now - shakeRef.current.startTime > 0.2) {
             shakeRef.current = {
-              startTime: performance.now() / 1000,
+              startTime: now,
               active: true,
               magnitude: CLAIM_SHAKE.aftershock.magnitude,
               duration: CLAIM_SHAKE.aftershock.duration,
@@ -407,22 +409,31 @@ function CameraRig({
           }
         }
 
-        // ── Restore zoom at celebration end ──────
-        if (elapsed >= cel.duration - 0.5 && celebCameraRef.current.zoomedIn) {
-          celebCameraRef.current.zoomedIn = false;
-          cs.targetZoom = celebCameraRef.current.preZoom;
+        // ── Phase 3: Zoom IN after shockwave peaks ────────────────
+        // Close view of claimed block — user can see it and customize.
+        const zoomInAt = CLAIM_IMPACT_OFFSET_SECS + CLAIM_CAMERA.zoomInDelay;
+        if (elapsed >= zoomInAt && cc.zoomedOut && !cc.zoomedIn) {
+          cc.zoomedOut = false;
+          cc.zoomedIn = true;
+          cs.targetZoom = Math.max(ZOOM_MIN, cc.preZoom * CLAIM_CAMERA.zoomInFactor);
+          cs.isTransitioning = true;
+        }
+
+        // ── Restore zoom at celebration end ──────────────────────
+        if (elapsed >= cel.duration - 0.5 && cc.zoomedIn) {
+          cc.zoomedIn = false;
+          cs.targetZoom = cc.preZoom;
           cs.isTransitioning = true;
         }
         if (elapsed >= cel.duration + 0.3) {
-          celebCameraRef.current.orbiting = false;
+          cc.orbiting = false;
         }
       }
     }
 
     // Apply shake offset — multi-axis decaying oscillation
     if (shakeRef.current.active) {
-      const now2 = performance.now() / 1000;
-      const shakeElapsed = now2 - shakeRef.current.startTime;
+      const shakeElapsed = now - shakeRef.current.startTime;
       const { magnitude, duration, decay } = shakeRef.current;
       if (shakeElapsed < duration) {
         const d = Math.exp(-decay * shakeElapsed);

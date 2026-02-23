@@ -16,6 +16,8 @@
  *               — Stereo width from L/R detune pairs (±1Hz beat → lush shimmer)
  *               — Upper octave doublings (440/554/660Hz) for brightness
  *               — Deep grounding hum (A1=55Hz) keeps it from going thin
+ *   4.00–5.5s   A5 "angel note" (880Hz) — very soft late entry, slow 0.5s attack
+ *               — Ascending to heaven feel, barely decays, pure shimmer
  *
  * DESIGN PHILOSOPHY:
  *   No sharp-attack chimes (harsh), no high-frequency tinkle (piercing).
@@ -237,17 +239,33 @@ oscC(L, R, IMPACT + 0.15, 4.50, 553.5, 0.00, 0.07,
   },
 );
 
-// E5 upper (659Hz) — airy top note (MAX freq — nothing above this)
-oscC(L, R, IMPACT + 0.20, 4.20, 659.5, 0.05, 0.00,
+// E5 upper (659Hz) — airy top note, extended + slower decay for angelic tail
+oscC(L, R, IMPACT + 0.20, 5.50, 659.5, 0.05, 0.00,
   (lt) => {
     if (lt < 0.30) return lt / 0.30;
-    return Math.exp(-(lt - 0.30) * 1.00);
+    return Math.exp(-(lt - 0.30) * 0.40);  // slow decay — sustains beautifully
   },
 );
-oscC(L, R, IMPACT + 0.20, 4.20, 658.5, 0.00, 0.05,
+oscC(L, R, IMPACT + 0.20, 5.50, 658.5, 0.00, 0.05,
   (lt) => {
     if (lt < 0.30) return lt / 0.30;
-    return Math.exp(-(lt - 0.30) * 1.00);
+    return Math.exp(-(lt - 0.30) * 0.40);
+  },
+);
+
+// ─── A5 "angel note" (880Hz) — enters during settle phase ──────────────
+// Soft late entry gives the "ascending to heaven" feel.
+// Slow 0.5s attack, barely decays — pure angelic shimmer.
+oscC(L, R, 4.00, 5.50, 880.5, 0.035, 0.000,
+  (lt) => {
+    if (lt < 0.50) return lt / 0.50;
+    return Math.exp(-(lt - 0.50) * 0.25);
+  },
+);
+oscC(L, R, 4.00, 5.50, 879.5, 0.000, 0.035,
+  (lt) => {
+    if (lt < 0.50) return lt / 0.50;
+    return Math.exp(-(lt - 0.50) * 0.25);
   },
 );
 
@@ -308,4 +326,4 @@ fs.writeFileSync(out, wav);
 console.log(`✅  ${out}`);
 console.log(`    ${DUR}s | ${(wav.length/1024).toFixed(0)}KB`);
 console.log(`    Arc: 0-2.5s deep bass buildup → 2.5s BOOM+POP+WHOOSH → warm A-major synth pad (220/277/330Hz) + 55Hz ground`);
-console.log(`    Max freq: 659Hz (E5) — no tinkling, no shimmer, just warmth`);
+console.log(`    Max freq: 880Hz (A5 angel note at 4.0s) — E5 sustains, A5 ascends softly`);

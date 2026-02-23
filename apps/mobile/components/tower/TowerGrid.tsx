@@ -18,7 +18,7 @@ import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
-import { CLAIM_PHASES } from "@/constants/ClaimEffectConfig";
+import { CLAIM_PHASES, CLAIM_LIGHT } from "@/constants/ClaimEffectConfig";
 
 export interface BlockMeta {
   id: string;
@@ -65,6 +65,8 @@ export default function TowerGrid() {
   // Reusable Color objects to avoid per-frame GC pressure
   const tmpColorRef = useRef(new THREE.Color());
   const goldColorRef = useRef(new THREE.Color(1.0, 0.85, 0.2));
+  // Reusable Color for charge flash — avoids `new THREE.Color()` every frame
+  const chargeFlashColorRef = useRef(new THREE.Color(0.8, 0.9, 1.0));
 
   // Inspect focus animation state
   const fadeTargetsRef = useRef<Float32Array | null>(null);
@@ -456,7 +458,7 @@ export default function TowerGrid() {
             lightI = 0.4 * (1.0 - t);
           }
           mat.uniforms.uClaimLightPos.value.set(cel.blockPosition.x, cel.blockPosition.y, cel.blockPosition.z);
-          mat.uniforms.uClaimLightIntensity.value = lightI * 8.0;  // strong — tower GLOWS
+          mat.uniforms.uClaimLightIntensity.value = lightI * CLAIM_LIGHT.peakIntensity;
         } else {
           mat.uniforms.uClaimLightIntensity.value = 0;
         }
@@ -568,7 +570,7 @@ export default function TowerGrid() {
 
               // Blend white-blue with owner color
               const tempColor = tmpColorRef.current.set(block.ownerColor);
-              const flashColor = new THREE.Color(0.8, 0.9, 1.0); // white-blue
+              const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0); // white-blue (reuse ref)
               const blended = flashColor.lerp(tempColor, 1 - intensity);
               colorAttr.array[cf.blockIndex * 3] = blended.r;
               colorAttr.array[cf.blockIndex * 3 + 1] = blended.g;

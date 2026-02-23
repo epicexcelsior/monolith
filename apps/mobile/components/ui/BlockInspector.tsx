@@ -339,6 +339,7 @@ export default function BlockInspector() {
   return (
     <>
       <Animated.View
+        testID="block-inspector-panel"
         style={[
           styles.container,
           {

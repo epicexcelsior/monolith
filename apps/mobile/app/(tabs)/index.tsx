@@ -140,7 +140,7 @@ export default function TowerScreen() {
 
         {/* HUD Overlay — hidden during onboarding for cleaner experience */}
         {!isOnboarding && (
-          <View style={styles.hud} pointerEvents="box-none">
+          <View testID="tower-hud" style={styles.hud} pointerEvents="box-none">
             {/* Top bar */}
             <View style={styles.topBar}>
               <TouchableOpacity
@@ -212,10 +212,10 @@ export default function TowerScreen() {
 
         {/* Block Inspector — inside cinematicWrapper so it positions against full screen */}
         <BlockInspector />
-      </Animated.View>
 
-      {/* Interactive onboarding flow (first launch only) — never hidden by cinematic */}
-      {initialized && isOnboarding && <OnboardingFlow />}
+        {/* Onboarding — inside wrapper so it hides during claim celebration */}
+        {initialized && isOnboarding && <OnboardingFlow />}
+      </Animated.View>
     </View>
   );
 }

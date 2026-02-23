@@ -12,6 +12,7 @@
  */
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { CLAIM_HAPTICS } from "@/constants/ClaimEffectConfig";
 
 /** Whether haptics are available on this device */
 const HAPTICS_ENABLED = Platform.OS === "ios" || Platform.OS === "android";
@@ -87,71 +88,37 @@ export function hapticButtonPress() {
 
 /**
  * Multi-phase claim celebration haptic sequence.
- * Inspired by Duolingo's escalating-then-resolving pattern.
- * Builds tension → explosive impact → satisfying settle.
+ * Timing is driven by CLAIM_HAPTICS config to stay in sync with VFX + SFX.
+ * Buildup escalates over 2.3s → Heavy impact at 2500ms → light settle.
  */
 export function hapticClaimCelebration(isFirstClaim: boolean) {
     if (!HAPTICS_ENABLED) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    const config = isFirstClaim ? CLAIM_HAPTICS.firstClaim : CLAIM_HAPTICS.normal;
 
-    // ─── Buildup: escalating taps that build anticipation ───
-    const buildupTaps = isFirstClaim
-        ? [
-            { delay: 0,   style: Haptics.ImpactFeedbackStyle.Light },
-            { delay: 150, style: Haptics.ImpactFeedbackStyle.Light },
-            { delay: 280, style: Haptics.ImpactFeedbackStyle.Light },
-            { delay: 400, style: Haptics.ImpactFeedbackStyle.Medium },
-            { delay: 520, style: Haptics.ImpactFeedbackStyle.Medium },
-            { delay: 640, style: Haptics.ImpactFeedbackStyle.Medium },
-            { delay: 780, style: Haptics.ImpactFeedbackStyle.Heavy },
-            { delay: 900, style: Haptics.ImpactFeedbackStyle.Heavy },
-          ]
-        : [
-            { delay: 0,   style: Haptics.ImpactFeedbackStyle.Light },
-            { delay: 120, style: Haptics.ImpactFeedbackStyle.Light },
-            { delay: 240, style: Haptics.ImpactFeedbackStyle.Medium },
-            { delay: 360, style: Haptics.ImpactFeedbackStyle.Medium },
-            { delay: 480, style: Haptics.ImpactFeedbackStyle.Heavy },
-          ];
-
-    for (const tap of buildupTaps) {
+    // ─── Buildup: escalating taps synced to the bass charge ───
+    for (const tap of config.buildup) {
         timers.push(setTimeout(() => {
-            Haptics.impactAsync(tap.style).catch(() => {});
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle[tap.style]).catch(() => {});
         }, tap.delay));
     }
 
-    // ─── Impact: BOOM — double Heavy + Success for maximum punch ───
-    const impactDelay = isFirstClaim ? 1000 : 600;
+    // ─── Impact: BOOM at 2500ms — double Heavy + Success ───
     timers.push(setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-    }, impactDelay));
-    // Double tap for extra weight
+    }, config.impactDelay));
     timers.push(setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-    }, impactDelay + 40));
-    // Success notification for the "ding" resolution
+    }, config.impactDelay + 80));
     timers.push(setTimeout(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    }, impactDelay + 120));
-
-    // ─── Celebration: rhythmic pulses during the sparkle phase ───
-    const celebTaps = isFirstClaim
-        ? [1400, 1700, 2000, 2400]
-        : [1000, 1300];
-    for (const delay of celebTaps) {
-        timers.push(setTimeout(() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        }, delay));
-    }
+    }, config.successDelay));
 
     // ─── Settle: gentle fade-out pulses ───
-    const settleTaps = isFirstClaim
-        ? [4000, 4300, 4600]
-        : [2400, 2700];
-    for (const delay of settleTaps) {
+    for (const tap of config.settle) {
         timers.push(setTimeout(() => {
             Haptics.selectionAsync().catch(() => {});
-        }, delay));
+        }, tap.delay));
     }
 
     return timers;

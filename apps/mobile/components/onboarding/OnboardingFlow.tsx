@@ -11,7 +11,7 @@ import { useTowerStore } from "@/stores/tower-store";
 import TitleReveal from "./TitleReveal";
 import CoachMark from "./CoachMark";
 import { BLOCK_COLORS } from "@monolith/common";
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW } from "@/constants/theme";
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW, BLUR } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
@@ -212,7 +212,6 @@ export default function OnboardingFlow() {
     if (phase === "done") return null;
 
     const ghostBlock = ghostBlockId ? getDemoBlockById(ghostBlockId) : null;
-    const stepIndex = phase === "claim" ? 0 : phase === "customize" ? 1 : phase === "reveal" ? 2 : -1;
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -243,6 +242,7 @@ export default function OnboardingFlow() {
                     ]}>
                         <StepDots current={0} total={3} />
                         <TouchableOpacity
+                            testID="onboarding-claim-button"
                             style={styles.claimButton}
                             onPress={handleClaim}
                             activeOpacity={0.8}
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm,
         borderRadius: RADIUS.full,
-        backgroundColor: "rgba(10, 12, 20, 0.80)",
+        backgroundColor: BLUR.fallbackHudBg,
         borderWidth: 1,
         borderColor: COLORS.hudBorder,
     },

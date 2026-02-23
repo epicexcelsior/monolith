@@ -50,8 +50,9 @@ export const CLAIM_SHOCKWAVE = {
 } as const;
 
 // ─── Fake Point Light ─────────────────────────────────────────
+// Visible glow on nearby blocks without washing out block details.
 export const CLAIM_LIGHT = {
-  peakIntensity: 4.0,
+  peakIntensity: 3.0,  // was 4.0 (hardcoded as 8.0 in TowerGrid) — dialed back for readability
   radius:       12.0,
 } as const;
 
@@ -81,10 +82,14 @@ export const CLAIM_SHAKE = {
 } as const;
 
 // ─── Cinematic Camera Orbit ────────────────────────────────
-// Celebration camera behavior: zoom toward block + slow orbit
+// Phase 1: zoom OUT before impact to frame the shockwave
+// Phase 2: zoom IN after shockwave peaks so user can see + customize block
 export const CLAIM_CAMERA = {
   orbitSpeed:     0.0025, // radians/frame at 60fps ≈ 9° over 3s — subtle cinematic drift
-  zoomInFactor:   0.78,   // multiply current zoom by this at impact (zoom in 22%)
+  zoomOutFactor:  1.35,   // pull back 35% before impact to frame the shockwave ring
+  zoomOutTiming:  0.35,   // seconds before impact to start zoom out
+  zoomInFactor:   0.75,   // zoom in 25% after shockwave peaks (slightly closer than original)
+  zoomInDelay:    1.30,   // seconds after impact to start zoom in
   zoomRestoreMs:  1200,   // ms after celebration end to restore zoom
 } as const;
 
