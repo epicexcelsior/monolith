@@ -57,3 +57,6 @@ yarn-error.log*
 # CMake build caches
 .cxx/
 /apps/mobile/.env.local
+
+# Maestro E2E test output
+.maestro/results.xml

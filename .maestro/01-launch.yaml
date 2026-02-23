@@ -1,0 +1,10 @@
+appId: com.monolith.app
+---
+# Test: App launches and shows tower
+- launchApp:
+    stopApp: false
+- assertVisible:
+    label: "Tower renders"
+    # Wait for the 3D tower canvas to load
+    timeout: 10000
+- takeScreenshot: "01-launch"

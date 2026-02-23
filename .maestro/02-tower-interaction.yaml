@@ -1,0 +1,15 @@
+appId: com.monolith.app
+---
+# Test: Tower tap interactions (block inspector)
+- launchApp:
+    stopApp: false
+- runFlow: utils/wait-for-tower.yaml
+
+# Tap center of screen (tower area)
+- tapOn:
+    point: "50%,50%"
+- takeScreenshot: "02-block-tapped"
+
+# Wait for block inspector to appear (it slides up)
+- waitForAnimationToEnd
+- takeScreenshot: "02-block-inspector"
