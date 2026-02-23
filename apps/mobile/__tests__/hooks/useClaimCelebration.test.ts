@@ -48,8 +48,8 @@ describe("useClaimCelebration", () => {
   });
 
   it("CLAIM_DURATIONS should have correct values", () => {
-    expect(CLAIM_DURATIONS.normal).toBe(3.0);
-    expect(CLAIM_DURATIONS.firstClaim).toBe(5.0);
+    expect(CLAIM_DURATIONS.normal).toBe(5.5);
+    expect(CLAIM_DURATIONS.firstClaim).toBe(7.5);
   });
 
   it("hapticClaimCelebration should be callable with boolean", () => {

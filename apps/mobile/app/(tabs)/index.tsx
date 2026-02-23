@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -41,6 +42,10 @@ export default function TowerScreen() {
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
   const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
+  const cinematicMode = useTowerStore((s) => s.cinematicMode);
+
+  // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
+  const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
 
   const multiplayerConnected = useMultiplayerStore((s) => s.connected);
 
@@ -75,6 +80,16 @@ export default function TowerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Animate UI hide/show during cinematic mode (claim celebration)
+  useEffect(() => {
+    Animated.spring(cinematicAnim, {
+      toValue: cinematicMode ? 1 : 0,
+      tension: cinematicMode ? 80 : 40,
+      friction: cinematicMode ? 8 : 7,
+      useNativeDriver: true,
+    }).start();
+  }, [cinematicMode, cinematicAnim]);
+
   // Start decay loop + bot simulation only when NOT in multiplayer
   useEffect(() => {
     if (!initialized || multiplayerConnected) return;
@@ -103,89 +118,115 @@ export default function TowerScreen() {
         )}
       </View>
 
-      {/* Activity ticker — visible during onboarding title phase for social proof */}
-      {(onboardingPhase === "title" || !isOnboarding) && !selectedBlockId && (
-        <View style={styles.tickerOverlay} pointerEvents="none">
-          <ActivityTicker />
-        </View>
-      )}
+      {/* ── Cinematic overlay: all UI slides away during claim celebration ── */}
+      <Animated.View
+        pointerEvents={cinematicMode ? "none" : "box-none"}
+        style={[
+          styles.cinematicWrapper,
+          {
+            opacity: cinematicAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+            transform: [{
+              translateY: cinematicAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 40] }),
+            }],
+          },
+        ]}
+      >
+        {/* Activity ticker — visible during onboarding title phase for social proof */}
+        {(onboardingPhase === "title" || !isOnboarding) && !selectedBlockId && (
+          <View style={styles.tickerOverlay} pointerEvents="none">
+            <ActivityTicker />
+          </View>
+        )}
 
-      {/* HUD Overlay — hidden during onboarding for cleaner experience */}
-      {!isOnboarding && (
-        <View style={styles.hud} pointerEvents="box-none">
-          {/* Top bar */}
-          <View style={styles.topBar}>
-            <TouchableOpacity
-              onLongPress={() => {
-                hapticButtonPress();
-                resetOnboarding();
-                resetOnboardingFlag();
-              }}
-              delayLongPress={800}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.title}>THE MONOLITH</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.connectButton,
-                isConnected && styles.connectedButton,
-              ]}
-              onPress={() => {
-                hapticButtonPress();
-                router.push("/connect");
-              }}
-            >
-              <Text
-                style={[
-                  styles.connectText,
-                  isConnected && styles.connectedText,
-                ]}
+        {/* HUD Overlay — hidden during onboarding for cleaner experience */}
+        {!isOnboarding && (
+          <View style={styles.hud} pointerEvents="box-none">
+            {/* Top bar */}
+            <View style={styles.topBar}>
+              <TouchableOpacity
+                onLongPress={() => {
+                  hapticButtonPress();
+                  resetOnboarding();
+                  resetOnboardingFlag();
+                }}
+                delayLongPress={800}
+                activeOpacity={0.7}
               >
-                {isConnected && truncatedAddress
-                  ? truncatedAddress
-                  : "Connect Wallet"}
+                <Text style={styles.title}>THE MONOLITH</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.connectButton,
+                  isConnected && styles.connectedButton,
+                ]}
+                onPress={() => {
+                  hapticButtonPress();
+                  router.push("/connect");
+                }}
+              >
+                <Text
+                  style={[
+                    styles.connectText,
+                    isConnected && styles.connectedText,
+                  ]}
+                >
+                  {isConnected && truncatedAddress
+                    ? truncatedAddress
+                    : "Connect Wallet"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Connection status */}
+            <ConnectionBanner />
+
+            {/* Tower stats bar */}
+            {initialized && <TowerStats />}
+
+            {/* Activity ticker (hidden during block inspect, already shown via overlay during onboarding) */}
+            {!selectedBlockId && <ActivityTicker />}
+
+            {/* Spacer to push bottom content down */}
+            <View style={{ flex: 1 }} />
+
+            {/* Bottom hint */}
+            <View style={styles.bottomArea}>
+              <Text style={styles.hintText}>
+                Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Tap a block to inspect
               </Text>
-            </TouchableOpacity>
+            </View>
           </View>
+        )}
 
-          {/* Connection status */}
-          <ConnectionBanner />
+        {/* Layer Indicator */}
+        <LayerIndicator />
 
-          {/* Tower stats bar */}
-          {initialized && <TowerStats />}
+        {/* Contextual action prompt */}
+        {initialized && onboardingDone && !isOnboarding && <ActionPrompt />}
 
-          {/* Activity ticker (hidden during block inspect, already shown via overlay during onboarding) */}
-          {!selectedBlockId && <ActivityTicker />}
+        {/* Floating XP points animation */}
+        <FloatingPoints />
 
-          {/* Spacer to push bottom content down */}
-          <View style={{ flex: 1 }} />
+        {/* Level up celebration */}
+        <LevelUpCelebration />
+      </Animated.View>
 
-          {/* Bottom hint */}
-          <View style={styles.bottomArea}>
-            <Text style={styles.hintText}>
-              Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Tap a block to inspect
-            </Text>
-          </View>
-        </View>
-      )}
+      {/* BlockInspector slides independently — cinematic sends it down too */}
+      <Animated.View
+        pointerEvents={cinematicMode ? "none" : "box-none"}
+        style={{
+          opacity: cinematicAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          transform: [{
+            translateY: cinematicAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 80] }),
+          }],
+        }}
+      >
 
-      {/* Layer Indicator */}
-      <LayerIndicator />
+        {/* Block Inspector panel */}
+        <BlockInspector />
+      </Animated.View>
 
-      {/* Contextual action prompt */}
-      {initialized && onboardingDone && !isOnboarding && <ActionPrompt />}
-
-      {/* Floating XP points animation */}
-      <FloatingPoints />
-
-      {/* Level up celebration */}
-      <LevelUpCelebration />
-
-      {/* Block Inspector panel */}
-      <BlockInspector />
-
-      {/* Interactive onboarding flow (first launch only) */}
+      {/* Interactive onboarding flow (first launch only) — never hidden by cinematic */}
       {initialized && isOnboarding && <OnboardingFlow />}
     </View>
   );
@@ -197,6 +238,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgTower,
   },
   canvasContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cinematicWrapper: {
+    // Full-screen wrapper that animates away during claim celebration
     position: "absolute",
     top: 0,
     left: 0,

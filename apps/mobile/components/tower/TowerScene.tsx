@@ -4,7 +4,7 @@ import { View, StyleSheet, PanResponder, type GestureResponderEvent } from "reac
 import * as THREE from "three";
 import TowerGrid from "./TowerGrid";
 import Particles from "./Particles";
-import ClaimParticles from "./ClaimParticles";
+import { ClaimVFX } from "./ClaimVFX";
 import Foundation from "./Foundation";
 import { useTowerStore } from "@/stores/tower-store";
 import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG, getTowerHeight, getLayerY } from "@monolith/common";
@@ -16,7 +16,7 @@ import {
   hapticReset,
   hapticLayerCross,
 } from "@/utils/haptics";
-import { CLAIM_SHAKE, CLAIM_PHASES } from "@/constants/ClaimEffectConfig";
+import { CLAIM_SHAKE, CLAIM_PHASES, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
 
 // ─── Constants ────────────────────────────────────────────
 
@@ -168,8 +168,18 @@ function CameraRig({
   const prevTierRef = useRef<ZoomTier>("overview");
   const prevLayerRef = useRef<number>(-1);
   const prevNearRef = useRef<number>(0);
-  const shakeRef = useRef<{ startTime: number; active: boolean }>({ startTime: 0, active: false });
-  const shakeTriggeredForRef = useRef<number>(0); // startTime of celebration we already triggered shake for
+  const shakeRef = useRef<{ startTime: number; active: boolean; magnitude: number; duration: number; decay: number }>({
+    startTime: 0, active: false, magnitude: 0, duration: 0, decay: 0,
+  });
+  const shakeTriggeredForRef = useRef<number>(0);
+  const aftershockTriggeredForRef = useRef<number>(0);
+  // Camera orbit during celebration
+  const celebCameraRef = useRef<{
+    orbiting: boolean;
+    zoomedIn: boolean;
+    preZoom: number;
+    triggeredForStartTime: number;
+  }>({ orbiting: false, zoomedIn: false, preZoom: 0, triggeredForStartTime: -1 });
 
   useFrame(() => {
     const cs = cameraState.current;
@@ -328,29 +338,79 @@ function CameraRig({
     );
     camera.lookAt(cs.lookAt);
 
-    // ─── Claim celebration camera shake ──────────
+    // ─── Claim celebration: shake + orbit + zoom-in ──────────────
     if (claimCelebrationRef?.current) {
       const cel = claimCelebrationRef.current;
       if (cel.active) {
-        const now = performance.now() / 1000;
-        const elapsed = now - cel.startTime;
-        const progress = elapsed / cel.duration;
+        const now2 = performance.now() / 1000;
+        const elapsed = now2 - cel.startTime;
 
-        // Trigger shake at impact phase
-        if (progress >= CLAIM_PHASES.impact.start && shakeTriggeredForRef.current !== cel.startTime) {
-          shakeRef.current = { startTime: now, active: true };
+        // ── Zoom in at impact moment ─────────────
+        if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && celebCameraRef.current.triggeredForStartTime !== cel.startTime) {
+          celebCameraRef.current.triggeredForStartTime = cel.startTime;
+          celebCameraRef.current.preZoom = cs.targetZoom;
+          celebCameraRef.current.zoomedIn = true;
+          celebCameraRef.current.orbiting = true;
+          // Zoom toward block — punch in for drama
+          cs.targetZoom = cs.zoom * CLAIM_CAMERA.zoomInFactor;
+          cs.isTransitioning = true;
+        }
+
+        // ── Slow orbit during celebration phase ──
+        if (celebCameraRef.current.orbiting && elapsed > CLAIM_IMPACT_OFFSET_SECS) {
+          cs.targetAzimuth += CLAIM_CAMERA.orbitSpeed;
+        }
+
+        // ── Trigger primary shake at impact ──────
+        if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && shakeTriggeredForRef.current !== cel.startTime) {
+          shakeRef.current = {
+            startTime: performance.now() / 1000,
+            active: true,
+            magnitude: CLAIM_SHAKE.magnitude,
+            duration: CLAIM_SHAKE.duration,
+            decay: CLAIM_SHAKE.decay,
+          };
           shakeTriggeredForRef.current = cel.startTime;
+        }
+
+        // ── Trigger aftershock ───────────────────
+        if (
+          elapsed >= CLAIM_IMPACT_OFFSET_SECS + CLAIM_SHAKE.aftershock.delay &&
+          aftershockTriggeredForRef.current !== cel.startTime
+        ) {
+          aftershockTriggeredForRef.current = cel.startTime;
+          // Only trigger aftershock if primary shake has subsided somewhat
+          if (!shakeRef.current.active || performance.now() / 1000 - shakeRef.current.startTime > 0.2) {
+            shakeRef.current = {
+              startTime: performance.now() / 1000,
+              active: true,
+              magnitude: CLAIM_SHAKE.aftershock.magnitude,
+              duration: CLAIM_SHAKE.aftershock.duration,
+              decay: CLAIM_SHAKE.aftershock.decay,
+            };
+          }
+        }
+
+        // ── Restore zoom at celebration end ──────
+        if (elapsed >= cel.duration - 0.5 && celebCameraRef.current.zoomedIn) {
+          celebCameraRef.current.zoomedIn = false;
+          cs.targetZoom = celebCameraRef.current.preZoom;
+          cs.isTransitioning = true;
+        }
+        if (elapsed >= cel.duration + 0.3) {
+          celebCameraRef.current.orbiting = false;
         }
       }
     }
 
     // Apply shake offset — multi-axis decaying oscillation
     if (shakeRef.current.active) {
-      const now = performance.now() / 1000;
-      const shakeElapsed = now - shakeRef.current.startTime;
-      if (shakeElapsed < CLAIM_SHAKE.duration) {
-        const decay = Math.exp(-CLAIM_SHAKE.decay * shakeElapsed);
-        const mag = CLAIM_SHAKE.magnitude * decay;
+      const now2 = performance.now() / 1000;
+      const shakeElapsed = now2 - shakeRef.current.startTime;
+      const { magnitude, duration, decay } = shakeRef.current;
+      if (shakeElapsed < duration) {
+        const d = Math.exp(-decay * shakeElapsed);
+        const mag = magnitude * d;
         const freq = CLAIM_SHAKE.frequency;
         const t = shakeElapsed * freq * 6.2832;
         // 3-axis shake with different frequencies for organic feel
@@ -956,9 +1016,9 @@ export default function TowerScene() {
           cameraState.current.isTouching = false;
           // NOTE: isDragging stays true until next handleTouchStart.
           // This prevents onTouchEnd from triggering double-tap after drag/pinch.
-          // Safety timeout: clear gesture active after a brief delay
-          // to prevent stuck state if release event is missed
-          setTimeout(() => setGestureActive(false), 50);
+          // Clear gesture active immediately — handleTouchStart also clears
+          // this as a safety net on the next touch
+          setGestureActive(false);
 
           if (isPinching.current) {
             isPinching.current = false;
@@ -1085,7 +1145,7 @@ export default function TowerScene() {
         <BackgroundPlane />
         <TowerGrid />
         <Particles />
-        <ClaimParticles />
+        <ClaimVFX />
         <Foundation />
         <GroundPlane />
         <AtmosphericHaze />

@@ -742,36 +742,42 @@ const fragmentShader = /* glsl */ `
     // Guarded by intensity checks — zero cost when inactive
     if (uClaimWaveIntensity > 0.001) {
       float waveDist = distance(vWorldPos, uClaimWaveOrigin);
-      float waveRadius = uClaimWaveTime * 12.0; // fast expansion for drama
+      // Two-speed expansion: fast burst then spreading ripple
+      float waveRadius = uClaimWaveTime * 14.0;
       float ringDist = abs(waveDist - waveRadius);
 
-      // Primary shockwave ring — wide, bright
-      float ring = smoothstep(2.5, 0.0, ringDist) * uClaimWaveIntensity;
-      // Inner bright core of the ring
-      float ringCore = smoothstep(1.0, 0.0, ringDist) * uClaimWaveIntensity;
+      // ── Primary shockwave ring — wide gold-white flash ────────────────
+      float ring = smoothstep(3.5, 0.0, ringDist) * uClaimWaveIntensity;
+      // Narrow bright core of the ring
+      float ringCore = smoothstep(1.2, 0.0, ringDist) * uClaimWaveIntensity;
+      // Hot-white core fades to gold-orange edges
+      vec3 waveColor = mix(vec3(1.0, 0.70, 0.15), vec3(2.0, 1.8, 1.2), ringCore);
+      color += waveColor * ring * 2.0;
 
-      // Gold-white shockwave with bright white core
-      vec3 waveColor = mix(vec3(1.0, 0.85, 0.3), vec3(1.5, 1.4, 1.1), ringCore);
-      color += waveColor * ring * 1.5;
+      // ── Secondary ripple (travels behind, fades out) ──────────────────
+      float rippleRadius = uClaimWaveTime * 10.0;
+      float rippleDist = abs(waveDist - rippleRadius);
+      float ripple = smoothstep(4.0, 0.0, rippleDist) * uClaimWaveIntensity * 0.45;
+      color += vec3(0.6, 0.3, 1.0) * ripple; // violet secondary ripple
 
-      // Secondary ripple (fainter, wider, slightly behind)
-      float rippleDist = abs(waveDist - waveRadius * 0.7);
-      float ripple = smoothstep(3.0, 0.0, rippleDist) * uClaimWaveIntensity * 0.3;
-      color += vec3(1.0, 0.7, 0.2) * ripple;
+      // ── Nearby blocks: strong proximity flash at moment of impact ────
+      // Creates the "tower pulses" effect on blocks adjacent to claim
+      float proximityFlash = smoothstep(5.0, 0.0, waveDist) * uClaimWaveIntensity;
+      color += vec3(1.4, 1.1, 0.5) * proximityFlash * 0.9;
 
-      // Proximity bloom: blocks very near the origin get extra glow
-      float proxGlow = smoothstep(3.0, 0.0, waveDist) * uClaimWaveIntensity;
-      color += vec3(1.2, 1.0, 0.5) * proxGlow * 0.6;
+      // ── Claimed block: stays lit up after wave passes ──────────────
+      float originGlow = smoothstep(2.0, 0.0, waveDist) * uClaimWaveIntensity * 0.5;
+      color += vec3(1.5, 1.3, 0.8) * originGlow;
     }
     if (uClaimLightIntensity > 0.001) {
       float lightDist = distance(vWorldPos, uClaimLightPos);
-      // Wider, softer attenuation — lights up the whole tower
-      float atten = 1.0 / (1.0 + lightDist * lightDist * 0.02);
-      // Warm gold point light
-      color += vec3(1.0, 0.85, 0.4) * atten * uClaimLightIntensity;
-      // Additional orange tint for nearby blocks
-      float nearGlow = smoothstep(4.0, 0.0, lightDist) * uClaimLightIntensity;
-      color += vec3(0.8, 0.4, 0.1) * nearGlow * 0.5;
+      // Wide soft attenuation — illuminates the whole surrounding tower
+      float atten = 1.0 / (1.0 + lightDist * lightDist * 0.015);
+      // Warm gold point light, brighter than before
+      color += vec3(1.1, 0.90, 0.45) * atten * uClaimLightIntensity;
+      // Strong orange bloom on immediately adjacent blocks
+      float nearGlow = smoothstep(5.0, 0.0, lightDist) * uClaimLightIntensity;
+      color += vec3(1.0, 0.5, 0.15) * nearGlow * 0.7;
     }
 
     // ═══════════════════════════════════════════════════════

@@ -60,6 +60,8 @@
     "react-native-view-shot": "^4.0.3",
     "readable-stream": "^4.7.0",
     "three": "~0.170.0",
+    "wawa-vfx": "^1.2.10",
+    "wawa-vfx-vanilla": "^1.2.10",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

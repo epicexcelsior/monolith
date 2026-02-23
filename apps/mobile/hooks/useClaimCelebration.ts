@@ -9,12 +9,14 @@ import { playClaimCelebration } from "@/utils/audio";
  *
  * Sets up a mutable ref on the tower store that useFrame loops can read.
  * Schedules haptic chains and plays celebration sound.
+ * Triggers cinematicMode to hide all UI overlays during the experience.
  * Pure ref + timer management — no re-renders.
  */
 export function useClaimCelebration() {
   const celebrationRef = useRef<ClaimCelebrationState | null>(null);
   const hapticTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const setClaimCelebrationRef = useTowerStore((s) => s.setClaimCelebrationRef);
+  const setCinematicMode = useTowerStore((s) => s.setCinematicMode);
 
   // Register the ref with the store on mount
   useEffect(() => {
@@ -45,6 +47,9 @@ export function useClaimCelebration() {
       isFirstClaim,
     };
 
+    // Enter cinematic mode — hide all UI overlays for the full experience
+    setCinematicMode(true);
+
     // Schedule haptic chain
     const timers = hapticClaimCelebration(isFirstClaim);
     if (timers) {
@@ -54,16 +59,20 @@ export function useClaimCelebration() {
     // Play celebration sound
     playClaimCelebration();
 
-    // Auto-deactivate after duration (safety net — useFrame also deactivates)
+    // Exit cinematic mode after celebration (with a short buffer for settle phase)
+    const cinematicEnd = setTimeout(() => {
+      setCinematicMode(false);
+    }, duration * 1000 + 300);
+
+    // Auto-deactivate after duration (safety net)
     const cleanup = setTimeout(() => {
-      if (celebrationRef.current?.startTime === celebrationRef.current?.startTime) {
-        if (celebrationRef.current) {
-          celebrationRef.current.active = false;
-        }
+      if (celebrationRef.current) {
+        celebrationRef.current.active = false;
       }
-    }, duration * 1000 + 200);
-    hapticTimersRef.current.push(cleanup);
-  }, []);
+    }, duration * 1000 + 500);
+
+    hapticTimersRef.current.push(cinematicEnd, cleanup);
+  }, [setCinematicMode]);
 
   return { triggerCelebration };
 }

@@ -456,7 +456,7 @@ export default function TowerGrid() {
             lightI = 0.4 * (1.0 - t);
           }
           mat.uniforms.uClaimLightPos.value.set(cel.blockPosition.x, cel.blockPosition.y, cel.blockPosition.z);
-          mat.uniforms.uClaimLightIntensity.value = lightI * 4.0;
+          mat.uniforms.uClaimLightIntensity.value = lightI * 8.0;  // strong — tower GLOWS
         } else {
           mat.uniforms.uClaimLightIntensity.value = 0;
         }
@@ -799,12 +799,16 @@ export default function TowerGrid() {
   const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
     const gestureActive = useTowerStore.getState().isGestureActive;
-    if (gestureActive) return;
+    if (gestureActive) {
+      console.log("[TowerGrid] Click blocked by gesture active");
+      return;
+    }
 
     if (event.instanceId == null) return;
     const meta = blockMetaRef.current[event.instanceId];
     if (!meta) return;
 
+    console.log("[TowerGrid] Block tapped:", meta.id, "layer:", meta.layer, "index:", meta.index);
     selectBlock(meta.id);
   }, [selectBlock]);
 

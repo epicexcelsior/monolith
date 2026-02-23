@@ -141,6 +141,7 @@ interface TowerStore {
   initialized: boolean;
   cameraStateRef: React.MutableRefObject<any> | null;
   claimCelebrationRef: React.MutableRefObject<ClaimCelebrationState | null> | null;
+  cinematicMode: boolean;
   multiplayerMode: boolean;
 
   // ─── Actions ──────────────────────────────
@@ -158,6 +159,7 @@ interface TowerStore {
   setGestureActive: (active: boolean) => void;
   setCameraStateRef: (ref: React.MutableRefObject<any>) => void;
   setClaimCelebrationRef: (ref: React.MutableRefObject<ClaimCelebrationState | null>) => void;
+  setCinematicMode: (active: boolean) => void;
   setMultiplayerMode: (enabled: boolean) => void;
 
   // ─── Game Actions ─────────────────────────
@@ -217,6 +219,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   initialized: false,
   cameraStateRef: null,
   claimCelebrationRef: null,
+  cinematicMode: false,
   multiplayerMode: false,
 
   // ─── Actions ──────────────────────────────
@@ -247,6 +250,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setGestureActive: (active) => set({ isGestureActive: active }),
   setCameraStateRef: (ref) => set({ cameraStateRef: ref }),
   setClaimCelebrationRef: (ref) => set({ claimCelebrationRef: ref }),
+  setCinematicMode: (active) => set({ cinematicMode: active }),
   setMultiplayerMode: (enabled) => set({ multiplayerMode: enabled }),
 
   // ─── Game Actions ─────────────────────────
