@@ -1,8 +1,0 @@
-appId: com.monolith.app
----
-# Utility: Wait for tower to finish loading
-- extendedWaitUntil:
-    notVisible:
-      text: "Loading tower"
-    timeout: 15000
-- waitForAnimationToEnd
