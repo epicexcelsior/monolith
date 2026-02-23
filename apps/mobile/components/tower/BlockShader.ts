@@ -129,7 +129,7 @@ const vertexShader = /* glsl */ `
 `;
 
 const fragmentShader = /* glsl */ `
-  precision highp float;
+  precision mediump float;  // mediump sufficient for color math — ~2x faster on mobile GPU
 
   uniform float uTime;
   uniform vec3 uFogColor;
@@ -910,7 +910,7 @@ const glowVertexShader = /* glsl */ `
 `;
 
 const glowFragmentShader = /* glsl */ `
-  precision highp float;
+  precision mediump float;  // mediump sufficient for glow color math
 
   uniform float uTime;
 
