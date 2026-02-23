@@ -5,6 +5,22 @@ import * as THREE from "three";
 import TowerGrid from "./TowerGrid";
 import Particles from "./Particles";
 import { ClaimVFX } from "./ClaimVFX";
+
+/**
+ * ConditionalClaimVFX — Mounts the particle celebration only while active.
+ *
+ * PERF: ClaimVFX allocates 730 GPU instances across 7 InstancedMesh draw calls.
+ * Transparent blended objects have no early-Z rejection on mobile — they burn
+ * fill-rate every frame even when invisible. Mounting only during celebrations
+ * (cinematicMode = true, ~5.5s) keeps the idle scene at budget (80 particles).
+ *
+ * Timing safety: celebrationRef is set BEFORE setCinematicMode(true) fires in
+ * useClaimCelebration, so the ref is already populated when this mounts.
+ */
+function ConditionalClaimVFX() {
+  const cinematicMode = useTowerStore((s) => s.cinematicMode);
+  return cinematicMode ? <ClaimVFX /> : null;
+}
 import Foundation from "./Foundation";
 import { useTowerStore } from "@/stores/tower-store";
 import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG, getTowerHeight, getLayerY } from "@monolith/common";
@@ -827,7 +843,7 @@ function NightSkybox() {
 
   return (
     <mesh material={skyMaterial}>
-      <sphereGeometry args={[800, 32, 32]} />
+      <sphereGeometry args={[800, 16, 8]} />
     </mesh>
   );
 }
@@ -1145,7 +1161,7 @@ export default function TowerScene() {
         <BackgroundPlane />
         <TowerGrid />
         <Particles />
-        <ClaimVFX />
+        <ConditionalClaimVFX />
         <Foundation />
         <GroundPlane />
         <AtmosphericHaze />
