@@ -29,6 +29,7 @@ import { connection } from "@/services/solana";
 import { Button, Card, Input, Chip } from "@/components/ui";
 import { TEXT, COLORS, SPACING, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress, hapticError, hapticBlockClaimed } from "@/utils/haptics";
+import { playButtonTap, playError, playBlockClaim } from "@/utils/audio";
 
 const MIN_USDC = unitsToUsdc(MIN_STAKE_UNITS); // 0.10
 
@@ -63,15 +64,18 @@ export default function DepositScreen() {
     const handleDeposit = async () => {
         if (!isValidAmount) return;
         hapticButtonPress();
+        playButtonTap();
         console.log("[DepositScreen] Starting deposit of", parsedAmount, "USDC");
         const sig = await deposit(parsedAmount);
         if (sig) {
             console.log("[DepositScreen] Deposit success:", sig);
             hapticBlockClaimed();
+            playBlockClaim();
             refreshBalance();
         } else {
             console.log("[DepositScreen] Deposit returned null (failed)");
             hapticError();
+            playError();
         }
     };
 

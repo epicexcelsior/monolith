@@ -10,6 +10,7 @@ import { useWalletStore } from "@/stores/wallet-store";
 import { ScreenLayout, Card, Button } from "@/components/ui";
 import { TEXT, COLORS, SPACING, FONT_FAMILY } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { playButtonTap } from "@/utils/audio";
 import { CONFIG } from "@/constants/config";
 
 type FaucetState = "idle" | "loading" | "success" | "error";
@@ -23,6 +24,7 @@ export default function FaucetScreen() {
   const handleAirdrop = useCallback(async () => {
     if (!publicKey) return;
     hapticButtonPress();
+    playButtonTap();
     setSolState("loading");
     setErrorMsg("");
 
@@ -40,6 +42,7 @@ export default function FaucetScreen() {
 
   const handleUsdcFaucet = useCallback(() => {
     hapticButtonPress();
+    playButtonTap();
     Linking.openURL("https://faucet.circle.com/");
   }, []);
 

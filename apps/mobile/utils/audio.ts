@@ -67,6 +67,9 @@ export async function initAudio(): Promise<void> {
         await loadPlayer("streakMilestone", require("../assets/sfx/streak-milestone.wav"));
         await loadPlayer("error", require("../assets/sfx/error.wav"));
         await loadPlayer("claimCelebration", require("../assets/sfx/claim-celebration.wav"));
+        await loadPlayer("levelUp", require("../assets/sfx/level-up.wav"));
+        await loadPlayer("customize", require("../assets/sfx/customize.wav"));
+        await loadPlayer("buttonTap", require("../assets/sfx/button-tap.wav"));
 
         initialized = true;
     } catch {
@@ -123,6 +126,15 @@ export function playError() { play("error"); }
 
 /** Epic multi-phase celebration sound */
 export function playClaimCelebration() { play("claimCelebration"); }
+
+/** Epic ascending fanfare for level-ups */
+export function playLevelUp() { play("levelUp"); }
+
+/** Satisfying stamp for customization */
+export function playCustomize() { play("customize"); }
+
+/** Soft tap for generic button presses */
+export function playButtonTap() { play("buttonTap"); }
 
 // ─── Settings ─────────────────────────────────────────────
 

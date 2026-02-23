@@ -27,7 +27,7 @@ import { useMultiplayerStore, onPlayerSync } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
-import { initAudio } from "@/utils/audio";
+import { initAudio, playButtonTap } from "@/utils/audio";
 
 export default function TowerScreen() {
   const router = useRouter();
@@ -147,6 +147,7 @@ export default function TowerScreen() {
               <TouchableOpacity
                 onLongPress={() => {
                   hapticButtonPress();
+                  playButtonTap();
                   resetOnboarding();
                   resetOnboardingFlag();
                 }}
@@ -162,6 +163,7 @@ export default function TowerScreen() {
                 ]}
                 onPress={() => {
                   hapticButtonPress();
+                  playButtonTap();
                   router.push("/connect");
                 }}
               >

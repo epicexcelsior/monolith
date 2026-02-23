@@ -124,6 +124,30 @@ export function hapticClaimCelebration(isFirstClaim: boolean) {
     return timers;
 }
 
+/** Charge success — medium pulse with quick resolve */
+export function hapticChargeTap() {
+    safeHaptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
+}
+
+/** Customize applied — light satisfying press */
+export function hapticCustomize() {
+    safeHaptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
+}
+
+/** Level up — success notification */
+export function hapticLevelUp() {
+    safeHaptic(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
+}
+
+/** Streak milestone — double-tap celebration */
+export function hapticStreakMilestone() {
+    if (!HAPTICS_ENABLED) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setTimeout(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }, 120);
+}
+
 /** Error occurred — warning vibration */
 export function hapticError() {
     safeHaptic(() =>
