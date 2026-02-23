@@ -83,8 +83,8 @@ export const CLAIM_SHAKE = {
 // ─── Cinematic Camera Orbit ────────────────────────────────
 // Celebration camera behavior: zoom toward block + slow orbit
 export const CLAIM_CAMERA = {
-  orbitSpeed:     0.008,  // radians/frame at 60fps ≈ 27° over 3s of celebration
-  zoomInFactor:   0.72,   // multiply current zoom by this at impact (zoom in 28%)
+  orbitSpeed:     0.0025, // radians/frame at 60fps ≈ 9° over 3s — subtle cinematic drift
+  zoomInFactor:   0.78,   // multiply current zoom by this at impact (zoom in 22%)
   zoomRestoreMs:  1200,   // ms after celebration end to restore zoom
 } as const;
 

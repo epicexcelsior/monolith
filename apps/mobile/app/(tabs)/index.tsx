@@ -209,20 +209,8 @@ export default function TowerScreen() {
 
         {/* Level up celebration */}
         <LevelUpCelebration />
-      </Animated.View>
 
-      {/* BlockInspector slides independently — cinematic sends it down too */}
-      <Animated.View
-        pointerEvents={cinematicMode ? "none" : "box-none"}
-        style={{
-          opacity: cinematicAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-          transform: [{
-            translateY: cinematicAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 80] }),
-          }],
-        }}
-      >
-
-        {/* Block Inspector panel */}
+        {/* Block Inspector — inside cinematicWrapper so it positions against full screen */}
         <BlockInspector />
       </Animated.View>
 

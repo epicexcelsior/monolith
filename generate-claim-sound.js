@@ -1,28 +1,26 @@
 /**
  * generate-claim-sound.js
  *
- * ARC: Long low-bass hum builds (0 → 2.5s) → angelic explosion → celestial shimmer
+ * ARC: Low bass charge builds (0 → 2.5s) → EXPLOSION → warm ethereal synth pad fades out
  *
- *   0.00–2.50s  Sub-bass charge sweep (22→65Hz) — deep capacitor building
- *               + harmonic ladder (44/88/176Hz) for phone speaker presence
- *               + slow harmonic beat pattern for "living hum" feel
- *               + electrical tension noise building in last 0.6s
+ *   0.00–2.50s  Sub-bass charge sweep (22→65Hz) — dark, inevitable buildup
+ *               + harmonic ladder for phone speaker presence
+ *               + living-hum beat pair (two detuned 5th harmonics, 0.5Hz beat)
+ *               + tension crackle in last 0.6s
  *   2.50s       EXPLOSION:
- *               — Deep slam (100→22Hz pitch drop)   ← the BOOM
- *               — Broadband crack (< 20ms)           ← the POP
- *               — Upward noise sweep (0.10s)         ← the WHOOSH
- *   2.55–5.5s   Angelic sparkle shimmer (300–5000Hz, wide stereo)
- *   2.65s       Chime 1: A4 = 440Hz  (warm reward tone)
- *   2.90s       Chime 2: E5 = 659Hz  (ascending fifth — ethereal escalation)
- *   3.15s       Chime 3: B4 = 494Hz  (settling resolution — major seventh feel)
- *   2.55–5.5s   Deep resonance hum (A1=55Hz stays to ground the brightness)
- *               + celestial mid-pad (220Hz soft swell for angelic texture)
+ *               — Deep 808 slam (100→22Hz pitch drop)   ← the BOOM
+ *               — Broadband crack (< 20ms)              ← the POP
+ *               — Upward noise sweep (0.10s)            ← the WHOOSH
+ *   2.55–5.5s   Warm ethereal synth pad (A major chord: 220/277/330Hz)
+ *               — Soft attack, long sustain, slow decay — Duolingo-style
+ *               — Stereo width from L/R detune pairs (±1Hz beat → lush shimmer)
+ *               — Upper octave doublings (440/554/660Hz) for brightness
+ *               — Deep grounding hum (A1=55Hz) keeps it from going thin
  *
- * Why this works:
- *   The 2.5s buildup creates real anticipation — slow, dark, inevitable.
- *   Three chimes (440/659/494Hz) give an angelic ascending-then-resolving arc.
- *   The deep hum prevents it feeling "thin" or Duolingo-cute.
- *   220Hz mid-pad adds that lush "heaven opening" texture.
+ * DESIGN PHILOSOPHY:
+ *   No sharp-attack chimes (harsh), no high-frequency tinkle (piercing).
+ *   The explosion provides all the "snap". Afterward: warmth, beauty, resolve.
+ *   A major (A/C#/E) = bright, uplifting, achievement. Held long = earned.
  */
 
 const fs   = require("fs");
@@ -41,11 +39,10 @@ const IMPACT = 2.50;
 function osc(bufL, bufR, t0, t1, freqFn, ampL, ampR, envFn) {
   const s0  = Math.floor(t0 * SR);
   const s1  = Math.min(Math.floor(t1 * SR), N);
-  const dur = t1 - t0;
   let ph    = 0;
   for (let i = s0; i < s1; i++) {
     const lt  = (i - s0) / SR;
-    const env = Math.max(0, envFn(lt, dur));
+    const env = Math.max(0, envFn(lt, t1 - t0));
     bufL[i] += ampL * env * Math.sin(2 * Math.PI * ph);
     bufR[i] += ampR * env * Math.sin(2 * Math.PI * ph);
     ph += freqFn(lt) / SR;
@@ -71,10 +68,10 @@ function noise(bufL, bufR, t0, t1, ampL, ampR, envFn, seed = 0) {
 
 // ══════════════════════════════════════════════════════════════════════════
 // SECTION A: CHARGE BUILDUP (0 → 2.5s)
-// Long, dark, deep — energy gathering over a full 2.5 seconds
+// Long, dark, deep — energy gathering over 2.5 seconds
 // ══════════════════════════════════════════════════════════════════════════
 
-// Sub-bass sweep: 22Hz → 65Hz (ease-in³ amplitude — slow start, strong finish)
+// Sub-bass sweep: 22Hz → 65Hz with ease-in³ — starts almost silent, ends loud
 osc(L, R, 0, IMPACT,
   (lt) => 22 + (lt / IMPACT) * 43,
   0.38, 0.38,
@@ -92,41 +89,35 @@ osc(L, R, 0, IMPACT,
   0.12, 0.12,
   (lt, dur) => (lt / dur) ** 2,
 );
-// 4th harmonic — subtle warmth
+// 4th harmonic — subtle body
 osc(L, R, 0, IMPACT,
   (lt) => (22 + (lt / IMPACT) * 43) * 4,
   0.06, 0.06,
   (lt, dur) => (lt / dur) ** 1.5,
 );
 
-// Slow harmonic beat (creates "living hum" — two detuned 5th-harmonic tones)
-// Beating at ~0.5Hz gives gentle pulsing life to the charge
-osc(L, R, 0.3, IMPACT,
-  (lt) => (22 + (lt / (IMPACT - 0.3)) * 43) * 5,
+// Living-hum beat pair: two detuned 5th harmonics beat at 0.5Hz
+// Creates organic "breathing" in the buildup rather than static drone
+osc(L, R, 0.4, IMPACT,
+  (lt) => (22 + (lt / (IMPACT - 0.4)) * 43) * 5,
   0.04, 0.04,
   (lt, dur) => (lt / dur) ** 1.5,
 );
-osc(L, R, 0.3, IMPACT,
-  (lt) => (22 + (lt / (IMPACT - 0.3)) * 43) * 5 + 0.5,  // 0.5Hz beat
+osc(L, R, 0.4, IMPACT,
+  (lt) => (22 + (lt / (IMPACT - 0.4)) * 43) * 5 + 0.5,
   0.04, 0.04,
   (lt, dur) => (lt / dur) ** 1.5,
 );
 
-// Background ambiance: very quiet dark hum noise throughout buildup
-noise(L, R, 0, IMPACT, 0.03, 0.03,
+// Dark background hum
+noise(L, R, 0, IMPACT, 0.025, 0.025,
   (lt, dur) => (lt / dur) ** 2 * 0.4,
   333,
 );
-
-// Electrical tension crackle — builds in last 0.6s before impact
+// Electrical tension crackle — last 0.6s
 noise(L, R, IMPACT - 0.6, IMPACT, 0.08, 0.08,
-  (lt, dur) => (lt / dur) ** 1.8,
+  (lt, dur) => (lt / dur) ** 2.0,
   222,
-);
-// High tension whine — very quiet shimmer in last 0.4s
-noise(L, R, IMPACT - 0.4, IMPACT, 0.03, 0.03,
-  (lt, dur) => (lt / dur) ** 3,
-  999,
 );
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -142,20 +133,18 @@ osc(L, R, IMPACT, IMPACT + 0.80,
     return Math.exp(-(lt - 0.002) * 3.5);
   },
 );
-// Low-mid body punch (adds chest thump)
+// Chest thump (low-mid punch)
 osc(L, R, IMPACT, IMPACT + 0.45,
   (lt) => 180 * Math.exp(-lt * 4) + 80,
   0.35, 0.35,
   (lt) => { if (lt < 0.001) return lt/0.001; return Math.exp(-(lt-0.001) * 8); },
 );
-
-// Broadband CRACK at impact (the POP — < 20ms)
+// Broadband CRACK (the POP — < 20ms)
 noise(L, R, IMPACT, IMPACT + 0.018, 0.65, 0.65,
   (lt) => Math.exp(-lt * 200),
   456,
 );
-
-// Upward noise sweep — WHOOSH punctuating the explosion
+// Upward WHOOSH
 noise(L, R, IMPACT, IMPACT + 0.10, 0.20, 0.20,
   (lt, dur) => {
     const t = lt / dur;
@@ -165,96 +154,112 @@ noise(L, R, IMPACT, IMPACT + 0.10, 0.20, 0.20,
 );
 
 // ══════════════════════════════════════════════════════════════════════════
-// SECTION C: ANGELIC CELEBRATION (2.5s → 5.5s)
-// Celestial shimmer + three angelic chimes + lush grounding pads
+// SECTION C: ETHEREAL SYNTH PAD (2.5s → 5.5s)
+// Duolingo-style warm resolution — A major chord, soft attack, long decay
+// No sharp tinkle. No high-frequency shimmer. Just warmth and beauty.
 // ══════════════════════════════════════════════════════════════════════════
 
-// Angelic sparkle shimmer: 55 stereo tones in 300–5000Hz range
-// Dense at first, gradually settling — wide stereo field
-{
-  let seed = 777;
-  const rng = () => { seed = Math.imul(seed, 1664525) + 1013904223 | 0; return (seed >>> 0) / 0x100000000; };
+// ─── A major chord: A3=220Hz, C#4=277Hz, E4=330Hz ─────────────────────
+// Envelope: 0.18s soft attack → peak → slow exponential decay
+// Stereo width: L/R detuned ±0.8Hz so they beat gently — creates shimmer
 
-  for (let s = 0; s < 55; s++) {
-    const t0   = IMPACT + 0.04 + rng() * 2.0;    // spread over 2s after impact
-    const dur  = 0.05 + rng() * 0.35;
-    const freq = 300 + rng() * 4700;              // 300–5000Hz
-    const pan  = (rng() * 2 - 1) * 0.85;         // very wide stereo spread
-    const dec  = Math.exp(-(t0 - IMPACT) * 0.7); // earlier = louder (gradual fade)
-    const amp  = (0.04 + rng() * 0.10) * dec;
-    const lA   = amp * (1 - Math.max(0, pan));
-    const rA   = amp * (1 + Math.min(0, pan));
-
-    oscC(L, R, t0, t0 + dur, freq, lA, rA,
-      (lt) => { if (lt < 0.005) return lt/0.005; return Math.exp(-(lt-0.005) * 14); },
-    );
-  }
-}
-
-// ─── THREE ANGELIC CHIMES — ascending then resolving ─────────────────────
-// Chime 1: A4 = 440Hz — warm, bright first arrival
-oscC(L, R, IMPACT + 0.15, 4.80, 440, 0.26, 0.26,
-  (lt) => { if (lt < 0.007) return lt/0.007; return Math.exp(-(lt-0.007) * 0.9); },
+// Root: A3 (220Hz) — the foundation
+oscC(L, R, IMPACT + 0.05, 5.50, 220.8, 0.28, 0.00,
+  (lt, dur) => {
+    if (lt < 0.18) return lt / 0.18;
+    return Math.exp(-(lt - 0.18) * 0.55);
+  },
 );
-// Bell inharmonic partials (makes it sound like a real resonant bell)
-oscC(L, R, IMPACT + 0.15, 3.50, 440 * 2.756, 0.07, 0.07,
-  (lt) => Math.exp(-lt * 1.8),
-);
-oscC(L, R, IMPACT + 0.15, 4.00, 880, 0.08, 0.08,
-  (lt) => Math.exp(-lt * 1.4),
+oscC(L, R, IMPACT + 0.05, 5.50, 219.2, 0.00, 0.28,
+  (lt, dur) => {
+    if (lt < 0.18) return lt / 0.18;
+    return Math.exp(-(lt - 0.18) * 0.55);
+  },
 );
 
-// Chime 2: E5 = 659Hz — ascending fifth (ethereal, celestial escalation)
-oscC(L, R, IMPACT + 0.40, 5.20, 659, 0.20, 0.20,
-  (lt) => { if (lt < 0.007) return lt/0.007; return Math.exp(-(lt-0.007) * 0.75); },
+// Third: C#4 (277Hz) — gives it major brightness
+oscC(L, R, IMPACT + 0.08, 5.40, 277.8, 0.20, 0.00,
+  (lt) => {
+    if (lt < 0.20) return lt / 0.20;
+    return Math.exp(-(lt - 0.20) * 0.60);
+  },
 );
-oscC(L, R, IMPACT + 0.40, 4.00, 659 * 2.756, 0.05, 0.05,
-  (lt) => Math.exp(-lt * 1.8),
-);
-oscC(L, R, IMPACT + 0.40, 4.50, 1318, 0.06, 0.06,
-  (lt) => Math.exp(-lt * 1.2),
-);
-
-// Chime 3: B4 = 494Hz — resolving seventh (settling, "earned" feeling)
-oscC(L, R, IMPACT + 0.65, 5.50, 494, 0.16, 0.16,
-  (lt) => { if (lt < 0.007) return lt/0.007; return Math.exp(-(lt-0.007) * 0.6); },
-);
-oscC(L, R, IMPACT + 0.65, 4.50, 494 * 2.756, 0.04, 0.04,
-  (lt) => Math.exp(-lt * 1.8),
+oscC(L, R, IMPACT + 0.08, 5.40, 276.2, 0.00, 0.20,
+  (lt) => {
+    if (lt < 0.20) return lt / 0.20;
+    return Math.exp(-(lt - 0.20) * 0.60);
+  },
 );
 
-// ─── GROUNDING PADS — the celestial "heaven opening" layer ───────────────
-// Deep resonance hum (A1=55Hz) — anchor that stops everything going thin
+// Fifth: E4 (330Hz) — completes the triad, airy
+oscC(L, R, IMPACT + 0.12, 5.30, 330.7, 0.15, 0.00,
+  (lt) => {
+    if (lt < 0.22) return lt / 0.22;
+    return Math.exp(-(lt - 0.22) * 0.65);
+  },
+);
+oscC(L, R, IMPACT + 0.12, 5.30, 329.3, 0.00, 0.15,
+  (lt) => {
+    if (lt < 0.22) return lt / 0.22;
+    return Math.exp(-(lt - 0.22) * 0.65);
+  },
+);
+
+// ─── Upper octave doublings (A4/C#5/E5) — add brightness without harshness ──
+// These are an octave up but SOFT (lower amplitude), pure harmonics
+// Soft attack is key — no sharp transient here
+
+// A4 upper (440Hz) — warm brightness
+oscC(L, R, IMPACT + 0.10, 4.80, 441, 0.10, 0.00,
+  (lt) => {
+    if (lt < 0.25) return lt / 0.25;
+    return Math.exp(-(lt - 0.25) * 0.80);
+  },
+);
+oscC(L, R, IMPACT + 0.10, 4.80, 439, 0.00, 0.10,
+  (lt) => {
+    if (lt < 0.25) return lt / 0.25;
+    return Math.exp(-(lt - 0.25) * 0.80);
+  },
+);
+
+// C#5 upper (554Hz) — shimmery without being shrill
+oscC(L, R, IMPACT + 0.15, 4.50, 554.5, 0.07, 0.00,
+  (lt) => {
+    if (lt < 0.28) return lt / 0.28;
+    return Math.exp(-(lt - 0.28) * 0.90);
+  },
+);
+oscC(L, R, IMPACT + 0.15, 4.50, 553.5, 0.00, 0.07,
+  (lt) => {
+    if (lt < 0.28) return lt / 0.28;
+    return Math.exp(-(lt - 0.28) * 0.90);
+  },
+);
+
+// E5 upper (659Hz) — airy top note (MAX freq — nothing above this)
+oscC(L, R, IMPACT + 0.20, 4.20, 659.5, 0.05, 0.00,
+  (lt) => {
+    if (lt < 0.30) return lt / 0.30;
+    return Math.exp(-(lt - 0.30) * 1.00);
+  },
+);
+oscC(L, R, IMPACT + 0.20, 4.20, 658.5, 0.00, 0.05,
+  (lt) => {
+    if (lt < 0.30) return lt / 0.30;
+    return Math.exp(-(lt - 0.30) * 1.00);
+  },
+);
+
+// ─── Deep grounding hum (A1=55Hz) — prevents thinness, grounds the pad ──
 oscC(L, R, IMPACT + 0.05, 5.50, 55, 0.18, 0.18,
-  (lt) => { if (lt < 0.15) return lt/0.15; return Math.exp(-(lt-0.15) * 0.30); },
-);
-oscC(L, R, IMPACT + 0.05, 4.50, 110, 0.10, 0.10,
-  (lt) => Math.exp(-lt * 0.45),
-);
-oscC(L, R, IMPACT + 0.05, 4.00, 220, 0.06, 0.06,
-  (lt) => Math.exp(-lt * 0.60),
-);
-
-// Celestial mid-pad (A3=220Hz soft swell, slight detune L/R for width)
-// This is the "heaven opening" texture — warm, lush, angelic
-oscC(L, R, IMPACT + 0.10, 5.50, 221, 0.07, 0.00,  // L: 221Hz
   (lt) => {
-    if (lt < 0.25) return lt / 0.25;
-    return Math.exp(-(lt - 0.25) * 0.35);
+    if (lt < 0.15) return lt / 0.15;
+    return Math.exp(-(lt - 0.15) * 0.28);
   },
 );
-oscC(L, R, IMPACT + 0.10, 5.50, 219, 0.00, 0.07,  // R: 219Hz (2Hz beat → shimmer)
-  (lt) => {
-    if (lt < 0.25) return lt / 0.25;
-    return Math.exp(-(lt - 0.25) * 0.35);
-  },
-);
-// Upper angelic pad (A4=440Hz detuned pair for chorus effect)
-oscC(L, R, IMPACT + 0.20, 5.00, 441.5, 0.04, 0.00,
-  (lt) => { if (lt < 0.30) return lt/0.30; return Math.exp(-(lt-0.30) * 0.50); },
-);
-oscC(L, R, IMPACT + 0.20, 5.00, 438.5, 0.00, 0.04,
-  (lt) => { if (lt < 0.30) return lt/0.30; return Math.exp(-(lt-0.30) * 0.50); },
+oscC(L, R, IMPACT + 0.05, 4.80, 110, 0.10, 0.10,
+  (lt) => Math.exp(-lt * 0.40),
 );
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -262,22 +267,21 @@ oscC(L, R, IMPACT + 0.20, 5.00, 438.5, 0.00, 0.04,
 // ══════════════════════════════════════════════════════════════════════════
 
 const KNEE = 0.62;
-const GAIN = 0.78;
+const GAIN = 0.76;
 const sc = (x) => {
   const a = Math.abs(x) * GAIN;
   if (a <= KNEE) return Math.sign(x) * a;
   return Math.sign(x) * (KNEE + (1 - KNEE) * Math.tanh((a - KNEE) / (1 - KNEE)));
 };
 
-// Fade in (5ms) and fade out (0.8s)
 const FI = Math.floor(0.005 * SR);
-const FO = N - Math.floor(0.80 * SR);
+const FO = N - Math.floor(1.00 * SR);  // 1s fade-out
 
 for (let i = 0; i < N; i++) {
   let lv = sc(L[i]);
   let rv = sc(R[i]);
-  if (i < FI)  { const f = i / FI;               lv *= f; rv *= f; }
-  if (i >= FO) { const f = 1 - (i-FO)/(N-FO);   lv *= f*f; rv *= f*f; }
+  if (i < FI)  { const f = i / FI;             lv *= f;   rv *= f; }
+  if (i >= FO) { const f = 1 - (i-FO)/(N-FO); lv *= f*f; rv *= f*f; }
   L[i] = lv;
   R[i] = rv;
 }
@@ -303,4 +307,5 @@ const out = path.resolve(__dirname, "apps/mobile/assets/sfx/claim-celebration.wa
 fs.writeFileSync(out, wav);
 console.log(`✅  ${out}`);
 console.log(`    ${DUR}s | ${(wav.length/1024).toFixed(0)}KB`);
-console.log(`    Arc: 0-2.5s deep bass charge buildup → 2.5s BOOM+POP+WHOOSH → angelic shimmer + A/E/B chimes + celestial pads`);
+console.log(`    Arc: 0-2.5s deep bass buildup → 2.5s BOOM+POP+WHOOSH → warm A-major synth pad (220/277/330Hz) + 55Hz ground`);
+console.log(`    Max freq: 659Hz (E5) — no tinkling, no shimmer, just warmth`);

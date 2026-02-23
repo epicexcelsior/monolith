@@ -295,8 +295,8 @@ export function ClaimVFX() {
           particlesLifetime: [1.5, 4.5],
           speed: [3, 16],
           size:  [0.12, 0.50],  // chunky confetti bits
-          directionMin: [-0.9, 0.10, -0.9],
-          directionMax: [ 0.9, 1.00,  0.9],
+          directionMin: [-1, -0.8, -1],
+          directionMax: [ 1,  1.0,  1],
           startPositionMin: [-0.8, -0.1, -0.8],
           startPositionMax: [ 0.8,  0.3,  0.8],
           rotationSpeedMin: [-10, -10, -10],
