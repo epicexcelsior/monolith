@@ -18,6 +18,12 @@ import {
   getComboCount,
   type XpAction,
 } from "../utils/xp.js";
+import { upsertPushToken } from "../utils/push-tokens.js";
+import {
+  sendPlayerNotification,
+  isBlockDormant,
+  shouldNotifyEnergyLow,
+} from "../utils/notifications.js";
 
 // Game constants (match client)
 const DECAY_AMOUNT = 1;
@@ -118,6 +124,7 @@ export class TowerRoom extends Room<TowerRoomState> {
   private players = new Map<string, PlayerState>();
   private chargesToday = 0;
   private lastResetDate = new Date().toISOString().slice(0, 10);
+  private decayTickCounter = 0;
 
   async onCreate() {
     this.setState(new TowerRoomState());
@@ -176,6 +183,12 @@ export class TowerRoom extends Room<TowerRoomState> {
           this.chargesToday = 0;
           this.lastResetDate = today;
         }
+
+        // Hourly notification check (every 60 decay ticks = ~1 hour at 60s interval)
+        this.decayTickCounter++;
+        if (this.decayTickCounter % 60 === 0) {
+          this.runHourlyNotificationCheck();
+        }
       } catch (err) {
         console.error("[TowerRoom] Decay tick error:", err);
       }
@@ -226,6 +239,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         const wasReclaim = isDormant(block);
+        const previousOwner = block.owner;
 
         block.owner = msg.wallet;
         block.ownerColor = msg.color;
@@ -283,6 +297,38 @@ export class TowerRoom extends Room<TowerRoomState> {
           ...serializeBlock(block),
           eventType: "claim",
         });
+
+        // Notify previous owner if reclaimed
+        if (wasReclaim && previousOwner && !isBotOwner(previousOwner)) {
+          sendPlayerNotification(
+            previousOwner,
+            "block_reclaimed",
+            "Your block was reclaimed!",
+            `Someone took your dormant block on floor ${block.layer + 1}. Claim a new one!`,
+            { blockId: block.id },
+          );
+        }
+
+        // Notify adjacent neighbors
+        const leftId = `block-${block.layer}-${block.index - 1}`;
+        const rightId = `block-${block.layer}-${block.index + 1}`;
+        for (const neighborId of [leftId, rightId]) {
+          const neighbor = this.state.blocks.get(neighborId);
+          if (
+            neighbor &&
+            neighbor.owner &&
+            !isBotOwner(neighbor.owner) &&
+            neighbor.owner !== msg.wallet
+          ) {
+            sendPlayerNotification(
+              neighbor.owner,
+              "new_neighbor",
+              "New neighbor!",
+              `Someone claimed the block next to yours on floor ${block.layer + 1}!`,
+              { blockId: block.id },
+            );
+          }
+        }
 
         console.log(`[TowerRoom] ${msg.wallet.slice(0, 8)}... ${wasReclaim ? "reclaimed" : "claimed"} ${msg.blockId}`);
       } catch (err) {
@@ -458,6 +504,16 @@ export class TowerRoom extends Room<TowerRoomState> {
       }
     });
 
+    this.onMessage("register_push_token", (client: Client, msg: { wallet: string; token: string }) => {
+      try {
+        if (!msg.wallet || !msg.token) return;
+        upsertPushToken(msg.wallet, msg.token);
+        console.log(`[TowerRoom] Push token registered for ${msg.wallet.slice(0, 8)}...`);
+      } catch (err) {
+        console.error("[TowerRoom] register_push_token error:", err);
+      }
+    });
+
     console.log(`[TowerRoom] Created with ${this.state.blocks.size} blocks`);
   }
 
@@ -564,6 +620,53 @@ export class TowerRoom extends Room<TowerRoomState> {
   private broadcastFullState() {
     this.recomputeStats();
     this.broadcast("tower_state", this.buildFullState());
+  }
+
+  /** Run hourly notification checks (energy low, dormant, streak reminder) */
+  private runHourlyNotificationCheck(): void {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const now = Date.now();
+
+      this.state.blocks.forEach((block) => {
+        if (!block.owner || isBotOwner(block.owner)) return;
+
+        // Energy low notification
+        if (shouldNotifyEnergyLow(block.energy)) {
+          sendPlayerNotification(
+            block.owner,
+            "energy_low",
+            "Your block is fading!",
+            `Block on floor ${block.layer + 1} is at ${block.energy}% energy. Charge it before it goes dormant!`,
+            { blockId: block.id, layer: block.layer, index: block.index },
+          );
+        }
+
+        // Dormant notification (energy 0, crossed threshold in this hour window)
+        if (block.lastChargeTime && isBlockDormant(block.energy, block.lastChargeTime, now)) {
+          sendPlayerNotification(
+            block.owner,
+            "block_dormant",
+            "Your block went dormant!",
+            `Your block on floor ${block.layer + 1} has been dormant for 3 days and can now be reclaimed by anyone.`,
+            { blockId: block.id },
+          );
+        }
+
+        // Streak reminder (streak >= 3, not charged today)
+        if (block.streak >= 3 && block.lastStreakDate && block.lastStreakDate !== today) {
+          sendPlayerNotification(
+            block.owner,
+            "streak_reminder",
+            "Keep your streak alive!",
+            `Your ${block.streak}-day streak on floor ${block.layer + 1} is at risk! Charge your block today.`,
+            { blockId: block.id },
+          );
+        }
+      });
+    } catch (err) {
+      console.error("[TowerRoom] Hourly notification check error:", err);
+    }
   }
 
   private recomputeStats() {

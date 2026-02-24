@@ -4,6 +4,8 @@ import { GAME_SERVER_URL } from "@/constants/network";
 import { useTowerStore } from "@/stores/tower-store";
 import type { DemoBlock } from "@/stores/tower-store";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, ActivityEvent } from "@monolith/common";
+import { registerForPushNotifications } from "@/utils/notifications";
+import { useWalletStore } from "@/stores/wallet-store";
 import {
   DEFAULT_TOWER_CONFIG,
   MONOLITH_HALF_W,
@@ -387,6 +389,17 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       reconnectAttempt = 0;
       set({ connected: true, connecting: false, reconnecting: false });
       if (__DEV__) console.log(`[Multiplayer] Connected to ${GAME_SERVER_URL}, room ${room.roomId}`);
+
+      // Register push notification token (fire-and-forget)
+      registerForPushNotifications().then((token) => {
+        if (token && room) {
+          const wallet = useWalletStore.getState().publicKey?.toBase58();
+          if (wallet) {
+            room.send("register_push_token", { wallet, token });
+          }
+        }
+      }).catch(() => {});
+
       return true;
     } catch (err: any) {
       if (__DEV__) console.warn("[Multiplayer] Connection failed:", err.message);
