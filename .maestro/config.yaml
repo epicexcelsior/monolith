@@ -1,5 +1,0 @@
-appId: com.monolith.app
----
-# Maestro E2E test suite for Monolith
-# Run: maestro test .maestro/
-# Run single: maestro test .maestro/01-launch.yaml

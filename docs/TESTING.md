@@ -1,6 +1,6 @@
 # Monolith — Developer Testing Guide
 
-> Complete guide to testing locally: unit tests, multiplayer, emulator, E2E flows.
+> Complete guide to testing locally: unit tests, multiplayer, room integration.
 > For tester (APK user) instructions see `docs/TESTER_GUIDE.md`.
 
 ---
@@ -8,12 +8,19 @@
 ## Quick Reference
 
 ```bash
-./test.sh              # All unit tests + TypeScript checks
-./test.sh --unit       # Jest only (fast, ~15s)
-./test.sh --types      # TypeScript only (slow, ~60s)
-./test.sh --server     # Server tests + types
-./test.sh --e2e        # Maestro E2E flows (requires running app)
-./test.sh --watch      # Jest watch mode
+# Unit tests
+cd apps/mobile && npx jest --silent   # mobile (~15s)
+cd apps/server && npx jest --silent   # server (~5s)
+
+# TypeScript checks
+timeout 90 npx tsc --noEmit --project apps/mobile/tsconfig.json
+cd apps/server && npx tsc --noEmit
+
+# Room integration tests only (after server/TowerRoom changes)
+cd apps/server && npx jest __tests__/room --verbose
+
+# Full server test suite
+cd apps/server && npx jest --verbose
 
 ./dev.sh               # Start local server + Expo (physical device)
 ./dev.sh --prod        # Mobile → prod server (no local server)
@@ -30,9 +37,9 @@
 
 | Layer | Tool | What it covers | Speed |
 |-------|------|---------------|-------|
-| Unit + integration | Jest | Zustand stores, position math, XP engine, decoders | ~15s |
+| Unit + integration | Jest (mobile) | Zustand stores, position math, XP engine, decoders | ~15s |
+| Room integration | Jest (server) | Multiplayer message flows, ownership, cooldowns, bot sim | ~5s |
 | TypeScript | tsc | All types, mobile + server | ~60s |
-| E2E UI flows | Maestro | Tab navigation, block inspect, leaderboard | ~2 min |
 | Manual multiplayer | 2 clients | Claim/charge events visible to both, activity ticker | ~5 min |
 
 ---
@@ -57,8 +64,6 @@ npx jest --coverage
 npx jest --watch
 ```
 
-**Current targets:** 178 mobile tests, 26 server tests
-
 ### Key test suites
 
 | Suite | File | What it covers |
@@ -71,7 +76,33 @@ npx jest --watch
 
 ---
 
-## 2. TypeScript Checks
+## 2. Room Integration Tests (@colyseus/testing)
+
+Tests in `apps/server/__tests__/room/TowerRoom.test.ts` spin up a real TowerRoom
+in-process (no Supabase, no device) and test actual multiplayer message flows.
+
+```bash
+cd apps/server && npx jest __tests__/room --verbose
+```
+
+**What's covered:**
+- Join → `tower_state` delivered
+- Claim bot block → `claim_result.success=true` + `block_update` broadcast
+- Claim owned block → `error` message (ownership enforcement)
+- Charge own block after cooldown → `charge_result.success=true`
+- Charge another player's block → `error` message
+- Charge immediately after claim → cooldown rejected with `cooldownRemaining`
+- Bot simulation ticks → block energies change over 20 simulated ticks
+
+**Key design notes:**
+- Uses `WebSocketTransport` on localhost:2568 (not in-memory)
+- `jest.useFakeTimers({ doNotFake: ["Promise", "nextTick", "setImmediate"] })` keeps async working
+- Cooldown bypass: back-date `serverBlock.lastChargeTime` directly (don't use `advanceTimersByTime` for cooldowns — it breaks WS ping timers)
+- Ownership violations send `"error"` message, not `claim_result`/`charge_result`
+
+---
+
+## 3. TypeScript Checks
 
 ```bash
 # Mobile (must use timeout — tsc hangs in monorepo)
@@ -83,7 +114,7 @@ cd apps/server && npx tsc --noEmit
 
 ---
 
-## 3. Local Server Setup
+## 4. Local Server Setup
 
 ### Start server
 ```bash
@@ -124,7 +155,7 @@ curl http://localhost:2567/api/events
 
 ---
 
-## 4. Physical Device Testing
+## 5. Physical Device Testing
 
 ### One-command start
 ```bash
@@ -156,7 +187,7 @@ TowerRoom client joined
 
 ---
 
-## 5. Emulator Testing (Multiplayer Simulation)
+## 6. Emulator Testing (Multiplayer Simulation)
 
 Use the emulator as a **second client** alongside your physical device to test multiplayer.
 
@@ -185,14 +216,9 @@ If you restart the emulator manually:
 adb -s emulator-5554 reverse tcp:2567 tcp:2567
 ```
 
-### RAM considerations
-The emulator needs ~3GB RAM. On this machine (30GB total, ~18GB used):
-- Close other heavy apps before starting
-- If it crashes: reduce to 2GB in `~/.android/avd/Monolith_Test.avd/config.ini` → `hw.ramSize=2048`
-
 ---
 
-## 6. Manual Multiplayer Test Checklist
+## 7. Manual Multiplayer Test Checklist
 
 With **physical device + emulator** both running the app connected to local server:
 
@@ -237,44 +263,6 @@ With **physical device + emulator** both running the app connected to local serv
 
 ---
 
-## 7. Maestro E2E Flows
-
-Automated UI tests that run against a real device or emulator.
-
-### Prerequisites
-```bash
-# 1. App must be installed and running on a connected device
-# 2. Maestro installed (already done: ~/.maestro/bin/maestro)
-export PATH="$PATH:$HOME/.maestro/bin"
-```
-
-### Run all flows
-```bash
-./test.sh --e2e
-# or directly:
-maestro test .maestro/
-```
-
-### Run a single flow
-```bash
-maestro test .maestro/01-launch.yaml
-maestro test .maestro/03-navigation.yaml
-```
-
-### View screenshots
-Maestro saves screenshots to `.maestro/screenshots/` after each flow.
-
-### Available flows
-| Flow | Tests |
-|------|-------|
-| `01-launch.yaml` | App launches, tower renders |
-| `02-tower-interaction.yaml` | Block tap → inspector appears |
-| `03-navigation.yaml` | Tab bar navigation |
-| `04-leaderboard.yaml` | Board tab loads, entries visible, tappable |
-| `05-connection-status.yaml` | Connection banner state |
-
----
-
 ## 8. Server API Testing (curl / wscat)
 
 ### REST endpoints
@@ -301,15 +289,6 @@ wscat -c ws://localhost:2567
 {"type":"charge","blockId":"12-3","wallet":"<your-wallet>"}
 ```
 
-### Inject test events directly to Supabase
-```bash
-# Add a fake claim event (for testing activity feed)
-curl -X POST 'https://pscgsbdznfitscxflxrm.supabase.co/rest/v1/events' \
-  -H "apikey: sb_publishable_UIlZ_m0z0yx5sr3uqvNdEg_GN39XvoT" \
-  -H "Content-Type: application/json" \
-  -d '{"type":"claim","block_id":"1-0","wallet":"TestWallet","data":{"ownerName":"Test User"}}'
-```
-
 ---
 
 ## 9. Common Issues
@@ -334,10 +313,4 @@ curl -X POST 'https://pscgsbdznfitscxflxrm.supabase.co/rest/v1/events' \
 export ANDROID_HOME="$HOME/Android/Sdk"
 export PATH="$PATH:$ANDROID_HOME/platform-tools"
 export PATH="$PATH:$ANDROID_HOME/emulator"
-
-# Maestro
-export PATH="$PATH:$HOME/.maestro/bin"
-
-# Disable Maestro analytics (optional)
-export MAESTRO_CLI_NO_ANALYTICS=1
 ```
