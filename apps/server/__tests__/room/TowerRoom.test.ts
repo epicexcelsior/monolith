@@ -216,7 +216,75 @@ describe("TowerRoom — multiplayer integration", () => {
     expect(result.cooldownRemaining).toBeGreaterThan(0);
   }, 10_000);
 
-  // ── Test 7: Bot simulation ticks ─────────────────────────────────────────
+  // ── Test 7: Customize broadcasts to other clients with all fields ───────
+  it("customize broadcasts all appearance fields to other clients", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const clientA = await colyseus.connectTo(room, { wallet: WALLET_A });
+    const clientB = await colyseus.connectTo(room, { wallet: WALLET_B });
+    await nextTick();
+
+    // A claims a block — drain the claim broadcast from clientB first
+    const claimBroadcast = clientB.waitForMessage("block_update");
+    const claimed = clientA.waitForMessage("claim_result");
+    clientA.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_A, color: "#ff6600", amount: 1 });
+    await claimed;
+    await claimBroadcast; // drain claim broadcast
+
+    // A customizes — set up listeners BEFORE sending
+    const customizeResult = clientA.waitForMessage("customize_result");
+    const broadcastPromise = clientB.waitForMessage("block_update");
+
+    clientA.send("customize", {
+      blockId: BOT_BLOCK_ID,
+      wallet: WALLET_A,
+      changes: {
+        color: "#00ff00",
+        emoji: "🎨",
+        name: "MyBlock",
+        style: 3,
+        textureId: 2,
+      },
+    });
+
+    const [custResult, blockUpdate] = await Promise.all([customizeResult, broadcastPromise]);
+
+    expect(custResult.success).toBe(true);
+    expect(custResult.pointsEarned).toBeGreaterThanOrEqual(10);
+
+    expect(blockUpdate.eventType).toBe("customize");
+    expect(blockUpdate.appearance.color).toBe("#00ff00");
+    expect(blockUpdate.appearance.emoji).toBe("🎨");
+    expect(blockUpdate.appearance.name).toBe("MyBlock");
+    expect(blockUpdate.appearance.style).toBe(3);
+    expect(blockUpdate.appearance.textureId).toBe(2);
+    expect(blockUpdate.ownerColor).toBe("#00ff00");
+  }, 10_000);
+
+  // ── Test 8: Customize another player's block → error ───────────────────
+  it("cannot customize a block owned by another player", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const clientA = await colyseus.connectTo(room, { wallet: WALLET_A });
+    const clientB = await colyseus.connectTo(room, { wallet: WALLET_B });
+    await nextTick();
+
+    // A claims
+    const claimed = clientA.waitForMessage("claim_result");
+    clientA.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_A, color: "#ff6600", amount: 1 });
+    await claimed;
+
+    // B tries to customize A's block
+    const errorMsg = clientB.waitForMessage("error");
+    clientB.send("customize", {
+      blockId: BOT_BLOCK_ID,
+      wallet: WALLET_B,
+      changes: { color: "#0000ff" },
+    });
+    const err = await errorMsg;
+
+    expect(err.message).toMatch(/not your block/i);
+  }, 10_000);
+
+  // ── Test 9: Bot simulation ticks ─────────────────────────────────────────
   it("bot simulation changes block energy over time", async () => {
     const room = await colyseus.createRoom("tower", {});
     await colyseus.connectTo(room, {});

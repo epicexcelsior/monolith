@@ -292,6 +292,71 @@ describe("multiplayer block position computation", () => {
   });
 });
 
+describe("multiplayer customization broadcast", () => {
+  it("applies customize block update with emoji and name changes", async () => {
+    await useMultiplayerStore.getState().connect();
+
+    // Set initial state
+    const fullHandler = messageHandlers.get("tower_state");
+    fullHandler!({
+      blocks: [
+        makeServerBlock(0, 0, { energy: 50 }),
+      ],
+      stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 50 },
+      tick: 1,
+    });
+
+    const blocksBefore = useTowerStore.getState().demoBlocks;
+    expect(blocksBefore[0].emoji).toBe("🔥");
+    expect(blocksBefore[0].name).toBe("TestBot");
+
+    // Apply customize update — only emoji and name changed
+    const updateHandler = messageHandlers.get("block_update");
+    updateHandler!(makeServerBlock(0, 0, {
+      energy: 50, // unchanged
+      appearance: {
+        color: "#ff6600",
+        emoji: "🎨",
+        name: "NewName",
+        style: 0,
+        textureId: 0,
+      },
+      eventType: "customize",
+    }));
+
+    const blocksAfter = useTowerStore.getState().demoBlocks;
+    expect(blocksAfter[0].emoji).toBe("🎨");
+    expect(blocksAfter[0].name).toBe("NewName");
+  });
+
+  it("applies customize block update with style and textureId changes", async () => {
+    await useMultiplayerStore.getState().connect();
+
+    const fullHandler = messageHandlers.get("tower_state");
+    fullHandler!({
+      blocks: [makeServerBlock(0, 0)],
+      stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 75 },
+      tick: 1,
+    });
+
+    const updateHandler = messageHandlers.get("block_update");
+    updateHandler!(makeServerBlock(0, 0, {
+      appearance: {
+        color: "#ff6600",
+        emoji: "🔥",
+        name: "TestBot",
+        style: 3,
+        textureId: 2,
+      },
+      eventType: "customize",
+    }));
+
+    const blocks = useTowerStore.getState().demoBlocks;
+    expect(blocks[0].style).toBe(3);
+    expect(blocks[0].textureId).toBe(2);
+  });
+});
+
 describe("multiplayer send actions", () => {
   it("sendClaim sends claim message to room", async () => {
     await useMultiplayerStore.getState().connect();

@@ -273,7 +273,9 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
       cur.stakedAmount === updated.stakedAmount &&
       cur.streak === updated.streak &&
       cur.style === updated.style &&
-      cur.textureId === updated.textureId
+      cur.textureId === updated.textureId &&
+      cur.emoji === updated.emoji &&
+      cur.name === updated.name
     ) {
       return;
     }
