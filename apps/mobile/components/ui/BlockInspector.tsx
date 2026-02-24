@@ -47,6 +47,8 @@ import {
   playCustomize,
   playButtonTap,
   playPanelOpen,
+  playPokeSend,
+  playPokeReceive,
 } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
@@ -268,7 +270,7 @@ export default function BlockInspector() {
       return;
     }
     hapticButtonPress();
-    playButtonTap();
+    playPokeSend();
     sendPoke({ blockId: selectedBlockId, wallet: publicKey.toBase58() });
   }, [selectedBlockId, publicKey, mpConnected, canPoke, sendPoke]);
 
@@ -328,6 +330,7 @@ export default function BlockInspector() {
       if (result.success) {
         if (result.blockId) recordPoke(result.blockId);
         setPokeStatus(`Poked! +${result.energyAdded ?? 10}% energy sent`);
+        playPokeReceive();
         if (result.pointsEarned) {
           usePlayerStore.getState().addPoints({
             pointsEarned: result.pointsEarned,

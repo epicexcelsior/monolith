@@ -12,7 +12,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { ScreenLayout, Card, Button, Badge, ChargeBar } from "@/components/ui";
 import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress, setHapticsEnabled, isHapticsEnabled } from "@/utils/haptics";
-import { playButtonTap, setMuted, isMuted } from "@/utils/audio";
+import { playButtonTap, playToggle, setMuted, isMuted } from "@/utils/audio";
 
 /**
  * Me screen — Player profile, My Blocks grid, and account management.
@@ -266,10 +266,10 @@ export default function MeScreen() {
               style={styles.cardRow}
               onPress={() => {
                 const next = !soundMuted;
+                if (!next) playToggle(); // play before unmuting
                 setSoundMuted(next);
                 setMuted(next);
                 hapticButtonPress();
-                if (!next) playButtonTap();
               }}
             >
               <Text style={TEXT.bodySm}>Sound</Text>
@@ -285,6 +285,7 @@ export default function MeScreen() {
                 const next = !hapticsMuted;
                 setHapticsMuted(next);
                 setHapticsEnabled(!next);
+                playToggle();
                 if (!next) hapticButtonPress();
               }}
             >

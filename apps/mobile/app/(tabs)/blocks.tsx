@@ -17,6 +17,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { ScreenLayout, Card, Badge, Button, ChargeBar } from "@/components/ui";
 import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { playTabSwitch } from "@/utils/audio";
 import { isBotOwner } from "@/utils/seed-tower";
 import { GAME_SERVER_URL } from "@/constants/network";
 
@@ -521,6 +522,7 @@ export default function BoardScreen() {
               ]}
               onPress={() => {
                 hapticButtonPress();
+                playTabSwitch();
                 setActiveTab(key);
               }}
             >

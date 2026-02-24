@@ -63,11 +63,17 @@ export async function initAudio(): Promise<void> {
         await loadPlayer("buttonTap",     require("../assets/sfx/button-tap.wav"));
         await loadPlayer("layerScroll",   require("../assets/sfx/layer-scroll.wav"));
         await loadPlayer("panelOpen",     require("../assets/sfx/panel-open.wav"));
+        await loadPlayer("tabSwitch",     require("../assets/sfx/tab-switch.wav"));
+        await loadPlayer("toggle",        require("../assets/sfx/toggle.wav"));
 
         // Feedback tier (~-8dB)
         await loadPlayer("chargeTap",  require("../assets/sfx/charge-tap.wav"));
         await loadPlayer("customize",  require("../assets/sfx/customize.wav"));
         await loadPlayer("error",      require("../assets/sfx/error.wav"));
+        await loadPlayer("pokeSend",   require("../assets/sfx/poke-send.wav"));
+
+        // Notification tier (~-6dB)
+        await loadPlayer("pokeReceive", require("../assets/sfx/poke-receive.wav"));
 
         // Celebration tier (~-6dB)
         await loadPlayer("blockClaim",       require("../assets/sfx/block-claim.wav"));
@@ -129,6 +135,14 @@ export function playChargeTap()     { play("chargeTap"); }
 export function playCustomize()     { play("customize"); }
 /** Descending minor-3rd for errors */
 export function playError()         { play("error"); }
+/** Glass tap when poking another player's block */
+export function playPokeSend()      { play("pokeSend"); }
+/** Positive chime when someone pokes your block */
+export function playPokeReceive()   { play("pokeReceive"); }
+/** Tiny tick for tab switching */
+export function playTabSwitch()     { play("tabSwitch"); }
+/** Click for settings toggles */
+export function playToggle()        { play("toggle"); }
 
 // Celebration tier
 /** Glass impact → rising A major shimmer on claim */
