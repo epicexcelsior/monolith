@@ -106,6 +106,7 @@ interface MultiplayerStore {
   sendClaim: (msg: ClaimMessage) => void;
   sendCharge: (msg: ChargeMessage) => void;
   sendCustomize: (msg: CustomizeMessage) => void;
+  sendSetUsername: (msg: { wallet: string; username: string }) => void;
 }
 
 // Module-level refs
@@ -121,6 +122,7 @@ let claimResultCallback: ((result: ClaimResult) => void) | null = null;
 let customizeResultCallback: ((result: CustomizeResult) => void) | null = null;
 let errorCallback: ((error: { message: string }) => void) | null = null;
 let playerSyncCallback: ((data: any) => void) | null = null;
+let usernameResultCallback: ((data: { success: boolean; username?: string }) => void) | null = null;
 
 // ─── Position cache (computed once from shared layout) ───────
 const positionCache = new Map<number, { x: number; y: number; z: number }>();
@@ -392,6 +394,10 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         playerSyncCallback?.(data);
       });
 
+      room.onMessage("username_result", (data: { success: boolean; username?: string }) => {
+        usernameResultCallback?.(data);
+      });
+
       room.onMessage("error", (data: { message: string }) => {
         errorCallback?.(data);
       });
@@ -449,6 +455,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   sendClaim: (msg) => room?.send("claim", msg),
   sendCharge: (msg) => room?.send("charge", msg),
   sendCustomize: (msg) => room?.send("customize", msg),
+  sendSetUsername: (msg) => room?.send("set_username", msg),
 }));
 
 /** Exponential backoff reconnect */
@@ -492,6 +499,11 @@ export function onClaimResult(callback: (result: ClaimResult) => void) {
 /** Register a customize_result callback (replaces previous) */
 export function onCustomizeResult(callback: (result: CustomizeResult) => void) {
   customizeResultCallback = callback;
+}
+
+/** Register a username_result callback (replaces previous) */
+export function onUsernameResult(callback: (data: { success: boolean; username?: string }) => void) {
+  usernameResultCallback = callback;
 }
 
 /** Register a server error callback (replaces previous) */

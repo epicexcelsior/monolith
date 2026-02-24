@@ -33,8 +33,10 @@ jest.mock("../../src/utils/supabase.js", () => ({
       total_claims: 0,
       total_charges: 0,
       combo_best: 0,
+      username: null,
     })
   ),
+  setPlayerUsername: jest.fn().mockResolvedValue({ success: true }),
   upsertBlock: jest.fn(),
   bulkUpsertBlocks: jest.fn(),
   updatePlayerXp: jest.fn(),
@@ -284,7 +286,81 @@ describe("TowerRoom — multiplayer integration", () => {
     expect(err.message).toMatch(/not your block/i);
   }, 10_000);
 
-  // ── Test 9: Bot simulation ticks ─────────────────────────────────────────
+  // ── Test 9: Set username ────────────────────────────────────────────────
+  it("set_username validates and returns success", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const client = await colyseus.connectTo(room, { wallet: WALLET_A });
+    await nextTick();
+
+    const result = client.waitForMessage("username_result");
+    client.send("set_username", { wallet: WALLET_A, username: "TestPlayer" });
+    const msg = await result;
+
+    expect(msg.success).toBe(true);
+    expect(msg.username).toBe("TestPlayer");
+  }, 10_000);
+
+  it("set_username rejects too-short username", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const client = await colyseus.connectTo(room, { wallet: WALLET_A });
+    await nextTick();
+
+    const errorMsg = client.waitForMessage("error");
+    client.send("set_username", { wallet: WALLET_A, username: "ab" });
+    const err = await errorMsg;
+
+    expect(err.message).toMatch(/3-20 characters/i);
+  }, 10_000);
+
+  it("set_username rejects invalid characters", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const client = await colyseus.connectTo(room, { wallet: WALLET_A });
+    await nextTick();
+
+    const errorMsg = client.waitForMessage("error");
+    client.send("set_username", { wallet: WALLET_A, username: "test player!" });
+    const err = await errorMsg;
+
+    expect(err.message).toMatch(/letters, numbers, and underscores/i);
+  }, 10_000);
+
+  it("set_username rejects duplicate username (in-memory check)", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const clientA = await colyseus.connectTo(room, { wallet: WALLET_A });
+    const clientB = await colyseus.connectTo(room, { wallet: WALLET_B });
+    await nextTick();
+
+    // A sets username
+    const resultA = clientA.waitForMessage("username_result");
+    clientA.send("set_username", { wallet: WALLET_A, username: "UniqueOne" });
+    await resultA;
+
+    // B tries same username (case-insensitive)
+    const errorMsg = clientB.waitForMessage("error");
+    clientB.send("set_username", { wallet: WALLET_B, username: "uniqueone" });
+    const err = await errorMsg;
+
+    expect(err.message).toMatch(/already taken/i);
+  }, 10_000);
+
+  it("player_sync includes username after set_username", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const client = await colyseus.connectTo(room, { wallet: WALLET_A });
+    await nextTick();
+
+    // Set username
+    const usernameResult = client.waitForMessage("username_result");
+    client.send("set_username", { wallet: WALLET_A, username: "MyName" });
+    await usernameResult;
+
+    // Reconnect — player_sync should include username
+    const client2 = await colyseus.connectTo(room, { wallet: WALLET_A });
+    const sync = await client2.waitForMessage("player_sync");
+
+    expect(sync.username).toBe("MyName");
+  }, 10_000);
+
+  // ── Test 10: Bot simulation ticks ─────────────────────────────────────────
   it("bot simulation changes block energy over time", async () => {
     const room = await colyseus.createRoom("tower", {});
     await colyseus.connectTo(room, {});

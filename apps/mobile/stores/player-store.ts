@@ -18,6 +18,7 @@ interface PlayerStore {
   totalClaims: number;
   totalCharges: number;
   comboBest: number;
+  username: string | null;
 
   // ─── Actions ──────────────────────────────
   addPoints: (data: {
@@ -33,7 +34,9 @@ interface PlayerStore {
     totalClaims?: number;
     totalCharges?: number;
     comboBest?: number;
+    username?: string | null;
   }) => void;
+  setUsername: (username: string) => void;
   clearPoints: () => void;
   clearLevelUp: () => void;
 }
@@ -51,6 +54,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   totalClaims: 0,
   totalCharges: 0,
   comboBest: 0,
+  username: null,
 
   addPoints: (data) => {
     // Clear any pending timers
@@ -86,8 +90,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       totalClaims: data.totalClaims ?? get().totalClaims,
       totalCharges: data.totalCharges ?? get().totalCharges,
       comboBest: data.comboBest ?? get().comboBest,
+      username: data.username ?? get().username,
     });
   },
+
+  setUsername: (username) => set({ username }),
 
   clearPoints: () => set({ lastPointsEarned: null, lastCombo: null }),
   clearLevelUp: () => set({ levelUp: null }),

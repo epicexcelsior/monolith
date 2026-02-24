@@ -10,6 +10,7 @@ import {
   insertEvent,
   loadOrCreatePlayer,
   updatePlayerXp,
+  setPlayerUsername,
 } from "../utils/supabase.js";
 import {
   computeXp,
@@ -114,6 +115,7 @@ interface PlayerState {
   totalClaims: number;
   totalCharges: number;
   comboBest: number;
+  username: string | null;
 }
 
 export class TowerRoom extends Room<TowerRoomState> {
@@ -504,6 +506,52 @@ export class TowerRoom extends Room<TowerRoomState> {
       }
     });
 
+    this.onMessage("set_username", async (client: Client, msg: { wallet: string; username: string }) => {
+      try {
+        if (!msg.wallet || !msg.username) {
+          client.send("error", { message: "Wallet and username required" });
+          return;
+        }
+
+        const username = msg.username.trim();
+
+        // Validate: 3-20 chars, alphanumeric + underscore only
+        if (username.length < 3 || username.length > 20) {
+          client.send("error", { message: "Username must be 3-20 characters" });
+          return;
+        }
+        if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+          client.send("error", { message: "Username can only contain letters, numbers, and underscores" });
+          return;
+        }
+
+        // Check in-memory for duplicate (quick check before Supabase)
+        for (const [wallet, playerState] of this.players) {
+          if (wallet !== msg.wallet && playerState.username?.toLowerCase() === username.toLowerCase()) {
+            client.send("error", { message: "Username already taken" });
+            return;
+          }
+        }
+
+        // Persist to Supabase
+        const result = await setPlayerUsername(msg.wallet, username);
+        if (!result.success) {
+          client.send("error", { message: result.error || "Failed to set username" });
+          return;
+        }
+
+        // Update in-memory state
+        const player = await this.getOrCreatePlayer(msg.wallet);
+        player.username = username;
+
+        client.send("username_result", { success: true, username });
+        console.log(`[TowerRoom] ${msg.wallet.slice(0, 8)}... set username to "${username}"`);
+      } catch (err) {
+        console.error("[TowerRoom] set_username error:", err);
+        client.send("error", { message: "Failed to set username" });
+      }
+    });
+
     this.onMessage("register_push_token", (client: Client, msg: { wallet: string; token: string }) => {
       try {
         if (!msg.wallet || !msg.token) return;
@@ -532,6 +580,7 @@ export class TowerRoom extends Room<TowerRoomState> {
           totalClaims: player.totalClaims,
           totalCharges: player.totalCharges,
           comboBest: player.comboBest,
+          username: player.username,
         });
       } catch (err) {
         console.error("[TowerRoom] player_sync error:", err);
@@ -578,6 +627,7 @@ export class TowerRoom extends Room<TowerRoomState> {
       totalClaims: row.total_claims,
       totalCharges: row.total_charges,
       comboBest: row.combo_best,
+      username: row.username ?? null,
     };
     this.players.set(wallet, player);
     return player;

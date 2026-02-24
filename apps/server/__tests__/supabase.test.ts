@@ -54,6 +54,7 @@ describe("supabase graceful fallback", () => {
       total_claims: 0,
       total_charges: 0,
       combo_best: 0,
+      username: null,
     });
   });
 

@@ -119,14 +119,15 @@ interface PlayerRow {
   total_claims: number;
   total_charges: number;
   combo_best: number;
+  username: string | null;
 }
 
-const PLAYER_COLUMNS = "wallet, xp, level, total_claims, total_charges, combo_best";
+const PLAYER_COLUMNS = "wallet, xp, level, total_claims, total_charges, combo_best, username";
 
 export async function loadOrCreatePlayer(wallet: string): Promise<PlayerRow> {
   const client = getClient();
   if (!client) {
-    return { wallet, xp: 0, level: 1, total_claims: 0, total_charges: 0, combo_best: 0 };
+    return { wallet, xp: 0, level: 1, total_claims: 0, total_charges: 0, combo_best: 0, username: null };
   }
 
   const { data, error } = await client
@@ -144,6 +145,7 @@ export async function loadOrCreatePlayer(wallet: string): Promise<PlayerRow> {
       total_claims: 0,
       total_charges: 0,
       combo_best: 0,
+      username: null,
     };
 
     client
@@ -181,6 +183,29 @@ export function updatePlayerXp(
     .then(({ error }) => {
       if (error) console.error("[Supabase] updatePlayerXp error:", error.message);
     });
+}
+
+/** Set username for a player. Returns error message if failed (e.g., duplicate). */
+export async function setPlayerUsername(
+  wallet: string,
+  username: string,
+): Promise<{ success: boolean; error?: string }> {
+  const client = getClient();
+  if (!client) return { success: true }; // no-op in dev without Supabase
+
+  const { error } = await client
+    .from("players")
+    .update({ username, updated_at: new Date().toISOString() })
+    .eq("wallet", wallet);
+
+  if (error) {
+    if (error.message.includes("unique") || error.code === "23505") {
+      return { success: false, error: "Username already taken" };
+    }
+    console.error("[Supabase] setPlayerUsername error:", error.message);
+    return { success: false, error: "Failed to set username" };
+  }
+  return { success: true };
 }
 
 // ─── Events ───────────────────────────────────────────────
