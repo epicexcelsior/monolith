@@ -16,11 +16,9 @@ import ActionPrompt from "@/components/ui/ActionPrompt";
 import TowerStats from "@/components/ui/TowerStats";
 import FloatingPoints from "@/components/ui/FloatingPoints";
 import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
-import ActivityTicker from "@/components/ui/ActivityTicker";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import ScreenFlash from "@/components/ui/ScreenFlash";
 import HotBlockTicker from "@/components/ui/HotBlockTicker";
-import ActivityFeed from "@/components/ui/ActivityFeed";
 import AchievementToast from "@/components/ui/AchievementToast";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import MyBlocksPanel from "@/components/ui/MyBlocksPanel";
@@ -129,13 +127,6 @@ export default function TowerScreen() {
           },
         ]}
       >
-        {/* Activity ticker — visible during onboarding title phase for social proof */}
-        {(onboardingPhase === "title" || !isOnboarding) && !selectedBlockId && (
-          <View style={styles.tickerOverlay} pointerEvents="none">
-            <ActivityTicker />
-          </View>
-        )}
-
         {/* HUD Overlay — hidden during onboarding for cleaner experience */}
         {!isOnboarding && (
           <View testID="tower-hud" style={styles.hud} pointerEvents="box-none">
@@ -197,12 +188,6 @@ export default function TowerScreen() {
             {/* Tower stats bar */}
             {initialized && <TowerStats />}
 
-            {/* Activity ticker (hidden during block inspect, already shown via overlay during onboarding) */}
-            {!selectedBlockId && <ActivityTicker />}
-
-            {/* Hot block ticker — surfaces claimable/fading/streak blocks */}
-            {initialized && <HotBlockTicker />}
-
             {/* Spacer to push bottom content down */}
             <View style={{ flex: 1 }} />
 
@@ -233,8 +218,8 @@ export default function TowerScreen() {
         {/* Onboarding — inside wrapper so it hides during claim celebration */}
         {initialized && isOnboarding && <OnboardingFlow />}
 
-        {/* Activity feed — floating event log at bottom, pointerEvents="none" */}
-        <ActivityFeed />
+        {/* Hot block ticker — bottom-left, unobtrusive */}
+        {initialized && !isOnboarding && <HotBlockTicker />}
 
         {/* Achievement toast — slides in from top, auto-dismisses */}
         <AchievementToast />
@@ -327,13 +312,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 12,
     letterSpacing: 0.5,
-  },
-  tickerOverlay: {
-    position: "absolute",
-    top: SPACING.xxl * 2,
-    left: SPACING.md,
-    right: SPACING.md,
-    zIndex: 50,
   },
   bottomArea: {
     alignItems: "center",
