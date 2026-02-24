@@ -84,7 +84,7 @@ export default function TitleReveal({ visible, onComplete }: TitleRevealProps) {
 
                 <Animated.View style={[styles.taglineContainer, { opacity: subtitleFade }]}>
                     <Text style={styles.tagline}>
-                        650 blocks. One tower.
+                        650 blocks. Real people. Real stakes.
                     </Text>
                     <Text style={styles.taglineAccent}>
                         Yours to keep — or lose.

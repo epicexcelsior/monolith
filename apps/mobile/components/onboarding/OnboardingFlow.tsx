@@ -310,7 +310,8 @@ export default function OnboardingFlow() {
                     <View style={styles.revealDivider} />
                     <Text style={styles.revealStakes}>
                         Your block decays every day.{"\n"}
-                        Charge it to keep it alive.
+                        Charge it to keep it alive.{"\n"}
+                        Poke neighbors to give them energy.
                     </Text>
                     <Text style={styles.revealWarning}>
                         Miss 3 days and anyone can take it.
