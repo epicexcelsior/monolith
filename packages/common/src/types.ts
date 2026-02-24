@@ -186,10 +186,15 @@ export interface CustomizeMessage {
   };
 }
 
+export interface PokeMessage {
+  blockId: string;
+  wallet: string;
+}
+
 /** Activity event for real-time feed */
 export interface ActivityEvent {
   id: string;
-  type: "claim" | "charge" | "customize";
+  type: "claim" | "charge" | "customize" | "poke";
   blockId: string;
   owner: string;
   ownerColor?: string;

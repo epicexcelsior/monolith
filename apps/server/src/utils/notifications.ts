@@ -15,7 +15,8 @@ export type NotificationType =
   | "block_dormant"
   | "block_reclaimed"
   | "new_neighbor"
-  | "streak_reminder";
+  | "streak_reminder"
+  | "poke";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_BATCH_SIZE = 100;

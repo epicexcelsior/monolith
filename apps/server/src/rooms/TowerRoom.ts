@@ -2,7 +2,7 @@ import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
 import { MAX_ENERGY } from "@monolith/common";
-import type { ClaimMessage, ChargeMessage, CustomizeMessage } from "@monolith/common";
+import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage } from "@monolith/common";
 import {
   loadPlayerBlocks,
   upsertBlock,
@@ -124,6 +124,7 @@ export class TowerRoom extends Room<TowerRoomState> {
   private persistenceInterval!: ReturnType<typeof setInterval>;
   private stopBotSim!: () => void;
   private players = new Map<string, PlayerState>();
+  private pokeCooldowns = new Map<string, number>(); // key: "${poker}:${blockId}" → timestamp
   private chargesToday = 0;
   private lastResetDate = new Date().toISOString().slice(0, 10);
   private decayTickCounter = 0;
@@ -503,6 +504,113 @@ export class TowerRoom extends Room<TowerRoomState> {
       } catch (err) {
         console.error("[TowerRoom] Customize error:", err);
         client.send("error", { message: "Customize failed" });
+      }
+    });
+
+    this.onMessage("poke", async (client: Client, msg: PokeMessage) => {
+      try {
+        const block = this.state.blocks.get(msg.blockId);
+        if (!block) {
+          client.send("error", { message: "Block not found" });
+          return;
+        }
+
+        if (!block.owner) {
+          client.send("error", { message: "Block has no owner to poke" });
+          return;
+        }
+
+        // Cannot poke own block
+        if (block.owner === msg.wallet) {
+          client.send("error", { message: "You can't poke your own block" });
+          return;
+        }
+
+        // Cooldown: 1 poke per block per 24h per poker
+        const cooldownKey = `${msg.wallet}:${msg.blockId}`;
+        const lastPoke = this.pokeCooldowns.get(cooldownKey);
+        const now = Date.now();
+        const POKE_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+        if (lastPoke && now - lastPoke < POKE_COOLDOWN_MS) {
+          const remainingMs = POKE_COOLDOWN_MS - (now - lastPoke);
+          client.send("error", { message: `Already poked this block. Try again in ${Math.ceil(remainingMs / 3600000)}h` });
+          return;
+        }
+
+        // Apply poke: +10% energy (capped at MAX_ENERGY)
+        const energyBoost = Math.round(MAX_ENERGY * 0.1);
+        block.energy = Math.min(MAX_ENERGY, block.energy + energyBoost);
+
+        // Record cooldown
+        this.pokeCooldowns.set(cooldownKey, now);
+
+        // XP for poker (15 XP)
+        const player = await this.getOrCreatePlayer(msg.wallet);
+        const comboCount = incrementCombo(msg.wallet);
+        const pointsEarned = 15;
+        player.xp += pointsEarned;
+        const oldLevel = player.level;
+        player.level = computeLevel(player.xp);
+        const levelUp = player.level > oldLevel;
+
+        updatePlayerXp(msg.wallet, player.xp, player.level);
+        insertEvent("poke", msg.blockId, msg.wallet, {
+          targetOwner: block.owner,
+          energyAdded: energyBoost,
+        });
+
+        // Persist block
+        upsertBlock(blockToRow(block));
+
+        // Send result to poker
+        client.send("poke_result", {
+          success: true,
+          blockId: msg.blockId,
+          energyAdded: energyBoost,
+          pointsEarned,
+          combo: comboCount,
+          totalXp: player.xp,
+          level: player.level,
+          levelUp,
+        });
+
+        // Broadcast block update
+        this.broadcast("block_update", {
+          ...serializeBlock(block),
+          eventType: "charge", // Show as charge effect visually
+        });
+
+        // Send poke_received to pokee if online
+        const pokerPlayer = this.players.get(msg.wallet);
+        const pokerName = pokerPlayer?.username || msg.wallet.slice(0, 8) + "...";
+
+        // Find pokee's client
+        for (const otherClient of this.clients) {
+          if ((otherClient as any)._wallet === block.owner) {
+            otherClient.send("poke_received", {
+              fromName: pokerName,
+              blockId: msg.blockId,
+              energyAdded: energyBoost,
+            });
+          }
+        }
+
+        // Push notification to pokee
+        if (!isBotOwner(block.owner)) {
+          sendPlayerNotification(
+            block.owner,
+            "poke",
+            "You got poked!",
+            `${pokerName} poked your block on floor ${block.layer + 1}! +${energyBoost}% energy`,
+            { blockId: block.id, from: msg.wallet },
+          );
+        }
+
+        console.log(`[TowerRoom] ${msg.wallet.slice(0, 8)}... poked ${msg.blockId} (owner: ${block.owner.slice(0, 8)}...)`);
+      } catch (err) {
+        console.error("[TowerRoom] Poke error:", err);
+        client.send("error", { message: "Poke failed" });
       }
     });
 

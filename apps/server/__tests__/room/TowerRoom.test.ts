@@ -360,7 +360,85 @@ describe("TowerRoom — multiplayer integration", () => {
     expect(sync.username).toBe("MyName");
   }, 10_000);
 
-  // ── Test 10: Bot simulation ticks ─────────────────────────────────────────
+  // ── Test 14: Poke another player's block → success ────────────────────
+  it("poke adds energy to target block and awards XP to poker", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const clientA = await colyseus.connectTo(room, { wallet: WALLET_A });
+    const clientB = await colyseus.connectTo(room, { wallet: WALLET_B });
+    await nextTick();
+
+    // A claims a block
+    const claimBroadcast = clientB.waitForMessage("block_update");
+    const claimed = clientA.waitForMessage("claim_result");
+    clientA.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_A, color: "#ff6600", amount: 1 });
+    await claimed;
+    await claimBroadcast;
+
+    // B pokes A's block
+    const pokeResult = clientB.waitForMessage("poke_result");
+    clientB.send("poke", { blockId: BOT_BLOCK_ID, wallet: WALLET_B });
+    const result = await pokeResult;
+
+    expect(result.success).toBe(true);
+    expect(result.energyAdded).toBe(10); // 10% of MAX_ENERGY(100)
+    expect(result.pointsEarned).toBe(15);
+  }, 10_000);
+
+  // ── Test 15: Cannot poke own block ────────────────────────────────────
+  it("cannot poke own block", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const client = await colyseus.connectTo(room, { wallet: WALLET_A });
+    await nextTick();
+
+    // Claim a block
+    const claimed = client.waitForMessage("claim_result");
+    client.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_A, color: "#ff6600", amount: 1 });
+    await claimed;
+
+    // Try to poke own block
+    const errorMsg = client.waitForMessage("error");
+    client.send("poke", { blockId: BOT_BLOCK_ID, wallet: WALLET_A });
+    const err = await errorMsg;
+
+    expect(err.message).toMatch(/can't poke your own/i);
+  }, 10_000);
+
+  // ── Test 16: Can poke bot blocks ──────────────────────────────────────
+  it("can poke bot-owned blocks", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const client = await colyseus.connectTo(room, { wallet: WALLET_A });
+    await nextTick();
+
+    // Poke a bot block (BOT_BLOCK_ID_2 is bot-owned)
+    const pokeResult = client.waitForMessage("poke_result");
+    client.send("poke", { blockId: BOT_BLOCK_ID_2, wallet: WALLET_A });
+    const result = await pokeResult;
+
+    expect(result.success).toBe(true);
+    expect(result.energyAdded).toBe(10);
+  }, 10_000);
+
+  // ── Test 17: Poke cooldown enforced ───────────────────────────────────
+  it("second poke to same block is rejected (24h cooldown)", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const client = await colyseus.connectTo(room, { wallet: WALLET_A });
+    await nextTick();
+
+    // Use BOT_BLOCK_ID_2 (known to work from test 16)
+    const firstPoke = client.waitForMessage("poke_result");
+    client.send("poke", { blockId: BOT_BLOCK_ID_2, wallet: WALLET_A });
+    await firstPoke;
+    await nextTick();
+
+    // Second poke to same block — should fail due to cooldown
+    const errorMsg = client.waitForMessage("error");
+    client.send("poke", { blockId: BOT_BLOCK_ID_2, wallet: WALLET_A });
+    const err = await errorMsg;
+
+    expect(err.message).toMatch(/already poked/i);
+  }, 10_000);
+
+  // ── Test 18: Bot simulation ticks ─────────────────────────────────────────
   it("bot simulation changes block energy over time", async () => {
     const room = await colyseus.createRoom("tower", {});
     await colyseus.connectTo(room, {});
