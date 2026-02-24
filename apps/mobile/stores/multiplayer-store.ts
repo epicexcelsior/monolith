@@ -3,6 +3,7 @@ import { Client, Room } from "colyseus.js";
 import { GAME_SERVER_URL } from "@/constants/network";
 import { useTowerStore } from "@/stores/tower-store";
 import type { DemoBlock } from "@/stores/tower-store";
+import { useActivityStore } from "@/stores/activity-store";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, ActivityEvent } from "@monolith/common";
 import { registerForPushNotifications } from "@/utils/notifications";
 import { useWalletStore } from "@/stores/wallet-store";
@@ -292,8 +293,27 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
     towerStore.setRecentlyChargedId(serverBlock.id);
   }
 
-  // Push to recent events
+  // Push to recent events + activity feed
   if (serverBlock.eventType) {
+    const ownerName = serverBlock.appearance?.name || serverBlock.owner || "Unknown";
+    const truncatedOwner = ownerName.length > 12 ? ownerName.slice(0, 8) + "..." : ownerName;
+    const layerNum = serverBlock.layer + 1;
+
+    let message: string;
+    switch (serverBlock.eventType) {
+      case "claim":
+        message = `${truncatedOwner} claimed a block on Layer ${layerNum}!`;
+        break;
+      case "charge":
+        message = `${truncatedOwner} charged their block on Layer ${layerNum}`;
+        break;
+      case "customize":
+        message = `${truncatedOwner} customized their block on Layer ${layerNum}`;
+        break;
+      default:
+        message = `${truncatedOwner} updated a block on Layer ${layerNum}`;
+    }
+
     const event: ActivityEvent = {
       id: `${serverBlock.id}-${Date.now()}`,
       type: serverBlock.eventType,
@@ -301,10 +321,14 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
       owner: serverBlock.owner || "Unknown",
       ownerColor: serverBlock.ownerColor,
       timestamp: Date.now(),
+      message,
     };
     const mpStore = useMultiplayerStore.getState();
     const events = [event, ...mpStore.recentEvents].slice(0, MAX_RECENT_EVENTS);
     useMultiplayerStore.setState({ recentEvents: events });
+
+    // Dispatch to activity-store for ActivityFeed component
+    useActivityStore.getState().addEvent(event);
   }
 }
 

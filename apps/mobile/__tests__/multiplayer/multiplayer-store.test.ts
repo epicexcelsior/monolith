@@ -31,6 +31,16 @@ jest.mock("@/services/mwa", () => ({
   },
 }));
 
+// Mock activity-store
+const mockAddEvent = jest.fn();
+jest.mock("@/stores/activity-store", () => ({
+  useActivityStore: {
+    getState: () => ({
+      addEvent: mockAddEvent,
+    }),
+  },
+}));
+
 // Mock colyseus.js — capture message handlers so we can trigger them in tests
 type MessageHandler = (data: any) => void;
 const messageHandlers = new Map<string, MessageHandler>();
@@ -99,6 +109,7 @@ beforeEach(() => {
   mockRoom.onError.mockClear();
   mockRoom.onLeave.mockClear();
   mockClient.joinOrCreate.mockClear().mockResolvedValue(mockRoom);
+  mockAddEvent.mockClear();
 });
 
 // ─── Helper: Create a server block ─────────────────────────
@@ -289,6 +300,104 @@ describe("multiplayer block position computation", () => {
     expect(posAfter.x).toBeCloseTo(posBefore.x, 5);
     expect(posAfter.y).toBeCloseTo(posBefore.y, 5);
     expect(posAfter.z).toBeCloseTo(posBefore.z, 5);
+  });
+});
+
+describe("multiplayer activity-store wiring", () => {
+  it("block_update with claim triggers addEvent with message", async () => {
+    await useMultiplayerStore.getState().connect();
+
+    const fullHandler = messageHandlers.get("tower_state");
+    fullHandler!({
+      blocks: [makeServerBlock(0, 0, { energy: 50 })],
+      stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 50 },
+      tick: 1,
+    });
+
+    mockAddEvent.mockClear();
+    const updateHandler = messageHandlers.get("block_update");
+    updateHandler!(makeServerBlock(0, 0, {
+      energy: 100,
+      owner: "PlayerX",
+      ownerColor: "#ff0000",
+      eventType: "claim",
+    }));
+
+    expect(mockAddEvent).toHaveBeenCalledTimes(1);
+    const event = mockAddEvent.mock.calls[0][0];
+    expect(event.type).toBe("claim");
+    expect(event.message).toContain("claimed");
+    expect(event.message).toContain("Layer 1");
+  });
+
+  it("block_update with charge triggers addEvent with message", async () => {
+    await useMultiplayerStore.getState().connect();
+
+    const fullHandler = messageHandlers.get("tower_state");
+    fullHandler!({
+      blocks: [makeServerBlock(2, 1, { energy: 50 })],
+      stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 50 },
+      tick: 1,
+    });
+
+    mockAddEvent.mockClear();
+    const updateHandler = messageHandlers.get("block_update");
+    updateHandler!(makeServerBlock(2, 1, {
+      energy: 70,
+      eventType: "charge",
+    }));
+
+    expect(mockAddEvent).toHaveBeenCalledTimes(1);
+    const event = mockAddEvent.mock.calls[0][0];
+    expect(event.type).toBe("charge");
+    expect(event.message).toContain("charged");
+    expect(event.message).toContain("Layer 3");
+  });
+
+  it("block_update with customize triggers addEvent with message", async () => {
+    await useMultiplayerStore.getState().connect();
+
+    const fullHandler = messageHandlers.get("tower_state");
+    fullHandler!({
+      blocks: [makeServerBlock(0, 0, { energy: 50 })],
+      stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 50 },
+      tick: 1,
+    });
+
+    mockAddEvent.mockClear();
+    const updateHandler = messageHandlers.get("block_update");
+    updateHandler!(makeServerBlock(0, 0, {
+      appearance: {
+        color: "#00ff00",
+        emoji: "🎨",
+        name: "MyBlock",
+        style: 3,
+        textureId: 0,
+      },
+      eventType: "customize",
+    }));
+
+    expect(mockAddEvent).toHaveBeenCalledTimes(1);
+    const event = mockAddEvent.mock.calls[0][0];
+    expect(event.type).toBe("customize");
+    expect(event.message).toContain("customized");
+  });
+
+  it("block_update without eventType does not trigger addEvent", async () => {
+    await useMultiplayerStore.getState().connect();
+
+    const fullHandler = messageHandlers.get("tower_state");
+    fullHandler!({
+      blocks: [makeServerBlock(0, 0, { energy: 50 })],
+      stats: { totalBlocks: 1, occupiedBlocks: 1, activeUsers: 1, averageEnergy: 50 },
+      tick: 1,
+    });
+
+    mockAddEvent.mockClear();
+    const updateHandler = messageHandlers.get("block_update");
+    updateHandler!(makeServerBlock(0, 0, { energy: 100 }));
+
+    expect(mockAddEvent).not.toHaveBeenCalled();
   });
 });
 
