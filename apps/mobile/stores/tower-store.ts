@@ -9,6 +9,7 @@ import type {
 } from "@monolith/common";
 import { DEFAULT_TOWER_CONFIG, MAX_ENERGY } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
+import { useAchievementStore } from "@/stores/achievement-store";
 import { SECURE_STORE_KEYS } from "@/services/mwa";
 
 // ─── Storage Helpers ──────────────────────────────────────
@@ -335,6 +336,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       recentlyClaimedId: blockId,
     }));
     get().persistBlocks();
+    useAchievementStore.getState().checkAndUnlock("first_claim");
   },
 
   chargeBlock: (blockId) => {
@@ -386,6 +388,11 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       ),
     }));
     get().persistBlocks();
+    // Unlock streak achievements on milestone days
+    if (newStreak >= 3)  useAchievementStore.getState().checkAndUnlock("streak_3");
+    if (newStreak >= 7)  useAchievementStore.getState().checkAndUnlock("streak_7");
+    if (newStreak >= 14) useAchievementStore.getState().checkAndUnlock("streak_14");
+    if (newStreak >= 30) useAchievementStore.getState().checkAndUnlock("streak_30");
     return { success: true, streak: newStreak, multiplier, chargeAmount };
   },
 
