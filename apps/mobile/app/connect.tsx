@@ -5,6 +5,7 @@ import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { Button, Card } from "@/components/ui";
 import { TEXT, COLORS, SPACING } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { playButtonTap } from "@/utils/audio";
 
 /**
  * Wallet connect modal screen.
@@ -25,6 +26,7 @@ export default function ConnectScreen() {
   const handleConnect = async () => {
     try {
       hapticButtonPress();
+      playButtonTap();
       await connect();
       // Success — navigate back to the tower
       router.back();

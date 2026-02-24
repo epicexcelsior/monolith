@@ -11,6 +11,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { ScreenLayout, Card, Button, Badge, ChargeBar } from "@/components/ui";
 import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { playButtonTap, setMuted, isMuted } from "@/utils/audio";
 
 /**
  * Me screen — Player profile, My Blocks grid, and account management.
@@ -30,6 +31,7 @@ export default function MeScreen() {
   const resetTower = useTowerStore((s) => s.resetTower);
   const cluster = getClusterName();
   const [showSettings, setShowSettings] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(isMuted());
 
   const xp = usePlayerStore((s) => s.xp);
   const level = usePlayerStore((s) => s.level);
@@ -151,6 +153,7 @@ export default function MeScreen() {
                 style={styles.blockCard}
                 onPress={() => {
                   hapticButtonPress();
+                  playButtonTap();
                   selectBlock(block.id);
                   router.push("/(tabs)");
                 }}
@@ -230,6 +233,7 @@ export default function MeScreen() {
         variant="ghost"
         onPress={() => {
           hapticButtonPress();
+          playButtonTap();
           router.push("/faucet" as any);
         }}
       />
@@ -239,6 +243,7 @@ export default function MeScreen() {
         style={styles.settingsToggle}
         onPress={() => {
           hapticButtonPress();
+          playButtonTap();
           setShowSettings(!showSettings);
         }}
       >
@@ -252,6 +257,23 @@ export default function MeScreen() {
 
       {showSettings && (
         <View style={styles.settingsSection}>
+          <Card>
+            <TouchableOpacity
+              style={styles.cardRow}
+              onPress={() => {
+                const next = !soundMuted;
+                setSoundMuted(next);
+                setMuted(next);
+                hapticButtonPress();
+                if (!next) playButtonTap();
+              }}
+            >
+              <Text style={TEXT.bodySm}>Sound</Text>
+              <Text style={[TEXT.bodySm, { color: soundMuted ? COLORS.textMuted : COLORS.gold, fontWeight: "600" }]}>
+                {soundMuted ? "OFF" : "ON"}
+              </Text>
+            </TouchableOpacity>
+          </Card>
           <Card>
             <View style={styles.cardRow}>
               <Text style={TEXT.bodySm}>Network</Text>

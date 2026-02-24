@@ -32,13 +32,20 @@ import {
   hapticBlockDeselect,
   hapticButtonPress,
   hapticError,
+  hapticBlockClaimed,
+  hapticChargeTap,
+  hapticCustomize,
+  hapticStreakMilestone,
 } from "@/utils/haptics";
 import {
   playChargeTap,
-  playBlockSelect,
   playBlockDeselect,
+  playBlockClaim,
   playStreakMilestone,
   playError,
+  playCustomize,
+  playButtonTap,
+  playPanelOpen,
 } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
@@ -134,6 +141,7 @@ export default function BlockInspector() {
         onPanResponderRelease: (_, gesture) => {
           if (gesture.dy > DISMISS_THRESHOLD || gesture.vy > 0.5) {
             hapticBlockDeselect();
+            playBlockDeselect();
             selectBlock(null);
           }
           Animated.spring(dragOffset, {
@@ -147,6 +155,7 @@ export default function BlockInspector() {
   );
 
   useEffect(() => {
+    if (isVisible) playPanelOpen();
     Animated.spring(slideAnim, {
       toValue: isVisible ? 0 : PANEL_HEIGHT,
       ...TIMING.spring,
@@ -192,6 +201,8 @@ export default function BlockInspector() {
       sendClaim({ blockId: selectedBlockId, wallet, amount: amount * 1_000_000, color });
     } else {
       claimBlock(selectedBlockId, wallet, amount * 1_000_000, color);
+      hapticBlockClaimed();
+      playBlockClaim();
       // Local XP feedback for demo mode
       const blocks = useTowerStore.getState().demoBlocks;
       const isFirst = !blocks.some((b) => b.owner === wallet && b.id !== selectedBlockId);
@@ -212,7 +223,7 @@ export default function BlockInspector() {
   // Handle charge
   const handleCharge = useCallback(() => {
     if (!selectedBlockId) return;
-    hapticButtonPress();
+    hapticChargeTap();
 
     if (mpConnected) {
       const wallet = publicKey?.toBase58() || "";
@@ -229,6 +240,7 @@ export default function BlockInspector() {
       } else if (result.success) {
         playChargeTap();
         if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
+          hapticStreakMilestone();
           playStreakMilestone();
         }
         // Local XP feedback for demo mode
@@ -251,6 +263,7 @@ export default function BlockInspector() {
         playError();
       } else if (result.success) {
         if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
+          hapticStreakMilestone();
           playStreakMilestone();
         }
         // Feed XP to player store
@@ -308,7 +321,8 @@ export default function BlockInspector() {
 
   const handleStyleChange = useCallback((style: number) => {
     applyCustomize({ style });
-    hapticButtonPress();
+    hapticCustomize();
+    playCustomize();
   }, [applyCustomize]);
 
   const handleColorChange = useCallback((color: string) => {
@@ -326,7 +340,8 @@ export default function BlockInspector() {
 
   const handleTextureChange = useCallback((textureId: number) => {
     applyCustomize({ textureId });
-    hapticButtonPress();
+    hapticCustomize();
+    playCustomize();
   }, [applyCustomize]);
 
   if (!block && !isVisible) return null;
@@ -360,7 +375,7 @@ export default function BlockInspector() {
         {/* Close */}
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => { hapticBlockDeselect(); selectBlock(null); }}
+          onPress={() => { hapticBlockDeselect(); playBlockDeselect(); selectBlock(null); }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Text style={styles.closeText}>✕</Text>
@@ -423,7 +438,7 @@ export default function BlockInspector() {
                       title="Connect Wallet to Claim"
                       variant="secondary"
                       size="lg"
-                      onPress={() => { hapticButtonPress(); router.push("/connect"); }}
+                      onPress={() => { hapticButtonPress(); playButtonTap(); router.push("/connect"); }}
                     />
                   )
                 )}
@@ -440,7 +455,7 @@ export default function BlockInspector() {
                     <View style={styles.actionRow}>
                       <TouchableOpacity
                         style={styles.actionChip}
-                        onPress={() => { setShowCustomize(!showCustomize); hapticButtonPress(); }}
+                        onPress={() => { setShowCustomize(!showCustomize); hapticButtonPress(); playButtonTap(); }}
                       >
                         <Text style={styles.actionChipText}>
                           {showCustomize ? "Done" : "Customize"}
@@ -448,13 +463,13 @@ export default function BlockInspector() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.actionChip}
-                        onPress={() => { hapticButtonPress(); handleShare(block, shareCardRef); }}
+                        onPress={() => { hapticButtonPress(); playButtonTap(); handleShare(block, shareCardRef); }}
                       >
                         <Text style={styles.actionChipText}>Share</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.actionChip}
-                        onPress={() => { hapticButtonPress(); handleTweet(block); }}
+                        onPress={() => { hapticButtonPress(); playButtonTap(); handleTweet(block); }}
                       >
                         <Text style={styles.actionChipText}>Tweet</Text>
                       </TouchableOpacity>
@@ -488,7 +503,7 @@ export default function BlockInspector() {
                             title="Connect Wallet to Reclaim"
                             variant="secondary"
                             size="lg"
-                            onPress={() => { hapticButtonPress(); router.push("/connect"); }}
+                            onPress={() => { hapticButtonPress(); playButtonTap(); router.push("/connect"); }}
                           />
                         )}
                       </>
@@ -528,7 +543,7 @@ export default function BlockInspector() {
                 {/* More styles expander */}
                 <TouchableOpacity
                   style={styles.moreStylesButton}
-                  onPress={() => { setShowMoreStyles(!showMoreStyles); hapticButtonPress(); }}
+                  onPress={() => { setShowMoreStyles(!showMoreStyles); hapticButtonPress(); playButtonTap(); }}
                 >
                   <Text style={styles.moreStylesText}>
                     {showMoreStyles ? "Less options" : "More styles \u203A"}

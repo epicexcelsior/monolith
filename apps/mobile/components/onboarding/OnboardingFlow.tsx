@@ -13,6 +13,7 @@ import CoachMark from "./CoachMark";
 import { BLOCK_COLORS } from "@monolith/common";
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW, BLUR } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { playCustomize, playButtonTap } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
 /**
@@ -162,10 +163,12 @@ export default function OnboardingFlow() {
         if (!ghostBlockId) return;
         ghostCustomizeBlock(ghostBlockId, { color });
         hapticButtonPress();
+        playCustomize();
     }, [ghostBlockId, ghostCustomizeBlock]);
 
     const handleCustomizeDone = useCallback(() => {
         hapticButtonPress();
+        playButtonTap();
         selectBlock(null);
         advancePhase(); // → reveal
     }, [selectBlock, advancePhase]);
@@ -204,6 +207,7 @@ export default function OnboardingFlow() {
     // ─── Skip handler ─────────────────────────────
     const handleSkip = useCallback(() => {
         hapticButtonPress();
+        playButtonTap();
         if (typeof clearGhostBlock === 'function') clearGhostBlock();
         completeOnboarding();
         skipOnboarding();

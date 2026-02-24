@@ -22,6 +22,7 @@ import { useWalletStore } from "@/stores/wallet-store";
 import { Button, Card, Input, Chip } from "@/components/ui";
 import { TEXT, COLORS, SPACING } from "@/constants/theme";
 import { hapticButtonPress, hapticError, hapticBlockClaimed } from "@/utils/haptics";
+import { playButtonTap, playError, playBlockClaim } from "@/utils/audio";
 
 export default function WithdrawScreen() {
     const router = useRouter();
@@ -52,14 +53,17 @@ export default function WithdrawScreen() {
     const handleWithdraw = async () => {
         if (!isValidAmount) return;
         hapticButtonPress();
+        playButtonTap();
         console.log("[WithdrawScreen] Starting withdraw of", parsedAmount, "USDC");
         const sig = await withdraw(parsedAmount);
         if (sig) {
             console.log("[WithdrawScreen] Withdraw success:", sig);
             hapticBlockClaimed();
+            playBlockClaim();
         } else {
             console.log("[WithdrawScreen] Withdraw returned null (failed)");
             hapticError();
+            playError();
         }
     };
 

@@ -13,9 +13,10 @@ import Animated, {
   withTiming,
   withDelay,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 import { usePlayerStore } from "@/stores/player-store";
 import { COLORS, FONT_FAMILY } from "@/constants/theme";
+import { hapticLevelUp } from "@/utils/haptics";
+import { playLevelUp } from "@/utils/audio";
 
 export default function LevelUpCelebration() {
   const levelUp = usePlayerStore((s) => s.levelUp);
@@ -28,11 +29,9 @@ export default function LevelUpCelebration() {
   useEffect(() => {
     if (levelUp == null) return;
 
-    // Haptic double-pulse
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setTimeout(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    }, 150);
+    // Haptic + SFX
+    hapticLevelUp();
+    playLevelUp();
 
     // Animate
     scale.value = withSequence(

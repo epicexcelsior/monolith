@@ -1,7 +1,8 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useCallback } from "react";
 import { StyleSheet } from "react-native";
+import * as Notifications from "expo-notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@expo-google-fonts/jetbrains-mono";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { initAudio } from "@/utils/audio";
 import { COLORS } from "@/constants/theme";
 
 // Prevent splash from auto-hiding
@@ -43,6 +45,7 @@ SplashScreen.preventAutoHideAsync();
  */
 export default function RootLayout() {
   const { hydrateCachedAuth } = useAuthorization();
+  const router = useRouter();
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -65,14 +68,14 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function bootstrap() {
-      try {
-        // Hydrate wallet state from secure store
-        // skipIfFirstLaunch=true → new users won't see "connected" state
-        await hydrateCachedAuth(true);
-      } catch (err) {
-        // Non-fatal — user will just see "not connected" state
-        console.warn("Wallet hydration failed:", err);
-      }
+      // Fire both in parallel — neither blocks the other
+      await Promise.all([
+        hydrateCachedAuth(true).catch((err) => {
+          // Non-fatal — user will just see "not connected" state
+          console.warn("Wallet hydration failed:", err);
+        }),
+        initAudio(),
+      ]);
     }
     bootstrap();
   }, [hydrateCachedAuth]);
@@ -80,6 +83,16 @@ export default function RootLayout() {
   useEffect(() => {
     onLayoutReady();
   }, [onLayoutReady]);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      if (data?.blockId) {
+        router.replace("/(tabs)");
+      }
+    });
+    return () => subscription.remove();
+  }, [router]);
 
   if (!fontsLoaded) return null;
 

@@ -4,6 +4,7 @@ import { COLORS, SPACING } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { DEFAULT_TOWER_CONFIG, getLayerY } from "@monolith/common";
 import { hapticBlockSelect, hapticLayerCross } from "@/utils/haptics";
+import { playLayerScroll } from "@/utils/audio";
 
 const INDICATOR_HEIGHT_RATIO = 0.55; // 55% of screen height
 const DOT_SIZE = 10;
@@ -104,6 +105,7 @@ export default function LayerIndicator() {
 
                     if (layer !== prevScrubLayerRef.current) {
                         hapticLayerCross();
+                        playLayerScroll();
                         prevScrubLayerRef.current = layer;
                     }
                 },

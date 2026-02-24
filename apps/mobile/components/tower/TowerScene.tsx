@@ -32,6 +32,7 @@ import {
   hapticReset,
   hapticLayerCross,
 } from "@/utils/haptics";
+import { playBlockSelect, playBlockDeselect } from "@/utils/audio";
 import { CLAIM_SHAKE, CLAIM_PHASES, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
 
 // ─── Constants ────────────────────────────────────────────
@@ -242,6 +243,7 @@ function CameraRig({
           cs.velocityLookAtY = 0;
           cs.isTransitioning = true;
           hapticBlockSelect();
+          playBlockSelect();
         }
       } else {
         // Deselect → smoothly return to full cinematic overview
@@ -253,6 +255,7 @@ function CameraRig({
         cs.velocityLookAtY = 0;
         cs.isTransitioning = true;
         hapticBlockDeselect();
+        playBlockDeselect();
       }
     }
 

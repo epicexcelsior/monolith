@@ -13,6 +13,7 @@ import Input from "./Input";
 import Button from "./Button";
 import { BLOCK_COLORS } from "@monolith/common";
 import { hapticButtonPress, hapticError } from "@/utils/haptics";
+import { playButtonTap, playError } from "@/utils/audio";
 
 interface ClaimModalProps {
   visible: boolean;
@@ -42,6 +43,7 @@ export default function ClaimModal({
   const handleClaim = async () => {
     if (!isValidAmount || isLoading) return;
     hapticButtonPress();
+    playButtonTap();
     setIsLoading(true);
     setError(null);
 
@@ -51,6 +53,7 @@ export default function ClaimModal({
     } catch (err: any) {
       setError(err?.message || "Transaction failed");
       hapticError();
+      playError();
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +111,7 @@ export default function ClaimModal({
                   onPress={() => {
                     setSelectedColor(color);
                     hapticButtonPress();
+                    playButtonTap();
                   }}
                 />
               ))}

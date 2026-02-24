@@ -27,7 +27,7 @@ import { useMultiplayerStore, onPlayerSync } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
-import { initAudio } from "@/utils/audio";
+import { playButtonTap } from "@/utils/audio";
 
 export default function TowerScreen() {
   const router = useRouter();
@@ -72,8 +72,6 @@ export default function TowerScreen() {
         console.log("[Tower] Multiplayer unavailable, using local mode");
         setMultiplayerMode(false);
       }
-      // Audio must be ready before tower UI — user can claim block during onboarding
-      await initAudio();
       await initTower();
       await initOnboarding();
     };
@@ -147,6 +145,7 @@ export default function TowerScreen() {
               <TouchableOpacity
                 onLongPress={() => {
                   hapticButtonPress();
+                  playButtonTap();
                   resetOnboarding();
                   resetOnboardingFlag();
                 }}
@@ -162,6 +161,7 @@ export default function TowerScreen() {
                 ]}
                 onPress={() => {
                   hapticButtonPress();
+                  playButtonTap();
                   router.push("/connect");
                 }}
               >
