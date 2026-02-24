@@ -40,6 +40,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Faucet screen** (SOL airdrop + USDC faucet link from Me tab)
 - **Charge pulse animation** (blue-white flash on tower when someone charges)
 - **Dormant block reclaim** ("RECLAIM" CTA on blocks at 0 energy 3+ days)
+- **Sound effects + haptics** (12 sounds, A Dorian crystal identity, wired to all interactions — needs native rebuild)
 - **Tappable leaderboard** (tap entry → camera flies to block)
 - **Real activity feed on Board tab** (fetches from /api/events, fallback to generated)
 - **EAS Update / OTA** (expo-updates configured, channel: preview)
@@ -49,11 +50,9 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
-- Sound effects exist but not all wired to interactions
 
 ### Not Started
 - Push notifications
-- Sound effects fully wired
 - Poke system (social re-engagement)
 - Guided onboarding camera flight
 - Demo video / pitch deck — **Remotion system built** (`apps/video/`), 23s ShowcaseDemo renders
@@ -112,6 +111,10 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 ### Config / Constants
 | File | Purpose |
 |------|---------|
+| `apps/mobile/utils/audio.ts` | Sound system: 12 preloaded WAV players, fire-and-forget API |
+| `apps/mobile/utils/haptics.ts` | Named haptic events (all interactions) |
+| `apps/mobile/assets/sfx/` | WAV files: 3 Kenney CC0 + 9 synthesized (A Dorian palette) |
+| `scripts/generate-sounds.js` | Node.js WAV synthesizer — re-run to regenerate hero sounds |
 | `apps/mobile/constants/theme.ts` | Colors, glass styles, typography |
 | `apps/mobile/constants/network.ts` | GAME_SERVER_URL from env |
 | `apps/mobile/app.json` | EAS project config, expo-updates URL |
@@ -183,7 +186,8 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 14. **Android physical device can't reach `localhost`** — use `adb reverse tcp:2567 tcp:2567` over USB, or LAN IP, or prod URL.
 15. **Supabase lazy init** — client initializes on first TowerRoom.onCreate(), not at server startup. Now also eagerly inits + verifies at server start.
 16. **mediump uTime precision** — fragment shaders use `precision mediump float` for 2x GPU throughput, but `uTime` grows unboundedly. After ~10 min, `sin(uTime * N)` returns garbage on float16. All `uTime` uniforms MUST use `uniform highp float uTime;` override.
-17. **No `new` in useFrame** — `new THREE.Color()`, `.clone()`, `new Float32Array()` inside per-frame callbacks create GC pressure. Pre-allocate in `useRef` and use `.set()`/`.copy()`.
+17. **expo-audio loop bug** — calling `seekTo(0)` on a `didJustFinish` player triggers auto-play → infinite loop. Pattern: `player.seekTo(0).catch(()=>{})` then `player.play()` fire-and-forget. No listeners.
+18. **No `new` in useFrame** — `new THREE.Color()`, `.clone()`, `new Float32Array()` inside per-frame callbacks create GC pressure. Pre-allocate in `useRef` and use `.set()`/`.copy()`.
 
 ---
 
@@ -283,6 +287,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-23**: Sound effects — 12-sound A Dorian crystal palette, zero-latency engine (seekTo+play fire-and-forget), expo-audio plugin linked, wired to every interaction including layer scrubber + panel open; mute toggle in settings
 - **2026-02-23**: Onboarding v2 — stakes messaging ("yours to keep or lose", decay warning, miss-3-days reclaim), full-screen dark scrim contrast, step dots, animated entrances; fixed customize XP callback (was silent-dropped); demo mode XP (claim 100/300xp, charge 25xp, customize 10xp); removed dead stepIndex variable
 - **2026-02-21**: Demo sprint "aha moment" — stakes-first onboarding rewrite, 4 new GLSL block styles (Lava/Aurora/Crystal/Nature), demo mode XP, brighter bot population, customize XP callback fix, stronger text contrast
 - **2026-02-21**: Remotion content engine — 23s ShowcaseDemo video w/ real GLSL shaders, globalShowcasePath (no transition glitches), camera lerp, beat-sync music, text overlays, `apps/video/GUIDE.md` doc
