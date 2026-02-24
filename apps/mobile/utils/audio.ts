@@ -85,7 +85,7 @@ async function loadPlayer(key: string, source: any): Promise<void> {
     if (!AudioModule) return;
     try {
         const player = AudioModule.createAudioPlayer(source);
-        player.volume = 0.7;
+        player.volume = 1.0; // WAV files carry the volume hierarchy (-13dB taps, -8dB feedback, -5dB celebrations)
         players[key] = player;
     } catch {
         // Load error — no-op, this sound won't play
@@ -97,7 +97,7 @@ async function loadPlayer(key: string, source: any): Promise<void> {
 async function play(key: string): Promise<void> {
     if (muted || !audioAvailable || !players[key]) return;
     try {
-        players[key].seekTo(0);
+        await players[key].seekTo(0);
         players[key].play();
     } catch {
         // Playback error — no-op

@@ -20,7 +20,8 @@
       "package": "com.monolith.app",
       "permissions": [
         "INTERNET",
-        "CAMERA"
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {
@@ -44,6 +45,8 @@
       "expo-font",
       "expo-updates",
       "expo-secure-store",
+      "expo-audio",
+      "expo-notifications",
       [
         "expo-build-properties",
         {
