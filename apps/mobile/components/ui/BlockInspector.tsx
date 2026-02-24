@@ -46,6 +46,7 @@ import {
   playError,
   playCustomize,
   playButtonTap,
+  playPanelOpen,
 } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
@@ -155,6 +156,7 @@ export default function BlockInspector() {
   );
 
   useEffect(() => {
+    if (isVisible) playPanelOpen();
     Animated.spring(slideAnim, {
       toValue: isVisible ? 0 : PANEL_HEIGHT,
       ...TIMING.spring,

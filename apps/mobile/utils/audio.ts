@@ -5,34 +5,36 @@
  * Uses expo-audio for playback. All sounds are pre-loaded on init.
  * Every function catches errors silently — never blocks gameplay.
  *
- * IMPORTANT: expo-audio is loaded lazily so the app doesn't crash if
- * the native module isn't in the current dev build. Once you rebuild
- * with `npx expo run:android`, sounds will work automatically.
+ * ─── Zero-latency design ────────────────────────────────────────────────────
+ * Each AudioPlayer auto-resets to position 0 the instant playback ends.
+ * So play() never has to seek — it just calls player.play() directly.
+ * No await, no bridge round-trip, no perceptible delay.
  *
- * NOTE: To enable sounds, add .wav files to assets/sfx/ and uncomment
- * the corresponding SFX_SOURCES entry below.
+ * ─── Volume hierarchy ───────────────────────────────────────────────────────
+ * WAV files carry the volume hierarchy. Player volume = 1.0.
+ *   UI taps       (select/deselect/button/scroll): ~-14dB
+ *   Feedback      (charge/customize/error):        ~-8dB
+ *   Celebrations  (claim/streak/level-up):         ~-6dB
+ *   Epic          (claim-celebration):             ~-0.5dB
  *
- * @see /docs/game-design/SOUND_DESIGN.md
+ * @see scripts/generate-sounds.js
  */
 import { Platform } from "react-native";
 
-// ─── State ────────────────────────────────────────────────
+// ─── State ──────────────────────────────────────────────────────────────────
 
 let initialized = false;
 let muted = false;
 let audioAvailable = false;
 
-// We store loaded players as opaque objects to avoid importing expo-audio types at top level
 const players: Record<string, any> = {};
-
-// Lazy reference to the Audio module — only loaded when initAudio() is called
 let AudioModule: any = null;
 
-// ─── Init ─────────────────────────────────────────────────
+// ─── Init ────────────────────────────────────────────────────────────────────
 
 /**
- * Pre-load all sound effects. Call once on app start.
- * Gracefully handles missing native module or files — sounds just won't play.
+ * Pre-load all sound effects. Call once on app start (in _layout.tsx).
+ * Gracefully handles missing native module — sounds just won't play.
  */
 export async function initAudio(): Promise<void> {
     if (initialized) return;
@@ -42,108 +44,120 @@ export async function initAudio(): Promise<void> {
     }
 
     try {
-        // Lazy import — won't crash if native module is missing
         const expoAudio = await import("expo-audio");
         AudioModule = expoAudio;
 
-        await expoAudio.setAudioModeAsync({
-            playsInSilentMode: true,
-        });
+        // Play through silent mode + activate session upfront
+        // (pre-warming avoids first-sound latency on iOS)
+        await expoAudio.setAudioModeAsync({ playsInSilentMode: true });
+        await expoAudio.setIsAudioActiveAsync(true);
 
         audioAvailable = true;
 
-        // ─── Load SFX Sources ──────────────────────────────
+        // ─── Load all sounds ───────────────────────────────────────────────
         // Metro requires static require() — can't use dynamic paths.
-        //
-        // To add a sound:
-        // 1. Place .wav file in apps/mobile/assets/sfx/
-        // 2. Add a loadPlayer() call below
-        // 3. Rebuild the app
 
-        await loadPlayer("blockClaim", require("../assets/sfx/block-claim.wav"));
-        await loadPlayer("chargeTap", require("../assets/sfx/charge-tap.wav"));
-        await loadPlayer("blockSelect", require("../assets/sfx/block-select.wav"));
+        // UI tier  (~-14dB)
+        await loadPlayer("blockSelect",   require("../assets/sfx/block-select.wav"));
         await loadPlayer("blockDeselect", require("../assets/sfx/block-deselect.wav"));
-        await loadPlayer("streakMilestone", require("../assets/sfx/streak-milestone.wav"));
-        await loadPlayer("error", require("../assets/sfx/error.wav"));
+        await loadPlayer("buttonTap",     require("../assets/sfx/button-tap.wav"));
+        await loadPlayer("layerScroll",   require("../assets/sfx/layer-scroll.wav"));
+        await loadPlayer("panelOpen",     require("../assets/sfx/panel-open.wav"));
+
+        // Feedback tier (~-8dB)
+        await loadPlayer("chargeTap",  require("../assets/sfx/charge-tap.wav"));
+        await loadPlayer("customize",  require("../assets/sfx/customize.wav"));
+        await loadPlayer("error",      require("../assets/sfx/error.wav"));
+
+        // Celebration tier (~-6dB)
+        await loadPlayer("blockClaim",       require("../assets/sfx/block-claim.wav"));
+        await loadPlayer("streakMilestone",  require("../assets/sfx/streak-milestone.wav"));
+        await loadPlayer("levelUp",          require("../assets/sfx/level-up.wav"));
         await loadPlayer("claimCelebration", require("../assets/sfx/claim-celebration.wav"));
-        await loadPlayer("levelUp", require("../assets/sfx/level-up.wav"));
-        await loadPlayer("customize", require("../assets/sfx/customize.wav"));
-        await loadPlayer("buttonTap", require("../assets/sfx/button-tap.wav"));
 
         initialized = true;
     } catch {
-        // expo-audio native module not available (dev build without it)
-        // Audio just won't play — app continues normally
         initialized = true;
         audioAvailable = false;
     }
 }
 
-/** Create an AudioPlayer for a single sound file */
+/**
+ * Create an AudioPlayer for one sound.
+ * Registers a didJustFinish listener so the player auto-seeks to 0 on end.
+ * This means play() can always fire immediately without any seek overhead.
+ */
 async function loadPlayer(key: string, source: any): Promise<void> {
     if (!AudioModule) return;
     try {
         const player = AudioModule.createAudioPlayer(source);
-        player.volume = 1.0; // WAV files carry the volume hierarchy (-13dB taps, -8dB feedback, -5dB celebrations)
+        player.volume = 1.0; // WAV files carry the volume hierarchy
+
+        // Auto-reset: seek to 0 the instant playback ends.
+        // Next play() call will be zero-latency — no seeking required.
+        player.addListener("playbackStatusUpdate", (status: any) => {
+            if (status?.didJustFinish) {
+                player.seekTo(0).catch(() => {});
+            }
+        });
+
         players[key] = player;
     } catch {
         // Load error — no-op, this sound won't play
     }
 }
 
-// ─── Playback Helpers ─────────────────────────────────────
+// ─── Playback ────────────────────────────────────────────────────────────────
 
-async function play(key: string): Promise<void> {
+function play(key: string): void {
     if (muted || !audioAvailable || !players[key]) return;
     try {
-        await players[key].seekTo(0);
         players[key].play();
     } catch {
         // Playback error — no-op
     }
 }
 
-// ─── Public API ───────────────────────────────────────────
+// ─── Public API ──────────────────────────────────────────────────────────────
 
-/** Epic celebration: rising shimmer + impact */
-export function playBlockClaim() { play("blockClaim"); }
-
-/** Satisfying electric zap */
-export function playChargeTap() { play("chargeTap"); }
-
-/** Soft glass click */
-export function playBlockSelect() { play("blockSelect"); }
-
-/** Softer release */
+// UI tier
+/** Tiny crystal tick when scrubbing layers */
+export function playLayerScroll()   { play("layerScroll"); }
+/** Soft downward whoosh when inspector panel opens */
+export function playPanelOpen()     { play("panelOpen"); }
+/** Premium bell tap on block selection */
+export function playBlockSelect()   { play("blockSelect"); }
+/** Soft glass release on block deselect */
 export function playBlockDeselect() { play("blockDeselect"); }
+/** Clean 43ms click for UI buttons */
+export function playButtonTap()     { play("buttonTap"); }
 
-/** Ascending chime for streak milestones */
-export function playStreakMilestone() { play("streakMilestone"); }
+// Feedback tier
+/** FM electric zap — energy pulse into a block */
+export function playChargeTap()     { play("chargeTap"); }
+/** Stamp + crystal ping on customization */
+export function playCustomize()     { play("customize"); }
+/** Descending minor-3rd for errors */
+export function playError()         { play("error"); }
 
-/** Muted buzz for errors */
-export function playError() { play("error"); }
-
-/** Epic multi-phase celebration sound */
+// Celebration tier
+/** Glass impact → rising A major shimmer on claim */
+export function playBlockClaim()       { play("blockClaim"); }
+/** Crystal A→E→A arpeggio on streak milestone */
+export function playStreakMilestone()  { play("streakMilestone"); }
+/** Full A major fanfare on level-up */
+export function playLevelUp()          { play("levelUp"); }
+/** Epic multi-phase celebration — the big moment */
 export function playClaimCelebration() { play("claimCelebration"); }
 
-/** Epic ascending fanfare for level-ups */
-export function playLevelUp() { play("levelUp"); }
-
-/** Satisfying stamp for customization */
-export function playCustomize() { play("customize"); }
-
-/** Soft tap for generic button presses */
-export function playButtonTap() { play("buttonTap"); }
-
-// ─── Settings ─────────────────────────────────────────────
+// ─── Settings ────────────────────────────────────────────────────────────────
 
 export function setMuted(value: boolean) { muted = value; }
 export function isMuted() { return muted; }
 
-// ─── Cleanup ──────────────────────────────────────────────
+// ─── Cleanup ─────────────────────────────────────────────────────────────────
 
-export async function unloadSounds(): Promise<void> {
+export function unloadSounds(): void {
     for (const player of Object.values(players)) {
         try { player.remove(); } catch { /* no-op */ }
     }
