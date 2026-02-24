@@ -39,7 +39,6 @@ import {
 } from "@/utils/haptics";
 import {
   playChargeTap,
-  playBlockSelect,
   playBlockDeselect,
   playBlockClaim,
   playStreakMilestone,

@@ -13,7 +13,7 @@ import CoachMark from "./CoachMark";
 import { BLOCK_COLORS } from "@monolith/common";
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW, BLUR } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
-import { playBlockClaim, playCustomize, playButtonTap } from "@/utils/audio";
+import { playCustomize, playButtonTap } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
 /**
