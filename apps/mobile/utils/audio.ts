@@ -6,9 +6,9 @@
  * Every function catches errors silently — never blocks gameplay.
  *
  * ─── Zero-latency design ────────────────────────────────────────────────────
- * Each AudioPlayer auto-resets to position 0 the instant playback ends.
- * So play() never has to seek — it just calls player.play() directly.
- * No await, no bridge round-trip, no perceptible delay.
+ * play() does seekTo(0) fire-and-forget then play() immediately after.
+ * Both calls queue to the same native player in order — no await needed.
+ * No listener, no loop risk, no perceptible delay.
  *
  * ─── Volume hierarchy ───────────────────────────────────────────────────────
  * WAV files carry the volume hierarchy. Player volume = 1.0.
@@ -82,25 +82,12 @@ export async function initAudio(): Promise<void> {
     }
 }
 
-/**
- * Create an AudioPlayer for one sound.
- * Registers a didJustFinish listener so the player auto-seeks to 0 on end.
- * This means play() can always fire immediately without any seek overhead.
- */
+/** Create an AudioPlayer for one sound. */
 async function loadPlayer(key: string, source: any): Promise<void> {
     if (!AudioModule) return;
     try {
         const player = AudioModule.createAudioPlayer(source);
         player.volume = 1.0; // WAV files carry the volume hierarchy
-
-        // Auto-reset: seek to 0 the instant playback ends.
-        // Next play() call will be zero-latency — no seeking required.
-        player.addListener("playbackStatusUpdate", (status: any) => {
-            if (status?.didJustFinish) {
-                player.seekTo(0).catch(() => {});
-            }
-        });
-
         players[key] = player;
     } catch {
         // Load error — no-op, this sound won't play
@@ -112,6 +99,9 @@ async function loadPlayer(key: string, source: any): Promise<void> {
 function play(key: string): void {
     if (muted || !audioAvailable || !players[key]) return;
     try {
+        // seekTo(0) and play() are queued to the same native player in order —
+        // they execute sequentially without needing await. No loop risk.
+        players[key].seekTo(0).catch(() => {});
         players[key].play();
     } catch {
         // Playback error — no-op
