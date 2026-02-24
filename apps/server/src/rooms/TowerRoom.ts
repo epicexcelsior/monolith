@@ -660,6 +660,18 @@ export class TowerRoom extends Room<TowerRoomState> {
       }
     });
 
+    this.onMessage("get_leaderboard", (client: Client, msg: { tab?: string; limit?: number }) => {
+      try {
+        const tab = msg.tab || "xp";
+        const limit = Math.min(msg.limit || 20, 50);
+        const entries = this.buildLeaderboard(tab, limit);
+        client.send("leaderboard_snapshot", { tab, entries });
+      } catch (err) {
+        console.error("[TowerRoom] get_leaderboard error:", err);
+        client.send("leaderboard_snapshot", { tab: msg.tab || "xp", entries: [] });
+      }
+    });
+
     this.onMessage("register_push_token", (client: Client, msg: { wallet: string; token: string }) => {
       try {
         if (!msg.wallet || !msg.token) return;
@@ -752,6 +764,73 @@ export class TowerRoom extends Room<TowerRoomState> {
     if (playerBlocks.length > 0) {
       bulkUpsertBlocks(playerBlocks);
     }
+  }
+
+  /** Build leaderboard from in-memory state */
+  private buildLeaderboard(tab: string, limit: number) {
+    // Collect per-wallet stats from blocks
+    const walletStats = new Map<string, {
+      wallet: string;
+      username: string | null;
+      blocksOwned: number;
+      totalEnergy: number;
+      bestStreak: number;
+      xp: number;
+      level: number;
+      color: string;
+      emoji: string;
+    }>();
+
+    this.state.blocks.forEach((block) => {
+      if (!block.owner || isBotOwner(block.owner)) return;
+      let stats = walletStats.get(block.owner);
+      if (!stats) {
+        const player = this.players.get(block.owner);
+        stats = {
+          wallet: block.owner,
+          username: player?.username ?? null,
+          blocksOwned: 0,
+          totalEnergy: 0,
+          bestStreak: 0,
+          xp: player?.xp ?? 0,
+          level: player?.level ?? 1,
+          color: block.ownerColor || "#ffffff",
+          emoji: block.appearance?.emoji || "",
+        };
+        walletStats.set(block.owner, stats);
+      }
+      stats.blocksOwned++;
+      stats.totalEnergy += block.energy;
+      stats.bestStreak = Math.max(stats.bestStreak, block.streak ?? 0);
+    });
+
+    const entries = Array.from(walletStats.values());
+
+    // Sort by tab
+    switch (tab) {
+      case "energy":
+        entries.sort((a, b) => b.totalEnergy - a.totalEnergy);
+        break;
+      case "streak":
+        entries.sort((a, b) => b.bestStreak - a.bestStreak);
+        break;
+      case "xp":
+      default:
+        entries.sort((a, b) => b.xp - a.xp);
+        break;
+    }
+
+    return entries.slice(0, limit).map((e, i) => ({
+      rank: i + 1,
+      name: e.username || e.wallet.slice(0, 8) + "...",
+      emoji: e.emoji,
+      color: e.color,
+      score: tab === "energy" ? Math.round(e.totalEnergy) : tab === "streak" ? e.bestStreak : e.xp,
+      blocksOwned: e.blocksOwned,
+      bestStreak: e.bestStreak,
+      avgEnergy: e.blocksOwned > 0 ? Math.round(e.totalEnergy / e.blocksOwned) : 0,
+      wallet: e.wallet,
+    }));
   }
 
   /** Serialize full tower state to plain JSON */

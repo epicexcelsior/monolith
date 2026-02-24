@@ -21,9 +21,10 @@ import { isBotOwner } from "@/utils/seed-tower";
 import { GAME_SERVER_URL } from "@/constants/network";
 
 // ─── Leaderboard categories from GDD §6.2 ──────────────────────
-type LeaderboardTab = "skyline" | "brightest" | "streak" | "territory";
+type LeaderboardTab = "skyline" | "brightest" | "streak" | "territory" | "xp";
 
 const LEADERBOARD_TABS: { key: LeaderboardTab; label: string; icon: string }[] = [
+  { key: "xp", label: "XP", icon: "⭐" },
   { key: "skyline", label: "Skyline", icon: "🏔️" },
   { key: "brightest", label: "Brightest", icon: "💡" },
   { key: "streak", label: "Streaks", icon: "🔥" },
@@ -48,11 +49,29 @@ function displayName(owner: string): string {
   return isBotOwner(owner) ? owner : truncAddr(owner);
 }
 
+async function fetchXpLeaderboard(userAddress: string | null): Promise<LeaderboardEntry[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/leaderboard?limit=20`);
+    if (!res.ok) return [];
+    const players: Array<{ wallet: string; xp: number; level: number; username?: string | null }> = await res.json();
+    return players.map((p, i) => ({
+      rank: i + 1,
+      address: p.username || truncAddr(p.wallet),
+      value: `${p.xp.toLocaleString()} XP (Lv${p.level})`,
+      isYou: userAddress !== null && p.wallet === userAddress,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 function computeLeaderboard(
   tab: LeaderboardTab,
   blocks: DemoBlock[],
   userAddress: string | null,
 ): LeaderboardEntry[] {
+  if (tab === "xp") return []; // XP tab uses async fetch instead
+
   const owned = blocks.filter((b) => b.owner !== null);
   if (owned.length === 0) return [];
 
@@ -295,8 +314,9 @@ export default function BoardScreen() {
 
   const [towerInfo, setTowerInfo] = useState<TowerInfo | null>(null);
   const [userDeposit, setUserDeposit] = useState<UserDepositInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<LeaderboardTab>("skyline");
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>("xp");
   const [refreshing, setRefreshing] = useState(false);
+  const [xpLeaderboard, setXpLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   // Derive player stats from demo blocks
   const userBlocks = publicKey
@@ -330,9 +350,15 @@ export default function BoardScreen() {
 
   const userAddress = publicKey?.toBase58() ?? null;
 
+  // Fetch XP leaderboard from server when XP tab is active
+  useEffect(() => {
+    if (activeTab !== "xp") return;
+    fetchXpLeaderboard(userAddress).then(setXpLeaderboard);
+  }, [activeTab, userAddress]);
+
   const leaderboardData = useMemo(
-    () => computeLeaderboard(activeTab, demoBlocks, userAddress),
-    [activeTab, demoBlocks, userAddress],
+    () => activeTab === "xp" ? xpLeaderboard : computeLeaderboard(activeTab, demoBlocks, userAddress),
+    [activeTab, demoBlocks, userAddress, xpLeaderboard],
   );
 
   // Activity feed: try real events from API, fall back to generated
