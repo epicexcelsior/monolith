@@ -21,9 +21,16 @@ apps/mobile/ios/
 
 # Anchor (not needed for mobile build)
 programs/
+.anchor/
 
 # Server (not needed for mobile build)
 apps/server/
+
+# Video content engine (not needed for mobile build)
+apps/video/
+
+# Dependencies — EAS installs these on the build server
+node_modules/
 
 # OS files
 .DS_Store
