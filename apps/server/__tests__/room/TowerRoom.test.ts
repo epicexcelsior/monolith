@@ -438,7 +438,58 @@ describe("TowerRoom — multiplayer integration", () => {
     expect(err.message).toMatch(/already poked/i);
   }, 10_000);
 
-  // ── Test 18: Bot simulation ticks ─────────────────────────────────────────
+  // ── Test 18: Dormant block reclaim ────────────────────────────────────────
+  it("dormant player block can be reclaimed by another player", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const clientA = await colyseus.connectTo(room, { wallet: WALLET_A });
+    const clientB = await colyseus.connectTo(room, { wallet: WALLET_B });
+    await nextTick();
+
+    // A claims a block
+    const claimed = clientA.waitForMessage("claim_result");
+    clientA.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_A, color: "#ff6600", amount: 1 });
+    await claimed;
+    await nextTick();
+
+    // Make block dormant: set energy to 0, lastChargeTime to 4 days ago
+    const block = room.state.blocks.get(BOT_BLOCK_ID);
+    block.energy = 0;
+    block.lastChargeTime = Date.now() - (4 * 24 * 60 * 60 * 1000); // 4 days ago
+    await nextTick();
+
+    // B reclaims the dormant block
+    const reclaimResult = clientB.waitForMessage("claim_result");
+    clientB.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_B, color: "#0066ff", amount: 1 });
+    const result = await reclaimResult;
+
+    expect(result.success).toBe(true);
+    expect(block.owner).toBe(WALLET_B);
+    expect(block.energy).toBe(100); // Reset to MAX_ENERGY
+  }, 10_000);
+
+  // ── Test 19: Non-dormant player block cannot be reclaimed ────────────────
+  it("non-dormant player block cannot be reclaimed", async () => {
+    const room = await colyseus.createRoom("tower", {});
+    const clientA = await colyseus.connectTo(room, { wallet: WALLET_A });
+    const clientB = await colyseus.connectTo(room, { wallet: WALLET_B });
+    await nextTick();
+
+    // A claims a block
+    const claimed = clientA.waitForMessage("claim_result");
+    clientA.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_A, color: "#ff6600", amount: 1 });
+    await claimed;
+    await nextTick();
+
+    // Block is NOT dormant (still has energy from fresh claim)
+    // B tries to claim it — should fail
+    const errorMsg = clientB.waitForMessage("error");
+    clientB.send("claim", { blockId: BOT_BLOCK_ID, wallet: WALLET_B, color: "#0066ff", amount: 1 });
+    const err = await errorMsg;
+
+    expect(err.message).toMatch(/already claimed/i);
+  }, 10_000);
+
+  // ── Test 20: Bot simulation ticks ─────────────────────────────────────────
   it("bot simulation changes block energy over time", async () => {
     const room = await colyseus.createRoom("tower", {});
     await colyseus.connectTo(room, {});
