@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Animated,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -20,6 +19,10 @@ import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
 import ActivityTicker from "@/components/ui/ActivityTicker";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import ScreenFlash from "@/components/ui/ScreenFlash";
+import HotBlockTicker from "@/components/ui/HotBlockTicker";
+import ActivityFeed from "@/components/ui/ActivityFeed";
+import AchievementToast from "@/components/ui/AchievementToast";
+import LoadingScreen from "@/components/ui/LoadingScreen";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -107,14 +110,8 @@ export default function TowerScreen() {
 
       {/* 3D Tower (full screen) */}
       <View style={styles.canvasContainer}>
-        {initialized ? (
-          <TowerScene />
-        ) : (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.gold} />
-            <Text style={styles.loadingText}>Loading tower...</Text>
-          </View>
-        )}
+        <TowerScene />
+        <LoadingScreen visible={!initialized} />
       </View>
 
       {/* ── Cinematic overlay: all UI slides away during claim celebration ── */}
@@ -187,6 +184,9 @@ export default function TowerScreen() {
             {/* Activity ticker (hidden during block inspect, already shown via overlay during onboarding) */}
             {!selectedBlockId && <ActivityTicker />}
 
+            {/* Hot block ticker — surfaces claimable/fading/streak blocks */}
+            {initialized && <HotBlockTicker />}
+
             {/* Spacer to push bottom content down */}
             <View style={{ flex: 1 }} />
 
@@ -216,6 +216,12 @@ export default function TowerScreen() {
 
         {/* Onboarding — inside wrapper so it hides during claim celebration */}
         {initialized && isOnboarding && <OnboardingFlow />}
+
+        {/* Activity feed — floating event log at bottom, pointerEvents="none" */}
+        <ActivityFeed />
+
+        {/* Achievement toast — slides in from top, auto-dismisses */}
+        <AchievementToast />
       </Animated.View>
     </View>
   );
@@ -240,18 +246,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: SPACING.md,
-  },
-  loadingText: {
-    color: COLORS.textOnDark,
-    fontFamily: FONT_FAMILY.bodyMedium,
-    fontSize: 14,
-    opacity: 0.6,
   },
   hud: {
     flex: 1,

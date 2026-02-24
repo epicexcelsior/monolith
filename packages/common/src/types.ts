@@ -194,5 +194,18 @@ export interface ActivityEvent {
   owner: string;
   ownerColor?: string;
   timestamp: number;
+  message?: string;
   data?: Record<string, any>;
+}
+
+/** Leaderboard entry */
+export interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  emoji: string;
+  color: string;
+  score: number;
+  blocksOwned: number;
+  bestStreak: number;
+  avgEnergy: number;
 }

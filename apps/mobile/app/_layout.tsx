@@ -25,6 +25,7 @@ import {
 import { useAuthorization } from "@/hooks/useAuthorization";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { initAudio } from "@/utils/audio";
+import { useAchievementStore } from "@/stores/achievement-store";
 import { COLORS } from "@/constants/theme";
 
 // Prevent splash from auto-hiding
@@ -45,6 +46,7 @@ SplashScreen.preventAutoHideAsync();
  */
 export default function RootLayout() {
   const { hydrateCachedAuth } = useAuthorization();
+  const initAchievements = useAchievementStore((s) => s.init);
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
@@ -75,6 +77,7 @@ export default function RootLayout() {
           console.warn("Wallet hydration failed:", err);
         }),
         initAudio(),
+        initAchievements(),
       ]);
     }
     bootstrap();
