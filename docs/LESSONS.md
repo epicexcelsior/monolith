@@ -247,6 +247,16 @@ function readU64(data: Uint8Array, offset: number): number {
 
 ## React Native & Expo
 
+### expo-audio: seekTo(0) on Finished Player Causes Infinite Loop (2026-02-23)
+**Problem**: Adding a `playbackStatusUpdate` listener that calls `seekTo(0)` when `didJustFinish` fires triggers expo-audio to auto-play again — creating an infinite playback loop.
+**Solution**: Remove the listener entirely. Use fire-and-forget: `player.seekTo(0).catch(()=>{})` immediately followed by `player.play()`. Both calls queue to the same native player in FIFO order, so seek always completes before play executes.
+**Key Insight**: Native audio player operations queue per-player — fire-and-forget seekTo + play is both safe and zero-latency. Never use status listeners to reset playback position.
+
+### expo-audio Plugin Must Be in app.json (2026-02-23)
+**Problem**: `expo-audio` in `package.json` is not enough — without `"expo-audio"` in the `plugins` array in `app.json`, the native module never links. All `import("expo-audio")` calls silently fail at runtime, `audioAvailable` stays false, and every sound is a no-op.
+**Solution**: Add `"expo-audio"` to the `plugins` array in `app.json`, then do a full native rebuild (`npx expo run:android`).
+**Key Insight**: Every Expo module with a native component requires both a package install AND a plugin entry in `app.json` to link correctly.
+
 ### Expo Go vs Dev-Client (2026-02-10)
 **Problem**: Expo Go cannot run native modules like MWA.
 **Solution**: Must use development build (`expo-dev-client`). Package must be installed AND listed in `app.json` plugins.
