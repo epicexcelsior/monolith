@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import HotBlockTicker from "@/components/ui/HotBlockTicker";
 import ActivityFeed from "@/components/ui/ActivityFeed";
 import AchievementToast from "@/components/ui/AchievementToast";
 import LoadingScreen from "@/components/ui/LoadingScreen";
+import MyBlocksPanel from "@/components/ui/MyBlocksPanel";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -46,6 +47,7 @@ export default function TowerScreen() {
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
   const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
   const cinematicMode = useTowerStore((s) => s.cinematicMode);
+  const [showMyBlocks, setShowMyBlocks] = useState(false);
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -151,28 +153,42 @@ export default function TowerScreen() {
               >
                 <Text style={styles.title}>THE MONOLITH</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.connectButton,
-                  isConnected && styles.connectedButton,
-                ]}
-                onPress={() => {
-                  hapticButtonPress();
-                  playButtonTap();
-                  router.push("/connect");
-                }}
-              >
-                <Text
+              <View style={styles.topBarRight}>
+                {isConnected && (
+                  <TouchableOpacity
+                    style={styles.myBlocksButton}
+                    onPress={() => {
+                      hapticButtonPress();
+                      playButtonTap();
+                      setShowMyBlocks(true);
+                    }}
+                  >
+                    <Text style={styles.myBlocksText}>My Blocks</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
                   style={[
-                    styles.connectText,
-                    isConnected && styles.connectedText,
+                    styles.connectButton,
+                    isConnected && styles.connectedButton,
                   ]}
+                  onPress={() => {
+                    hapticButtonPress();
+                    playButtonTap();
+                    router.push("/connect");
+                  }}
                 >
-                  {isConnected && truncatedAddress
-                    ? truncatedAddress
-                    : "Connect Wallet"}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.connectText,
+                      isConnected && styles.connectedText,
+                    ]}
+                  >
+                    {isConnected && truncatedAddress
+                      ? truncatedAddress
+                      : "Connect Wallet"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Connection status */}
@@ -223,6 +239,9 @@ export default function TowerScreen() {
         {/* Achievement toast — slides in from top, auto-dismisses */}
         <AchievementToast />
       </Animated.View>
+
+      {/* My Blocks panel — outside cinematic wrapper so it's always accessible */}
+      <MyBlocksPanel visible={showMyBlocks} onClose={() => setShowMyBlocks(false)} />
     </View>
   );
 }
@@ -289,6 +308,25 @@ const styles = StyleSheet.create({
   connectedText: {
     color: COLORS.success,
     fontFamily: FONT_FAMILY.mono,
+  },
+  topBarRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+  },
+  myBlocksButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.10)",
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  myBlocksText: {
+    color: COLORS.textOnDark,
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   tickerOverlay: {
     position: "absolute",
