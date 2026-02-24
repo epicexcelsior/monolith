@@ -5,12 +5,13 @@ import { useAuthorization } from "@/hooks/useAuthorization";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { usePlayerStore } from "@/stores/player-store";
+import { useOnboardingStore } from "@/stores/onboarding-store";
 import XPBar from "@/components/ui/XPBar";
 import { getClusterName } from "@/services/mwa";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { ScreenLayout, Card, Button, Badge, ChargeBar } from "@/components/ui";
 import { TEXT, COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
-import { hapticButtonPress } from "@/utils/haptics";
+import { hapticButtonPress, setHapticsEnabled, isHapticsEnabled } from "@/utils/haptics";
 import { playButtonTap, setMuted, isMuted } from "@/utils/audio";
 
 /**
@@ -29,9 +30,12 @@ export default function MeScreen() {
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const selectBlock = useTowerStore((s) => s.selectBlock);
   const resetTower = useTowerStore((s) => s.resetTower);
+  const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
   const cluster = getClusterName();
   const [showSettings, setShowSettings] = useState(false);
   const [soundMuted, setSoundMuted] = useState(isMuted());
+  const [hapticsMuted, setHapticsMuted] = useState(!isHapticsEnabled());
+  const username = usePlayerStore((s) => s.username);
 
   const xp = usePlayerStore((s) => s.xp);
   const level = usePlayerStore((s) => s.level);
@@ -100,7 +104,7 @@ export default function MeScreen() {
           </View>
           <View style={styles.identityInfo}>
             <Text style={styles.playerName}>
-              Keeper {truncatedAddress}
+              {username || `Keeper ${truncatedAddress}`}
             </Text>
             <Badge
               label="Connected"
@@ -275,6 +279,22 @@ export default function MeScreen() {
             </TouchableOpacity>
           </Card>
           <Card>
+            <TouchableOpacity
+              style={styles.cardRow}
+              onPress={() => {
+                const next = !hapticsMuted;
+                setHapticsMuted(next);
+                setHapticsEnabled(!next);
+                if (!next) hapticButtonPress();
+              }}
+            >
+              <Text style={TEXT.bodySm}>Haptics</Text>
+              <Text style={[TEXT.bodySm, { color: hapticsMuted ? COLORS.textMuted : COLORS.gold, fontWeight: "600" }]}>
+                {hapticsMuted ? "OFF" : "ON"}
+              </Text>
+            </TouchableOpacity>
+          </Card>
+          <Card>
             <View style={styles.cardRow}>
               <Text style={TEXT.bodySm}>Network</Text>
               <Text style={[TEXT.bodySm, { color: COLORS.gold, fontWeight: "600" }]}>
@@ -288,6 +308,16 @@ export default function MeScreen() {
               <Text style={[TEXT.bodySm, { fontWeight: "600" }]}>1.0.0 — Hackathon MVP</Text>
             </View>
           </Card>
+          <Button
+            title="Replay Onboarding"
+            variant="secondary"
+            onPress={() => {
+              hapticButtonPress();
+              playButtonTap();
+              resetOnboarding();
+              router.push("/(tabs)");
+            }}
+          />
           <Button
             title="Reset Tower (Dev)"
             variant="secondary"

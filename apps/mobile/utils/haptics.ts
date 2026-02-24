@@ -15,14 +15,27 @@ import { Platform } from "react-native";
 import { CLAIM_HAPTICS } from "@/constants/ClaimEffectConfig";
 
 /** Whether haptics are available on this device */
-const HAPTICS_ENABLED = Platform.OS === "ios" || Platform.OS === "android";
+const HAPTICS_AVAILABLE = Platform.OS === "ios" || Platform.OS === "android";
+
+/** User-controlled haptics toggle (defaults to enabled) */
+let _hapticsEnabled = true;
+
+/** Check if haptics are currently enabled */
+export function isHapticsEnabled(): boolean {
+  return _hapticsEnabled;
+}
+
+/** Enable or disable haptics globally */
+export function setHapticsEnabled(enabled: boolean) {
+  _hapticsEnabled = enabled;
+}
 
 /**
- * Fire a haptic only if available.
+ * Fire a haptic only if available and enabled.
  * Wraps all calls so we don't crash on web or unsupported devices.
  */
 function safeHaptic(fn: () => Promise<void>) {
-    if (!HAPTICS_ENABLED) return;
+    if (!HAPTICS_AVAILABLE || !_hapticsEnabled) return;
     fn().catch(() => {
         // Silently ignore — haptic failure should never crash the app
     });
@@ -65,7 +78,7 @@ export function hapticReset() {
 
 /** Block successfully claimed — heavy + celebration */
 export async function hapticBlockClaimed() {
-    if (!HAPTICS_ENABLED) return;
+    if (!HAPTICS_AVAILABLE || !_hapticsEnabled) return;
     try {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         // Small delay then success notification for a two-beat rhythm
@@ -92,7 +105,7 @@ export function hapticButtonPress() {
  * Buildup escalates over 2.3s → Heavy impact at 2500ms → light settle.
  */
 export function hapticClaimCelebration(isFirstClaim: boolean) {
-    if (!HAPTICS_ENABLED) return;
+    if (!HAPTICS_AVAILABLE || !_hapticsEnabled) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const config = isFirstClaim ? CLAIM_HAPTICS.firstClaim : CLAIM_HAPTICS.normal;
 
@@ -141,7 +154,7 @@ export function hapticLevelUp() {
 
 /** Streak milestone — double-tap celebration */
 export function hapticStreakMilestone() {
-    if (!HAPTICS_ENABLED) return;
+    if (!HAPTICS_AVAILABLE || !_hapticsEnabled) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setTimeout(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
