@@ -4,7 +4,7 @@ import { GAME_SERVER_URL } from "@/constants/network";
 import { useTowerStore } from "@/stores/tower-store";
 import type { DemoBlock } from "@/stores/tower-store";
 import { useActivityStore } from "@/stores/activity-store";
-import type { ClaimMessage, ChargeMessage, CustomizeMessage, ActivityEvent } from "@monolith/common";
+import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ActivityEvent } from "@monolith/common";
 import { registerForPushNotifications } from "@/utils/notifications";
 import { useWalletStore } from "@/stores/wallet-store";
 import {
@@ -92,6 +92,25 @@ export interface CustomizeResult {
   levelUp?: boolean;
 }
 
+/** Poke result from server */
+export interface PokeResult {
+  success: boolean;
+  blockId?: string;
+  energyAdded?: number;
+  pointsEarned?: number;
+  combo?: number;
+  totalXp?: number;
+  level?: number;
+  levelUp?: boolean;
+}
+
+/** Poke received notification */
+export interface PokeReceived {
+  fromName: string;
+  blockId: string;
+  energyAdded: number;
+}
+
 interface MultiplayerStore {
   connected: boolean;
   error: string | null;
@@ -106,6 +125,7 @@ interface MultiplayerStore {
   sendClaim: (msg: ClaimMessage) => void;
   sendCharge: (msg: ChargeMessage) => void;
   sendCustomize: (msg: CustomizeMessage) => void;
+  sendPoke: (msg: PokeMessage) => void;
   sendSetUsername: (msg: { wallet: string; username: string }) => void;
 }
 
@@ -120,6 +140,8 @@ let lastAppliedTick = -1;
 let chargeResultCallback: ((result: ChargeResult) => void) | null = null;
 let claimResultCallback: ((result: ClaimResult) => void) | null = null;
 let customizeResultCallback: ((result: CustomizeResult) => void) | null = null;
+let pokeResultCallback: ((result: PokeResult) => void) | null = null;
+let pokeReceivedCallback: ((data: PokeReceived) => void) | null = null;
 let errorCallback: ((error: { message: string }) => void) | null = null;
 let playerSyncCallback: ((data: any) => void) | null = null;
 let usernameResultCallback: ((data: { success: boolean; username?: string }) => void) | null = null;
@@ -390,6 +412,14 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         customizeResultCallback?.(data);
       });
 
+      room.onMessage("poke_result", (data: PokeResult) => {
+        pokeResultCallback?.(data);
+      });
+
+      room.onMessage("poke_received", (data: PokeReceived) => {
+        pokeReceivedCallback?.(data);
+      });
+
       room.onMessage("player_sync", (data: any) => {
         playerSyncCallback?.(data);
       });
@@ -455,6 +485,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   sendClaim: (msg) => room?.send("claim", msg),
   sendCharge: (msg) => room?.send("charge", msg),
   sendCustomize: (msg) => room?.send("customize", msg),
+  sendPoke: (msg) => room?.send("poke", msg),
   sendSetUsername: (msg) => room?.send("set_username", msg),
 }));
 
@@ -499,6 +530,16 @@ export function onClaimResult(callback: (result: ClaimResult) => void) {
 /** Register a customize_result callback (replaces previous) */
 export function onCustomizeResult(callback: (result: CustomizeResult) => void) {
   customizeResultCallback = callback;
+}
+
+/** Register a poke_result callback (replaces previous) */
+export function onPokeResult(callback: (result: PokeResult) => void) {
+  pokeResultCallback = callback;
+}
+
+/** Register a poke_received callback (replaces previous) */
+export function onPokeReceived(callback: (data: PokeReceived) => void) {
+  pokeReceivedCallback = callback;
 }
 
 /** Register a username_result callback (replaces previous) */

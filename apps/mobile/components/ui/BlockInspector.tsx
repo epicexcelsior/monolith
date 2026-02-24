@@ -25,8 +25,9 @@ import { useWalletStore } from "@/stores/wallet-store";
 import { useStaking } from "@/hooks/useStaking";
 import { ENERGY_THRESHOLDS, BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
-import { useMultiplayerStore, onChargeResult, onClaimResult, onCustomizeResult } from "@/stores/multiplayer-store";
-import type { ChargeResult, ClaimResult, CustomizeResult } from "@/stores/multiplayer-store";
+import { useMultiplayerStore, onChargeResult, onClaimResult, onCustomizeResult, onPokeResult } from "@/stores/multiplayer-store";
+import type { ChargeResult, ClaimResult, CustomizeResult, PokeResult } from "@/stores/multiplayer-store";
+import { usePokeStore } from "@/stores/poke-store";
 import { usePlayerStore } from "@/stores/player-store";
 import {
   hapticBlockDeselect,
@@ -115,6 +116,9 @@ export default function BlockInspector() {
   const sendClaim = useMultiplayerStore((s) => s.sendClaim);
   const sendCharge = useMultiplayerStore((s) => s.sendCharge);
   const sendCustomize = useMultiplayerStore((s) => s.sendCustomize);
+  const sendPoke = useMultiplayerStore((s) => s.sendPoke);
+  const canPoke = usePokeStore((s) => s.canPoke);
+  const recordPoke = usePokeStore((s) => s.recordPoke);
 
   const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
   const dragOffset = useRef(new Animated.Value(0)).current;
@@ -126,6 +130,7 @@ export default function BlockInspector() {
   const [showMoreStyles, setShowMoreStyles] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [cooldownText, setCooldownText] = useState<string | null>(null);
+  const [pokeStatus, setPokeStatus] = useState<string | null>(null);
   const recentlyClaimedId = useTowerStore((s) => s.recentlyClaimedId);
 
   // Swipe-to-dismiss — only on drag handle, not content
@@ -166,6 +171,7 @@ export default function BlockInspector() {
       setShowCustomize(false);
       setShowMoreStyles(false);
       setShowClaimModal(false);
+      setPokeStatus(null);
       dragOffset.setValue(0);
     }
   }, [isVisible, slideAnim, dragOffset]);
@@ -251,6 +257,21 @@ export default function BlockInspector() {
     }
   }, [selectedBlockId, chargeBlock, mpConnected, sendCharge]);
 
+  // Handle poke
+  const handlePoke = useCallback(() => {
+    if (!selectedBlockId || !publicKey || !mpConnected) return;
+    if (!canPoke(selectedBlockId)) {
+      setPokeStatus("Already poked today");
+      setTimeout(() => setPokeStatus(null), 3000);
+      hapticError();
+      playError();
+      return;
+    }
+    hapticButtonPress();
+    playButtonTap();
+    sendPoke({ blockId: selectedBlockId, wallet: publicKey.toBase58() });
+  }, [selectedBlockId, publicKey, mpConnected, canPoke, sendPoke]);
+
   // Listen for server charge results
   useEffect(() => {
     if (!mpConnected) return;
@@ -302,7 +323,26 @@ export default function BlockInspector() {
         });
       }
     });
-  }, [mpConnected]);
+
+    onPokeResult((result: PokeResult) => {
+      if (result.success) {
+        if (result.blockId) recordPoke(result.blockId);
+        setPokeStatus(`Poked! +${result.energyAdded ?? 10}% energy sent`);
+        if (result.pointsEarned) {
+          usePlayerStore.getState().addPoints({
+            pointsEarned: result.pointsEarned,
+            combo: result.combo,
+            totalXp: result.totalXp,
+            level: result.level,
+            levelUp: result.levelUp,
+          });
+        }
+      } else {
+        setPokeStatus("Already poked today");
+      }
+      setTimeout(() => setPokeStatus(null), 3000);
+    });
+  }, [mpConnected, recordPoke]);
 
   // Customize helper
   const applyCustomize = useCallback((changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => {
@@ -488,6 +528,21 @@ export default function BlockInspector() {
                         <Text style={styles.stakedText}>{formatUsdc(block.stakedAmount)}</Text>
                       )}
                     </View>
+                    {/* Poke button — available when connected + wallet */}
+                    {isWalletConnected && mpConnected && !isDormant && (
+                      <View style={styles.pokeRow}>
+                        <Button
+                          title={pokeStatus || (canPoke(block.id) ? "POKE \uD83D\uDC49" : "Poked today")}
+                          variant="secondary"
+                          size="md"
+                          onPress={handlePoke}
+                          disabled={!canPoke(block.id) || !!pokeStatus}
+                        />
+                        {pokeStatus && (
+                          <Text style={styles.pokeStatusText}>{pokeStatus}</Text>
+                        )}
+                      </View>
+                    )}
                     {isDormant && (
                       <>
                         <Badge label="DORMANT" color={COLORS.dormant} />
@@ -821,6 +876,16 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.mono,
     fontSize: 12,
     color: COLORS.textMuted,
+  },
+  // ─── Poke ───
+  pokeRow: {
+    gap: SPACING.xs,
+  },
+  pokeStatusText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 12,
+    color: COLORS.gold,
+    textAlign: "center",
   },
   // ─── More styles expander ───
   moreStylesButton: {
