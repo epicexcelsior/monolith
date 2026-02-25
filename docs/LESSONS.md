@@ -484,6 +484,11 @@ const animateClose = useCallback(() => {
 
 ## Development Workflow
 
+### CWD Drift Breaks Git Commands After Subpackage Work (2026-02-25)
+**Problem**: Running tests or tsc from `apps/mobile/` leaves the shell CWD in a subpackage. Subsequent `git add docs/LESSONS.md` fails with "pathspec did not match" because the path is relative to repo root, not the current directory.
+**Solution**: Always use absolute paths for git commands, or use `git -C /path/to/repo` flag. Alternatively, `cd` back to repo root before git operations.
+**Key Insight**: In monorepos, test/build commands require subpackage CWD but git commands require repo root — always be explicit about which context you're in.
+
 ### Shader Validation Checklist in Wrapup (2026-02-18)
 **Problem**: Multiple coordinate space bugs during interior mapping implementation.
 **Solution**: Added shader validation to `/wrapup` workflow: varying coordinate space labels, UV computation consistency, uniform updates, attribute counts, `needsUpdate` flags, debug color removal, LOD checks, transparency pitfalls. Created `react-native-three` skill.
