@@ -15,6 +15,8 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -53,7 +55,7 @@ if ! $PROD_MODE && [[ -n "$DEVICE" ]]; then
 fi
 
 # ── 3. Set .env.local ─────────────────────────────────────────────
-ENV_FILE="apps/mobile/.env.local"
+ENV_FILE="$SCRIPT_DIR/apps/mobile/.env.local"
 if $PROD_MODE; then
   GAME_URL="wss://monolith-server-production.up.railway.app"
   echo -e "${YELLOW}→  Using prod server: $GAME_URL${NC}"
@@ -75,7 +77,7 @@ fi
 echo -e "${GREEN}✓  .env.local updated${NC}"
 
 # ── 4. Check Supabase config ──────────────────────────────────────
-SERVER_ENV="apps/server/.env"
+SERVER_ENV="$SCRIPT_DIR/apps/server/.env"
 if [[ -f "$SERVER_ENV" ]] && grep -q "SUPABASE_SERVICE_KEY=eyJ" "$SERVER_ENV" 2>/dev/null; then
   echo -e "${GREEN}✓  Supabase service key configured${NC}"
 else
@@ -90,9 +92,8 @@ $CHECK_ONLY && echo -e "${GREEN}\nSetup looks good!${NC}" && exit 0
 if ! $PROD_MODE; then
   echo ""
   echo -e "${BLUE}→  Starting game server (apps/server)...${NC}"
-  cd apps/server && pnpm dev &
+  (cd "$SCRIPT_DIR/apps/server" && pnpm dev) &
   SERVER_PID=$!
-  cd ../..
 
   # Wait for server to be ready
   echo -n "   Waiting for server"
@@ -115,7 +116,7 @@ echo ""
 echo -e "${BLUE}→  Starting Expo (apps/mobile)...${NC}"
 echo "   Press 'a' to open on Android device"
 echo ""
-cd apps/mobile && npx expo start --dev-client
+cd "$SCRIPT_DIR/apps/mobile" && npx expo start --dev-client
 
 # ── Cleanup ───────────────────────────────────────────────────────
 if ! $PROD_MODE && [[ -n "$SERVER_PID" ]]; then
