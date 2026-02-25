@@ -403,6 +403,23 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 
 ## UI/UX & Design System
 
+### BottomPanel Animated Dismiss — Animate Off-Screen Before Calling onClose (2026-02-25)
+**Problem**: Swipe-to-dismiss on BottomPanel caused a pop-back flash. Root cause: `dragOffset.setValue(0)` was called in the dismiss callback before React could unmount the component, so for one frame the panel snapped back to position 0. Also, a useEffect `else` branch tried to animate slide-out on `visible=false`, but the component had `if (!visible) return null` which unmounted it before the effect could run — dead code that caused race conditions.
+**Solution**: Created an `animateClose()` callback that uses `Animated.timing` to slide off-screen (dragOffset → totalHeight, 200ms) and only calls `onClose()` in the `.start()` completion callback. Removed the dead `else` branch entirely. `dragOffset` is only reset to 0 when the panel opens (in the `if (visible)` branch).
+```typescript
+const animateClose = useCallback(() => {
+    Animated.timing(dragOffset, {
+        toValue: totalHeight, duration: 200, useNativeDriver: true,
+    }).start(() => { onCloseRef.current(); });
+}, [dragOffset, totalHeight]);
+```
+**Key Insight**: For dismissable panels with `if (!visible) return null`, always animate off-screen FIRST, then call the state setter in the animation callback. Never reset animation values before the component unmounts.
+
+### Avoid Double SFX on Cascading UI Actions (2026-02-25)
+**Problem**: Tapping a block played two sounds simultaneously — `playBlockSelect()` in TowerScene (on tap) and `playPanelOpen()` in BlockInspector (on visibility change). Similarly, FloatingNav `playButtonTap()` overlapped with BottomPanel's own `playSheetOpen()` on open. Users reported "two SFX playing at once."
+**Solution**: Each user action should trigger exactly ONE sound at the point of interaction. Removed sounds from downstream effects (BottomPanel open, BlockInspector visibility change). The component that handles the user gesture owns the sound.
+**Key Insight**: When action A triggers effect B, only A should play a sound. Audit SFX by tracing the full chain: gesture → state change → UI reaction. Each chain gets one sound.
+
 ### Consolidate Notification Components — Avoid Stacking Overlays (2026-02-24)
 **Problem**: Three separate notification layers (ActivityTicker, ActivityFeed, HotBlockTicker) accumulated over multiple sprints. All competed for screen space, blocked touches on the 3D tower, and displayed similar information. HotBlockTicker was centered mid-screen in the HUD column, making "L0 Fading" pills look like a broken UI element.
 **Solution**: Removed ActivityTicker and ActivityFeed entirely. Kept only HotBlockTicker, repositioned as absolute `bottom: 100, left: SPACING.sm` (above tab bar height of ~68px). Reduced to 3 pills max, compact labels, dark bg with text shadow for contrast.
