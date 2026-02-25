@@ -218,6 +218,9 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 16. **mediump uTime precision** — fragment shaders use `precision mediump float` for 2x GPU throughput, but `uTime` grows unboundedly. After ~10 min, `sin(uTime * N)` returns garbage on float16. All `uTime` uniforms MUST use `uniform highp float uTime;` override.
 17. **expo-audio loop bug** — calling `seekTo(0)` on a `didJustFinish` player triggers auto-play → infinite loop. Pattern: `player.seekTo(0).catch(()=>{})` then `player.play()` fire-and-forget. No listeners.
 18. **No `new` in useFrame** — `new THREE.Color()`, `.clone()`, `new Float32Array()` inside per-frame callbacks create GC pressure. Pre-allocate in `useRef` and use `.set()`/`.copy()`.
+19. **FloatingNav visibility** — derived from `anyOverlayOpen` in index.tsx. When adding a new sheet/overlay, add it to `anyOverlayOpen` (one place) — don't thread individual booleans into the visible prop.
+20. **One SFX per action chain** — gesture → state change → UI reaction should play exactly ONE sound at the gesture origin. Don't add sounds to downstream effects (e.g. BottomPanel open, BlockInspector visibility change). Audit with: `grep -rn "play[A-Z]" apps/mobile/components/ apps/mobile/app/ --include="*.tsx"` and trace each call's trigger chain.
+21. **BottomPanel dismiss pattern** — always animate off-screen FIRST (`Animated.timing` to totalHeight), THEN call `onClose()` in `.start()` callback. Never reset `dragOffset` before unmount. Never put slide-out in useEffect else branch when component has `if (!visible) return null`.
 
 ---
 
@@ -292,7 +295,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `BlockShader.ts` uniforms | Uniform assignments in `TowerGrid.tsx` |
 | Block data shape / types | `tower-store.ts`, `multiplayer-store.ts`, `TowerRoom.ts`, `types.ts` |
 | Camera config values | `CameraConfig.ts` + test expectations in `__tests__/` |
-| FloatingNav visibility in `index.tsx` | Add new sheets/overlays to `!showX` condition |
+| New sheet/overlay in `index.tsx` | Add to `anyOverlayOpen` boolean (hides FloatingNav) |
 | Tower dimensions in `constants.ts` | Both client and server use this — redeploy server too |
 | `TowerRoom.ts` message format | Client handlers in `multiplayer-store.ts` |
 | `supabase/migrations/` | Run `npx supabase db push` to apply to hosted DB |

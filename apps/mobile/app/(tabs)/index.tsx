@@ -47,6 +47,9 @@ export default function TowerScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const showWalletConnect = useWalletStore((s) => s.showConnectSheet);
 
+  // FloatingNav hides when any overlay/sheet is open — single derived boolean
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect;
+
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
 
@@ -188,7 +191,7 @@ export default function TowerScreen() {
       <FloatingNav
         activeTab={activeNav}
         onTabPress={handleNavTab}
-        visible={revealComplete && !isOnboarding && !cinematicMode && !selectedBlockId && !showBoard && !showSettings && !showWalletConnect}
+        visible={revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen}
       />
 
       {/* Board sheet — opens over tower */}
