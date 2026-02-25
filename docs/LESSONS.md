@@ -369,6 +369,11 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 **Solution**: Keep RPC URLs consistent between `.env` (local dev) and `eas.json` (EAS builds).
 **Key Insight**: `eas.json` env vars take precedence during EAS builds — always check both sources.
 
+### Push Notifications on Android — FCM Is Required, But You Don't Touch It (2026-02-25)
+**Problem**: `expo-notifications` throws "Default FirebaseApp is not initialized" on Android when calling `getExpoPushTokenAsync()`.
+**Solution**: Add `google-services.json` (from Firebase Console) to `apps/mobile/` and set `"googleServicesFile": "./google-services.json"` in the `android` section of `app.json`. Requires a native EAS rebuild — OTA won't activate it.
+**Key Insight**: FCM is the mandatory Android transport for all push notifications. You don't write any Firebase SDK code — the `expo-notifications` config plugin auto-injects the Gradle plugin and Firebase init during the build. On the sending side, use Expo's push API (`https://exp.host/--/api/v2/push/send`) — it routes to FCM/APNs transparently with a single token format. Gitignore `google-services.json` (contains API keys).
+
 ### EAS Build + pnpm (2026-02-10)
 **Problem**: EAS Build defaults to yarn if no `packageManager` field exists in root `package.json`.
 **Solution**: Add `"packageManager": "pnpm@<version>"` to root `package.json`. Also need a separate `.easignore` (not `.gitignore`) with critical exclusions: `.agents/`, `android/`, `ios/` dirs.
