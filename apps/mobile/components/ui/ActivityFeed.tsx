@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.body,
     fontSize: 10,
     letterSpacing: 0.2,
-    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowColor: COLORS.textShadowDark,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },

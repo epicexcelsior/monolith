@@ -1,7 +1,7 @@
 # Monolith — Project Context
 
 > **Living state document.** Auto-updated by `/wrapup` workflow.
-> **Last updated:** 2026-02-24
+> **Last updated:** 2026-02-25
 
 ## What Is This?
 
@@ -51,6 +51,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **HotBlockTicker** (bottom-left pills for claimable/fading/streak blocks, tap to inspect)
 - **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast)
 - **Settings polish** (haptics toggle, username display, replay onboarding)
+- **UI overhaul** — tower reveal animation, FloatingNav pills (replaced tab bar), TopHUD, BoardSheet/SettingsSheet bottom panels, WalletConnectSheet card, LiveActivityTicker with poke-random, BlockInspector split into sub-components, swipe-to-dismiss everywhere, dead code cleanup
 - **EAS Update / OTA** (expo-updates configured, channel: preview)
 - **Ownership enforcement** (can't charge/customize another player's block)
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
@@ -82,15 +83,28 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 ### UI Components
 | File | Purpose |
 |------|---------|
-| `apps/mobile/components/ui/BlockInspector.tsx` | Selected block detail panel + charge/claim/dormant CTA |
+| `apps/mobile/components/ui/BlockInspector.tsx` | Selected block detail panel orchestrator (sub-components in inspector/) |
+| `apps/mobile/components/inspector/InspectorHeader.tsx` | Block emoji + name + state badge |
+| `apps/mobile/components/inspector/InspectorActions.tsx` | CTA buttons (Claim/Charge/Poke/Reclaim) |
+| `apps/mobile/components/inspector/InspectorCustomize.tsx` | Color/emoji/style/name editor |
+| `apps/mobile/components/inspector/InspectorStats.tsx` | Energy bar + streak stats |
+| `apps/mobile/components/ui/FloatingNav.tsx` | Bottom pill nav (Tower/Board/Me) — replaces tab bar |
+| `apps/mobile/components/ui/TopHUD.tsx` | Minimal top bar (MONOLITH + wallet pill) |
+| `apps/mobile/components/ui/BoardSheet.tsx` | Board bottom sheet (wraps BoardContent) |
+| `apps/mobile/components/ui/SettingsSheet.tsx` | Settings bottom sheet (wraps SettingsContent) |
+| `apps/mobile/components/ui/WalletConnectSheet.tsx` | Wallet connect card (BottomPanel) |
+| `apps/mobile/components/ui/LiveActivityTicker.tsx` | Bottom-left activity feed + poke-random pill |
+| `apps/mobile/components/ui/BottomPanel.tsx` | Reusable glass slide-up panel with swipe dismiss |
+| `apps/mobile/components/board/BoardContent.tsx` | Leaderboard + activity feed content |
+| `apps/mobile/components/settings/SettingsContent.tsx` | Profile + settings content |
+| `apps/mobile/hooks/useBlockActions.ts` | Block action handlers (claim/charge/poke/customize) |
+| `apps/mobile/hooks/useTowerReveal.ts` | Tower build-up reveal animation |
 | `apps/mobile/components/ui/LayerIndicator.tsx` | Floor scrubber / layer nav |
 | `apps/mobile/components/ui/ClaimModal.tsx` | Block claim confirmation modal |
-| `apps/mobile/components/ui/TowerStats.tsx` | HUD stats bar (keepers, charge %, online count, level) |
-| `apps/mobile/components/ui/HotBlockTicker.tsx` | Bottom-left pills for claimable/fading/streak blocks |
 | `apps/mobile/components/ui/AchievementToast.tsx` | Slide-in achievement notifications (7 types) |
 | `apps/mobile/components/ui/MyBlocksPanel.tsx` | Bottom sheet listing owned blocks |
 | `apps/mobile/components/ui/UsernameModal.tsx` | Set display name modal |
-| `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator (connecting/offline/reconnecting) |
+| `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator |
 | `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions |
 | `apps/mobile/components/ui/LevelUpCelebration.tsx` | Full-screen level-up overlay + haptic |
 | `apps/mobile/components/ui/XPBar.tsx` | XP progress bar component |
@@ -123,7 +137,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 ### Config / Constants
 | File | Purpose |
 |------|---------|
-| `apps/mobile/utils/audio.ts` | Sound system: 12 preloaded WAV players, fire-and-forget API |
+| `apps/mobile/utils/audio.ts` | Sound system: 18 preloaded WAV players, fire-and-forget API |
+| `apps/mobile/docs/SFX.md` | How to swap/add/remove sounds |
 | `apps/mobile/utils/haptics.ts` | Named haptic events (all interactions) |
 | `apps/mobile/assets/sfx/` | WAV files: 3 Kenney CC0 + 9 synthesized (A Dorian palette) |
 | `scripts/generate-sounds.js` | Node.js WAV synthesizer — re-run to regenerate hero sounds |
@@ -185,7 +200,7 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 
 ## Gotchas & Critical Patterns
 
-1. **Tab bar is `position: absolute`** — ALL bottom-anchored UI must offset by `60 + insets.bottom`
+1. **Tab bar hidden** — `tabBar: () => null` in _layout.tsx. FloatingNav replaces it. Bottom-anchored UI uses `insets.bottom` only (no +60 offset)
 2. **Custom shaders = no R3F lights** — every mesh uses ShaderMaterial, R3F light components have zero effect
 3. **Never use `transparent: true` on InstancedMesh** — 650 instances + alpha sorting kills perf
 4. **Elevation coordinate system**: `0 = directly above, π/2 = horizontal` (not intuitive)
@@ -277,7 +292,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `BlockShader.ts` uniforms | Uniform assignments in `TowerGrid.tsx` |
 | Block data shape / types | `tower-store.ts`, `multiplayer-store.ts`, `TowerRoom.ts`, `types.ts` |
 | Camera config values | `CameraConfig.ts` + test expectations in `__tests__/` |
-| Tab bar height in `_layout.tsx` | All bottom-anchored UI (BlockInspector, BottomPanel, etc.) |
+| FloatingNav visibility in `index.tsx` | Add new sheets/overlays to `!showX` condition |
 | Tower dimensions in `constants.ts` | Both client and server use this — redeploy server too |
 | `TowerRoom.ts` message format | Client handlers in `multiplayer-store.ts` |
 | `supabase/migrations/` | Run `npx supabase db push` to apply to hosted DB |
@@ -304,6 +319,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: UI overhaul — tower reveal animation (bottom→top build + camera sweep), FloatingNav pills (replaced tab bar), TopHUD minimal top bar, Board/Settings/Wallet as bottom sheets over tower, BlockInspector split into sub-components (inspector/), LiveActivityTicker with poke-random-block, swipe-to-dismiss on all panels, double SFX fix, dead code cleanup, SFX doc. 220 tests passing.
+- **2026-02-25**: Tower perf optimizations — dirty-flag decayTick (in-place mutate, no 650 object spreads), idle loop skip for fade/highlight/pop-out (near-zero useFrame cost when idle), single-block matrix restore (not 650), splice→filter for charge flash, removed `transparent:true` from glow material, delta cap on TowerCore, mediump shaders for Foundation+Particles (~2x Adreno throughput)
 - **2026-02-24**: Pre-testing sprint merged to main — poke mechanic, username system, My Blocks panel, XP leaderboard, push notifications, achievements, HotBlockTicker, settings polish, onboarding copy update, dormant reclaim tests, dev.sh path fix. Removed redundant ActivityTicker/ActivityFeed overlays. 304 tests (220 mobile + 84 server).
 - **2026-02-23**: Sound effects — 12-sound A Dorian crystal palette, zero-latency engine (seekTo+play fire-and-forget), expo-audio plugin linked, wired to every interaction including layer scrubber + panel open; mute toggle in settings
 - **2026-02-23**: Onboarding v2 — stakes messaging ("yours to keep or lose", decay warning, miss-3-days reclaim), full-screen dark scrim contrast, step dots, animated entrances; fixed customize XP callback (was silent-dropped); demo mode XP (claim 100/300xp, charge 25xp, customize 10xp); removed dead stepIndex variable

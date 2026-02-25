@@ -5,6 +5,7 @@ import * as THREE from "three";
 import TowerGrid from "./TowerGrid";
 import Particles from "./Particles";
 import { ClaimVFX } from "./ClaimVFX";
+import { useTowerReveal } from "@/hooks/useTowerReveal";
 
 /**
  * ConditionalClaimVFX — Mounts the particle celebration only while active.
@@ -484,6 +485,21 @@ function CameraRig({
  * Creates a visible surface the foundation sits on, plus a warm light pool.
  * Positioned at foundation bottom so the tower doesn't float.
  */
+/**
+ * TowerRevealController — Hosts the useTowerReveal hook inside Canvas context.
+ * Drives reveal progress and camera sweep. Disables during later use.
+ */
+function TowerRevealController({
+  cameraState,
+  lastTouchTime,
+}: {
+  cameraState: React.MutableRefObject<CameraState>;
+  lastTouchTime: React.MutableRefObject<number>;
+}) {
+  useTowerReveal(cameraState, lastTouchTime);
+  return null;
+}
+
 function GroundPlane() {
   // Foundation: 4 tiers (1.0 + 1.4 + 1.8 + 1.2 = 5.4) starting at y=-0.5
   const FOUNDATION_BOTTOM = -5.9;
@@ -944,6 +960,8 @@ export default function TowerScene() {
         // Don't capture taps — let them through to R3F for block raycasting
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, gesture) => {
+          // Block gestures during tower reveal animation
+          if (!useTowerStore.getState().revealComplete) return false;
           // Capture only when finger has moved enough to be a drag
           // OR when there are 2+ fingers (pinch)
           return (
@@ -1125,6 +1143,10 @@ export default function TowerScene() {
         camera={{ position: [0, OVERVIEW_LOOKAT_Y, ZOOM_OVERVIEW], fov: 50, near: CAMERA_NEAR, far: CAMERA_FAR }}
       >
         <SceneSetup />
+        <TowerRevealController
+          cameraState={cameraState}
+          lastTouchTime={lastTouchTime}
+        />
         <CameraRig
           cameraState={cameraState}
           lastTouchTime={lastTouchTime}

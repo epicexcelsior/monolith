@@ -41,7 +41,13 @@ export async function registerForPushNotifications(): Promise<string | null> {
     console.log("[Notifications] Token:", tokenData.data);
     return tokenData.data;
   } catch (err) {
-    console.error("[Notifications] Registration failed:", err);
+    // FCM not initialized is expected in dev builds without google-services.json
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("FirebaseApp") || msg.includes("FCM")) {
+      console.log("[Notifications] Skipped — FCM not configured (expected in dev)");
+    } else {
+      console.warn("[Notifications] Registration failed:", msg);
+    }
     return null;
   }
 }

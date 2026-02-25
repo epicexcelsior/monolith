@@ -74,9 +74,15 @@ export const COLORS = {
 
   // ─── Semantic ─────────────────────────────
   success: "#2E8B57",
+  successSubtle: "rgba(46, 139, 87, 0.12)",
   warning: "#E8A94D",
   error: "#C4402A",
   info: "#5B8FB9",
+
+  // ─── HUD-specific tokens ────────────────
+  hudHandle: "rgba(255, 255, 255, 0.30)",
+  hudPillBg: "rgba(0, 0, 0, 0.55)",
+  textShadowDark: "rgba(0, 0, 0, 0.9)",
 } as const;
 
 // ─────────────────────────────────────────────

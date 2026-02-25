@@ -281,6 +281,21 @@ function readU64(data: Uint8Array, offset: number): number {
 
 ## Performance
 
+### Dirty-Flag Zustand Updates — Mutate In-Place, New Ref Only (2026-02-25)
+**Problem**: `decayTick()` ran `demoBlocks.map(b => b.owner && b.energy > 0 ? { ...b, energy: ... } : b)` every 60s — creating 650 new objects even though only ~400 blocks had decayable energy. Every new object triggered downstream `===` checks to fail, causing full attribute rebuilds for all 650 blocks in TowerGrid.
+**Solution**: Mutate `energy` in-place on existing objects, then `set({ demoBlocks: [...blocks] })` to trigger React with a new array reference but reused objects. Blocks that didn't change keep the same object reference, so downstream `===` checks skip them.
+**Key Insight**: When only a single field changes on many objects, mutate in-place and create a new container reference. This lets consumers do cheap `===` identity checks to skip unchanged items.
+
+### useFrame Idle Skip — Guard 650-Element Loops with Dirty Flags (2026-02-25)
+**Problem**: TowerGrid's `useFrame` ran three 650-element loops (fade, highlight, pop-out) every frame even when no block was selected and no animation was active. At idle, this was pure wasted CPU.
+**Solution**: Add `fadeAnimatingRef` and `popAnimatingRef` boolean refs. Set `true` when `selectedBlockId` changes (new targets set), set `false` when the animation loop finds no deltas > 0.001. When `false`, skip the entire loop body — useFrame cost drops to near-zero at idle.
+**Key Insight**: Any per-frame loop over N items should be gated by a dirty flag. Set the flag when targets change, clear it when convergence is detected.
+
+### Single-Block Matrix Restore Instead of Full Rebuild (2026-02-25)
+**Problem**: When a block was deselected, pop-out animation would detect `popCur.every(v => v < 0.001)` and restore ALL 650 block matrices — 3 meshes × 650 = 1950 `setMatrixAt` calls + `updateMatrix` for a single block returning to its home position.
+**Solution**: Track `lastPoppedIndexRef`. On deselection convergence, restore only that one block's matrix across main + hit + glow meshes (3 calls instead of 1950).
+**Key Insight**: Track the minimal dirty set. If only one item was modified, only restore that one item — don't scan or rebuild the entire collection.
+
 ### mediump uTime Causes Progressive Lag on Mobile (2026-02-23)
 **Problem**: Tower got progressively laggier the longer it ran — shaders and lights degraded over ~10 minutes. Root cause: fragment shaders used `precision mediump float` (float16 on mobile GPUs) and `uTime` grew unboundedly. At `uTime ≈ 600` (~10 min), `sin(uTime * 4.0) = sin(2400)` has mediump precision of ±2 — results are garbage. GPU computes meaningless values, causing visual artifacts and frame stalls.
 **Solution**: Declare time uniforms with explicit highp override while keeping everything else mediump:

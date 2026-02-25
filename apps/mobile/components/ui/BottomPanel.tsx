@@ -1,14 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo, useCallback } from "react";
 import {
     View,
     StyleSheet,
     Animated,
     TouchableOpacity,
-    useWindowDimensions,
+    PanResponder,
     Text,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS, RADIUS, SPACING, TIMING, FONT_FAMILY, BLUR } from "@/constants/theme";
+import { hapticBlockDeselect } from "@/utils/haptics";
 
 // Safe BlurView import — falls back when native module isn't compiled into the build
 let BlurViewComponent: any = null;
@@ -17,6 +18,8 @@ try {
 } catch {
     // Native module not available — will use solid fallback
 }
+
+const DISMISS_THRESHOLD = 60;
 
 interface BottomPanelProps {
     /** Whether the panel is visible */
@@ -36,13 +39,7 @@ interface BottomPanelProps {
 /**
  * Reusable animated BottomPanel — frosted glass slide-up panel.
  * Safe-area aware: accounts for gesture bar / home indicator on Seeker.
- *
- * @example
- * ```tsx
- * <BottomPanel visible={showPanel} onClose={() => setShowPanel(false)} title="Block Details" dark>
- *   <Text>Panel content here</Text>
- * </BottomPanel>
- * ```
+ * Swipe down anywhere to dismiss (velocity-aware for snappy feel).
  */
 export default function BottomPanel({
     visible,
@@ -55,22 +52,61 @@ export default function BottomPanel({
     const insets = useSafeAreaInsets();
     const totalHeight = height + insets.bottom;
     const slideAnim = useRef(new Animated.Value(totalHeight)).current;
+    const dragOffset = useRef(new Animated.Value(0)).current;
+    const onCloseRef = useRef(onClose);
+    onCloseRef.current = onClose;
 
+    // Animated close: slide off-screen then call onClose
+    const animateClose = useCallback(() => {
+        hapticBlockDeselect();
+        Animated.timing(dragOffset, {
+            toValue: totalHeight,
+            duration: 200,
+            useNativeDriver: true,
+        }).start(() => {
+            onCloseRef.current();
+        });
+    }, [dragOffset, totalHeight]);
+
+    // Swipe-to-dismiss from anywhere on the panel
+    const panResponder = useMemo(
+        () =>
+            PanResponder.create({
+                onStartShouldSetPanResponder: () => false,
+                onMoveShouldSetPanResponder: (_, gesture) =>
+                    gesture.dy > 10 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.5,
+                onPanResponderMove: (_, gesture) => {
+                    if (gesture.dy > 0) dragOffset.setValue(gesture.dy);
+                },
+                onPanResponderRelease: (_, gesture) => {
+                    if (gesture.dy > DISMISS_THRESHOLD || gesture.vy > 0.5) {
+                        animateClose();
+                    } else {
+                        // Snap back
+                        Animated.spring(dragOffset, {
+                            toValue: 0,
+                            tension: 200,
+                            friction: 20,
+                            useNativeDriver: true,
+                        }).start();
+                    }
+                },
+            }),
+        [dragOffset, animateClose],
+    );
+
+    // Slide in when visible becomes true
     useEffect(() => {
         if (visible) {
+            dragOffset.setValue(0);
+            slideAnim.setValue(totalHeight);
             Animated.spring(slideAnim, {
                 toValue: 0,
                 ...TIMING.spring,
                 useNativeDriver: true,
             }).start();
-        } else {
-            Animated.timing(slideAnim, {
-                toValue: totalHeight,
-                duration: TIMING.normal,
-                useNativeDriver: true,
-            }).start();
         }
-    }, [visible, slideAnim, totalHeight]);
+    }, [visible, slideAnim, totalHeight, dragOffset]);
 
     if (!visible) return null;
 
@@ -78,20 +114,21 @@ export default function BottomPanel({
     const intensity = dark ? BLUR.hudIntensity : BLUR.intensity;
     const borderColor = dark ? COLORS.hudBorder : COLORS.glassBorder;
     const bgOverlay = dark ? COLORS.hudGlass : COLORS.glass;
-    const handleColor = dark ? "rgba(255,255,255,0.30)" : COLORS.borderStrong;
+    const handleColor = dark ? COLORS.hudHandle : COLORS.borderStrong;
     const textColor = dark ? COLORS.textOnDark : COLORS.text;
-    const closeBg = dark ? "rgba(255,255,255,0.12)" : COLORS.glassMuted;
+    const closeBg = dark ? COLORS.hudHighlight : COLORS.glassMuted;
     const closeTextColor = dark ? COLORS.textOnDark : COLORS.textSecondary;
 
     return (
         <Animated.View
+            {...panResponder.panHandlers}
             style={[
                 styles.container,
                 {
                     height: totalHeight,
                     paddingBottom: insets.bottom,
                     borderColor,
-                    transform: [{ translateY: slideAnim }],
+                    transform: [{ translateY: Animated.add(slideAnim, dragOffset) }],
                 },
             ]}
         >
@@ -118,7 +155,7 @@ export default function BottomPanel({
                     <Text style={[styles.title, { color: textColor }]}>{title}</Text>
                     <TouchableOpacity
                         style={[styles.closeButton, { backgroundColor: closeBg }]}
-                        onPress={onClose}
+                        onPress={animateClose}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
                         <Text style={[styles.closeText, { color: closeTextColor }]}>✕</Text>
@@ -129,7 +166,7 @@ export default function BottomPanel({
             {!title && (
                 <TouchableOpacity
                     style={[styles.closeButtonAbsolute, { backgroundColor: closeBg }]}
-                    onPress={onClose}
+                    onPress={animateClose}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                     <Text style={[styles.closeText, { color: closeTextColor }]}>✕</Text>
@@ -155,6 +192,7 @@ const styles = StyleSheet.create({
         paddingTop: SPACING.sm,
         borderCurve: "continuous",
         overflow: "hidden",
+        zIndex: 100,
     },
     handleBar: {
         width: 40,

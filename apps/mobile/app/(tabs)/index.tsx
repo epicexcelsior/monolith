@@ -1,41 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  TouchableOpacity,
   Animated,
 } from "react-native";
+import Reanimated, { FadeIn } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
 import TowerScene from "@/components/tower/TowerScene";
 import BlockInspector from "@/components/ui/BlockInspector";
 import LayerIndicator from "@/components/ui/LayerIndicator";
 import { OnboardingFlow } from "@/components/onboarding";
 import ActionPrompt from "@/components/ui/ActionPrompt";
-import TowerStats from "@/components/ui/TowerStats";
 import FloatingPoints from "@/components/ui/FloatingPoints";
 import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import ScreenFlash from "@/components/ui/ScreenFlash";
-import HotBlockTicker from "@/components/ui/HotBlockTicker";
+import LiveActivityTicker from "@/components/ui/LiveActivityTicker";
 import AchievementToast from "@/components/ui/AchievementToast";
 import LoadingScreen from "@/components/ui/LoadingScreen";
-import MyBlocksPanel from "@/components/ui/MyBlocksPanel";
-import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
+import FloatingNav from "@/components/ui/FloatingNav";
+import BoardSheet from "@/components/ui/BoardSheet";
+import SettingsSheet from "@/components/ui/SettingsSheet";
+import TopHUD from "@/components/ui/TopHUD";
+import WalletConnectSheet from "@/components/ui/WalletConnectSheet";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useMultiplayerStore, onPlayerSync } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
-import { hapticButtonPress } from "@/utils/haptics";
-import { playButtonTap } from "@/utils/audio";
+import { useWalletStore } from "@/stores/wallet-store";
+import { COLORS } from "@/constants/theme";
 
 export default function TowerScreen() {
-  const router = useRouter();
-  const isConnected = useWalletStore((s) => s.isConnected);
-  const truncatedAddress = useTruncatedAddress();
-
   const initTower = useTowerStore((s) => s.initTower);
   const startDecayLoop = useTowerStore((s) => s.startDecayLoop);
   const startBotSimulation = useTowerStore((s) => s.startBotSimulation);
@@ -44,7 +39,13 @@ export default function TowerScreen() {
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
   const cinematicMode = useTowerStore((s) => s.cinematicMode);
-  const [showMyBlocks, setShowMyBlocks] = useState(false);
+  const revealComplete = useTowerStore((s) => s.revealComplete);
+  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
+  const selectBlock = useTowerStore((s) => s.selectBlock);
+  const [activeNav, setActiveNav] = useState<"tower" | "board" | "me">("tower");
+  const [showBoard, setShowBoard] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const showWalletConnect = useWalletStore((s) => s.showConnectSheet);
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -91,6 +92,23 @@ export default function TowerScreen() {
     }).start();
   }, [cinematicMode, cinematicAnim]);
 
+  // Handle floating nav tab press
+  const handleNavTab = (tab: "tower" | "board" | "me") => {
+    setActiveNav(tab);
+    if (tab === "tower") {
+      setShowBoard(false);
+      setShowSettings(false);
+      // Deselect block + reset camera handled naturally
+      if (selectedBlockId) selectBlock(null);
+    } else if (tab === "board") {
+      setShowBoard(true);
+      setShowSettings(false);
+    } else if (tab === "me") {
+      setShowSettings(true);
+      setShowBoard(false);
+    }
+  };
+
   // Start decay loop + bot simulation only when NOT in multiplayer
   useEffect(() => {
     if (!initialized || multiplayerConnected) return;
@@ -113,7 +131,9 @@ export default function TowerScreen() {
         <LoadingScreen visible={!initialized} />
       </View>
 
-      {/* ── Cinematic overlay: all UI slides away during claim celebration ── */}
+      {/* ── HUD: hidden until tower reveal completes, then fades in ── */}
+      {revealComplete && (
+      <Reanimated.View entering={FadeIn.duration(600)} style={styles.cinematicWrapper} pointerEvents="box-none">
       <Animated.View
         pointerEvents={cinematicMode ? "none" : "box-none"}
         style={[
@@ -129,73 +149,11 @@ export default function TowerScreen() {
         {/* HUD Overlay — hidden during onboarding for cleaner experience */}
         {!isOnboarding && (
           <View testID="tower-hud" style={styles.hud} pointerEvents="box-none">
-            {/* Top bar */}
-            <View style={styles.topBar}>
-              <TouchableOpacity
-                onLongPress={() => {
-                  hapticButtonPress();
-                  playButtonTap();
-                  resetOnboarding();
-                  resetOnboardingFlag();
-                }}
-                delayLongPress={800}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.title}>THE MONOLITH</Text>
-              </TouchableOpacity>
-              <View style={styles.topBarRight}>
-                {isConnected && (
-                  <TouchableOpacity
-                    style={styles.myBlocksButton}
-                    onPress={() => {
-                      hapticButtonPress();
-                      playButtonTap();
-                      setShowMyBlocks(true);
-                    }}
-                  >
-                    <Text style={styles.myBlocksText}>My Blocks</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={[
-                    styles.connectButton,
-                    isConnected && styles.connectedButton,
-                  ]}
-                  onPress={() => {
-                    hapticButtonPress();
-                    playButtonTap();
-                    router.push("/connect");
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.connectText,
-                      isConnected && styles.connectedText,
-                    ]}
-                  >
-                    {isConnected && truncatedAddress
-                      ? truncatedAddress
-                      : "Connect Wallet"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            {/* Minimal top bar */}
+            <TopHUD onReplayOnboarding={() => { resetOnboarding(); resetOnboardingFlag(); }} />
 
             {/* Connection status */}
             <ConnectionBanner />
-
-            {/* Tower stats bar */}
-            {initialized && <TowerStats />}
-
-            {/* Spacer to push bottom content down */}
-            <View style={{ flex: 1 }} />
-
-            {/* Bottom hint */}
-            <View style={styles.bottomArea}>
-              <Text style={styles.hintText}>
-                Drag to orbit {"\u2022"} Pinch to zoom {"\u2022"} Tap a block to inspect
-              </Text>
-            </View>
           </View>
         )}
 
@@ -217,15 +175,37 @@ export default function TowerScreen() {
         {/* Onboarding — inside wrapper so it hides during claim celebration */}
         {initialized && isOnboarding && <OnboardingFlow />}
 
-        {/* Hot block ticker — bottom-left, unobtrusive */}
-        {initialized && !isOnboarding && <HotBlockTicker />}
+        {/* Live activity ticker — bottom-left, streaming events */}
+        {initialized && !isOnboarding && <LiveActivityTicker />}
 
         {/* Achievement toast — slides in from top, auto-dismisses */}
         <AchievementToast />
       </Animated.View>
+      </Reanimated.View>
+      )}
 
-      {/* My Blocks panel — outside cinematic wrapper so it's always accessible */}
-      <MyBlocksPanel visible={showMyBlocks} onClose={() => setShowMyBlocks(false)} />
+      {/* Floating Nav Pills — always above tower, replaces tab bar */}
+      <FloatingNav
+        activeTab={activeNav}
+        onTabPress={handleNavTab}
+        visible={revealComplete && !isOnboarding && !cinematicMode && !selectedBlockId && !showBoard && !showSettings && !showWalletConnect}
+      />
+
+      {/* Board sheet — opens over tower */}
+      <BoardSheet
+        visible={showBoard}
+        onClose={() => { setShowBoard(false); setActiveNav("tower"); }}
+      />
+
+      {/* Settings sheet — opens over tower */}
+      <SettingsSheet
+        visible={showSettings}
+        onClose={() => { setShowSettings(false); setActiveNav("tower"); }}
+      />
+
+      {/* Wallet connect sheet */}
+      <WalletConnectSheet />
+
     </View>
   );
 }
@@ -243,7 +223,6 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   cinematicWrapper: {
-    // Full-screen wrapper that animates away during claim celebration
     position: "absolute",
     top: 0,
     left: 0,
@@ -251,74 +230,6 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   hud: {
-    flex: 1,
-    justifyContent: "space-between",
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: SPACING.md,
-  },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  title: {
-    color: COLORS.goldLight,
-    fontFamily: FONT_FAMILY.headingBlack,
-    fontSize: 18,
-    letterSpacing: 4,
-    textShadowColor: COLORS.gold,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  connectButton: {
-    backgroundColor: COLORS.goldSubtle,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.gold,
-  },
-  connectedButton: {
-    backgroundColor: "rgba(46, 139, 87, 0.12)",
-    borderColor: COLORS.success,
-  },
-  connectText: {
-    color: COLORS.gold,
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
-    letterSpacing: 1,
-  },
-  connectedText: {
-    color: COLORS.success,
-    fontFamily: FONT_FAMILY.mono,
-  },
-  topBarRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.xs,
-  },
-  myBlocksButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.10)",
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
-  },
-  myBlocksText: {
-    color: COLORS.textOnDark,
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  bottomArea: {
-    alignItems: "center",
-  },
-  hintText: {
-    color: COLORS.textMuted,
-    fontFamily: FONT_FAMILY.body,
-    fontSize: 12,
-    letterSpacing: 0.5,
+    pointerEvents: "box-none",
   },
 });

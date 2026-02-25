@@ -53,6 +53,8 @@ export default function TowerGrid() {
   const selectBlock = useTowerStore((s) => s.selectBlock);
   const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
+  const revealProgress = useTowerStore((s) => s.revealProgress);
+  const revealComplete = useTowerStore((s) => s.revealComplete);
   const recentlyClaimedId = useTowerStore((s) => s.recentlyClaimedId);
   const clearRecentlyClaimed = useTowerStore((s) => s.clearRecentlyClaimed);
   const recentlyChargedId = useTowerStore((s) => s.recentlyChargedId);
@@ -179,15 +181,19 @@ export default function TowerGrid() {
     blockMetaRef.current = blockData;
   }, [blockData]);
 
-  // Apply transforms once when layout is ready.
+  // Apply transforms once when layout is ready (re-applied during reveal for scale gating).
   // Matrices only depend on layoutData (positions/rotations), NOT on blockData (energy/color).
-  // Do NOT reset transformsApplied when blockData changes — positions never change at runtime.
   const transformsApplied = useRef(false);
   const prevLayoutRef = useRef(layoutData);
+  const prevRevealCompleteRef = useRef(revealComplete);
   if (prevLayoutRef.current !== layoutData) {
-    // Layout changed — need to recompute matrices
     transformsApplied.current = false;
     prevLayoutRef.current = layoutData;
+  }
+  // Once reveal completes, re-apply transforms one final time (to remove scale gating)
+  if (revealComplete && !prevRevealCompleteRef.current) {
+    transformsApplied.current = false;
+    prevRevealCompleteRef.current = true;
   }
 
   useEffect(() => {
@@ -399,6 +405,67 @@ export default function TowerGrid() {
       return () => clearTimeout(timer);
     }
   }, [recentlyChargedId, blockData, clearRecentlyCharged]);
+
+  // ─── Reveal animation: scale blocks by layer during reveal ──
+  // Tracked separately from transforms since it changes every frame during reveal
+  const revealAppliedRef = useRef(false);
+  useFrame(() => {
+    if (revealComplete) {
+      // Once complete, restore all matrices if not done yet
+      if (!revealAppliedRef.current) {
+        revealAppliedRef.current = true;
+        // Matrices will be re-applied by the transformsApplied reset above
+      }
+      return;
+    }
+    if (revealProgress <= 0) return;
+    if (!meshRef.current || blockData.length === 0) return;
+
+    const tempObj = tempObjRef.current;
+    const GLOW_SCALE = 1.08;
+    const layerCount = config.layerCount;
+    let anyUpdate = false;
+
+    for (let i = 0; i < blockData.length; i++) {
+      const block = blockData[i];
+      const layoutItem = layoutData[i];
+      if (!block || !layoutItem) continue;
+
+      const layerNorm = block.layer / layerCount;
+      // Blocks near the reveal front get a quick scale-up (0→1)
+      let scale: number;
+      if (layerNorm > revealProgress) {
+        scale = 0; // above reveal front
+      } else if (layerNorm > revealProgress - 0.08) {
+        // In the build front — interpolate 0→1
+        scale = (revealProgress - layerNorm) / 0.08;
+        scale = Math.min(1, Math.max(0, scale));
+      } else {
+        scale = 1; // fully revealed
+      }
+
+      const layerScale = getLayerScale(block.layer, layerCount);
+      const ts = layoutItem.tileScale;
+
+      tempObj.position.set(block.position.x, block.position.y, block.position.z);
+      tempObj.scale.set(layerScale * ts * scale, layerScale * scale, layerScale * scale);
+      tempObj.rotation.set(0, layoutItem.rotY, 0);
+      tempObj.updateMatrix();
+      meshRef.current!.setMatrixAt(i, tempObj.matrix);
+
+      if (glowMeshRef.current) {
+        tempObj.scale.set(GLOW_SCALE * layerScale * ts * scale, GLOW_SCALE * layerScale * scale, GLOW_SCALE * layerScale * scale);
+        tempObj.updateMatrix();
+        glowMeshRef.current.setMatrixAt(i, tempObj.matrix);
+      }
+      anyUpdate = true;
+    }
+
+    if (anyUpdate) {
+      meshRef.current!.instanceMatrix.needsUpdate = true;
+      if (glowMeshRef.current) glowMeshRef.current.instanceMatrix.needsUpdate = true;
+    }
+  });
 
   // Per-frame: update time uniform + camera pos + claim flash
   // Cap delta to prevent visual jumps after frame stalls
@@ -758,9 +825,10 @@ export default function TowerGrid() {
         if (hitMeshRef.current) hitMeshRef.current.instanceMatrix.needsUpdate = true;
         if (glowMeshRef.current) glowMeshRef.current.instanceMatrix.needsUpdate = true;
       } else {
-        // All pops returned to zero — restore only the last popped block's matrix
+        // Animation converged — only restore base matrix when deselecting (targets are 0)
+        const hasActiveTarget = selectedBlockId !== null;
         const restoreIdx = lastPoppedIndexRef.current;
-        if (restoreIdx >= 0 && restoreIdx < blockData.length) {
+        if (!hasActiveTarget && restoreIdx >= 0 && restoreIdx < blockData.length) {
           const restoreObj = tempObjRef.current;
           const GLOW_SCALE = 1.08;
           const block = blockData[restoreIdx];

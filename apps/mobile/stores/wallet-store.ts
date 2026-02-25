@@ -39,6 +39,9 @@ interface WalletState {
 
   /** User-facing error message from the last failed MWA operation */
   error: string | null;
+
+  /** Whether the connect sheet is visible */
+  showConnectSheet: boolean;
 }
 
 interface WalletActions {
@@ -58,6 +61,9 @@ interface WalletActions {
 
   /** Set a user-facing error message */
   setError: (error: string | null) => void;
+
+  /** Show/hide the wallet connect sheet */
+  setShowConnectSheet: (show: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +78,7 @@ export const useWalletStore = create<WalletState & WalletActions>((set) => ({
   walletUriBase: null,
   isLoading: false,
   error: null,
+  showConnectSheet: false,
 
   // Actions
   setConnected: ({ publicKey, authToken, base64Address, walletUriBase }) =>
@@ -99,6 +106,8 @@ export const useWalletStore = create<WalletState & WalletActions>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
 
   setError: (error) => set({ error, isLoading: false }),
+
+  setShowConnectSheet: (show) => set({ showConnectSheet: show }),
 }));
 
 // ---------------------------------------------------------------------------

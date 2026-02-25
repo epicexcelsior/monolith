@@ -144,6 +144,8 @@ interface TowerStore {
   claimCelebrationRef: React.MutableRefObject<ClaimCelebrationState | null> | null;
   cinematicMode: boolean;
   multiplayerMode: boolean;
+  revealProgress: number;
+  revealComplete: boolean;
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -162,6 +164,8 @@ interface TowerStore {
   setClaimCelebrationRef: (ref: React.MutableRefObject<ClaimCelebrationState | null>) => void;
   setCinematicMode: (active: boolean) => void;
   setMultiplayerMode: (enabled: boolean) => void;
+  setRevealProgress: (progress: number) => void;
+  setRevealComplete: (complete: boolean) => void;
 
   // ─── Game Actions ─────────────────────────
   initTower: () => Promise<void>;
@@ -222,6 +226,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   claimCelebrationRef: null,
   cinematicMode: false,
   multiplayerMode: false,
+  revealProgress: 0,
+  revealComplete: false,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
@@ -253,6 +259,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setClaimCelebrationRef: (ref) => set({ claimCelebrationRef: ref }),
   setCinematicMode: (active) => set({ cinematicMode: active }),
   setMultiplayerMode: (enabled) => set({ multiplayerMode: enabled }),
+  setRevealProgress: (progress) => set({ revealProgress: progress }),
+  setRevealComplete: (complete) => set({ revealComplete: complete }),
 
   // ─── Game Actions ─────────────────────────
 

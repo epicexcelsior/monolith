@@ -231,33 +231,14 @@ export default function OnboardingFlow() {
             />
 
             {/* ─── CLAIM ─────────────────────────── */}
+            {/* Block is selected → BlockInspector shows standard "CLAIM THIS BLOCK" button */}
             {phase === "claim" && (
-                <>
-                    <CoachMark
-                        message="This block is unclaimed"
-                        position="center"
-                        arrow="down"
-                        visible
-                    />
-
-                    <Animated.View style={[
-                        styles.claimContainer,
-                        { opacity: claimFade, transform: [{ scale: claimScale }] },
-                    ]}>
-                        <StepDots current={0} total={3} />
-                        <TouchableOpacity
-                            testID="onboarding-claim-button"
-                            style={styles.claimButton}
-                            onPress={handleClaim}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.claimButtonText}>CLAIM IT</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.claimHint}>
-                            Make it yours before someone else does
-                        </Text>
-                    </Animated.View>
-                </>
+                <CoachMark
+                    message="Tap CLAIM below to make it yours"
+                    position="center"
+                    arrow="down"
+                    visible
+                />
             )}
 
             {/* ─── CUSTOMIZE ─────────────────────── */}

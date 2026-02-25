@@ -1,6 +1,6 @@
 import React from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
-import { COLORS, RADIUS, SPACING, FONT_FAMILY } from "@/constants/theme";
+import { COLORS, RADIUS, SPACING, FONT_FAMILY, SHADOW } from "@/constants/theme";
 
 interface ChipProps {
     /** Chip label */
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.glassBorder,
         borderCurve: "continuous",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)",
+        boxShadow: SHADOW.glassInset,
     },
     chipSelected: {
         backgroundColor: COLORS.goldSubtle,

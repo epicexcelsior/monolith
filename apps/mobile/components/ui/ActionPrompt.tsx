@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE, SHADOW } from "@/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import { hapticButtonPress } from "@/utils/haptics";
@@ -16,7 +16,7 @@ import { hapticButtonPress } from "@/utils/haptics";
  * - Has blocks, all healthy → shows streak tip or hides
  */
 export default function ActionPrompt() {
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const isConnected = useWalletStore((s) => s.isConnected);
   const publicKey = useWalletStore((s) => s.publicKey);
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
@@ -49,7 +49,7 @@ export default function ActionPrompt() {
       actionText: "Connect",
       onAction: () => {
         hapticButtonPress();
-        router.push("/connect");
+        useWalletStore.getState().setShowConnectSheet(true);
       },
     };
   } else if (myBlocks.length === 0) {
@@ -115,9 +115,12 @@ export default function ActionPrompt() {
 
   const Container = prompt?.onAction ? TouchableOpacity : View;
 
+  // Sit above FloatingNav (~56px pill row + safe area + padding)
+  const bottomOffset = Math.max(insets.bottom, 12) + 56 + SPACING.md;
+
   return (
     <Animated.View
-      style={[styles.wrapper, { opacity: fadeAnim }]}
+      style={[styles.wrapper, { bottom: bottomOffset, opacity: fadeAnim }]}
       pointerEvents={prompt ? "auto" : "none"}
     >
       <Animated.View style={[styles.container, { opacity: pulseAnim }]}>
@@ -141,7 +144,6 @@ export default function ActionPrompt() {
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",
-    bottom: 44,
     left: SPACING.md,
     right: SPACING.md,
     alignItems: "center",

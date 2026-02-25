@@ -14,6 +14,7 @@ dist/
 *.orig.*
 
 # Android
+/android/
 apps/mobile/android/app/build/
 apps/mobile/android/.gradle/
 apps/mobile/android/build/
@@ -60,3 +61,4 @@ yarn-error.log*
 
 # Maestro E2E test output
 .maestro/results.xml
+google-services.json

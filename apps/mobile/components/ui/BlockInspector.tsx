@@ -1,168 +1,109 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Animated,
   TouchableOpacity,
-  TextInput,
-  ScrollView,
   PanResponder,
+  ScrollView,
   Share,
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ShareCard from "./ShareCard";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING, TEXT, GLASS_STYLE, SHADOW, getChargeColor } from "@/constants/theme";
-import { useRouter } from "expo-router";
-import Badge from "./Badge";
-import ChargeBar from "./ChargeBar";
-import Button from "./Button";
-import ColorPicker from "@/components/ui/ColorPicker";
 import ClaimModal from "@/components/ui/ClaimModal";
-import { useTowerStore, getStreakMultiplier, getNextStreakMilestone } from "@/stores/tower-store";
-import { useWalletStore } from "@/stores/wallet-store";
-import { useStaking } from "@/hooks/useStaking";
-import { ENERGY_THRESHOLDS, BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
-import type { BlockState } from "@monolith/common";
-import { useMultiplayerStore, onChargeResult, onClaimResult, onCustomizeResult, onPokeResult } from "@/stores/multiplayer-store";
-import type { ChargeResult, ClaimResult, CustomizeResult, PokeResult } from "@/stores/multiplayer-store";
-import { usePokeStore } from "@/stores/poke-store";
-import { usePlayerStore } from "@/stores/player-store";
-import {
-  hapticBlockDeselect,
-  hapticButtonPress,
-  hapticError,
-  hapticBlockClaimed,
-  hapticChargeTap,
-  hapticCustomize,
-  hapticStreakMilestone,
-} from "@/utils/haptics";
-import {
-  playChargeTap,
-  playBlockDeselect,
-  playBlockClaim,
-  playStreakMilestone,
-  playError,
-  playCustomize,
-  playButtonTap,
-  playPanelOpen,
-  playPokeSend,
-  playPokeReceive,
-} from "@/utils/audio";
-import { useClaimCelebration } from "@/hooks/useClaimCelebration";
-
-const BLOCK_STYLES = [
-  { id: 0, label: "Default", icon: "🔲" },
-  { id: 1, label: "Holo", icon: "🌈" },
-  { id: 2, label: "Neon", icon: "💜" },
-  { id: 3, label: "Matte", icon: "🪨" },
-  { id: 4, label: "Glass", icon: "💎" },
-  { id: 5, label: "Fire", icon: "🔥" },
-  { id: 6, label: "Ice", icon: "❄️" },
-  { id: 7, label: "Lava", icon: "🌋" },
-  { id: 8, label: "Aurora", icon: "🌌" },
-  { id: 9, label: "Crystal", icon: "💠" },
-  { id: 10, label: "Nature", icon: "🌿" },
-] as const;
+import InspectorHeader from "@/components/inspector/InspectorHeader";
+import InspectorStats from "@/components/inspector/InspectorStats";
+import InspectorActions from "@/components/inspector/InspectorActions";
+import InspectorCustomize from "@/components/inspector/InspectorCustomize";
+import { useBlockActions } from "@/hooks/useBlockActions";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING } from "@/constants/theme";
+import { hapticButtonPress } from "@/utils/haptics";
+import { playButtonTap } from "@/utils/audio";
+import { useTowerStore } from "@/stores/tower-store";
 
 const PANEL_HEIGHT = 420;
 const DISMISS_THRESHOLD = 80;
 
-function getBlockState(energy: number): BlockState {
-  if (energy >= ENERGY_THRESHOLDS.blazing) return "blazing";
-  if (energy >= ENERGY_THRESHOLDS.thriving) return "thriving";
-  if (energy >= ENERGY_THRESHOLDS.fading) return "fading";
-  if (energy >= ENERGY_THRESHOLDS.dying) return "dying";
-  return "dead";
-}
-
-function stateColor(state: BlockState): string {
-  const map: Record<string, string> = {
-    blazing: COLORS.blazing,
-    thriving: COLORS.thriving,
-    fading: COLORS.fading,
-    dying: COLORS.flickering,
-    dead: COLORS.dormant,
-    flickering: COLORS.flickering,
-    dormant: COLORS.dormant,
-  };
-  return map[state] ?? COLORS.textMuted;
-}
-
-function truncateAddress(addr: string): string {
-  if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 4)}..${addr.slice(-4)}`;
-}
-
-function formatUsdc(lamports: number): string {
-  return `${(lamports / 1_000_000).toFixed(2)} USDC`;
-}
-
 export default function BlockInspector() {
   const insets = useSafeAreaInsets();
-  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
-  const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
   const selectBlock = useTowerStore((s) => s.selectBlock);
-  const claimBlock = useTowerStore((s) => s.claimBlock);
-  const chargeBlock = useTowerStore((s) => s.chargeBlock);
-  const customizeBlock = useTowerStore((s) => s.customizeBlock);
-  const publicKey = useWalletStore((s) => s.publicKey);
-  const isWalletConnected = useWalletStore((s) => s.isConnected);
-  const { deposit } = useStaking();
-  const router = useRouter();
-  const { triggerCelebration } = useClaimCelebration();
-  // Use getState() for one-shot reads inside callbacks to avoid stale closures
-  const getStoreState = useTowerStore.getState;
-  const mpConnected = useMultiplayerStore((s) => s.connected && !s.reconnecting);
-  const sendClaim = useMultiplayerStore((s) => s.sendClaim);
-  const sendCharge = useMultiplayerStore((s) => s.sendCharge);
-  const sendCustomize = useMultiplayerStore((s) => s.sendCustomize);
-  const sendPoke = useMultiplayerStore((s) => s.sendPoke);
-  const canPoke = usePokeStore((s) => s.canPoke);
-  const recordPoke = usePokeStore((s) => s.recordPoke);
+
+  const {
+    block,
+    selectedBlockId,
+    isOwner,
+    isUnclaimed,
+    isDormant,
+    energyPct,
+    isWalletConnected,
+    mpConnected,
+    cooldownText,
+    pokeStatus,
+    showClaimModal,
+    setShowClaimModal,
+    recentlyClaimedId,
+    isOnboardingClaim,
+    handleOnboardingClaim,
+    handleClaim,
+    handleCharge,
+    handlePoke,
+    handleDismiss,
+    handleStyleChange,
+    handleColorChange,
+    handleEmojiChange,
+    handleNameSubmit,
+    handleTextureChange,
+    resetPanelState,
+    canPoke,
+  } = useBlockActions();
 
   const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
   const dragOffset = useRef(new Animated.Value(0)).current;
   const shareCardRef = useRef<View>(null);
   const isVisible = selectedBlockId !== null;
 
-  const [showClaimModal, setShowClaimModal] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
-  const [showMoreStyles, setShowMoreStyles] = useState(false);
-  const [nameInput, setNameInput] = useState("");
-  const [cooldownText, setCooldownText] = useState<string | null>(null);
-  const [pokeStatus, setPokeStatus] = useState<string | null>(null);
-  const recentlyClaimedId = useTowerStore((s) => s.recentlyClaimedId);
 
-  // Swipe-to-dismiss — only on drag handle, not content
+  // Swipe-to-dismiss — works from anywhere on the panel
+  const handleDismissRef = useRef(handleDismiss);
+  handleDismissRef.current = handleDismiss;
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, gesture) =>
-          gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+          gesture.dy > 10 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.5,
         onPanResponderMove: (_, gesture) => {
           if (gesture.dy > 0) dragOffset.setValue(gesture.dy);
         },
         onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy > DISMISS_THRESHOLD || gesture.vy > 0.5) {
-            hapticBlockDeselect();
-            playBlockDeselect();
-            selectBlock(null);
+          if (gesture.dy > DISMISS_THRESHOLD || gesture.vy > 0.4) {
+            // Fast slide out then dismiss
+            Animated.timing(dragOffset, {
+              toValue: PANEL_HEIGHT,
+              duration: 150,
+              useNativeDriver: true,
+            }).start(() => {
+              handleDismissRef.current();
+              dragOffset.setValue(0);
+            });
+          } else {
+            // Snap back with snappy spring
+            Animated.spring(dragOffset, {
+              toValue: 0,
+              tension: 200,
+              friction: 20,
+              useNativeDriver: true,
+            }).start();
           }
-          Animated.spring(dragOffset, {
-            toValue: 0,
-            ...TIMING.spring,
-            useNativeDriver: true,
-          }).start();
         },
       }),
-    [dragOffset, selectBlock],
+    [dragOffset],
   );
 
   useEffect(() => {
-    if (isVisible) playPanelOpen();
     Animated.spring(slideAnim, {
       toValue: isVisible ? 0 : PANEL_HEIGHT,
       ...TIMING.spring,
@@ -171,498 +112,99 @@ export default function BlockInspector() {
 
     if (!isVisible) {
       setShowCustomize(false);
-      setShowMoreStyles(false);
-      setShowClaimModal(false);
-      setPokeStatus(null);
+      resetPanelState();
       dragOffset.setValue(0);
     }
-  }, [isVisible, slideAnim, dragOffset]);
+  }, [isVisible, slideAnim, dragOffset, resetPanelState]);
 
-  // Auto-expand customize panel after claiming a block
+  // Auto-expand customize after claiming
   useEffect(() => {
     if (recentlyClaimedId && selectedBlockId && recentlyClaimedId === selectedBlockId) {
       setShowCustomize(true);
     }
   }, [recentlyClaimedId, selectedBlockId]);
 
-  const block = selectedBlockId ? getDemoBlockById(selectedBlockId) : null;
-  const isOwner = block?.owner && publicKey
-    ? block.owner === publicKey.toBase58()
-    : false;
-  const isUnclaimed = block ? block.owner === null : false;
-
-  // Dormant detection: 0 energy, not your block, not bot, old lastChargeTime
-  const DORMANT_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000;
-  const isDormant = block && !isUnclaimed && !isOwner && block.owner
-    && block.energy === 0
-    && block.lastChargeTime
-    && (Date.now() - block.lastChargeTime) > DORMANT_THRESHOLD_MS;
-
-  // Handle claim
-  const handleClaim = useCallback(async (amount: number, color: string) => {
-    if (!publicKey || !selectedBlockId) throw new Error("Wallet not connected");
-    const sig = await deposit(amount);
-    if (!sig) throw new Error("Transaction failed or rejected");
-
-    const wallet = publicKey.toBase58();
-    if (mpConnected) {
-      sendClaim({ blockId: selectedBlockId, wallet, amount: amount * 1_000_000, color });
-    } else {
-      claimBlock(selectedBlockId, wallet, amount * 1_000_000, color);
-      hapticBlockClaimed();
-      playBlockClaim();
-      // Local XP feedback for demo mode
-      const blocks = useTowerStore.getState().demoBlocks;
-      const isFirst = !blocks.some((b) => b.owner === wallet && b.id !== selectedBlockId);
-      const pts = isFirst ? 300 : 100;
-      const pStore = usePlayerStore.getState();
-      pStore.addPoints({ pointsEarned: pts, totalXp: pStore.xp + pts, level: pStore.level });
-    }
-    // Trigger claim celebration (particles, shockwave, haptics, sound)
-    const { demoBlocks } = getStoreState();
-    const claimedBlock = demoBlocks.find((b) => b.id === selectedBlockId);
-    if (claimedBlock) {
-      const walletStr = publicKey!.toBase58();
-      const isFirst = !demoBlocks.some((b) => b.owner === walletStr && b.id !== selectedBlockId);
-      triggerCelebration(claimedBlock.position, -1, isFirst);
-    }
-  }, [publicKey, selectedBlockId, deposit, claimBlock, mpConnected, sendClaim, triggerCelebration, getStoreState]);
-
-  // Handle charge
-  const handleCharge = useCallback(() => {
-    if (!selectedBlockId) return;
-    hapticChargeTap();
-
-    if (mpConnected) {
-      const wallet = publicKey?.toBase58() || "";
-      sendCharge({ blockId: selectedBlockId, wallet });
-      playChargeTap();
-    } else {
-      const result = chargeBlock(selectedBlockId);
-      if (!result.success && result.cooldownRemaining) {
-        const secs = Math.ceil(result.cooldownRemaining / 1000);
-        setCooldownText(`Wait ${secs}s`);
-        setTimeout(() => setCooldownText(null), 2000);
-        hapticError();
-        playError();
-      } else if (result.success) {
-        playChargeTap();
-        if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
-          hapticStreakMilestone();
-          playStreakMilestone();
-        }
-        // Local XP feedback for demo mode
-        const pts = 25;
-        const store = usePlayerStore.getState();
-        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level });
-      }
-    }
-  }, [selectedBlockId, chargeBlock, mpConnected, sendCharge]);
-
-  // Handle poke
-  const handlePoke = useCallback(() => {
-    if (!selectedBlockId || !publicKey || !mpConnected) return;
-    if (!canPoke(selectedBlockId)) {
-      setPokeStatus("Already poked today");
-      setTimeout(() => setPokeStatus(null), 3000);
-      hapticError();
-      playError();
-      return;
-    }
-    hapticButtonPress();
-    playPokeSend();
-    sendPoke({ blockId: selectedBlockId, wallet: publicKey.toBase58() });
-  }, [selectedBlockId, publicKey, mpConnected, canPoke, sendPoke]);
-
-  // Listen for server charge results
-  useEffect(() => {
-    if (!mpConnected) return;
-    onChargeResult((result: ChargeResult) => {
-      if (!result.success && result.cooldownRemaining) {
-        const secs = Math.ceil(result.cooldownRemaining / 1000);
-        setCooldownText(`Wait ${secs}s`);
-        setTimeout(() => setCooldownText(null), 2000);
-        hapticError();
-        playError();
-      } else if (result.success) {
-        if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
-          hapticStreakMilestone();
-          playStreakMilestone();
-        }
-        // Feed XP to player store
-        if (result.pointsEarned) {
-          usePlayerStore.getState().addPoints({
-            pointsEarned: result.pointsEarned,
-            combo: result.combo,
-            totalXp: result.totalXp,
-            level: result.level,
-            levelUp: result.levelUp,
-          });
-        }
-      }
-    });
-
-    onClaimResult((result: ClaimResult) => {
-      if (result.success && result.pointsEarned) {
-        usePlayerStore.getState().addPoints({
-          pointsEarned: result.pointsEarned,
-          combo: result.combo,
-          totalXp: result.totalXp,
-          level: result.level,
-          levelUp: result.levelUp,
-        });
-      }
-    });
-
-    onCustomizeResult((result: CustomizeResult) => {
-      if (result.success && result.pointsEarned) {
-        usePlayerStore.getState().addPoints({
-          pointsEarned: result.pointsEarned,
-          combo: result.combo,
-          totalXp: result.totalXp,
-          level: result.level,
-          levelUp: result.levelUp,
-        });
-      }
-    });
-
-    onPokeResult((result: PokeResult) => {
-      if (result.success) {
-        if (result.blockId) recordPoke(result.blockId);
-        setPokeStatus(`Poked! +${result.energyAdded ?? 10}% energy sent`);
-        playPokeReceive();
-        if (result.pointsEarned) {
-          usePlayerStore.getState().addPoints({
-            pointsEarned: result.pointsEarned,
-            combo: result.combo,
-            totalXp: result.totalXp,
-            level: result.level,
-            levelUp: result.levelUp,
-          });
-        }
-      } else {
-        setPokeStatus("Already poked today");
-      }
-      setTimeout(() => setPokeStatus(null), 3000);
-    });
-  }, [mpConnected, recordPoke]);
-
-  // Customize helper
-  const applyCustomize = useCallback((changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => {
-    if (!selectedBlockId) return;
-    if (mpConnected) {
-      const wallet = publicKey?.toBase58() || "";
-      sendCustomize({ blockId: selectedBlockId, wallet, changes });
-    } else {
-      customizeBlock(selectedBlockId, changes);
-      // Local XP feedback for demo mode
-      const pts = 10;
-      const store = usePlayerStore.getState();
-      store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level });
-    }
-  }, [selectedBlockId, mpConnected, sendCustomize, customizeBlock]);
-
-  const handleStyleChange = useCallback((style: number) => {
-    applyCustomize({ style });
-    hapticCustomize();
-    playCustomize();
-  }, [applyCustomize]);
-
-  const handleColorChange = useCallback((color: string) => {
-    applyCustomize({ color });
-  }, [applyCustomize]);
-
-  const handleEmojiChange = useCallback((emoji: string) => {
-    applyCustomize({ emoji });
-  }, [applyCustomize]);
-
-  const handleNameSubmit = useCallback(() => {
-    if (!nameInput.trim()) return;
-    applyCustomize({ name: nameInput.trim().slice(0, 12) });
-  }, [nameInput, applyCustomize]);
-
-  const handleTextureChange = useCallback((textureId: number) => {
-    applyCustomize({ textureId });
-    hapticCustomize();
-    playCustomize();
-  }, [applyCustomize]);
-
   if (!block && !isVisible) return null;
-
-  const state = block ? getBlockState(block.energy) : "dead";
-  const energyPct = block ? Math.min(100, Math.max(0, block.energy)) : 0;
-  const streak = block?.streak ?? 0;
-  const multiplier = getStreakMultiplier(streak);
 
   return (
     <>
       <Animated.View
         testID="block-inspector-panel"
+        {...panResponder.panHandlers}
         style={[
           styles.container,
           {
-            // Sit above the tab bar (60px + safe area inset)
-            bottom: 60 + Math.max(insets.bottom, 8),
-            paddingBottom: SPACING.sm,
+            bottom: 0,
+            paddingBottom: Math.max(insets.bottom, 8) + SPACING.sm,
             transform: [
               { translateY: Animated.add(slideAnim, dragOffset) },
             ],
           },
         ]}
       >
-        {/* Drag handle — swipe down to dismiss */}
-        <View {...panResponder.panHandlers} style={styles.handleHitArea}>
+        {/* Drag handle */}
+        <View style={styles.handleHitArea}>
           <View style={styles.handle} />
         </View>
 
         {/* Close */}
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => { hapticBlockDeselect(); playBlockDeselect(); selectBlock(null); }}
+          onPress={handleDismiss}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
 
         {block && (
-          <>
-            {/* ─── Fixed header + CTA (always visible, never scrolled away) ─── */}
+          <ScrollView
+            style={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            nestedScrollEnabled
+          >
             <View style={styles.fixedSection}>
-              {/* Header: identity + status */}
-              <View style={styles.headerRow}>
-                <View style={styles.identity}>
-                  {block.emoji && <Text style={styles.emoji}>{block.emoji}</Text>}
-                  <View style={styles.titleCol}>
-                    <Text style={styles.blockName} numberOfLines={1}>
-                      {block.name || `L${block.layer} / B${block.index}`}
-                    </Text>
-                    {!isUnclaimed && block.owner && (
-                      <Text style={styles.ownerLabel}>
-                        {isOwner ? "Your block" : truncateAddress(block.owner)}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.statusCol}>
-                  <Badge
-                    label={isUnclaimed ? "OPEN" : state.toUpperCase()}
-                    color={isUnclaimed ? COLORS.gold : stateColor(state)}
-                  />
-                  {streak > 0 && (
-                    <Text style={styles.streakBadge}>
-                      {streak}d {multiplier > 1 ? `${multiplier}×` : ""}
-                    </Text>
-                  )}
-                </View>
-              </View>
-
-              {/* Energy bar (claimed blocks only) */}
-              {!isUnclaimed && (
-                <View style={styles.energyRow}>
-                  <ChargeBar charge={energyPct} size="sm" />
-                  <Text style={[styles.energyPct, { color: getChargeColor(energyPct) }]}>
-                    {Math.round(energyPct)}%
-                  </Text>
-                </View>
-              )}
-
-              {/* Primary CTA */}
-              <View style={styles.ctaSection}>
-                {isUnclaimed && (
-                  isWalletConnected ? (
-                    <Button
-                      title="CLAIM THIS BLOCK"
-                      variant="primary"
-                      size="lg"
-                      onPress={() => setShowClaimModal(true)}
-                    />
-                  ) : (
-                    <Button
-                      title="Connect Wallet to Claim"
-                      variant="secondary"
-                      size="lg"
-                      onPress={() => { hapticButtonPress(); playButtonTap(); router.push("/connect"); }}
-                    />
-                  )
-                )}
-
-                {isOwner && (
-                  <>
-                    <Button
-                      title={cooldownText || "CHARGE"}
-                      variant="primary"
-                      size="lg"
-                      onPress={handleCharge}
-                      disabled={!!cooldownText}
-                    />
-                    <View style={styles.actionRow}>
-                      <TouchableOpacity
-                        style={styles.actionChip}
-                        onPress={() => { setShowCustomize(!showCustomize); hapticButtonPress(); playButtonTap(); }}
-                      >
-                        <Text style={styles.actionChipText}>
-                          {showCustomize ? "Done" : "Customize"}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionChip}
-                        onPress={() => { hapticButtonPress(); playButtonTap(); handleShare(block, shareCardRef); }}
-                      >
-                        <Text style={styles.actionChipText}>Share</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionChip}
-                        onPress={() => { hapticButtonPress(); playButtonTap(); handleTweet(block); }}
-                      >
-                        <Text style={styles.actionChipText}>Tweet</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-
-                {!isUnclaimed && !isOwner && block.owner && (
-                  <>
-                    <View style={styles.otherOwnerRow}>
-                      <View style={[styles.ownerDot, { backgroundColor: block.ownerColor }]} />
-                      <Text style={styles.otherOwnerText}>
-                        {block.name || truncateAddress(block.owner)}
-                      </Text>
-                      {block.stakedAmount > 0 && (
-                        <Text style={styles.stakedText}>{formatUsdc(block.stakedAmount)}</Text>
-                      )}
-                    </View>
-                    {/* Poke button — available when connected + wallet */}
-                    {isWalletConnected && mpConnected && !isDormant && (
-                      <View style={styles.pokeRow}>
-                        <Button
-                          title={pokeStatus || (canPoke(block.id) ? "POKE \uD83D\uDC49" : "Poked today")}
-                          variant="secondary"
-                          size="md"
-                          onPress={handlePoke}
-                          disabled={!canPoke(block.id) || !!pokeStatus}
-                        />
-                        {pokeStatus && (
-                          <Text style={styles.pokeStatusText}>{pokeStatus}</Text>
-                        )}
-                      </View>
-                    )}
-                    {isDormant && (
-                      <>
-                        <Badge label="DORMANT" color={COLORS.dormant} />
-                        {isWalletConnected ? (
-                          <Button
-                            title="RECLAIM THIS BLOCK"
-                            variant="primary"
-                            size="lg"
-                            onPress={() => setShowClaimModal(true)}
-                          />
-                        ) : (
-                          <Button
-                            title="Connect Wallet to Reclaim"
-                            variant="secondary"
-                            size="lg"
-                            onPress={() => { hapticButtonPress(); playButtonTap(); router.push("/connect"); }}
-                          />
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
-              </View>
+              <InspectorHeader
+                block={block}
+                isUnclaimed={isUnclaimed}
+                isOwner={isOwner}
+              />
+              <InspectorStats
+                energyPct={energyPct}
+                isUnclaimed={isUnclaimed}
+              />
+              <InspectorActions
+                block={block}
+                isOwner={isOwner}
+                isUnclaimed={isUnclaimed}
+                isDormant={isDormant}
+                isWalletConnected={isWalletConnected}
+                mpConnected={mpConnected}
+                cooldownText={cooldownText}
+                pokeStatus={pokeStatus}
+                canPoke={canPoke}
+                isOnboarding={isOnboardingClaim}
+                onClaim={isOnboardingClaim ? handleOnboardingClaim : () => setShowClaimModal(true)}
+                onCharge={handleCharge}
+                onPoke={handlePoke}
+                onCustomizeToggle={() => { setShowCustomize(!showCustomize); hapticButtonPress(); playButtonTap(); }}
+                onShare={() => handleShare(block, shareCardRef)}
+                onTweet={() => handleTweet(block)}
+                showCustomize={showCustomize}
+              />
             </View>
 
-            {/* ─── Scrollable customize panel (only when expanded) ─── */}
             {showCustomize && isOwner && (
-              <ScrollView
-                style={styles.contentScroll}
-                contentContainerStyle={styles.customizeContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled
-              >
-                {/* Primary: COLOR — all swatches visible, no scroll */}
-                <Text style={styles.sectionLabel}>COLOR</Text>
-                <ColorPicker selected={block.ownerColor} onSelect={handleColorChange} />
-
-                {/* EMOJI — 2-row scroll */}
-                <Text style={styles.sectionLabel}>EMOJI</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                  {BLOCK_ICONS.slice(0, 20).map((icon) => (
-                    <TouchableOpacity
-                      key={icon}
-                      style={[styles.emojiCell, block.emoji === icon && styles.cellSelected]}
-                      onPress={() => handleEmojiChange(icon)}
-                    >
-                      <Text style={styles.emojiText}>{icon}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                {/* More styles expander */}
-                <TouchableOpacity
-                  style={styles.moreStylesButton}
-                  onPress={() => { setShowMoreStyles(!showMoreStyles); hapticButtonPress(); playButtonTap(); }}
-                >
-                  <Text style={styles.moreStylesText}>
-                    {showMoreStyles ? "Less options" : "More styles \u203A"}
-                  </Text>
-                </TouchableOpacity>
-
-                {showMoreStyles && (
-                  <>
-                    <Text style={styles.sectionLabel}>STYLE</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                      {BLOCK_STYLES.map((s) => (
-                        <TouchableOpacity
-                          key={s.id}
-                          style={[styles.cell, (block.style ?? 0) === s.id && styles.cellSelected]}
-                          onPress={() => handleStyleChange(s.id)}
-                        >
-                          <Text style={styles.cellIcon}>{s.icon}</Text>
-                          <Text style={[styles.cellLabel, (block.style ?? 0) === s.id && styles.cellLabelSelected]}>
-                            {s.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    <Text style={styles.sectionLabel}>TEXTURE</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-                      {BLOCK_TEXTURES.map((tex) => (
-                        <TouchableOpacity
-                          key={tex.id}
-                          style={[styles.cell, (block.textureId ?? 0) === tex.id && styles.cellSelected]}
-                          onPress={() => handleTextureChange(tex.id)}
-                        >
-                          <Text style={styles.cellIcon}>{tex.icon}</Text>
-                          <Text style={[styles.cellLabel, (block.textureId ?? 0) === tex.id && styles.cellLabelSelected]}>
-                            {tex.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    <Text style={styles.sectionLabel}>NAME</Text>
-                    <View style={styles.nameRow}>
-                      <TextInput
-                        style={styles.nameInput}
-                        value={nameInput}
-                        onChangeText={(t) => setNameInput(t.slice(0, 12))}
-                        placeholder={block.name || "My Block"}
-                        placeholderTextColor={COLORS.textMuted}
-                        maxLength={12}
-                        returnKeyType="done"
-                        onSubmitEditing={handleNameSubmit}
-                      />
-                      <TouchableOpacity style={styles.nameButton} onPress={handleNameSubmit}>
-                        <Text style={styles.nameButtonText}>Set</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-              </ScrollView>
+              <InspectorCustomize
+                block={block}
+                onColorChange={handleColorChange}
+                onEmojiChange={handleEmojiChange}
+                onStyleChange={handleStyleChange}
+                onTextureChange={handleTextureChange}
+                onNameSubmit={handleNameSubmit}
+              />
             )}
-          </>
+          </ScrollView>
         )}
       </Animated.View>
 
@@ -767,220 +309,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FONT_FAMILY.bodyBold,
   },
+  scrollContent: {
+    flex: 1,
+  },
   fixedSection: {
     paddingTop: SPACING.xs,
     paddingBottom: SPACING.sm,
-  },
-  contentScroll: {
-    flexShrink: 1,
-    maxHeight: 300,
-  },
-  customizeContent: {
-    paddingBottom: SPACING.md,
-  },
-  // ─── Header ───
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SPACING.sm,
-  },
-  identity: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
-    flex: 1,
-  },
-  emoji: {
-    fontSize: 24,
-  },
-  titleCol: {
-    flex: 1,
-  },
-  blockName: {
-    fontFamily: FONT_FAMILY.heading,
-    color: COLORS.text,
-    fontSize: 18,
-    letterSpacing: 0.3,
-  },
-  ownerLabel: {
-    fontFamily: FONT_FAMILY.mono,
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 1,
-  },
-  statusCol: {
-    alignItems: "flex-end",
-    gap: 3,
-  },
-  streakBadge: {
-    fontFamily: FONT_FAMILY.monoBold,
-    fontSize: 11,
-    color: COLORS.gold,
-    letterSpacing: 0.5,
-  },
-  // ─── Energy ───
-  energyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  energyPct: {
-    fontFamily: FONT_FAMILY.monoBold,
-    fontSize: 13,
-    width: 36,
-    textAlign: "right",
-  },
-  // ─── CTA ───
-  ctaSection: {
-    gap: SPACING.sm,
-    marginTop: SPACING.xs,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: SPACING.xs,
-  },
-  actionChip: {
-    flex: 1,
-    paddingVertical: SPACING.xs + 2,
-    borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.bgMuted,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  actionChipText: {
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    letterSpacing: 0.3,
-  },
-  // ─── Other owner ───
-  otherOwnerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.bgMuted,
-    borderRadius: RADIUS.sm,
-  },
-  ownerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  otherOwnerText: {
-    ...TEXT.bodySm,
-    flex: 1,
-  },
-  stakedText: {
-    fontFamily: FONT_FAMILY.mono,
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  // ─── Poke ───
-  pokeRow: {
-    gap: SPACING.xs,
-  },
-  pokeStatusText: {
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 12,
-    color: COLORS.gold,
-    textAlign: "center",
-  },
-  // ─── More styles expander ───
-  moreStylesButton: {
-    paddingVertical: SPACING.sm,
-    marginTop: SPACING.xs,
-    alignSelf: "flex-start",
-  },
-  moreStylesText: {
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
-    color: COLORS.gold,
-    letterSpacing: 0.3,
-  },
-  // ─── Customize ───
-  customizeSection: {
-    marginTop: SPACING.sm,
-    gap: SPACING.xs,
-  },
-  sectionLabel: {
-    ...TEXT.overline,
-    color: COLORS.gold,
-    marginTop: SPACING.xs,
-  },
-  hScroll: {
-    flexDirection: "row",
-    maxHeight: 56,
-  },
-  cell: {
-    width: 52,
-    height: 48,
-    borderRadius: RADIUS.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.bgMuted,
-    marginRight: SPACING.xs,
-  },
-  cellSelected: {
-    borderWidth: 2,
-    borderColor: COLORS.gold,
-    backgroundColor: COLORS.goldSubtle,
-  },
-  cellIcon: {
-    fontSize: 16,
-  },
-  cellLabel: {
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 9,
-    color: COLORS.textMuted,
-    marginTop: 1,
-  },
-  cellLabelSelected: {
-    color: COLORS.gold,
-  },
-  emojiCell: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.bgMuted,
-    marginRight: SPACING.xs,
-  },
-  emojiText: {
-    fontSize: 18,
-  },
-  nameRow: {
-    flexDirection: "row",
-    gap: SPACING.sm,
-    alignItems: "center",
-  },
-  nameInput: {
-    flex: 1,
-    backgroundColor: COLORS.bgMuted,
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontFamily: FONT_FAMILY.mono,
-    fontSize: 13,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  nameButton: {
-    backgroundColor: COLORS.gold,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-  },
-  nameButtonText: {
-    color: COLORS.textOnGold,
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
   },
   offscreen: {
     position: "absolute",

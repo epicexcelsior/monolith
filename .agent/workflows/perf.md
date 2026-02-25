@@ -166,7 +166,27 @@ Zustand `set()` calls trigger React re-renders. In loops, each call cascades thr
 - Decay: skip tick entirely if no block has energy > 0
 - Multiplayer: `applyFullState` already diffs — make sure `applySingleBlockUpdate` isn't called in a loop
 
-## 10. Summary Checklist
+## 10. useFrame Idle Cost
+
+Per-frame loops over N items (650 blocks) should be gated so they cost near-zero when idle.
+
+**Check for ungated loops:**
+```bash
+# Find useFrame callbacks that iterate over all blocks
+grep -n "for.*popCur\|for.*fadeCur\|for.*hlCur\|for.*blockData" apps/mobile/components/tower/TowerGrid.tsx
+```
+
+**Pattern**: Use a `useRef<boolean>` dirty flag:
+- Set `true` when targets change (e.g., `selectedBlockId` changes)
+- Set `false` when the loop detects convergence (all deltas < 0.001)
+- Guard the loop body: `if (!animatingRef.current) return;`
+
+**Also check**:
+- Pop-out restore: should restore only the last-popped block (tracked index), not all 650
+- Charge flash cleanup: should use `filter()` + `Set`, not reverse `splice()` (O(n) per splice)
+- `transparent: true` on additive-blended materials: unnecessary when using `AdditiveBlending` + fragment `discard` — removes 650 instances from the transparency sort pass
+
+## 11. Summary Checklist
 
 After reviewing, confirm:
 - [ ] Total geometry < 25K tris
@@ -180,3 +200,5 @@ After reviewing, confirm:
 - [ ] All `uTime` uniforms in mediump shaders use `highp` override
 - [ ] No `new THREE.*` or `.clone()` inside useFrame callbacks
 - [ ] `performance.now()` cached once per frame (not called multiple times)
+- [ ] useFrame loops gated by dirty flags (near-zero cost at idle)
+- [ ] No `transparent: true` on additive-blended materials with `discard`

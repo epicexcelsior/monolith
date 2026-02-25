@@ -387,6 +387,107 @@ function genLevelUp() {
   return trim(s);
 }
 
+// ─── Tower Rise ──────────────────────────────────────────────────────────────
+/**
+ * tower-rise.wav — Low rumble rising in pitch with crystalline shimmer.
+ * Plays during tower reveal animation (~3s). Sub bass sweep + ascending tones.
+ * 2800ms.
+ */
+function genTowerRise() {
+  const dur = 2.8;
+  const s = buf(dur);
+
+  // Seeded pseudo-noise for rumble
+  let noiseSeed = 99999;
+  const noise = () => {
+    noiseSeed = (noiseSeed * 1664525 + 1013904223) >>> 0;
+    return (noiseSeed / 0x80000000) - 1;
+  };
+
+  for (let i = 0; i < s.length; i++) {
+    const t = i / SR;
+    const p = t / dur;
+
+    // Overall envelope: fade in, sustain, fade out
+    const env = adsr(t, 0.3, 0.2, 0.7, 0.5, dur);
+
+    // Sub bass sweep: 40Hz → 110Hz (A2)
+    const bassFreq = 40 + 70 * p;
+    s[i] += sin(bassFreq, t) * env * 0.3;
+
+    // Rumble: filtered noise, fades as pitch rises
+    const rumbleEnv = env * Math.max(0, 1 - p * 1.2);
+    s[i] += noise() * rumbleEnv * 0.08;
+
+    // Rising tone 1: A3(220) → A4(440), enters at 20%
+    if (p > 0.2) {
+      const lp = (p - 0.2) / 0.8;
+      const freq1 = 220 + 220 * lp;
+      const env1 = adsr(t - dur * 0.2, 0.4, 0.2, 0.5, 0.3, dur * 0.8) * lp;
+      s[i] += sin(freq1, t) * env1 * 0.15;
+    }
+
+    // Rising tone 2: E4(330) → E5(659), enters at 40%
+    if (p > 0.4) {
+      const lp = (p - 0.4) / 0.6;
+      const freq2 = 330 + 329 * lp;
+      const env2 = adsr(t - dur * 0.4, 0.3, 0.15, 0.45, 0.2, dur * 0.6) * lp;
+      s[i] += sin(freq2, t) * env2 * 0.12;
+    }
+
+    // Crystal shimmer: A5(880) enters in last 40%, grows brighter
+    if (p > 0.6) {
+      const lp = (p - 0.6) / 0.4;
+      const shimEnv = lp * lp * env; // quadratic rise
+      s[i] += sin(880, t) * shimEnv * 0.1;
+      s[i] += sin(880.7, t) * shimEnv * 0.06; // detuned shimmer
+      s[i] += sin(1319, t) * shimEnv * 0.04; // E6 sparkle
+    }
+
+    // FM texture throughout: adds organic movement
+    const fmIdx = 1.5 * (1 - p); // decreasing FM → cleaner at end
+    s[i] += fm(110, 55, fmIdx, t) * env * 0.06;
+  }
+
+  reverb(s, 60, -12);
+  normalize(s, 0.45);
+  return trim(s);
+}
+
+// ─── Sheet Open ──────────────────────────────────────────────────────────────
+/**
+ * sheet-open.wav — Satisfying whoosh for bottom sheet open.
+ * Air sweep with subtle tone landing on E5. 100ms.
+ */
+function genSheetOpen() {
+  const dur = 0.1;
+  const s = buf(dur);
+
+  let noiseSeed = 54321;
+  const noise = () => {
+    noiseSeed = (noiseSeed * 1664525 + 1013904223) >>> 0;
+    return (noiseSeed / 0x80000000) - 1;
+  };
+
+  for (let i = 0; i < s.length; i++) {
+    const t = i / SR;
+    const p = t / dur;
+
+    // Filtered whoosh: noise with descending resonance
+    const nEnv = adsr(t, 0.002, 0.03, 0.3, 0.04, dur);
+    s[i] += noise() * nEnv * 0.15;
+
+    // Tonal landing: E5 (659Hz) fades in
+    if (p > 0.3) {
+      const lp = (p - 0.3) / 0.7;
+      s[i] += sin(659, t) * lp * xdecay(t - dur * 0.3, 25) * 0.35;
+    }
+  }
+  reverb(s, 15, -24);
+  normalize(s, 0.22);
+  return trim(s);
+}
+
 // ─── Fallback synth for Kenney-replaceable sounds (if file missing) ───────────
 
 /** block-select fallback: clean E5 bell tap */
@@ -439,6 +540,8 @@ writeWav("error.wav",            genError());
 writeWav("block-claim.wav",      genBlockClaim());
 writeWav("streak-milestone.wav", genStreakMilestone());
 writeWav("level-up.wav",         genLevelUp());
+writeWav("tower-rise.wav",      genTowerRise());
+writeWav("sheet-open.wav",      genSheetOpen());
 
 // Kenney-replaceable — synth fallback if file doesn't already exist
 const kenney = [

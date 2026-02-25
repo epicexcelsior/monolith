@@ -75,6 +75,10 @@ export async function initAudio(): Promise<void> {
         // Notification tier (~-6dB)
         await loadPlayer("pokeReceive", require("../assets/sfx/poke-receive.wav"));
 
+        // Scene tier (~-6dB)
+        await loadPlayer("towerRise",    require("../assets/sfx/tower-rise.wav"));
+        await loadPlayer("sheetOpen",    require("../assets/sfx/sheet-open.wav"));
+
         // Celebration tier (~-6dB)
         await loadPlayer("blockClaim",       require("../assets/sfx/block-claim.wav"));
         await loadPlayer("streakMilestone",  require("../assets/sfx/streak-milestone.wav"));
@@ -143,6 +147,12 @@ export function playPokeReceive()   { play("pokeReceive"); }
 export function playTabSwitch()     { play("tabSwitch"); }
 /** Click for settings toggles */
 export function playToggle()        { play("toggle"); }
+
+// Scene tier
+/** Low rumble rising in pitch — tower reveal animation */
+export function playTowerRise()      { play("towerRise"); }
+/** Satisfying whoosh for bottom sheet open */
+export function playSheetOpen()      { play("sheetOpen"); }
 
 // Celebration tier
 /** Glass impact → rising A major shimmer on claim */

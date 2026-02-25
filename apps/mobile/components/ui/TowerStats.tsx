@@ -1,47 +1,36 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { COLORS, SPACING, FONT_FAMILY, GLASS_STYLE } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import { useMultiplayerStore } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
-import { isBotOwner } from "@/utils/seed-tower";
 
 /**
- * TowerStats — Semi-transparent stat pills on the tower HUD.
- *
- * Shows: Keepers, Claimed %, Avg Charge, Mine, Online, Today, Level.
+ * TowerStats — Compact stat pills on the tower HUD.
+ * Shows: Online, My Blocks, Level (reduced from 7 stats).
  */
 export default function TowerStats() {
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const publicKey = useWalletStore((s) => s.publicKey);
   const playerCount = useMultiplayerStore((s) => s.playerCount);
-  const chargesToday = useMultiplayerStore((s) => s.chargesToday);
   const level = usePlayerStore((s) => s.level);
 
-  const stats = useMemo(() => {
-    const owned = demoBlocks.filter((b) => b.owner !== null);
-    const uniqueOwners = new Set(owned.map((b) => b.owner));
-    const avgEnergy = owned.length > 0
-      ? Math.round(owned.reduce((sum, b) => sum + b.energy, 0) / owned.length)
-      : 0;
-    const myCount = publicKey
-      ? demoBlocks.filter((b) => b.owner === publicKey.toBase58()).length
-      : 0;
-
-    return {
-      keepers: uniqueOwners.size,
-      myBlocks: myCount,
-      avgEnergy,
-      totalBlocks: demoBlocks.length,
-      claimedPct: demoBlocks.length > 0
-        ? Math.round((owned.length / demoBlocks.length) * 100)
-        : 0,
-    };
+  const myBlocks = useMemo(() => {
+    if (!publicKey) return 0;
+    const wallet = publicKey.toBase58();
+    return demoBlocks.filter((b) => b.owner === wallet).length;
   }, [demoBlocks, publicKey]);
 
+  const hasStats = playerCount > 0 || myBlocks > 0 || level > 1;
+  if (!hasStats) return null;
+
   return (
-    <View style={styles.container}>
+    <Animated.View
+      entering={FadeInDown.delay(400).duration(400)}
+      style={styles.container}
+    >
       {playerCount > 0 && (
         <>
           <View style={styles.pill}>
@@ -51,48 +40,22 @@ export default function TowerStats() {
           <View style={styles.divider} />
         </>
       )}
-      <View style={styles.pill}>
-        <Text style={styles.pillValue}>{stats.keepers}</Text>
-        <Text style={styles.pillLabel}>Keepers</Text>
-      </View>
-      <View style={styles.divider} />
-      <View style={styles.pill}>
-        <Text style={styles.pillValue}>{stats.claimedPct}%</Text>
-        <Text style={styles.pillLabel}>Claimed</Text>
-      </View>
-      <View style={styles.divider} />
-      <View style={styles.pill}>
-        <Text style={styles.pillValue}>{stats.avgEnergy}%</Text>
-        <Text style={styles.pillLabel}>Avg Charge</Text>
-      </View>
-      {chargesToday > 0 && (
+      {myBlocks > 0 && (
         <>
-          <View style={styles.divider} />
           <View style={styles.pill}>
-            <Text style={styles.pillValue}>{chargesToday}</Text>
-            <Text style={styles.pillLabel}>Today</Text>
-          </View>
-        </>
-      )}
-      {publicKey && stats.myBlocks > 0 && (
-        <>
-          <View style={styles.divider} />
-          <View style={styles.pill}>
-            <Text style={[styles.pillValue, { color: COLORS.goldLight }]}>{stats.myBlocks}</Text>
+            <Text style={[styles.pillValue, { color: COLORS.goldLight }]}>{myBlocks}</Text>
             <Text style={styles.pillLabel}>Mine</Text>
           </View>
+          {level > 1 && <View style={styles.divider} />}
         </>
       )}
-      {publicKey && level > 1 && (
-        <>
-          <View style={styles.divider} />
-          <View style={styles.pill}>
-            <Text style={[styles.pillValue, { color: COLORS.gold }]}>Lv.{level}</Text>
-            <Text style={styles.pillLabel}>Level</Text>
-          </View>
-        </>
+      {level > 1 && (
+        <View style={styles.pill}>
+          <Text style={[styles.pillValue, { color: COLORS.gold }]}>Lv.{level}</Text>
+          <Text style={styles.pillLabel}>Level</Text>
+        </View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 

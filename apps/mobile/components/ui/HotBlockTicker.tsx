@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Warning, Skull, Sparkle, Flame } from "phosphor-react-native";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 
 interface TickerPill {
@@ -10,17 +12,29 @@ interface TickerPill {
   type: "fading" | "new" | "claimable" | "streak";
 }
 
-const TYPE_ICONS: Record<TickerPill["type"], string> = {
-  fading: "⚠️",
-  new: "🆕",
-  claimable: "💀",
-  streak: "🔥",
+const ICON_SIZE = 10;
+const TYPE_COLORS: Record<TickerPill["type"], string> = {
+  fading: COLORS.fading,
+  new: COLORS.goldLight,
+  claimable: COLORS.dormant,
+  streak: COLORS.blazing,
 };
+
+function TickerIcon({ type }: { type: TickerPill["type"] }) {
+  const color = TYPE_COLORS[type];
+  switch (type) {
+    case "fading": return <Warning size={ICON_SIZE} color={color} weight="fill" />;
+    case "claimable": return <Skull size={ICON_SIZE} color={color} weight="fill" />;
+    case "new": return <Sparkle size={ICON_SIZE} color={color} weight="fill" />;
+    case "streak": return <Flame size={ICON_SIZE} color={color} weight="fill" />;
+  }
+}
 
 const MAX_PILLS = 3;
 const SCAN_INTERVAL_MS = 3000;
 
 export default function HotBlockTicker() {
+  const insets = useSafeAreaInsets();
   const demoBlocks = useTowerStore((s) => s.demoBlocks);
   const selectBlock = useTowerStore((s) => s.selectBlock);
   const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
@@ -64,8 +78,11 @@ export default function HotBlockTicker() {
 
   if (selectedBlockId || pills.length === 0) return null;
 
+  // FloatingNav pill row is ~56px; sit above it + safe area + padding
+  const bottomOffset = Math.max(insets.bottom, 12) + 56 + SPACING.sm;
+
   return (
-    <View pointerEvents="box-none" style={styles.container}>
+    <View pointerEvents="box-none" style={[styles.container, { bottom: bottomOffset }]}>
       {pills.map((pill) => (
         <TouchableOpacity
           key={pill.id}
@@ -73,7 +90,8 @@ export default function HotBlockTicker() {
           onPress={() => selectBlock(pill.blockId)}
           activeOpacity={0.7}
         >
-          <Text style={styles.pillText}>{TYPE_ICONS[pill.type]} {pill.label}</Text>
+          <TickerIcon type={pill.type} />
+          <Text style={styles.pillText}>{pill.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -83,23 +101,25 @@ export default function HotBlockTicker() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 100,
     left: SPACING.sm,
     flexDirection: "row",
     gap: 4,
   },
   pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: RADIUS.sm,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: COLORS.hudPillBg,
   },
   pillText: {
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 9,
-    color: "rgba(255,255,255,0.9)",
+    color: COLORS.textOnDark,
     letterSpacing: 0.3,
-    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowColor: COLORS.textShadowDark,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
