@@ -18,6 +18,11 @@
 
 ## Camera & Gestures
 
+### Onboarding Replay Requires Full Reveal State Reset (2026-02-25)
+**Problem**: Long-press "Replay Onboarding" reset the onboarding store phase to `cinematic`, but the camera reveal never replayed. The HUD wrapper gated on `{revealComplete && ...}` stayed mounted, while `useTowerReveal`'s `doneRef` (a `useRef`) was still `true` from the previous run, causing the useFrame callback to exit immediately.
+**Solution**: `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`. The `useTowerReveal` hook must detect `revealComplete` transitioning from `true → false` (via a `prevRevealCompleteRef`) and reset all internal animation refs (`doneRef`, `revealStartedRef`, `cinematicStartedRef`).
+**Key Insight**: When replaying animations driven by `useRef` state inside `useFrame`, resetting the store flag alone isn't enough — internal refs survive React re-renders and must be explicitly reset by detecting the store value change.
+
 ### Camera State Must Fully Reset on Block Deselect (2026-02-15)
 **Problem**: When closing a block viewer, only lookAt X/Z were reset but zoom stayed at `ZOOM_BLOCK` — camera clipped inside tower.
 **Solution**: On deselect, reset ALL camera targets (zoom, elevation, lookAt) to overview state:
