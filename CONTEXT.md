@@ -25,7 +25,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - Block customization (color, emoji, name, style, textureId) — fully networked + persisted
 - Bot simulation (21 personas, 6 archetypes, ~450 blocks, denser energy distribution)
 - Colyseus multiplayer (server-authoritative, JSON messages, Railway)
-- Interactive onboarding (stakes-first: "yours to keep — or lose" → claim → color → reveal with decay warning)
+- **Immersive onboarding revamp** (9-phase: cinematic orbit → title → claim → celebration → customize → charge → poke → wallet → done)
 - 4 new animated block styles (Lava, Aurora, Crystal, Nature — GLSL, styles 7-10)
 - Demo mode XP feedback (claim 100/300xp, charge 25xp, customize 10xp — offline-first)
 - Liquid glass UI design system (solarpunk palette)
@@ -40,7 +40,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Faucet screen** (SOL airdrop + USDC faucet link from Me tab)
 - **Charge pulse animation** (blue-white flash on tower when someone charges)
 - **Dormant block reclaim** ("RECLAIM" CTA on blocks at 0 energy 3+ days)
-- **Sound effects + haptics** (12 sounds, A Dorian crystal identity, wired to all interactions — needs native rebuild)
+- **Sound effects + haptics** (16 sounds incl. 8.5s tower-rise cinematic pad, A Dorian identity, wired to all interactions)
 - **Tappable leaderboard** (tap entry → camera flies to block)
 - **XP leaderboard tab** (owners + XP tabs on Board screen)
 - **Real activity feed on Board tab** (fetches from /api/events, fallback to generated)
@@ -98,7 +98,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/board/BoardContent.tsx` | Leaderboard + activity feed content |
 | `apps/mobile/components/settings/SettingsContent.tsx` | Profile + settings content |
 | `apps/mobile/hooks/useBlockActions.ts` | Block action handlers (claim/charge/poke/customize) |
-| `apps/mobile/hooks/useTowerReveal.ts` | Tower build-up reveal animation |
+| `apps/mobile/hooks/useTowerReveal.ts` | Tower build-up reveal + cinematic orbit animation |
 | `apps/mobile/components/ui/LayerIndicator.tsx` | Floor scrubber / layer nav |
 | `apps/mobile/components/ui/ClaimModal.tsx` | Block claim confirmation modal |
 | `apps/mobile/components/ui/AchievementToast.tsx` | Slide-in achievement notifications (7 types) |
@@ -119,7 +119,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/stores/multiplayer-store.ts` | Colyseus connection, state sync, recentEvents, chargesToday |
 | `apps/mobile/stores/player-store.ts` | XP, level, combo, lastPointsEarned, levelUp state |
 | `apps/mobile/stores/wallet-store.ts` | Wallet connection + balance |
-| `apps/mobile/stores/onboarding-store.ts` | Onboarding flow progress |
+| `apps/mobile/stores/onboarding-store.ts` | 9-phase onboarding state machine |
 | `apps/mobile/stores/poke-store.ts` | Poke cooldown tracking |
 | `apps/mobile/stores/achievement-store.ts` | Achievement unlocks (7 types, SecureStore persistence) |
 | `apps/mobile/stores/activity-store.ts` | Real-time activity events (wired to multiplayer) |
@@ -221,6 +221,7 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 19. **FloatingNav visibility** — derived from `anyOverlayOpen` in index.tsx. When adding a new sheet/overlay, add it to `anyOverlayOpen` (one place) — don't thread individual booleans into the visible prop.
 20. **One SFX per action chain** — gesture → state change → UI reaction should play exactly ONE sound at the gesture origin. Don't add sounds to downstream effects (e.g. BottomPanel open, BlockInspector visibility change). Audit with: `grep -rn "play[A-Z]" apps/mobile/components/ apps/mobile/app/ --include="*.tsx"` and trace each call's trigger chain.
 21. **BottomPanel dismiss pattern** — always animate off-screen FIRST (`Animated.timing` to totalHeight), THEN call `onClose()` in `.start()` callback. Never reset `dragOffset` before unmount. Never put slide-out in useEffect else branch when component has `if (!visible) return null`.
+22. **Onboarding replay requires tower reset** — `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`, otherwise the HUD wrapper (`{revealComplete && ...}`) stays mounted and `useTowerReveal` refs won't re-run. The hook detects `revealComplete` going `true→false` and resets its internal animation refs.
 
 ---
 
@@ -322,6 +323,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: Onboarding revamp — 9-phase immersive flow (cinematic 300° orbit, minimal MONOLITH title, dedicated claim CTA, celebration VFX, color+emoji customize, charge tutorial, poke prompt, wallet connect), VFX timing tightened (2.5s→1.5s impact), enhanced particles (glow orbs, ring shockwave, lingering trails), extended tower-rise SFX (8.5s cinematic pad), camera return after celebration, replay via long-press fix. 222 tests passing.
 - **2026-02-25**: UI overhaul — tower reveal animation (bottom→top build + camera sweep), FloatingNav pills (replaced tab bar), TopHUD minimal top bar, Board/Settings/Wallet as bottom sheets over tower, BlockInspector split into sub-components (inspector/), LiveActivityTicker with poke-random-block, swipe-to-dismiss on all panels, double SFX fix, dead code cleanup, SFX doc. 220 tests passing.
 - **2026-02-25**: Tower perf optimizations — dirty-flag decayTick (in-place mutate, no 650 object spreads), idle loop skip for fade/highlight/pop-out (near-zero useFrame cost when idle), single-block matrix restore (not 650), splice→filter for charge flash, removed `transparent:true` from glow material, delta cap on TowerCore, mediump shaders for Foundation+Particles (~2x Adreno throughput)
 - **2026-02-24**: Pre-testing sprint merged to main — poke mechanic, username system, My Blocks panel, XP leaderboard, push notifications, achievements, HotBlockTicker, settings polish, onboarding copy update, dormant reclaim tests, dev.sh path fix. Removed redundant ActivityTicker/ActivityFeed overlays. 304 tests (220 mobile + 84 server).

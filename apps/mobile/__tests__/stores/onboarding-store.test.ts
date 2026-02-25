@@ -32,7 +32,7 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 beforeEach(() => {
     Object.keys(mockSecureStore).forEach((k) => delete mockSecureStore[k]);
     useOnboardingStore.setState({
-        phase: "title",
+        phase: "cinematic",
         ghostBlockId: null,
         initialized: false,
     });
@@ -40,9 +40,9 @@ beforeEach(() => {
 
 describe("onboarding-store", () => {
     describe("initial state", () => {
-        it("should start in title phase", () => {
+        it("should start in cinematic phase", () => {
             const state = useOnboardingStore.getState();
-            expect(state.phase).toBe("title");
+            expect(state.phase).toBe("cinematic");
             expect(state.ghostBlockId).toBeNull();
             expect(state.initialized).toBe(false);
         });
@@ -53,10 +53,10 @@ describe("onboarding-store", () => {
     });
 
     describe("init", () => {
-        it("should start at title phase on fresh launch", async () => {
+        it("should start at cinematic phase on fresh launch", async () => {
             await useOnboardingStore.getState().init();
             const state = useOnboardingStore.getState();
-            expect(state.phase).toBe("title");
+            expect(state.phase).toBe("cinematic");
             expect(state.initialized).toBe(true);
         });
 
@@ -71,22 +71,17 @@ describe("onboarding-store", () => {
     });
 
     describe("advancePhase", () => {
-        it("should transition title → claim → customize → reveal → done", () => {
+        it("should transition through all phases in order", () => {
             const { advancePhase } = useOnboardingStore.getState();
+            const expectedPhases = [
+                "cinematic", "title", "claim", "celebration",
+                "customize", "charge", "poke", "wallet", "done",
+            ];
 
-            expect(useOnboardingStore.getState().phase).toBe("title");
-
-            advancePhase();
-            expect(useOnboardingStore.getState().phase).toBe("claim");
-
-            advancePhase();
-            expect(useOnboardingStore.getState().phase).toBe("customize");
-
-            advancePhase();
-            expect(useOnboardingStore.getState().phase).toBe("reveal");
-
-            advancePhase();
-            expect(useOnboardingStore.getState().phase).toBe("done");
+            for (let i = 0; i < expectedPhases.length; i++) {
+                expect(useOnboardingStore.getState().phase).toBe(expectedPhases[i]);
+                if (i < expectedPhases.length - 1) advancePhase();
+            }
         });
 
         it("should not advance past done", () => {
@@ -96,10 +91,25 @@ describe("onboarding-store", () => {
         });
 
         it("should persist flag when reaching done", () => {
-            useOnboardingStore.setState({ phase: "reveal" });
+            useOnboardingStore.setState({ phase: "wallet" });
             useOnboardingStore.getState().advancePhase();
             expect(useOnboardingStore.getState().phase).toBe("done");
-            // SecureStore.setItemAsync is called asynchronously
+            expect(require("expo-secure-store").setItemAsync).toHaveBeenCalledWith(
+                "monolith_onboarding_complete",
+                "true",
+            );
+        });
+    });
+
+    describe("skipToPhase", () => {
+        it("should jump to the specified phase", () => {
+            useOnboardingStore.getState().skipToPhase("charge");
+            expect(useOnboardingStore.getState().phase).toBe("charge");
+        });
+
+        it("should persist flag when skipping to done", () => {
+            useOnboardingStore.getState().skipToPhase("done");
+            expect(useOnboardingStore.getState().phase).toBe("done");
             expect(require("expo-secure-store").setItemAsync).toHaveBeenCalledWith(
                 "monolith_onboarding_complete",
                 "true",
@@ -140,7 +150,7 @@ describe("onboarding-store", () => {
     describe("completeOnboarding", () => {
         it("should jump to done and clear ghost block", () => {
             useOnboardingStore.setState({
-                phase: "reveal",
+                phase: "wallet",
                 ghostBlockId: "block-8-0",
             });
 
@@ -152,13 +162,13 @@ describe("onboarding-store", () => {
     });
 
     describe("resetOnboarding", () => {
-        it("should reset phase to title and clear persisted flag", async () => {
+        it("should reset phase to cinematic and clear persisted flag", async () => {
             mockSecureStore["monolith_onboarding_complete"] = "true";
             useOnboardingStore.setState({ phase: "done" });
 
             await useOnboardingStore.getState().resetOnboarding();
             const state = useOnboardingStore.getState();
-            expect(state.phase).toBe("title");
+            expect(state.phase).toBe("cinematic");
             expect(state.ghostBlockId).toBeNull();
             expect(state.initialized).toBe(true);
             expect(require("expo-secure-store").deleteItemAsync).toHaveBeenCalledWith(
@@ -169,7 +179,10 @@ describe("onboarding-store", () => {
 
     describe("isOnboarding", () => {
         it("should return true for all phases except done", () => {
-            const phases = ["title", "claim", "customize", "reveal"] as const;
+            const phases = [
+                "cinematic", "title", "claim", "celebration",
+                "customize", "charge", "poke", "wallet",
+            ] as const;
             for (const p of phases) {
                 useOnboardingStore.setState({ phase: p });
                 expect(useOnboardingStore.getState().isOnboarding()).toBe(true);

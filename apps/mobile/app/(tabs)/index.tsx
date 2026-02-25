@@ -172,8 +172,8 @@ export default function TowerScreen() {
         {/* Level up celebration */}
         <LevelUpCelebration />
 
-        {/* Block Inspector — inside cinematicWrapper so it positions against full screen */}
-        <BlockInspector />
+        {/* Block Inspector — hidden during onboarding (OnboardingFlow handles its own UI) */}
+        {!isOnboarding && <BlockInspector />}
 
         {/* Onboarding — inside wrapper so it hides during claim celebration */}
         {initialized && isOnboarding && <OnboardingFlow />}

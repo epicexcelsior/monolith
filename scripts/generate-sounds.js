@@ -389,12 +389,15 @@ function genLevelUp() {
 
 // ─── Tower Rise ──────────────────────────────────────────────────────────────
 /**
- * tower-rise.wav — Low rumble rising in pitch with crystalline shimmer.
- * Plays during tower reveal animation (~3s). Sub bass sweep + ascending tones.
- * 2800ms.
+ * tower-rise.wav — Low rumble rising in pitch + warm cinematic pad.
+ * Plays during tower reveal (3s build) + cinematic orbit (5s orbit).
+ * Phase A (0-3s): Sub bass sweep, rumble, rising tones, crystal shimmer.
+ * Phase B (3-8.5s): Warm A major pad blooms, reverb tail, gentle fade.
+ * ~8500ms total.
  */
 function genTowerRise() {
-  const dur = 2.8;
+  const dur = 8.5;
+  const buildEnd = 3.0; // Phase A ends
   const s = buf(dur);
 
   // Seeded pseudo-noise for rumble
@@ -408,48 +411,83 @@ function genTowerRise() {
     const t = i / SR;
     const p = t / dur;
 
-    // Overall envelope: fade in, sustain, fade out
-    const env = adsr(t, 0.3, 0.2, 0.7, 0.5, dur);
+    // ── Phase A: Build reveal (0-3s) ──────────────────────────────
+    if (t < buildEnd) {
+      const bp = t / buildEnd; // 0→1 over build phase
+      const bEnv = adsr(t, 0.3, 0.2, 0.7, 0.5, buildEnd);
 
-    // Sub bass sweep: 40Hz → 110Hz (A2)
-    const bassFreq = 40 + 70 * p;
-    s[i] += sin(bassFreq, t) * env * 0.3;
+      // Sub bass sweep: 40Hz → 110Hz (A2)
+      const bassFreq = 40 + 70 * bp;
+      s[i] += sin(bassFreq, t) * bEnv * 0.3;
 
-    // Rumble: filtered noise, fades as pitch rises
-    const rumbleEnv = env * Math.max(0, 1 - p * 1.2);
-    s[i] += noise() * rumbleEnv * 0.08;
+      // Rumble: filtered noise, fades as pitch rises
+      const rumbleEnv = bEnv * Math.max(0, 1 - bp * 1.2);
+      s[i] += noise() * rumbleEnv * 0.08;
 
-    // Rising tone 1: A3(220) → A4(440), enters at 20%
-    if (p > 0.2) {
-      const lp = (p - 0.2) / 0.8;
-      const freq1 = 220 + 220 * lp;
-      const env1 = adsr(t - dur * 0.2, 0.4, 0.2, 0.5, 0.3, dur * 0.8) * lp;
-      s[i] += sin(freq1, t) * env1 * 0.15;
+      // Rising tone 1: A3(220) → A4(440), enters at 20%
+      if (bp > 0.2) {
+        const lp = (bp - 0.2) / 0.8;
+        const freq1 = 220 + 220 * lp;
+        const env1 = adsr(t - buildEnd * 0.2, 0.4, 0.2, 0.5, 0.3, buildEnd * 0.8) * lp;
+        s[i] += sin(freq1, t) * env1 * 0.15;
+      }
+
+      // Rising tone 2: E4(330) → E5(659), enters at 40%
+      if (bp > 0.4) {
+        const lp = (bp - 0.4) / 0.6;
+        const freq2 = 330 + 329 * lp;
+        const env2 = adsr(t - buildEnd * 0.4, 0.3, 0.15, 0.45, 0.2, buildEnd * 0.6) * lp;
+        s[i] += sin(freq2, t) * env2 * 0.12;
+      }
+
+      // Crystal shimmer: A5(880) enters in last 40%, grows brighter
+      if (bp > 0.6) {
+        const lp = (bp - 0.6) / 0.4;
+        const shimEnv = lp * lp * bEnv;
+        s[i] += sin(880, t) * shimEnv * 0.1;
+        s[i] += sin(880.7, t) * shimEnv * 0.06;
+        s[i] += sin(1319, t) * shimEnv * 0.04;
+      }
+
+      // FM texture throughout: adds organic movement
+      const fmIdx = 1.5 * (1 - bp);
+      s[i] += fm(110, 55, fmIdx, t) * bEnv * 0.06;
     }
 
-    // Rising tone 2: E4(330) → E5(659), enters at 40%
-    if (p > 0.4) {
-      const lp = (p - 0.4) / 0.6;
-      const freq2 = 330 + 329 * lp;
-      const env2 = adsr(t - dur * 0.4, 0.3, 0.15, 0.45, 0.2, dur * 0.6) * lp;
-      s[i] += sin(freq2, t) * env2 * 0.12;
-    }
+    // ── Phase B: Cinematic pad (3s-8.5s) ──────────────────────────
+    if (t >= buildEnd - 0.5) { // Start crossfading 0.5s before build ends
+      const padStart = buildEnd - 0.5;
+      const padDur = dur - padStart;
+      const pt = (t - padStart) / padDur; // 0→1 over pad phase
 
-    // Crystal shimmer: A5(880) enters in last 40%, grows brighter
-    if (p > 0.6) {
-      const lp = (p - 0.6) / 0.4;
-      const shimEnv = lp * lp * env; // quadratic rise
-      s[i] += sin(880, t) * shimEnv * 0.1;
-      s[i] += sin(880.7, t) * shimEnv * 0.06; // detuned shimmer
-      s[i] += sin(1319, t) * shimEnv * 0.04; // E6 sparkle
-    }
+      // Volume swell: -12dB → -6dB (0.25 → 0.5) then gentle fade
+      const padVol = pt < 0.4
+        ? 0.25 + 0.25 * (pt / 0.4) // swell up
+        : pt < 0.7
+          ? 0.50 // sustain
+          : 0.50 * (1 - (pt - 0.7) / 0.3); // fade out
 
-    // FM texture throughout: adds organic movement
-    const fmIdx = 1.5 * (1 - p); // decreasing FM → cleaner at end
-    s[i] += fm(110, 55, fmIdx, t) * env * 0.06;
+      const padEnv = adsr(t - padStart, 1.0, 0.3, 0.8, 1.5, padDur);
+
+      // A major chord: A3(220) + C#4(277) + E4(330)
+      s[i] += sin(220, t)   * padEnv * padVol * 0.20;
+      s[i] += sin(277.2, t) * padEnv * padVol * 0.15; // C#4
+      s[i] += sin(330, t)   * padEnv * padVol * 0.12; // E4
+
+      // Octave shimmer: A4(440) + E5(659), subtle
+      s[i] += sin(440, t)   * padEnv * padVol * 0.08;
+      s[i] += sin(659.3, t) * padEnv * padVol * 0.05;
+
+      // Detuned warmth (slow beating)
+      s[i] += sin(220.5, t) * padEnv * padVol * 0.06;
+      s[i] += sin(330.4, t) * padEnv * padVol * 0.04;
+
+      // Very gentle noise bed for texture
+      s[i] += noise() * padEnv * padVol * 0.015;
+    }
   }
 
-  reverb(s, 60, -12);
+  reverb(s, 80, -10);
   normalize(s, 0.45);
   return trim(s);
 }

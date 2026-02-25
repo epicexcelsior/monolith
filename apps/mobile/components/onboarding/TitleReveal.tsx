@@ -2,16 +2,13 @@ import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from "react-native";
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
+import { playButtonTap } from "@/utils/audio";
 
 /**
- * TitleReveal — First thing the user sees over the live tower.
+ * TitleReveal — "MONOLITH" overlay during the final moments of the cinematic orbit.
  *
- * Communicates the value prop in 3 seconds:
- * - "THE MONOLITH" (branding)
- * - "650 blocks. One tower. Yours to keep — or lose." (stakes)
- * - "Find Your Spot" CTA
- *
- * Dark scrim ensures text reads over any tower state.
+ * Minimal design: title + one-line tagline + CTA button.
+ * Light 20% scrim behind text area only — don't dim the whole tower.
  */
 
 interface TitleRevealProps {
@@ -20,43 +17,60 @@ interface TitleRevealProps {
 }
 
 export default function TitleReveal({ visible, onComplete }: TitleRevealProps) {
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const subtitleFade = useRef(new Animated.Value(0)).current;
+    const titleFade = useRef(new Animated.Value(0)).current;
+    const taglineFade = useRef(new Animated.Value(0)).current;
     const ctaFade = useRef(new Animated.Value(0)).current;
+    const ctaScale = useRef(new Animated.Value(0.8)).current;
 
     useEffect(() => {
         if (visible) {
-            Animated.timing(fadeAnim, {
+            // Title fades in
+            Animated.timing(titleFade, {
                 toValue: 1,
-                duration: 500,
+                duration: 600,
                 useNativeDriver: true,
-            }).start(() => {
-                Animated.timing(subtitleFade, {
+            }).start();
+
+            // Tagline follows 400ms later
+            Animated.timing(taglineFade, {
+                toValue: 1,
+                duration: 400,
+                delay: 400,
+                useNativeDriver: true,
+            }).start();
+
+            // CTA springs in 600ms after title
+            Animated.parallel([
+                Animated.timing(ctaFade, {
                     toValue: 1,
-                    duration: 400,
+                    duration: 300,
+                    delay: 600,
                     useNativeDriver: true,
-                }).start(() => {
-                    Animated.timing(ctaFade, {
-                        toValue: 1,
-                        duration: 300,
-                        useNativeDriver: true,
-                    }).start();
-                });
-            });
+                }),
+                Animated.spring(ctaScale, {
+                    toValue: 1,
+                    tension: 60,
+                    friction: 8,
+                    delay: 600,
+                    useNativeDriver: true,
+                }),
+            ]).start();
         }
-    }, [visible]);
+    }, [visible, titleFade, taglineFade, ctaFade, ctaScale]);
 
     if (!visible) return null;
 
-    const handleFindSpot = () => {
+    const handleGetStarted = () => {
         hapticButtonPress();
+        playButtonTap();
+        // Fade out all elements quickly
         Animated.parallel([
-            Animated.timing(fadeAnim, {
+            Animated.timing(titleFade, {
                 toValue: 0,
-                duration: 300,
+                duration: 200,
                 useNativeDriver: true,
             }),
-            Animated.timing(subtitleFade, {
+            Animated.timing(taglineFade, {
                 toValue: 0,
                 duration: 200,
                 useNativeDriver: true,
@@ -73,38 +87,32 @@ export default function TitleReveal({ visible, onComplete }: TitleRevealProps) {
 
     return (
         <View style={styles.container} pointerEvents="box-none">
-            {/* Full-screen dark scrim — guarantees text contrast */}
+            {/* Subtle scrim — only behind text area, ~20% opacity */}
             <View style={styles.scrim} pointerEvents="none" />
 
-            {/* Title + value prop */}
+            {/* Title + tagline — centered */}
             <View style={styles.titleArea} pointerEvents="none">
-                <Animated.Text style={[styles.title, { opacity: fadeAnim }]}>
-                    THE MONOLITH
+                <Animated.Text style={[styles.title, { opacity: titleFade }]}>
+                    MONOLITH
                 </Animated.Text>
 
-                <Animated.View style={[styles.taglineContainer, { opacity: subtitleFade }]}>
-                    <Text style={styles.tagline}>
-                        650 blocks. Real people. Real stakes.
-                    </Text>
-                    <Text style={styles.taglineAccent}>
-                        Yours to keep — or lose.
-                    </Text>
-                </Animated.View>
+                <Animated.Text style={[styles.tagline, { opacity: taglineFade }]}>
+                    Own your piece of the tower
+                </Animated.Text>
             </View>
 
             {/* CTA at bottom */}
-            <Animated.View style={[styles.ctaContainer, { opacity: ctaFade }]}>
+            <Animated.View style={[
+                styles.ctaContainer,
+                { opacity: ctaFade, transform: [{ scale: ctaScale }] },
+            ]}>
                 <TouchableOpacity
                     style={styles.ctaButton}
-                    onPress={handleFindSpot}
+                    onPress={handleGetStarted}
                     activeOpacity={0.8}
                 >
-                    <Text style={styles.ctaText}>Find Your Spot</Text>
+                    <Text style={styles.ctaText}>GET STARTED</Text>
                 </TouchableOpacity>
-
-                <Animated.Text style={[styles.ctaHint, { opacity: ctaFade }]}>
-                    Charge daily or someone takes it
-                </Animated.Text>
             </Animated.View>
         </View>
     );
@@ -118,7 +126,7 @@ const styles = StyleSheet.create({
     },
     scrim: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(6, 8, 16, 0.6)",
+        backgroundColor: "rgba(6, 8, 16, 0.20)",
     },
     titleArea: {
         flex: 1,
@@ -128,34 +136,20 @@ const styles = StyleSheet.create({
     },
     title: {
         fontFamily: FONT_FAMILY.headingBlack,
-        fontSize: 36,
-        letterSpacing: 8,
-        color: COLORS.goldLight,
+        fontSize: 48,
+        letterSpacing: 6,
+        color: COLORS.textOnDark,
         textShadowColor: "rgba(0, 0, 0, 0.9)",
         textShadowOffset: { width: 0, height: 2 },
         textShadowRadius: 30,
         textAlign: "center",
     },
-    taglineContainer: {
-        alignItems: "center",
-        marginTop: SPACING.lg,
-    },
     tagline: {
         fontFamily: FONT_FAMILY.bodyMedium,
-        fontSize: 17,
-        color: COLORS.textOnDark,
+        fontSize: 16,
+        color: COLORS.textMuted,
         letterSpacing: 0.5,
-        textAlign: "center",
-        textShadowColor: "rgba(0, 0, 0, 0.8)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 12,
-    },
-    taglineAccent: {
-        fontFamily: FONT_FAMILY.bodySemibold,
-        fontSize: 17,
-        color: COLORS.gold,
-        letterSpacing: 0.5,
-        marginTop: SPACING.xs,
+        marginTop: SPACING.md,
         textAlign: "center",
         textShadowColor: "rgba(0, 0, 0, 0.8)",
         textShadowOffset: { width: 0, height: 1 },
@@ -167,26 +161,16 @@ const styles = StyleSheet.create({
     },
     ctaButton: {
         backgroundColor: COLORS.gold,
-        paddingHorizontal: SPACING.xxl,
+        paddingHorizontal: SPACING.xxl * 1.5,
         paddingVertical: SPACING.md,
-        borderRadius: RADIUS.md,
+        borderRadius: RADIUS.full,
         borderCurve: "continuous",
         boxShadow: SHADOW.gold,
     },
     ctaText: {
-        fontFamily: FONT_FAMILY.bodyBold,
-        fontSize: 18,
+        fontFamily: FONT_FAMILY.bodySemibold,
+        fontSize: 16,
         color: COLORS.textOnGold,
         letterSpacing: 1,
-    },
-    ctaHint: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 13,
-        color: COLORS.textMuted,
-        marginTop: SPACING.sm,
-        letterSpacing: 0.3,
-        textShadowColor: "rgba(0, 0, 0, 0.7)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 8,
     },
 });

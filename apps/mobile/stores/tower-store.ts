@@ -477,7 +477,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   },
 
   resetOnboardingFlag: async () => {
-    set({ onboardingDone: false });
+    set({ onboardingDone: false, revealComplete: false, revealProgress: 0 });
     try {
       await SecureStore.deleteItemAsync(ONBOARDING_KEY);
     } catch { /* ignore */ }

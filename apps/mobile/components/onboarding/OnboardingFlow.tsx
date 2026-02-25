@@ -1,38 +1,38 @@
-import React, { useEffect, useRef, useCallback, useState } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import {
     View,
     Text,
     StyleSheet,
     Animated,
     TouchableOpacity,
+    ScrollView,
 } from "react-native";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useTowerStore } from "@/stores/tower-store";
+import { useWalletStore } from "@/stores/wallet-store";
 import TitleReveal from "./TitleReveal";
-import CoachMark from "./CoachMark";
-import { BLOCK_COLORS } from "@monolith/common";
+import { BLOCK_COLORS, BLOCK_ICONS } from "@monolith/common";
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW, BLUR } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
-import { playCustomize, playButtonTap } from "@/utils/audio";
+import { playCustomize, playButtonTap, playChargeTap, playPokeSend } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 
 /**
- * OnboardingFlow — 30-second first session that communicates the GAME, not just the UI.
- *
- * What the user should understand after onboarding:
- *   1. This is a shared tower where real people own blocks
- *   2. You just claimed YOUR block on it
- *   3. You must come back and charge it, or you lose it
- *   4. Your block is now visible to everyone
+ * OnboardingFlow — 60-second first session: jaw-dropping immersion → intuitive game entry.
  *
  * Flow:
- *   title     → "650 blocks. One tower. Yours to keep — or lose."
- *   claim     → Camera flies to block → "CLAIM IT" with urgency
- *   customize → Pick a color (only — high visual impact, fast)
- *   reveal    → Camera pulls back → "Block #N is yours. Charge it daily or lose it."
+ *   cinematic   → Camera fly-around (no UI, pure spectacle)
+ *   title       → "MONOLITH" + "Own your piece of the tower" + GET STARTED
+ *   claim       → Dedicated big CLAIM THIS BLOCK button
+ *   celebration → VFX plays out (no UI)
+ *   customize   → Color + emoji picker
+ *   charge      → Charge tutorial — teach the daily loop
+ *   poke        → Optional poke prompt (dismissible)
+ *   wallet      → Wallet connect or "Play Demo"
  */
 
 const ONBOARDING_COLORS = BLOCK_COLORS.slice(0, 8);
+const ONBOARDING_ICONS = BLOCK_ICONS.slice(0, 16);
 
 /** Find a good unclaimed block for the tutorial */
 function pickTutorialBlock(
@@ -46,7 +46,25 @@ function pickTutorialBlock(
     return sorted[0].id;
 }
 
-/** Step indicator */
+/** Find a nearby bot-owned block for the poke tutorial */
+function pickNearbyBotBlock(
+    ghostBlockId: string,
+    demoBlocks: { id: string; owner: string | null; layer: number; index: number }[],
+): string | null {
+    const ghost = demoBlocks.find(b => b.id === ghostBlockId);
+    if (!ghost) return null;
+    const candidates = demoBlocks.filter(b =>
+        b.owner !== null &&
+        b.id !== ghostBlockId &&
+        Math.abs(b.layer - ghost.layer) <= 2
+    );
+    if (candidates.length === 0) return null;
+    return candidates.sort((a, b) =>
+        Math.abs(a.index - ghost.index) - Math.abs(b.index - ghost.index)
+    )[0].id;
+}
+
+/** Step indicator — 5 steps starting from claim */
 function StepDots({ current, total }: { current: number; total: number }) {
     return (
         <View style={styles.stepDotsRow}>
@@ -64,6 +82,15 @@ function StepDots({ current, total }: { current: number; total: number }) {
     );
 }
 
+/** Step label — "Step N of M" */
+function StepLabel({ step, total }: { step: number; total: number }) {
+    return (
+        <Text style={styles.stepLabel}>
+            Step {step} of {total}
+        </Text>
+    );
+}
+
 export default function OnboardingFlow() {
     const phase = useOnboardingStore((s) => s.phase);
     const advancePhase = useOnboardingStore((s) => s.advancePhase);
@@ -74,63 +101,79 @@ export default function OnboardingFlow() {
     const demoBlocks = useTowerStore((s) => s.demoBlocks);
     const ghostClaimBlock = useTowerStore((s) => s.ghostClaimBlock);
     const ghostCustomizeBlock = useTowerStore((s) => s.ghostCustomizeBlock);
+    const ghostChargeBlock = useTowerStore((s) => s.ghostChargeBlock);
     const clearGhostBlock = useTowerStore((s) => s.clearGhostBlock);
     const selectBlock = useTowerStore((s) => s.selectBlock);
     const completeOnboarding = useTowerStore((s) => s.completeOnboarding);
     const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
+    const setRecentlyChargedId = useTowerStore((s) => s.setRecentlyChargedId);
+    const setShowConnectSheet = useWalletStore((s) => s.setShowConnectSheet);
     const { triggerCelebration } = useClaimCelebration();
 
     // Animations
-    const revealFade = useRef(new Animated.Value(0)).current;
     const claimFade = useRef(new Animated.Value(0)).current;
     const claimScale = useRef(new Animated.Value(0.8)).current;
-    const customizeFade = useRef(new Animated.Value(0)).current;
-    const customizeSlide = useRef(new Animated.Value(60)).current;
-
-    const [keeperNumber, setKeeperNumber] = useState(0);
-
-    useEffect(() => {
-        const occupied = demoBlocks.filter((b) => b.owner !== null).length;
-        setKeeperNumber(occupied);
-    }, [demoBlocks]);
+    const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const panelFade = useRef(new Animated.Value(0)).current;
+    const panelSlide = useRef(new Animated.Value(60)).current;
 
     // ─── Animate claim entrance ──────────────────
     useEffect(() => {
         if (phase !== "claim") return;
+        claimFade.setValue(0);
+        claimScale.setValue(0.8);
         Animated.parallel([
             Animated.timing(claimFade, {
                 toValue: 1,
                 duration: 400,
-                delay: 600,
+                delay: 800,
                 useNativeDriver: true,
             }),
             Animated.spring(claimScale, {
                 toValue: 1,
                 tension: 60,
                 friction: 8,
-                delay: 600,
+                delay: 800,
                 useNativeDriver: true,
             }),
         ]).start();
     }, [phase, claimFade, claimScale]);
 
-    // ─── Animate customize entrance ──────────────
+    // ─── Animate panel entrance (reused for customize/charge/poke/wallet) ──
     useEffect(() => {
-        if (phase !== "customize") return;
+        if (phase !== "customize" && phase !== "charge" && phase !== "poke" && phase !== "wallet") return;
+        panelFade.setValue(0);
+        panelSlide.setValue(60);
         Animated.parallel([
-            Animated.timing(customizeFade, {
+            Animated.timing(panelFade, {
                 toValue: 1,
                 duration: 300,
                 useNativeDriver: true,
             }),
-            Animated.spring(customizeSlide, {
+            Animated.spring(panelSlide, {
                 toValue: 0,
                 tension: 50,
                 friction: 10,
                 useNativeDriver: true,
             }),
         ]).start();
-    }, [phase, customizeFade, customizeSlide]);
+    }, [phase, panelFade, panelSlide]);
+
+    // ─── Celebration auto-advance ────────────────
+    useEffect(() => {
+        if (phase !== "celebration") return;
+        // Wait for the celebration VFX to mostly finish, then fly camera back to block
+        celebrationTimer.current = setTimeout(() => {
+            // Re-select the ghost block so camera flies back for customize phase
+            if (ghostBlockId) {
+                selectBlock(ghostBlockId);
+            }
+            advancePhase(); // → customize
+        }, 3500);
+        return () => {
+            if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+        };
+    }, [phase, advancePhase, ghostBlockId, selectBlock]);
 
     // ─── Phase: TITLE ─────────────────────────────
     const handleTitleComplete = useCallback(() => {
@@ -147,16 +190,15 @@ export default function OnboardingFlow() {
     // ─── Phase: CLAIM ─────────────────────────────
     const handleClaim = useCallback(() => {
         if (!ghostBlockId) return;
+        hapticButtonPress();
         ghostClaimBlock(ghostBlockId);
-        // Trigger full claim celebration (particles, shockwave, haptics, sound)
+        // Trigger full claim celebration
         const block = getDemoBlockById(ghostBlockId);
         if (block) {
             triggerCelebration(block.position, -1, true);
         }
-        customizeFade.setValue(0);
-        customizeSlide.setValue(60);
-        advancePhase(); // → customize
-    }, [ghostBlockId, ghostClaimBlock, advancePhase, customizeFade, customizeSlide, getDemoBlockById, triggerCelebration]);
+        advancePhase(); // → celebration
+    }, [ghostBlockId, ghostClaimBlock, advancePhase, getDemoBlockById, triggerCelebration]);
 
     // ─── Phase: CUSTOMIZE ─────────────────────────
     const handleColorPick = useCallback((color: string) => {
@@ -166,43 +208,73 @@ export default function OnboardingFlow() {
         playCustomize();
     }, [ghostBlockId, ghostCustomizeBlock]);
 
+    const handleEmojiPick = useCallback((emoji: string) => {
+        if (!ghostBlockId) return;
+        ghostCustomizeBlock(ghostBlockId, { emoji });
+        hapticButtonPress();
+        playCustomize();
+    }, [ghostBlockId, ghostCustomizeBlock]);
+
     const handleCustomizeDone = useCallback(() => {
         hapticButtonPress();
         playButtonTap();
-        selectBlock(null);
-        advancePhase(); // → reveal
-    }, [selectBlock, advancePhase]);
+        // Don't selectBlock(null) — keep block selected for charge phase
+        advancePhase(); // → charge
+    }, [advancePhase]);
 
-    // Auto-advance from customize after 8s
-    useEffect(() => {
-        if (phase !== "customize") return;
-        const timer = setTimeout(handleCustomizeDone, 8000);
-        return () => clearTimeout(timer);
-    }, [phase, handleCustomizeDone]);
+    // ─── Phase: CHARGE ────────────────────────────
+    const handleCharge = useCallback(() => {
+        if (!ghostBlockId) return;
+        hapticButtonPress();
+        playChargeTap();
+        ghostChargeBlock(ghostBlockId);
+        // Show charge flash
+        setRecentlyChargedId(ghostBlockId);
+        // Brief pause then advance
+        setTimeout(() => {
+            advancePhase(); // → poke
+        }, 800);
+    }, [ghostBlockId, ghostChargeBlock, setRecentlyChargedId, advancePhase]);
 
-    // ─── Phase: REVEAL ────────────────────────────
-    useEffect(() => {
-        if (phase !== "reveal") return;
+    // ─── Phase: POKE ──────────────────────────────
+    const handlePoke = useCallback(() => {
+        if (!ghostBlockId) return;
+        hapticButtonPress();
+        playPokeSend();
+        const nearbyId = pickNearbyBotBlock(ghostBlockId, demoBlocks as any);
+        if (nearbyId) {
+            selectBlock(nearbyId);
+            // Visual feedback
+            setRecentlyChargedId(nearbyId);
+        }
+        setTimeout(() => {
+            advancePhase(); // → wallet
+        }, 600);
+    }, [ghostBlockId, demoBlocks, selectBlock, setRecentlyChargedId, advancePhase]);
 
-        Animated.timing(revealFade, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-        }).start();
+    const handlePokeSkip = useCallback(() => {
+        hapticButtonPress();
+        playButtonTap();
+        advancePhase(); // → wallet
+    }, [advancePhase]);
 
-        const timer = setTimeout(() => {
-            Animated.timing(revealFade, {
-                toValue: 0,
-                duration: 500,
-                useNativeDriver: true,
-            }).start(() => {
-                completeOnboarding();
-                skipOnboarding();
-            });
-        }, 5000);
+    // ─── Phase: WALLET ────────────────────────────
+    const handleConnectWallet = useCallback(() => {
+        hapticButtonPress();
+        playButtonTap();
+        setShowConnectSheet(true);
+        // On successful connect, the wallet store will handle state
+        // For now, complete onboarding
+        completeOnboarding();
+        skipOnboarding();
+    }, [setShowConnectSheet, completeOnboarding, skipOnboarding]);
 
-        return () => clearTimeout(timer);
-    }, [phase, revealFade, completeOnboarding, skipOnboarding]);
+    const handlePlayDemo = useCallback(() => {
+        hapticButtonPress();
+        playButtonTap();
+        completeOnboarding();
+        skipOnboarding();
+    }, [completeOnboarding, skipOnboarding]);
 
     // ─── Skip handler ─────────────────────────────
     const handleSkip = useCallback(() => {
@@ -217,42 +289,77 @@ export default function OnboardingFlow() {
 
     const ghostBlock = ghostBlockId ? getDemoBlockById(ghostBlockId) : null;
 
+    // Step mapping for the 5-step indicator
+    const stepMap: Record<string, number> = {
+        claim: 0, celebration: 0,
+        customize: 1,
+        charge: 2,
+        poke: 3,
+        wallet: 4,
+    };
+    const currentStep = stepMap[phase] ?? -1;
+
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            {/* Skip button */}
-            <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-                <Text style={styles.skipText}>Skip</Text>
-            </TouchableOpacity>
+            {/* Skip button — visible from title phase onward (not during cinematic) */}
+            {phase !== "cinematic" && (
+                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+                    <Text style={styles.skipText}>Skip</Text>
+                </TouchableOpacity>
+            )}
 
-            {/* ─── TITLE ─────────────────────────── */}
+            {/* ─── CINEMATIC ──────────────────────── */}
+            {/* No UI during cinematic — pure camera spectacle */}
+            {/* The useTowerReveal hook handles advancing cinematic → title */}
+
+            {/* ─── TITLE ──────────────────────────── */}
             <TitleReveal
                 visible={phase === "title"}
                 onComplete={handleTitleComplete}
             />
 
-            {/* ─── CLAIM ─────────────────────────── */}
-            {/* Block is selected → BlockInspector shows standard "CLAIM THIS BLOCK" button */}
+            {/* ─── CLAIM ──────────────────────────── */}
             {phase === "claim" && (
-                <CoachMark
-                    message="Tap CLAIM below to make it yours"
-                    position="center"
-                    arrow="down"
-                    visible
-                />
-            )}
-
-            {/* ─── CUSTOMIZE ─────────────────────── */}
-            {phase === "customize" && (
                 <Animated.View style={[
-                    styles.customizeContainer,
-                    { opacity: customizeFade, transform: [{ translateY: customizeSlide }] },
+                    styles.claimContainer,
+                    { opacity: claimFade, transform: [{ scale: claimScale }] },
                 ]}>
-                    <StepDots current={1} total={3} />
-                    <Text style={styles.customizeLabel}>Pick your color</Text>
-                    <Text style={styles.customizeSub}>
-                        Everyone on the tower will see this
+                    <Text style={styles.claimSubtitle}>
+                        This block is yours to keep. Or lose.
                     </Text>
 
+                    <TouchableOpacity
+                        style={styles.claimButton}
+                        onPress={handleClaim}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.claimButtonText}>CLAIM THIS BLOCK</Text>
+                    </TouchableOpacity>
+
+                    {ghostBlock && (
+                        <Text style={styles.claimBlockInfo}>
+                            Layer {ghostBlock.layer}
+                        </Text>
+                    )}
+                </Animated.View>
+            )}
+
+            {/* ─── CELEBRATION ─────────────────────── */}
+            {/* No UI during celebration — VFX plays out */}
+
+            {/* ─── CUSTOMIZE ───────────────────────── */}
+            {phase === "customize" && (
+                <Animated.View style={[
+                    styles.panelContainer,
+                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
+                ]}>
+                    <StepLabel step={2} total={5} />
+                    <StepDots current={1} total={5} />
+
+                    <Text style={styles.panelTitle}>Make it yours</Text>
+                    <Text style={styles.panelSub}>Pick a color and emoji</Text>
+
+                    <Text style={styles.sectionHeader}>COLOR</Text>
                     <View style={styles.colorRow}>
                         {ONBOARDING_COLORS.map((color) => (
                             <TouchableOpacity
@@ -260,42 +367,139 @@ export default function OnboardingFlow() {
                                 style={[
                                     styles.colorSwatch,
                                     { backgroundColor: color },
-                                    ghostBlock?.ownerColor === color && styles.colorSwatchSelected,
+                                    ghostBlock?.ownerColor === color && styles.swatchSelected,
                                 ]}
                                 onPress={() => handleColorPick(color)}
                             />
                         ))}
                     </View>
 
+                    <Text style={styles.sectionHeader}>EMOJI</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.emojiRow}
+                    >
+                        {ONBOARDING_ICONS.map((emoji) => (
+                            <TouchableOpacity
+                                key={emoji}
+                                style={[
+                                    styles.emojiSwatch,
+                                    ghostBlock?.emoji === emoji && styles.swatchSelected,
+                                ]}
+                                onPress={() => handleEmojiPick(emoji)}
+                            >
+                                <Text style={styles.emojiText}>{emoji}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
                     <TouchableOpacity
-                        style={styles.doneButton}
+                        style={styles.goldButton}
                         onPress={handleCustomizeDone}
                         activeOpacity={0.8}
                     >
-                        <Text style={styles.doneButtonText}>Done</Text>
+                        <Text style={styles.goldButtonText}>LOOKS GOOD →</Text>
                     </TouchableOpacity>
                 </Animated.View>
             )}
 
-            {/* ─── REVEAL ────────────────────────── */}
-            {phase === "reveal" && (
-                <Animated.View
-                    style={[styles.revealContainer, { opacity: revealFade }]}
-                    pointerEvents="none"
-                >
-                    <View style={styles.revealScrim} />
-                    <StepDots current={2} total={3} />
-                    <Text style={styles.revealTitle}>
-                        You're keeper #{keeperNumber}
+            {/* ─── CHARGE ──────────────────────────── */}
+            {phase === "charge" && (
+                <Animated.View style={[
+                    styles.panelContainer,
+                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
+                ]}>
+                    <StepLabel step={3} total={5} />
+                    <StepDots current={2} total={5} />
+
+                    <Text style={styles.panelTitle}>Charge your block daily</Text>
+                    <Text style={styles.chargeWarning}>
+                        Miss 3 days and anyone can take it
                     </Text>
-                    <View style={styles.revealDivider} />
-                    <Text style={styles.revealStakes}>
-                        Your block decays every day.{"\n"}
-                        Charge it to keep it alive.{"\n"}
-                        Poke neighbors to give them energy.
+
+                    <TouchableOpacity
+                        style={styles.chargeButton}
+                        onPress={handleCharge}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.chargeButtonText}>⚡ CHARGE</Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.panelHint}>
+                        Your block decays every 24 hours.{"\n"}
+                        Come back to keep it alive.
                     </Text>
-                    <Text style={styles.revealWarning}>
-                        Miss 3 days and anyone can take it.
+                </Animated.View>
+            )}
+
+            {/* ─── POKE ────────────────────────────── */}
+            {phase === "poke" && (
+                <Animated.View style={[
+                    styles.panelContainer,
+                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
+                ]}>
+                    <StepLabel step={4} total={5} />
+                    <StepDots current={3} total={5} />
+
+                    <Text style={styles.panelTitle}>Poke your neighbors 👋</Text>
+                    <Text style={styles.panelSub}>Give them a boost of energy</Text>
+
+                    <View style={styles.pokeButtons}>
+                        <TouchableOpacity
+                            style={styles.goldButton}
+                            onPress={handlePoke}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.goldButtonText}>POKE</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.secondaryButton}
+                            onPress={handlePokeSkip}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.secondaryButtonText}>SKIP →</Text>
+                        </TouchableOpacity>
+                    </View>
+                </Animated.View>
+            )}
+
+            {/* ─── WALLET ──────────────────────────── */}
+            {phase === "wallet" && (
+                <Animated.View style={[
+                    styles.panelContainer,
+                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
+                ]}>
+                    <StepLabel step={5} total={5} />
+                    <StepDots current={4} total={5} />
+
+                    <Text style={styles.walletTitle}>You're in.</Text>
+                    <Text style={styles.panelSub}>
+                        Connect a wallet to stake real USDC{"\n"}
+                        and compete on the leaderboard.
+                    </Text>
+
+                    <View style={styles.walletButtons}>
+                        <TouchableOpacity
+                            style={styles.goldButton}
+                            onPress={handleConnectWallet}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.goldButtonText}>CONNECT WALLET</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.secondaryButton}
+                            onPress={handlePlayDemo}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.secondaryButtonText}>PLAY DEMO →</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.walletHint}>
+                        Seed Vault · Phantom · Solflare
                     </Text>
                 </Animated.View>
             )}
@@ -323,7 +527,7 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    // ─── Step dots ──────────────────────────────
+    // ─── Step indicator ───────────────────────
     stepDotsRow: {
         flexDirection: "row",
         justifyContent: "center",
@@ -344,11 +548,19 @@ const styles = StyleSheet.create({
     stepDotCompleted: {
         backgroundColor: COLORS.goldLight,
     },
+    stepLabel: {
+        fontFamily: FONT_FAMILY.body,
+        fontSize: 12,
+        color: COLORS.textMuted,
+        textAlign: "center",
+        letterSpacing: 0.5,
+        marginBottom: SPACING.xs,
+    },
 
-    // ─── Claim ──────────────────────────────────
+    // ─── Claim ────────────────────────────────
     claimContainer: {
         position: "absolute",
-        bottom: 100,
+        bottom: 120,
         left: SPACING.lg,
         right: SPACING.lg,
         alignItems: "center",
@@ -364,24 +576,31 @@ const styles = StyleSheet.create({
         boxShadow: SHADOW.gold,
     },
     claimButtonText: {
-        fontFamily: FONT_FAMILY.headingBlack,
-        fontSize: 24,
+        fontFamily: FONT_FAMILY.heading,
+        fontSize: 22,
         color: COLORS.textOnGold,
-        letterSpacing: 3,
+        letterSpacing: 2,
     },
-    claimHint: {
+    claimSubtitle: {
         fontFamily: FONT_FAMILY.bodyMedium,
-        fontSize: 14,
+        fontSize: 15,
         color: COLORS.textOnDark,
-        marginTop: SPACING.md,
+        marginBottom: SPACING.md,
         letterSpacing: 0.3,
         textShadowColor: "rgba(0, 0, 0, 0.8)",
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 8,
     },
+    claimBlockInfo: {
+        fontFamily: FONT_FAMILY.body,
+        fontSize: 13,
+        color: COLORS.textMuted,
+        marginTop: SPACING.sm,
+        letterSpacing: 0.3,
+    },
 
-    // ─── Customize ──────────────────────────────
-    customizeContainer: {
+    // ─── Shared panel container ───────────────
+    panelContainer: {
         position: "absolute",
         bottom: 80,
         left: SPACING.md,
@@ -397,25 +616,50 @@ const styles = StyleSheet.create({
         paddingBottom: SPACING.lg,
         paddingHorizontal: SPACING.lg,
     },
-    customizeLabel: {
+
+    // ─── Panel text ───────────────────────────
+    panelTitle: {
         fontFamily: FONT_FAMILY.heading,
         fontSize: 20,
         color: COLORS.goldLight,
         letterSpacing: 0.5,
+        textAlign: "center",
     },
-    customizeSub: {
+    panelSub: {
         fontFamily: FONT_FAMILY.body,
         fontSize: 13,
         color: COLORS.textMuted,
         marginTop: SPACING.xs,
         marginBottom: SPACING.md,
+        textAlign: "center",
     },
+    panelHint: {
+        fontFamily: FONT_FAMILY.body,
+        fontSize: 13,
+        color: COLORS.textMuted,
+        marginTop: SPACING.md,
+        textAlign: "center",
+        lineHeight: 20,
+    },
+
+    // ─── Section headers ──────────────────────
+    sectionHeader: {
+        fontFamily: FONT_FAMILY.bodySemibold,
+        fontSize: 11,
+        color: COLORS.textMuted,
+        letterSpacing: 2,
+        alignSelf: "flex-start",
+        marginBottom: SPACING.sm,
+        marginTop: SPACING.sm,
+    },
+
+    // ─── Color swatches ───────────────────────
     colorRow: {
         flexDirection: "row",
         flexWrap: "wrap",
         justifyContent: "center",
         gap: SPACING.sm,
-        marginBottom: SPACING.md,
+        marginBottom: SPACING.sm,
     },
     colorSwatch: {
         width: 48,
@@ -424,71 +668,110 @@ const styles = StyleSheet.create({
         borderWidth: 3,
         borderColor: "transparent",
     },
-    colorSwatchSelected: {
-        borderColor: COLORS.textOnDark,
+    swatchSelected: {
+        borderColor: COLORS.gold,
         borderWidth: 3,
     },
-    doneButton: {
+
+    // ─── Emoji row ────────────────────────────
+    emojiRow: {
+        flexDirection: "row",
+        gap: SPACING.sm,
+        paddingBottom: SPACING.md,
+    },
+    emojiSwatch: {
+        width: 48,
+        height: 48,
+        borderRadius: RADIUS.sm,
+        borderWidth: 3,
+        borderColor: "transparent",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.06)",
+    },
+    emojiText: {
+        fontSize: 24,
+    },
+
+    // ─── Buttons ──────────────────────────────
+    goldButton: {
         backgroundColor: COLORS.gold,
         paddingHorizontal: SPACING.xl,
         paddingVertical: SPACING.sm + 2,
         borderRadius: RADIUS.md,
         borderCurve: "continuous",
+        boxShadow: SHADOW.gold,
     },
-    doneButtonText: {
+    goldButtonText: {
         fontFamily: FONT_FAMILY.bodySemibold,
         fontSize: 15,
         color: COLORS.textOnGold,
+        letterSpacing: 1,
+    },
+    secondaryButton: {
+        paddingHorizontal: SPACING.lg,
+        paddingVertical: SPACING.sm + 2,
+        borderRadius: RADIUS.md,
+        borderCurve: "continuous",
+        borderWidth: 1,
+        borderColor: COLORS.hudBorder,
+    },
+    secondaryButtonText: {
+        fontFamily: FONT_FAMILY.bodySemibold,
+        fontSize: 15,
+        color: COLORS.textMuted,
         letterSpacing: 0.5,
     },
 
-    // ─── Reveal ─────────────────────────────────
-    revealContainer: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: SPACING.xl,
-        zIndex: 200,
-    },
-    revealScrim: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(6, 8, 16, 0.55)",
-    },
-    revealTitle: {
-        fontFamily: FONT_FAMILY.heading,
-        fontSize: 26,
-        color: COLORS.goldLight,
-        textAlign: "center",
-        letterSpacing: 0.5,
-        textShadowColor: "rgba(0, 0, 0, 0.9)",
-        textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 16,
-    },
-    revealDivider: {
-        width: 40,
-        height: 2,
-        backgroundColor: COLORS.goldGlow,
-        marginVertical: SPACING.md,
-        borderRadius: 1,
-    },
-    revealStakes: {
-        fontFamily: FONT_FAMILY.bodyMedium,
-        fontSize: 16,
-        color: COLORS.textOnDark,
-        textAlign: "center",
-        lineHeight: 24,
-        textShadowColor: "rgba(0, 0, 0, 0.8)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 10,
-    },
-    revealWarning: {
+    // ─── Charge ───────────────────────────────
+    chargeWarning: {
         fontFamily: FONT_FAMILY.bodySemibold,
         fontSize: 14,
         color: COLORS.fading,
         textAlign: "center",
+        marginTop: SPACING.xs,
+        marginBottom: SPACING.lg,
+    },
+    chargeButton: {
+        backgroundColor: COLORS.blazing,
+        paddingHorizontal: SPACING.xxl,
+        paddingVertical: SPACING.md,
+        borderRadius: RADIUS.md,
+        borderCurve: "continuous",
+        boxShadow: "0 0 20px rgba(255, 184, 0, 0.4)",
+    },
+    chargeButtonText: {
+        fontFamily: FONT_FAMILY.heading,
+        fontSize: 18,
+        color: COLORS.textOnGold,
+        letterSpacing: 1,
+    },
+
+    // ─── Poke ─────────────────────────────────
+    pokeButtons: {
+        flexDirection: "row",
+        gap: SPACING.md,
+        marginTop: SPACING.sm,
+    },
+
+    // ─── Wallet ───────────────────────────────
+    walletTitle: {
+        fontFamily: FONT_FAMILY.heading,
+        fontSize: 24,
+        color: COLORS.goldLight,
+        letterSpacing: 0.5,
+        textAlign: "center",
+    },
+    walletButtons: {
+        flexDirection: "row",
+        gap: SPACING.md,
+        marginTop: SPACING.sm,
+    },
+    walletHint: {
+        fontFamily: FONT_FAMILY.body,
+        fontSize: 12,
+        color: COLORS.textMuted,
         marginTop: SPACING.md,
-        textShadowColor: "rgba(0, 0, 0, 0.8)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 8,
+        textAlign: "center",
     },
 });

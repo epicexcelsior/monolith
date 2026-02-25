@@ -58,8 +58,8 @@ describe("useClaimCelebration", () => {
   });
 
   it("CLAIM_DURATIONS should have correct values", () => {
-    expect(CLAIM_DURATIONS.normal).toBe(5.5);
-    expect(CLAIM_DURATIONS.firstClaim).toBe(7.5);
+    expect(CLAIM_DURATIONS.normal).toBe(4.0);
+    expect(CLAIM_DURATIONS.firstClaim).toBe(5.5);
   });
 
   it("hapticClaimCelebration should be callable with boolean", () => {
@@ -85,10 +85,10 @@ describe("useClaimCelebration", () => {
 
     // Verify that the CLAIM_DURATIONS + 300ms buffer = expected cinematic reset time
     const normalDurationMs = CLAIM_DURATIONS.normal * 1000 + 300;
-    expect(normalDurationMs).toBe(5800);
+    expect(normalDurationMs).toBe(4300);
 
     const firstClaimDurationMs = CLAIM_DURATIONS.firstClaim * 1000 + 300;
-    expect(firstClaimDurationMs).toBe(7800);
+    expect(firstClaimDurationMs).toBe(5800);
 
     // Both under the 8s safety timeout
     expect(normalDurationMs).toBeLessThan(8000);

@@ -5,26 +5,38 @@ import { SECURE_STORE_KEYS } from "@/services/mwa";
 // ─── Types ────────────────────────────────────────────────
 
 /**
- * Onboarding phases — each maps to an interactive step:
+ * Onboarding phases — the full immersive first-60-seconds flow:
  *
- *   title      → "THE MONOLITH" over live tower, "Find Your Spot" CTA
- *   claim      → Camera flies to block, golden pulse, big CLAIM button
- *   customize  → Inline color picker: "Make it yours"
- *   reveal     → Camera pulls back, "You're keeper #N" floating text
- *   done       → Onboarding finished, never shown again
+ *   cinematic   → Camera fly-around showing the tower (5-8s, no UI)
+ *   title       → "MONOLITH" overlay with GET STARTED CTA
+ *   claim       → Dedicated CLAIM THIS BLOCK button (no BlockInspector)
+ *   celebration → VFX plays out, no UI — pure spectacle
+ *   customize   → Color + emoji picker
+ *   charge      → Charge tutorial — teach the daily loop
+ *   poke        → Optional poke prompt (dismissible)
+ *   wallet      → Wallet connect card (dismissible)
+ *   done        → Onboarding finished, never shown again
  */
 export type OnboardingPhase =
+    | "cinematic"
     | "title"
     | "claim"
+    | "celebration"
     | "customize"
-    | "reveal"
+    | "charge"
+    | "poke"
+    | "wallet"
     | "done";
 
 const PHASE_ORDER: OnboardingPhase[] = [
+    "cinematic",
     "title",
     "claim",
+    "celebration",
     "customize",
-    "reveal",
+    "charge",
+    "poke",
+    "wallet",
     "done",
 ];
 
@@ -44,6 +56,7 @@ interface OnboardingStore {
     // Actions
     init: () => Promise<void>;
     advancePhase: () => void;
+    skipToPhase: (phase: OnboardingPhase) => void;
     setGhostBlock: (blockId: string) => void;
     skipOnboarding: () => void;
     completeOnboarding: () => void;
@@ -51,7 +64,7 @@ interface OnboardingStore {
 }
 
 export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
-    phase: "title",
+    phase: "cinematic",
     ghostBlockId: null,
     initialized: false,
 
@@ -63,10 +76,10 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
             if (val === "true") {
                 set({ phase: "done", initialized: true });
             } else {
-                set({ phase: "title", initialized: true });
+                set({ phase: "cinematic", initialized: true });
             }
         } catch {
-            set({ phase: "title", initialized: true });
+            set({ phase: "cinematic", initialized: true });
         }
     },
 
@@ -79,6 +92,14 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
 
         // Persist when reaching "done"
         if (nextPhase === "done") {
+            SecureStore.setItemAsync(ONBOARDING_KEY, "true").catch(() => { });
+        }
+    },
+
+    skipToPhase: (phase) => {
+        set({ phase });
+        // Persist if skipping straight to done
+        if (phase === "done") {
             SecureStore.setItemAsync(ONBOARDING_KEY, "true").catch(() => { });
         }
     },
@@ -99,6 +120,6 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
         try {
             await SecureStore.deleteItemAsync(ONBOARDING_KEY);
         } catch { }
-        set({ phase: "title", ghostBlockId: null, initialized: true });
+        set({ phase: "cinematic", ghostBlockId: null, initialized: true });
     },
 }));

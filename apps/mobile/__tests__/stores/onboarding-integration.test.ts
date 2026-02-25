@@ -80,20 +80,20 @@ beforeEach(() => {
     });
 
     useOnboardingStore.setState({
-        phase: "title",
+        phase: "cinematic",
         ghostBlockId: null,
         initialized: false,
     });
 });
 
 describe("onboarding integration", () => {
-    it("should init both stores — onboarding starts in title phase", async () => {
+    it("should init both stores — onboarding starts in cinematic phase", async () => {
         await useTowerStore.getState().initTower();
         await useOnboardingStore.getState().init();
 
         expect(useTowerStore.getState().initialized).toBe(true);
         expect(useTowerStore.getState().onboardingDone).toBe(false);
-        expect(useOnboardingStore.getState().phase).toBe("title");
+        expect(useOnboardingStore.getState().phase).toBe("cinematic");
         expect(useTowerStore.getState().demoBlocks.length).toBeGreaterThan(0);
     });
 
@@ -209,7 +209,7 @@ describe("onboarding integration", () => {
         await useOnboardingStore.getState().resetOnboarding();
 
         expect(useTowerStore.getState().onboardingDone).toBe(false);
-        expect(useOnboardingStore.getState().phase).toBe("title");
+        expect(useOnboardingStore.getState().phase).toBe("cinematic");
         expect(mockSecureStore[UNIFIED_KEY]).toBeUndefined();
     });
 
