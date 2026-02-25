@@ -43,7 +43,6 @@ export default function TowerScreen() {
   const resetOnboardingFlag = useTowerStore((s) => s.resetOnboardingFlag);
   const initialized = useTowerStore((s) => s.initialized);
   const onboardingDone = useTowerStore((s) => s.onboardingDone);
-  const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
   const cinematicMode = useTowerStore((s) => s.cinematicMode);
   const [showMyBlocks, setShowMyBlocks] = useState(false);
 

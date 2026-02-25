@@ -1,7 +1,7 @@
 # Monolith — Project Context
 
 > **Living state document.** Auto-updated by `/wrapup` workflow.
-> **Last updated:** 2026-02-21
+> **Last updated:** 2026-02-24
 
 ## What Is This?
 
@@ -42,7 +42,15 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Dormant block reclaim** ("RECLAIM" CTA on blocks at 0 energy 3+ days)
 - **Sound effects + haptics** (12 sounds, A Dorian crystal identity, wired to all interactions — needs native rebuild)
 - **Tappable leaderboard** (tap entry → camera flies to block)
+- **XP leaderboard tab** (owners + XP tabs on Board screen)
 - **Real activity feed on Board tab** (fetches from /api/events, fallback to generated)
+- **Poke mechanic** (tap opponent's block → poke, 30s cooldown, server-validated, push notification)
+- **Username system** (set display name, persisted to Supabase, shown on blocks + leaderboard)
+- **My Blocks panel** (bottom sheet listing owned blocks, tap to fly camera)
+- **Push notifications** (hourly decay check, poke alerts — server handler + expo-notifications)
+- **HotBlockTicker** (bottom-left pills for claimable/fading/streak blocks, tap to inspect)
+- **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast)
+- **Settings polish** (haptics toggle, username display, replay onboarding)
 - **EAS Update / OTA** (expo-updates configured, channel: preview)
 - **Ownership enforcement** (can't charge/customize another player's block)
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
@@ -52,8 +60,6 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - Activity feed on Board tab falls back to generated data when server has no events
 
 ### Not Started
-- Push notifications
-- Poke system (social re-engagement)
 - Guided onboarding camera flight
 - Demo video / pitch deck — **Remotion system built** (`apps/video/`), 23s ShowcaseDemo renders
 - Gravity Tax implementation
@@ -80,7 +86,10 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/LayerIndicator.tsx` | Floor scrubber / layer nav |
 | `apps/mobile/components/ui/ClaimModal.tsx` | Block claim confirmation modal |
 | `apps/mobile/components/ui/TowerStats.tsx` | HUD stats bar (keepers, charge %, online count, level) |
-| `apps/mobile/components/ui/ActivityTicker.tsx` | Real-time event feed on tower HUD |
+| `apps/mobile/components/ui/HotBlockTicker.tsx` | Bottom-left pills for claimable/fading/streak blocks |
+| `apps/mobile/components/ui/AchievementToast.tsx` | Slide-in achievement notifications (7 types) |
+| `apps/mobile/components/ui/MyBlocksPanel.tsx` | Bottom sheet listing owned blocks |
+| `apps/mobile/components/ui/UsernameModal.tsx` | Set display name modal |
 | `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator (connecting/offline/reconnecting) |
 | `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions |
 | `apps/mobile/components/ui/LevelUpCelebration.tsx` | Full-screen level-up overlay + haptic |
@@ -97,11 +106,14 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/stores/player-store.ts` | XP, level, combo, lastPointsEarned, levelUp state |
 | `apps/mobile/stores/wallet-store.ts` | Wallet connection + balance |
 | `apps/mobile/stores/onboarding-store.ts` | Onboarding flow progress |
+| `apps/mobile/stores/poke-store.ts` | Poke cooldown tracking |
+| `apps/mobile/stores/achievement-store.ts` | Achievement unlocks (7 types, SecureStore persistence) |
+| `apps/mobile/stores/activity-store.ts` | Real-time activity events (wired to multiplayer) |
 
 ### Screens (Expo Router)
 | File | Purpose |
 |------|---------|
-| `apps/mobile/app/(tabs)/index.tsx` | Home screen (tower + HUD + FloatingPoints + LevelUp + ActivityTicker) |
+| `apps/mobile/app/(tabs)/index.tsx` | Home screen (tower + HUD + FloatingPoints + LevelUp + HotBlockTicker) |
 | `apps/mobile/app/(tabs)/blocks.tsx` | Board: leaderboard (tappable) + real activity feed |
 | `apps/mobile/app/(tabs)/settings.tsx` | Me tab: XP stats, best streak, faucet button |
 | `apps/mobile/app/faucet.tsx` | Devnet faucet (SOL airdrop + USDC link) |
@@ -127,6 +139,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/server/src/rooms/TowerRoom.ts` | Game room: claims, decay, XP, persistence, ownership enforcement |
 | `apps/server/src/utils/supabase.ts` | Supabase client + CRUD helpers (fire-and-forget writes) |
 | `apps/server/src/utils/xp.ts` | XP computation, level thresholds, combo tracking |
+| `apps/server/src/utils/notifications.ts` | Push notification helpers (Expo push API) |
 
 ### Shared Package
 | File | Purpose |
@@ -139,6 +152,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | File | Purpose |
 |------|---------|
 | `supabase/migrations/001_initial.sql` | Schema: blocks, players, events + RLS policies |
+| `supabase/migrations/002_push_tokens.sql` | Push notification token storage |
+| `supabase/migrations/003_player_username.sql` | Username column on players table |
 | `supabase/config.toml` | Supabase CLI config (linked to project pscgsbdznfitscxflxrm) |
 
 ### Anchor Program
@@ -161,7 +176,7 @@ Claim/Charge → multiplayer-store.ts → Colyseus room.send() → TowerRoom.ts 
   → charge_result/claim_result → BlockInspector → player-store → FloatingPoints/LevelUp
 Server mutation → room.broadcast("block_update", { eventType }) → multiplayer-store.ts
   → tower-store.ts → TowerGrid re-render (claim flash gold / charge flash blue-white)
-  → recentEvents → ActivityTicker (HUD)
+  → recentEvents → activity-store → HotBlockTicker / Board tab
 Position math → @monolith/common/layout.ts (shared) → positionCache (client-side Map)
 USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-chain)
 ```
@@ -208,6 +223,8 @@ SUPABASE_SERVICE_KEY=eyJ...   ← service_role key from Supabase dashboard
 
 ### Local dev with physical Android device
 ```bash
+./dev.sh                         # One command: adb reverse + server + Expo
+# OR manually:
 adb reverse tcp:2567 tcp:2567   # forward device → laptop
 cd apps/server && pnpm dev       # start local server
 cd apps/mobile && npx expo start --dev-client
@@ -219,8 +236,8 @@ cd apps/mobile && npx expo start --dev-client
 
 ### Test
 ```bash
-cd apps/mobile && npx jest              # 178 tests, 14 suites
-cd apps/server && npx jest              # 26 tests, 2 suites
+cd apps/mobile && npx jest              # 220 tests, 18 suites
+cd apps/server && npx jest              # 84 tests, 6 suites
 ```
 
 ### Typecheck
@@ -287,6 +304,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-24**: Pre-testing sprint merged to main — poke mechanic, username system, My Blocks panel, XP leaderboard, push notifications, achievements, HotBlockTicker, settings polish, onboarding copy update, dormant reclaim tests, dev.sh path fix. Removed redundant ActivityTicker/ActivityFeed overlays. 304 tests (220 mobile + 84 server).
 - **2026-02-23**: Sound effects — 12-sound A Dorian crystal palette, zero-latency engine (seekTo+play fire-and-forget), expo-audio plugin linked, wired to every interaction including layer scrubber + panel open; mute toggle in settings
 - **2026-02-23**: Onboarding v2 — stakes messaging ("yours to keep or lose", decay warning, miss-3-days reclaim), full-screen dark scrim contrast, step dots, animated entrances; fixed customize XP callback (was silent-dropped); demo mode XP (claim 100/300xp, charge 25xp, customize 10xp); removed dead stepIndex variable
 - **2026-02-21**: Demo sprint "aha moment" — stakes-first onboarding rewrite, 4 new GLSL block styles (Lava/Aurora/Crystal/Nature), demo mode XP, brighter bot population, customize XP callback fix, stronger text contrast

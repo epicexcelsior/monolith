@@ -324,6 +324,16 @@ const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0);
 
 ## Deployment & DevOps
 
+### Shell Scripts in Monorepos: Use SCRIPT_DIR for All Paths (2026-02-24)
+**Problem**: `dev.sh` used relative paths (`cd apps/server && pnpm dev &`). The `&` background operator combined with `&&` chained `cd` caused the main shell to lose its working directory — later `cd apps/mobile` failed with "No such file or directory".
+**Solution**: Resolve `SCRIPT_DIR` at the top and use it for every path:
+```bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+(cd "$SCRIPT_DIR/apps/server" && pnpm dev) &   # subshell isolates cd
+cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
+```
+**Key Insight**: In monorepo scripts, never use relative `cd` — resolve `SCRIPT_DIR` once and use absolute paths everywhere. Background commands must run in subshells `(cd ... && cmd) &` to avoid polluting the parent shell's cwd.
+
 ### pnpm Strict Isolation Breaks Transitive Deps in Docker (2026-02-17)
 **Problem**: Server crashed on Railway with `Cannot find module '@colyseus/schema'` — a transitive dep of `colyseus`, not declared directly.
 **Solution**: Declare ALL directly-imported packages in `package.json`, even transitive deps. Never add `pnpm install --prod` prune step with `--packages=external`. Check esbuild output: `grep 'require("' dist/index.js`.
@@ -377,6 +387,16 @@ const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0);
 ---
 
 ## UI/UX & Design System
+
+### Consolidate Notification Components — Avoid Stacking Overlays (2026-02-24)
+**Problem**: Three separate notification layers (ActivityTicker, ActivityFeed, HotBlockTicker) accumulated over multiple sprints. All competed for screen space, blocked touches on the 3D tower, and displayed similar information. HotBlockTicker was centered mid-screen in the HUD column, making "L0 Fading" pills look like a broken UI element.
+**Solution**: Removed ActivityTicker and ActivityFeed entirely. Kept only HotBlockTicker, repositioned as absolute `bottom: 100, left: SPACING.sm` (above tab bar height of ~68px). Reduced to 3 pills max, compact labels, dark bg with text shadow for contrast.
+**Key Insight**: Before adding a new notification component, audit existing ones — it's easy to accumulate 3+ overlapping systems across sprints. One well-positioned component beats three competing ones.
+
+### Bottom-Anchored UI Must Clear Tab Bar Height (2026-02-24)
+**Problem**: HotBlockTicker at `bottom: 40` was invisible — hidden behind the Expo Router tab bar (`height: 60 + Math.max(insets.bottom, 8)` ≈ 68px).
+**Solution**: Use `bottom: 100` to clear the tab bar with margin. Reference tab bar height from `apps/mobile/app/(tabs)/_layout.tsx`.
+**Key Insight**: Tab bar height on this project is ~68px. Any absolute-positioned bottom UI needs `bottom: 80+` to be visible. Always check `_layout.tsx` tabBarStyle for the exact calculation.
 
 ### Text Contrast Over 3D Scenes Needs Full Scrim, Not Just textShadow (2026-02-23)
 **Problem**: Text overlays on the onboarding were unreadable because the bright tower color (blazing/thriving blocks) overwhelmed text shadows and subtle vignettes.

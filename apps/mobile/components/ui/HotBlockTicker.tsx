@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 
 interface TickerPill {
