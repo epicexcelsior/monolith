@@ -51,7 +51,7 @@ const foundationVertexShader = /* glsl */ `
 `;
 
 const foundationFragmentShader = /* glsl */ `
-  precision highp float;
+  precision mediump float;
 
   varying vec3 vWorldPos;
   varying vec3 vNormal;

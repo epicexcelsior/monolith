@@ -964,7 +964,6 @@ export function createGlowMaterial(): THREE.ShaderMaterial {
     uniforms: {
       uTime: { value: 0 },
     },
-    transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     fog: false,

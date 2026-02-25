@@ -416,17 +416,19 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
 
   decayTick: () => {
     const blocks = get().demoBlocks;
-    // PERF: Skip if no owned block has energy > 0 (nothing to decay)
-    const hasDecayable = blocks.some((b) => b.owner && b.energy > 0);
-    if (!hasDecayable) return;
+    // PERF: Mutate energy in-place, only create new array ref to trigger React.
+    // Blocks that didn't change keep same object reference → downstream === checks skip them.
+    let anyChanged = false;
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (b.owner && b.energy > 0) {
+        b.energy = Math.max(0, b.energy - DEMO_DECAY_AMOUNT);
+        anyChanged = true;
+      }
+    }
+    if (!anyChanged) return;
 
-    set((state) => ({
-      demoBlocks: state.demoBlocks.map((b) =>
-        b.owner && b.energy > 0
-          ? { ...b, energy: Math.max(0, b.energy - DEMO_DECAY_AMOUNT) }
-          : b,
-      ),
-    }));
+    set({ demoBlocks: [...blocks] });
     get().persistBlocks();
   },
 

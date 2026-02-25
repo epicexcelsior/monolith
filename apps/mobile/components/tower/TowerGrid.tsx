@@ -82,6 +82,12 @@ export default function TowerGrid() {
   // Reusable Object3D for per-frame matrix updates (avoids GC)
   const tempObjRef = useRef(new THREE.Object3D());
 
+  // PERF: Skip 650-element loops when idle (no active animation)
+  const fadeAnimatingRef = useRef(false);
+  const popAnimatingRef = useRef(false);
+  // Track last popped index for single-block matrix restore
+  const lastPoppedIndexRef = useRef<number>(-1);
+
   const material = useMemo(() => {
     const mat = createBlockMaterial();
     materialRef.current = mat;
@@ -579,9 +585,10 @@ export default function TowerGrid() {
             completed.push(fi);
           }
         }
-        // Remove completed flashes (reverse order to keep indices valid)
-        for (let i = completed.length - 1; i >= 0; i--) {
-          chargeFlashQueueRef.current.splice(completed[i], 1);
+        // Remove completed flashes — single filter pass instead of O(n) splices
+        if (completed.length > 0) {
+          const completedSet = new Set(completed);
+          chargeFlashQueueRef.current = chargeFlashQueueRef.current.filter((_, i) => !completedSet.has(i));
         }
       }
     }
@@ -598,6 +605,7 @@ export default function TowerGrid() {
             highlightTargetsRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
             popOutTargetRef.current[i] = i === selectedIdx ? 1.0 : 0.0;
           }
+          lastPoppedIndexRef.current = selectedIdx;
         } else {
           // No selection — restore all blocks to normal
           for (let i = 0; i < count; i++) {
@@ -606,15 +614,19 @@ export default function TowerGrid() {
             popOutTargetRef.current[i] = 0.0;
           }
         }
+        // New targets set — enable animation loops
+        fadeAnimatingRef.current = true;
+        popAnimatingRef.current = true;
       }
     }
 
     // Animate fade/highlight values toward targets
+    // PERF: Skip entire 650-element loop when no animation is active
     const fadeCur = fadeCurrentRef.current;
     const fadeTgt = fadeTargetsRef.current;
     const hlCur = highlightCurrentRef.current;
     const hlTgt = highlightTargetsRef.current;
-    if (fadeCur && fadeTgt && hlCur && hlTgt && meshRef.current) {
+    if (fadeAnimatingRef.current && fadeCur && fadeTgt && hlCur && hlTgt && meshRef.current) {
       let needsFadeUpdate = false;
       const FADE_LERP = 0.14;
       for (let i = 0; i < fadeCur.length; i++) {
@@ -649,13 +661,17 @@ export default function TowerGrid() {
             gHL.needsUpdate = true;
           }
         }
+      } else {
+        // All deltas < 0.001 — animation complete, skip loop next frame
+        fadeAnimatingRef.current = false;
       }
     }
 
     // ─── Pop-out animation: lerp + recompute matrices ────────
+    // PERF: Skip entire loop when no pop animation is active
     const popCur = popOutCurrentRef.current;
     const popTgt = popOutTargetRef.current;
-    if (popCur && popTgt && meshRef.current) {
+    if (popAnimatingRef.current && popCur && popTgt && meshRef.current) {
       let needsMatrixUpdate = false;
       const POP_LERP = 0.12;
       const POP_DISTANCE = CAMERA_CONFIG.inspect.popDistance;
@@ -741,31 +757,29 @@ export default function TowerGrid() {
         meshRef.current.instanceMatrix.needsUpdate = true;
         if (hitMeshRef.current) hitMeshRef.current.instanceMatrix.needsUpdate = true;
         if (glowMeshRef.current) glowMeshRef.current.instanceMatrix.needsUpdate = true;
-
-        // When all pops return to zero, restore base matrices directly
-        const allZero = popCur.every((v) => v < 0.001);
-        if (allZero) {
+      } else {
+        // All pops returned to zero — restore only the last popped block's matrix
+        const restoreIdx = lastPoppedIndexRef.current;
+        if (restoreIdx >= 0 && restoreIdx < blockData.length) {
           const restoreObj = tempObjRef.current;
           const GLOW_SCALE = 1.08;
+          const block = blockData[restoreIdx];
+          const layoutItem = layoutData[restoreIdx];
 
-          for (let i = 0; i < blockData.length; i++) {
-            const block = blockData[i];
-            const layoutItem = layoutData[i];
-            if (!block || !layoutItem) continue;
-
+          if (block && layoutItem) {
             const layerScale = getLayerScale(block.layer, config.layerCount);
-
             const rts = layoutItem.tileScale;
+
             restoreObj.position.set(block.position.x, block.position.y, block.position.z);
             restoreObj.scale.set(layerScale * rts, layerScale, layerScale);
             restoreObj.rotation.set(0, layoutItem.rotY, 0);
             restoreObj.updateMatrix();
-            meshRef.current!.setMatrixAt(i, restoreObj.matrix);
+            meshRef.current!.setMatrixAt(restoreIdx, restoreObj.matrix);
 
             if (hitMeshRef.current) {
               restoreObj.scale.multiplyScalar(HIT_SCALE);
               restoreObj.updateMatrix();
-              hitMeshRef.current.setMatrixAt(i, restoreObj.matrix);
+              hitMeshRef.current.setMatrixAt(restoreIdx, restoreObj.matrix);
             }
 
             if (glowMeshRef.current) {
@@ -773,14 +787,19 @@ export default function TowerGrid() {
               restoreObj.scale.set(GLOW_SCALE * layerScale * rts, GLOW_SCALE * layerScale, GLOW_SCALE * layerScale);
               restoreObj.rotation.set(0, layoutItem.rotY, 0);
               restoreObj.updateMatrix();
-              glowMeshRef.current.setMatrixAt(i, restoreObj.matrix);
+              glowMeshRef.current.setMatrixAt(restoreIdx, restoreObj.matrix);
             }
+
+            meshRef.current!.instanceMatrix.needsUpdate = true;
+            if (hitMeshRef.current) hitMeshRef.current.instanceMatrix.needsUpdate = true;
+            if (glowMeshRef.current) glowMeshRef.current.instanceMatrix.needsUpdate = true;
           }
 
-          meshRef.current!.instanceMatrix.needsUpdate = true;
-          if (hitMeshRef.current) hitMeshRef.current.instanceMatrix.needsUpdate = true;
-          if (glowMeshRef.current) glowMeshRef.current.instanceMatrix.needsUpdate = true;
+          lastPoppedIndexRef.current = -1;
         }
+
+        // Animation complete — skip loop next frame
+        popAnimatingRef.current = false;
       }
     }
   });

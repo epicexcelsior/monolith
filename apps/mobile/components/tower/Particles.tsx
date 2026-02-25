@@ -48,7 +48,7 @@ const particleVertexShader = /* glsl */ `
 `;
 
 const particleFragmentShader = /* glsl */ `
-  precision highp float;
+  precision mediump float;
 
   varying float vAlpha;
   varying float vHeight;

@@ -109,7 +109,7 @@ export default function TowerCore() {
   }, []);
 
   useFrame((_state, delta) => {
-    bodyMaterial.uniforms.uTime.value += delta;
+    bodyMaterial.uniforms.uTime.value += Math.min(delta, 0.1);
   });
 
   return (
