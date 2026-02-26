@@ -60,8 +60,8 @@ function TickerIcon({ type }: { type: TickerCard["type"] }) {
   }
 }
 
-const MAX_CARDS = 3;
-const SCAN_INTERVAL_MS = 3000;
+const MAX_CARDS = 2;
+const SCAN_INTERVAL_MS = 5000;
 
 export default function HotBlockTicker() {
   const insets = useSafeAreaInsets();
@@ -192,8 +192,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.xs,
-    minWidth: 120,
-    height: 44,
+    minWidth: 100,
+    height: 36,
     paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.sm,
     borderWidth: 1,

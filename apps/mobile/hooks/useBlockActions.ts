@@ -218,9 +218,6 @@ export function useBlockActions() {
       sendCustomize({ blockId: selectedBlockId, wallet, changes });
     } else {
       customizeBlock(selectedBlockId, changes);
-      const pts = 10;
-      const store = usePlayerStore.getState();
-      store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level });
     }
   }, [selectedBlockId, mpConnected, sendCustomize, customizeBlock]);
 
@@ -288,16 +285,8 @@ export function useBlockActions() {
       }
     });
 
-    onCustomizeResult((result: CustomizeResult) => {
-      if (result.success && result.pointsEarned) {
-        usePlayerStore.getState().addPoints({
-          pointsEarned: result.pointsEarned,
-          combo: result.combo,
-          totalXp: result.totalXp,
-          level: result.level,
-          levelUp: result.levelUp,
-        });
-      }
+    onCustomizeResult((_result: CustomizeResult) => {
+      // XP from customization removed — was farmable by repeated color changes
     });
 
     onPokeResult((result: PokeResult) => {

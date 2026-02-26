@@ -90,21 +90,24 @@ export default function InspectorActions({
           <View style={styles.streakBadge}>
             {streak > 0 ? (
               <Text style={styles.streakBadgeText}>
-                {"\uD83D\uDD25"} {streak}-day streak {multiplier > 1 ? `\u00B7 ${multiplier}\u00D7 multiplier` : ""}
+                {"\uD83D\uDD25"} {streak}-day streak {multiplier > 1 ? `\u00B7 ${multiplier}\u00D7 XP` : ""}
               </Text>
             ) : (
               <Text style={styles.streakHintText}>
-                Start a streak! Charge daily for bonus XP
+                Charge daily to keep your block alive
               </Text>
             )}
           </View>
           <Button
-            title={cooldownText || "CHARGE"}
+            title={cooldownText || "\u26A1 CHARGE"}
             variant="primary"
             size="lg"
             onPress={onCharge}
             disabled={!!cooldownText}
           />
+          <Text style={styles.chargeExplainer}>
+            Energy decays daily. 0% for 3 days = anyone can reclaim it.
+          </Text>
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.actionChip}
@@ -266,6 +269,13 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.mono,
     fontSize: 12,
     color: COLORS.textMuted,
+  },
+  chargeExplainer: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 11,
+    color: COLORS.textMuted,
+    textAlign: "center",
+    lineHeight: 15,
   },
   premiumBadge: {
     fontFamily: FONT_FAMILY.bodySemibold,

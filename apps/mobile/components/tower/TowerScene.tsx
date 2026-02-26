@@ -190,15 +190,19 @@ function CameraRig({
     startTime: 0, active: false, magnitude: 0, duration: 0, decay: 0,
   });
   const shakeTriggeredForRef = useRef<number>(0);
-  // Camera orbit during celebration
+  // Camera state during celebration — tracks which phase we've entered
   const celebCameraRef = useRef<{
-    orbiting: boolean;
-    zoomedOut: boolean;  // zoom-out phase (before impact)
-    zoomedIn: boolean;   // zoom-in phase (after shockwave)
-    preZoom: number;     // user's zoom level before celebration
+    preZoom: number;     // user's zoom level before celebration started
+    preElevation: number;
+    preLookAt: { x: number; y: number; z: number };
+    preAzimuth: number;
+    phase: "idle" | "buildup" | "impact" | "orbit" | "return";
     triggeredForStartTime: number;
     glowUpTriggered: boolean;
-  }>({ orbiting: false, zoomedOut: false, zoomedIn: false, preZoom: 0, triggeredForStartTime: -1, glowUpTriggered: false });
+  }>({
+    preZoom: 0, preElevation: 0, preLookAt: { x: 0, y: 0, z: 0 }, preAzimuth: 0,
+    phase: "idle", triggeredForStartTime: -1, glowUpTriggered: false,
+  });
 
   useFrame(() => {
     const cs = cameraState.current;
@@ -248,15 +252,19 @@ function CameraRig({
         }
       } else {
         // Deselect → smoothly return to full cinematic overview
-        cs.targetZoom = ZOOM_OVERVIEW;
-        cs.targetElevation = OVERVIEW_ELEVATION;
-        cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y, 0);
-        cs.velocityAzimuth = 0;
-        cs.velocityElevation = 0;
-        cs.velocityLookAtY = 0;
-        cs.isTransitioning = true;
-        hapticBlockDeselect();
-        playBlockDeselect();
+        // BUT skip if a celebration is active — the celebration camera handles zoom/lookAt
+        const isCelActive = claimCelebrationRef?.current?.active ?? false;
+        if (!isCelActive) {
+          cs.targetZoom = ZOOM_OVERVIEW;
+          cs.targetElevation = OVERVIEW_ELEVATION;
+          cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y, 0);
+          cs.velocityAzimuth = 0;
+          cs.velocityElevation = 0;
+          cs.velocityLookAtY = 0;
+          cs.isTransitioning = true;
+          hapticBlockDeselect();
+          playBlockDeselect();
+        }
       }
     }
 
@@ -270,8 +278,11 @@ function CameraRig({
     }
 
     // ─── Pick lerp rate ─────────────────────────
-    const orbitLerp = cs.isTransitioning ? TRANSITION_LERP : ORBIT_LERP;
-    const zoomLerp = cs.isTransitioning ? TRANSITION_LERP : ZOOM_LERP;
+    // During claim celebration, use faster lerp for dramatic zoom changes
+    const isCelebrating = claimCelebrationRef?.current?.active ?? false;
+    const celebLerp = 0.08; // ~2x normal transition speed for cinematic punch
+    const orbitLerp = cs.isTransitioning ? (isCelebrating ? celebLerp : TRANSITION_LERP) : ORBIT_LERP;
+    const zoomLerp = cs.isTransitioning ? (isCelebrating ? celebLerp : TRANSITION_LERP) : ZOOM_LERP;
 
     // ─── Orbit momentum coasting (when finger lifted) ─
     if (!cs.isTouching && !cs.isTransitioning) {
@@ -359,39 +370,46 @@ function CameraRig({
     );
     camera.lookAt(cs.lookAt);
 
-    // ─── Claim celebration: buildup → shake → orbit → zoom-back → glow-up ──
+    // ─── Claim celebration camera sequence ──────────────────────
+    // Flow: buildup shake → IMPACT (zoom OUT + big shake) → orbit → zoom BACK → glow-up
     if (claimCelebrationRef?.current) {
       const cel = claimCelebrationRef.current;
       if (cel.active) {
         const elapsed = now - cel.startTime;
         const cc = celebCameraRef.current;
 
-        // ── BUILDUP PHASE (0 → impact): escalate shake magnitude 0.1→0.4 ──
-        if (elapsed < CLAIM_IMPACT_OFFSET_SECS && elapsed > 0) {
+        // ── PHASE 1: BUILDUP (0 → 1.5s) — escalating shake builds tension ──
+        if (elapsed > 0 && elapsed < CLAIM_IMPACT_OFFSET_SECS) {
+          if (cc.phase === "idle") {
+            // Capture pre-celebration camera state
+            cc.preZoom = cs.zoom;
+            cc.preElevation = cs.elevation;
+            cc.preLookAt = { x: cs.lookAt.x, y: cs.lookAt.y, z: cs.lookAt.z };
+            cc.preAzimuth = cs.azimuth;
+            cc.phase = "buildup";
+            cc.glowUpTriggered = false;
+          }
           const buildupT = elapsed / CLAIM_IMPACT_OFFSET_SECS;
-          const buildupMag = 0.1 + buildupT * 0.3; // 0.1 → 0.4
-          // Continuous low-frequency rumble (overwrite each frame)
+          const buildupMag = 0.15 + buildupT * 0.40; // escalate 0.15 → 0.55
           shakeRef.current = {
-            startTime: now - 0.01, // keep it "just started" to prevent decay
+            startTime: now - 0.01,
             active: true,
             magnitude: buildupMag,
-            duration: 0.1, // short — refreshed every frame
-            decay: 0, // no decay during buildup
+            duration: 0.1,
+            decay: 0,
           };
         }
 
-        // ── AT IMPACT: main shake + zoom OUT + orbit all fire together ──
-        if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && shakeTriggeredForRef.current !== cel.startTime) {
-          cc.triggeredForStartTime = cel.startTime;
-          cc.preZoom = cs.zoom;
-          cc.zoomedOut = true;
-          cc.zoomedIn = false;
-          cc.orbiting = true;
-          cc.glowUpTriggered = false;
-          // Pull back to show full tower + expanding shockwave ring
-          cs.targetZoom = Math.min(ZOOM_MAX, cs.zoom * CLAIM_CAMERA.zoomOutFactor);
+        // ── PHASE 2: IMPACT (at 1.5s) — BIG shake + zoom OUT to see full tower ──
+        if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && cc.phase === "buildup") {
+          cc.phase = "impact";
+          // Zoom out dramatically to show the full tower + VFX
+          cs.targetZoom = Math.min(ZOOM_MAX, cc.preZoom * CLAIM_CAMERA.zoomOutFactor);
+          // Look at tower center (not block) so we see the full tower
+          cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y, 0);
+          cs.targetElevation = OVERVIEW_ELEVATION;
           cs.isTransitioning = true;
-          // Main impact shake
+          // Big impact shake
           shakeRef.current = {
             startTime: now,
             active: true,
@@ -402,37 +420,46 @@ function CameraRig({
           shakeTriggeredForRef.current = cel.startTime;
         }
 
-        // ── Slow orbit during celebration (stop at ZOOM_RETURN_DELAY) ──
-        if (cc.orbiting && elapsed > CLAIM_IMPACT_OFFSET_SECS && elapsed < CLAIM_CAMERA.zoomReturnDelay) {
+        // ── PHASE 3: ORBIT (1.5s → 3.5s) — slow cinematic drift around tower ──
+        if (cc.phase === "impact" && elapsed > CLAIM_IMPACT_OFFSET_SECS) {
+          cc.phase = "orbit";
+        }
+        if (cc.phase === "orbit" && elapsed < CLAIM_CAMERA.zoomReturnDelay) {
           cs.targetAzimuth += CLAIM_CAMERA.orbitSpeed;
         }
 
-        // ── Phase 3: Zoom IN after shockwave peaks ────────────────
-        const zoomInAt = CLAIM_IMPACT_OFFSET_SECS + CLAIM_CAMERA.zoomInDelay;
-        if (elapsed >= zoomInAt && cc.zoomedOut && !cc.zoomedIn) {
-          cc.zoomedOut = false;
-          cc.zoomedIn = true;
+        // ── PHASE 4: RETURN (at 3.5s) — zoom back to block ──
+        if (elapsed >= CLAIM_CAMERA.zoomReturnDelay && cc.phase === "orbit") {
+          cc.phase = "return";
+          // Zoom back to slightly closer than original (intimate reveal)
           cs.targetZoom = Math.max(ZOOM_MIN, cc.preZoom * CLAIM_CAMERA.zoomInFactor);
+          // Look back at the block position
+          cs.targetLookAt.set(
+            cel.blockPosition.x,
+            cel.blockPosition.y,
+            cel.blockPosition.z,
+          );
+          cs.targetElevation = cc.preElevation;
           cs.isTransitioning = true;
         }
 
-        // ── Stop orbit + restore zoom at ZOOM_RETURN_DELAY ──────
-        if (elapsed >= CLAIM_CAMERA.zoomReturnDelay) {
-          cc.orbiting = false;
-          if (cc.zoomedIn) {
-            cc.zoomedIn = false;
-            cs.targetZoom = cc.preZoom;
-            cs.isTransitioning = true;
-          }
-        }
-
-        // ── Trigger glow-up after zoom-back is mostly complete ──
-        const glowUpAt = CLAIM_CAMERA.zoomReturnDelay + 1.0;
+        // ── GLOW-UP: trigger gold→owner color transition after zoom-back ──
+        const glowUpAt = CLAIM_CAMERA.zoomReturnDelay + 1.2;
         if (elapsed >= glowUpAt && !cc.glowUpTriggered) {
           cc.glowUpTriggered = true;
           if (cel.blockId) {
             useTowerStore.getState().setGlowUpBlockId(cel.blockId);
           }
+        }
+
+        // ── CLEANUP: reset phase when celebration ends ──
+        if (!cel.active || elapsed > cel.duration) {
+          cc.phase = "idle";
+        }
+      } else {
+        // Celebration deactivated — ensure phase is reset
+        if (celebCameraRef.current.phase !== "idle") {
+          celebCameraRef.current.phase = "idle";
         }
       }
     }

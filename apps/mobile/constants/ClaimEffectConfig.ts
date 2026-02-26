@@ -68,20 +68,20 @@ export const CLAIM_FLASH = {
 // ─── Camera Shake ────────────────────────────────────────────
 // Primary shake at impact — physical, aggressive.
 export const CLAIM_SHAKE = {
-  magnitude: 0.55,    // up from 0.28 — you FEEL this in your hand
-  frequency: 24,
-  decay:      5,
-  duration:  0.80,
+  magnitude: 0.70,    // BIG shake — you FEEL this in your hand
+  frequency: 22,      // slightly slower for more weighty feel
+  decay:      4,       // slower decay = shake lingers longer
+  duration:  1.0,      // full second of rumble
   axes:       3,
 } as const;
 
 // ─── Cinematic Camera Orbit ────────────────────────────────
 // Sequence: buildup (camera still) → BOOM → zoom OUT (see full tower ripple) → zoom IN (see block)
 export const CLAIM_CAMERA = {
-  orbitSpeed:     0.002,  // radians/frame at 60fps — subtle cinematic drift (reduced for shorter duration)
-  zoomOutFactor:  1.60,   // pull back 60% at impact so shockwave ring fits the screen
-  zoomInFactor:   0.75,   // zoom in 25% after shockwave (slightly closer than original)
-  zoomInDelay:    1.40,   // seconds after impact to start zoom in (shockwave nearly done)
+  orbitSpeed:     0.004,  // radians/frame at 60fps — noticeable cinematic drift
+  zoomOutFactor:  1.80,   // pull back 80% at impact so shockwave ring fits the screen
+  zoomInFactor:   0.70,   // zoom in 30% after shockwave (closer inspection)
+  zoomInDelay:    1.20,   // seconds after impact to start zoom in (faster transition)
   zoomRestoreMs:  1200,   // ms after celebration end to restore zoom
   buildupHoldSecs: 0.8,   // camera holds close before impact — buildup tension
   zoomReturnDelay: 3.5,   // seconds after start to stop orbit + begin zoom-back

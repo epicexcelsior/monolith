@@ -311,8 +311,11 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
   }
 
   // Trigger visual effects based on eventType
+  // Skip claim flash if cinematic mode is active — local player already triggered celebration VFX
   if (serverBlock.eventType === "claim") {
-    towerStore.setRecentlyClaimedId(serverBlock.id);
+    if (!towerStore.cinematicMode) {
+      towerStore.setRecentlyClaimedId(serverBlock.id);
+    }
   } else if (serverBlock.eventType === "charge") {
     towerStore.setRecentlyChargedId(serverBlock.id);
   }

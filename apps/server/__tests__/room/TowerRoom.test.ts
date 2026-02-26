@@ -251,7 +251,6 @@ describe("TowerRoom — multiplayer integration", () => {
     const [custResult, blockUpdate] = await Promise.all([customizeResult, broadcastPromise]);
 
     expect(custResult.success).toBe(true);
-    expect(custResult.pointsEarned).toBeGreaterThanOrEqual(10);
 
     expect(blockUpdate.eventType).toBe("customize");
     expect(blockUpdate.appearance.color).toBe("#00ff00");

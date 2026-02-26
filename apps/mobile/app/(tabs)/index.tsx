@@ -15,7 +15,6 @@ import FloatingPoints from "@/components/ui/FloatingPoints";
 import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import ScreenFlash from "@/components/ui/ScreenFlash";
-import LiveActivityTicker from "@/components/ui/LiveActivityTicker";
 import HotBlockTicker from "@/components/ui/HotBlockTicker";
 import AchievementToast from "@/components/ui/AchievementToast";
 import LoadingScreen from "@/components/ui/LoadingScreen";
@@ -181,9 +180,6 @@ export default function TowerScreen() {
 
         {/* Onboarding — inside wrapper so it hides during claim celebration */}
         {initialized && isOnboarding && <OnboardingFlow />}
-
-        {/* Live activity ticker — bottom-left, streaming events */}
-        {initialized && !isOnboarding && <LiveActivityTicker />}
 
         {/* Hot block ticker — bottom-right, notable blocks needing attention */}
         {initialized && !isOnboarding && <HotBlockTicker />}

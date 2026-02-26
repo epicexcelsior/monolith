@@ -71,9 +71,9 @@ export default function MyBlockFAB({ visible, onOpenPanel }: MyBlockFABProps) {
 const styles = StyleSheet.create({
   fab: {
     position: "absolute",
-    right: SPACING.md,
-    width: 48,
-    height: 48,
+    left: SPACING.md,
+    width: 56,
+    height: 56,
     borderRadius: RADIUS.full,
     backgroundColor: COLORS.hudGlass,
     borderWidth: 1,
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     boxShadow: SHADOW.blazing,
   },
   emoji: {
-    fontSize: 20,
+    fontSize: 24,
   },
   count: {
     position: "absolute",

@@ -469,29 +469,9 @@ export class TowerRoom extends Room<TowerRoomState> {
         if (changes.style !== undefined) block.appearance.style = changes.style;
         if (changes.textureId !== undefined) block.appearance.textureId = changes.textureId;
 
-        // XP for customization
-        const wallet = msg.wallet || block.owner;
-        if (wallet) {
-          const player = await this.getOrCreatePlayer(wallet);
-          const comboCount = incrementCombo(wallet);
-          const pointsEarned = computeXp("customize", { comboCount: comboCount - 1 });
-          player.xp += pointsEarned;
-          const oldLevel = player.level;
-          player.level = computeLevel(player.xp);
-          const levelUp = player.level > oldLevel;
-
-          updatePlayerXp(wallet, player.xp, player.level);
-          insertEvent("customize", msg.blockId, wallet);
-
-          client.send("customize_result", {
-            success: true,
-            pointsEarned,
-            combo: comboCount,
-            totalXp: player.xp,
-            level: player.level,
-            levelUp,
-          });
-        }
+        // No XP for customization — was farmable by repeated changes
+        insertEvent("customize", msg.blockId, msg.wallet || block.owner);
+        client.send("customize_result", { success: true });
 
         // Persist block (fire-and-forget)
         upsertBlock(blockToRow(block));
