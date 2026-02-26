@@ -38,6 +38,7 @@ export const COLORS = {
 
   // ─── Tower HUD Glass ─────────────────────
   hudGlass: "rgba(10, 12, 20, 0.70)",              // Dark glass for tower overlays
+  hudGlassStrong: "rgba(10, 12, 20, 0.90)",        // Opaque dark glass (onboarding panels)
   hudBorder: "rgba(255, 255, 255, 0.08)",           // Subtle light border on dark
   hudHighlight: "rgba(255, 255, 255, 0.06)",        // Subtle top-edge on dark
 
@@ -47,6 +48,7 @@ export const COLORS = {
   goldDark: "#B08A30",             // Pressed states, text on gold bg
   goldSubtle: "rgba(212, 168, 71, 0.15)",   // Tinted glass backgrounds
   goldGlow: "rgba(212, 168, 71, 0.30)",     // Gold glow effect
+  goldMid: "rgba(212, 168, 71, 0.70)",      // Medium gold (CoachMark arrows, overlays)
 
   // ─── Text ─────────────────────────────────
   text: "#1A1612",                 // Primary text (headings, body)
@@ -61,6 +63,7 @@ export const COLORS = {
   borderAccent: "#D4A847",                   // Gold accent border
 
   // ─── Block States (Charge System) ─────────
+  blazingLight: "#FFD54F",              // Bright amber — gradient top for gold buttons
   blazing: "#FFB800",
   thriving: "#5C9E31",
   fading: "#E07A2F",
@@ -123,6 +126,8 @@ export const SHADOW = {
   lg: "0 4px 12px rgba(26, 22, 18, 0.06), 0 8px 32px rgba(26, 22, 18, 0.05)",
   /** Gold glow for primary actions */
   gold: "0 4px 20px rgba(212, 168, 71, 0.25)",
+  /** Blazing amber glow for charge/energy CTAs */
+  blazing: "0 0 20px rgba(255, 184, 0, 0.4)",
   /** Liquid glass inset highlight — the signature "lip" */
   glassInset: `inset 0 1px 0 ${COLORS.glassHighlight}`,
   /** Inset depth for inputs / tracks */
@@ -334,14 +339,27 @@ export const TIMING = {
   fast: 150,
   normal: 250,
   slow: 350,
+
+  // ─── RN Animated springs (tension/friction) ────────
+  // Used with: Animated.spring(), RN Animated API
   /** Standard spring — buttons, cards */
   spring: { tension: 65, friction: 11 },
   /** Snappier spring — short interactions */
   springSnappy: { tension: 80, friction: 12 },
+
+  // ─── Reanimated springs (damping/stiffness) ────────
+  // Used with: withSpring(), FadeIn.springify(), Layout.springify()
   /** Micro spring — press feedback, scale */
   microSpring: { damping: 15, stiffness: 150 },
   /** Gentle spring — entrance animations, slides */
   gentleSpring: { damping: 20, stiffness: 90 },
+
+  // ─── Onboarding springs (both APIs) ────────────────
+  // Provides matching feel across RN Animated and Reanimated
+  /** Onboarding — RN Animated (Animated.spring config) */
+  springOnboarding: { tension: 60, friction: 8 },
+  /** Onboarding — Reanimated (withSpring / springify config) */
+  springOnboardingReanimated: { damping: 14, stiffness: 120 },
 } as const;
 
 // ─────────────────────────────────────────────

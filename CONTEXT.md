@@ -109,8 +109,10 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/LevelUpCelebration.tsx` | Full-screen level-up overlay + haptic |
 | `apps/mobile/components/ui/XPBar.tsx` | XP progress bar component |
 | `apps/mobile/components/ErrorBoundary.tsx` | React error boundary for crash recovery |
-| `apps/mobile/components/ui/Button.tsx` | Glass button (4 variants) |
+| `apps/mobile/components/ui/Button.tsx` | Glass button (5 variants: primary/secondary/ghost/danger/gold) |
 | `apps/mobile/components/ui/Card.tsx` | Glass card container |
+| `apps/mobile/components/ui/ProgressDots.tsx` | Duolingo-style horizontal step dots (gold active, spring scale) |
+| `apps/mobile/components/ui/StepCard.tsx` | Glass onboarding panel with title, subtitle, ProgressDots footer |
 
 ### State Management
 | File | Purpose |
@@ -323,6 +325,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: Polish Plan Phase 1 — design system foundations: added `COLORS.goldMid`, `COLORS.blazingLight`, `COLORS.hudGlassStrong`, `SHADOW.blazing`, `TIMING.springOnboarding`/`springOnboardingReanimated` tokens; `Button` "gold" variant; new `ProgressDots` + `StepCard` reusable components; documented TIMING spring API split (RN Animated vs Reanimated). See `POLISH_PLAN.md` for full 10-phase plan.
 - **2026-02-25**: Push notifications FCM wired — `google-services.json` added, `googleServicesFile` in app.json, gitignored. Needs EAS rebuild to activate. 222 mobile + 84 server tests passing.
 - **2026-02-25**: Onboarding revamp — 9-phase immersive flow (cinematic 300° orbit, minimal MONOLITH title, dedicated claim CTA, celebration VFX, color+emoji customize, charge tutorial, poke prompt, wallet connect), VFX timing tightened (2.5s→1.5s impact), enhanced particles (glow orbs, ring shockwave, lingering trails), extended tower-rise SFX (8.5s cinematic pad), camera return after celebration, replay via long-press fix. 222 tests passing.
 - **2026-02-25**: UI overhaul — tower reveal animation (bottom→top build + camera sweep), FloatingNav pills (replaced tab bar), TopHUD minimal top bar, Board/Settings/Wallet as bottom sheets over tower, BlockInspector split into sub-components (inspector/), LiveActivityTicker with poke-random-block, swipe-to-dismiss on all panels, double SFX fix, dead code cleanup, SFX doc. 220 tests passing.

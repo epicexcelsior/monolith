@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { COLORS, GLASS_STYLE, RADIUS, SPACING, TEXT, SHADOW, TIMING } from "@/constants/theme";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "gold";
 type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps {
@@ -44,6 +44,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  *   - `secondary` — liquid glass pill with gold border
  *   - `ghost`     — text-only, no background
  *   - `danger`    — liquid glass pill with red border
+ *   - `gold`      — blazing amber gradient with glow (charge/energy CTAs)
  */
 export default function Button({
     title,
@@ -78,7 +79,7 @@ export default function Button({
         <View style={styles.loadingRow}>
             <ActivityIndicator
                 size="small"
-                color={variant === "primary" ? COLORS.textOnGold : COLORS.gold}
+                color={variant === "primary" || variant === "gold" ? COLORS.textOnGold : COLORS.gold}
             />
             <Text style={[...textStyle, styles.loadingText]}>{title}</Text>
         </View>
@@ -155,6 +156,12 @@ const variantStyles: Record<ButtonVariant, ViewStyle> = {
         borderColor: COLORS.error,
         boxShadow: SHADOW.glassInset,
     },
+    gold: {
+        backgroundColor: COLORS.blazing,
+        boxShadow: SHADOW.blazing,
+        experimental_backgroundImage:
+            `linear-gradient(to bottom, ${COLORS.blazingLight} 0%, ${COLORS.blazing} 100%)`,
+    } as ViewStyle,
 };
 
 const sizeStyles: Record<ButtonSize, ViewStyle> = {
@@ -180,4 +187,5 @@ const variantTextStyles: Record<ButtonVariant, { color: string }> = {
     secondary: { color: COLORS.gold },
     ghost: { color: COLORS.textSecondary },
     danger: { color: COLORS.error },
+    gold: { color: COLORS.textOnGold },
 };
