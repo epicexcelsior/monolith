@@ -285,6 +285,63 @@ export const BLOCK_TEXTURES = [
   { id: 6, label: "Carbon", icon: "⬛" },
 ] as const;
 
+// ─── Customization Unlock Tiers ──────────────────────────
+// Streak-gated unlocks. Higher streaks unlock more customization.
+// Colors: first 8 = base, last 8 = premium (indices into BLOCK_COLORS)
+// Emojis: first 20 = base, all 48 = full library
+// Styles: 0-6 = base (Default..Ice), 7-10 = animated (Lava..Nature)
+// Textures: all gated behind streak 14+
+
+export const CUSTOMIZATION_TIERS = {
+  /** Streak 0+: 8 base colors, 20 base emojis, 7 base styles, name */
+  BASE_COLORS: 8,
+  BASE_EMOJIS: 20,
+  BASE_STYLES: 7,       // ids 0-6 (Default, Holo, Neon, Matte, Glass, Fire, Ice)
+  /** Streak 3+: all 16 colors */
+  PREMIUM_COLORS_STREAK: 3,
+  /** Streak 7+: animated styles (Lava, Aurora, Crystal, Nature — ids 7-10) */
+  ANIMATED_STYLES_STREAK: 7,
+  /** Streak 14+: all textures */
+  TEXTURES_STREAK: 14,
+  /** Streak 30+: full emoji library (all 48) */
+  FULL_EMOJIS_STREAK: 30,
+} as const;
+
+/** Get the number of unlocked colors for a given streak */
+export function getUnlockedColorCount(streak: number): number {
+  return streak >= CUSTOMIZATION_TIERS.PREMIUM_COLORS_STREAK
+    ? BLOCK_COLORS.length
+    : CUSTOMIZATION_TIERS.BASE_COLORS;
+}
+
+/** Get the number of unlocked emojis for a given streak */
+export function getUnlockedEmojiCount(streak: number): number {
+  return streak >= CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK
+    ? BLOCK_ICONS.length
+    : CUSTOMIZATION_TIERS.BASE_EMOJIS;
+}
+
+/** Check if a style id is unlocked for a given streak */
+export function isStyleUnlocked(styleId: number, streak: number): boolean {
+  if (styleId < CUSTOMIZATION_TIERS.BASE_STYLES) return true;
+  return streak >= CUSTOMIZATION_TIERS.ANIMATED_STYLES_STREAK;
+}
+
+/** Check if textures are unlocked for a given streak */
+export function areTexturesUnlocked(streak: number): boolean {
+  return streak >= CUSTOMIZATION_TIERS.TEXTURES_STREAK;
+}
+
+/** Get the streak required to unlock a given customization category */
+export function getStreakRequirement(category: "premiumColors" | "animatedStyles" | "textures" | "fullEmojis"): number {
+  switch (category) {
+    case "premiumColors": return CUSTOMIZATION_TIERS.PREMIUM_COLORS_STREAK;
+    case "animatedStyles": return CUSTOMIZATION_TIERS.ANIMATED_STYLES_STREAK;
+    case "textures": return CUSTOMIZATION_TIERS.TEXTURES_STREAK;
+    case "fullEmojis": return CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK;
+  }
+}
+
 // ─── Network ──────────────────────────────────────────────
 /** Default Solana RPC endpoint */
 export const DEFAULT_RPC_URL = "https://api.devnet.solana.com";

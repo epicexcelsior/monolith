@@ -206,6 +206,7 @@ export default function BlockInspector() {
                 onStyleChange={handleStyleChange}
                 onTextureChange={handleTextureChange}
                 onNameSubmit={handleNameSubmit}
+                isPostClaim={recentlyClaimedId === selectedBlockId}
               />
             )}
           </ScrollView>

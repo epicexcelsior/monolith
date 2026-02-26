@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from "react-native";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT } from "@/constants/theme";
-import ColorPicker from "@/components/ui/ColorPicker";
-import { BLOCK_ICONS, BLOCK_TEXTURES } from "@monolith/common";
+import { BLOCK_COLORS, BLOCK_ICONS, BLOCK_TEXTURES, CUSTOMIZATION_TIERS, getUnlockedColorCount, getUnlockedEmojiCount, isStyleUnlocked, areTexturesUnlocked } from "@monolith/common";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import type { DemoBlock } from "@/stores/tower-store";
@@ -28,6 +27,7 @@ interface InspectorCustomizeProps {
   onStyleChange: (style: number) => void;
   onTextureChange: (textureId: number) => void;
   onNameSubmit: (name: string) => void;
+  isPostClaim?: boolean;
 }
 
 export default function InspectorCustomize({
@@ -37,9 +37,14 @@ export default function InspectorCustomize({
   onStyleChange,
   onTextureChange,
   onNameSubmit,
+  isPostClaim,
 }: InspectorCustomizeProps) {
-  const [showMoreStyles, setShowMoreStyles] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const streak = block.streak ?? 0;
+
+  const unlockedColors = getUnlockedColorCount(streak);
+  const unlockedEmojis = getUnlockedEmojiCount(streak);
+  const texturesUnlocked = areTexturesUnlocked(streak);
 
   return (
     <ScrollView
@@ -49,86 +54,145 @@ export default function InspectorCustomize({
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
     >
-      {/* Primary: COLOR */}
+      {isPostClaim && (
+        <Text style={styles.encourageText}>Make it yours! Pick a color and emoji</Text>
+      )}
+
+      {/* COLOR */}
       <Text style={styles.sectionLabel}>COLOR</Text>
-      <ColorPicker selected={block.ownerColor} onSelect={onColorChange} />
+      <View style={styles.colorGrid}>
+        {BLOCK_COLORS.map((color, i) => {
+          const locked = i >= unlockedColors;
+          return (
+            <TouchableOpacity
+              key={color}
+              style={[
+                styles.colorCell,
+                { backgroundColor: color },
+                block.ownerColor === color && styles.colorCellSelected,
+                locked && styles.lockedCell,
+              ]}
+              onPress={() => {
+                if (locked) {
+                  // Could show toast — for now haptic feedback only
+                  hapticButtonPress();
+                  return;
+                }
+                onColorChange(color);
+                hapticButtonPress();
+              }}
+            >
+              {block.ownerColor === color && <Text style={styles.check}>✓</Text>}
+              {locked && (
+                <View style={styles.lockOverlay}>
+                  <Text style={styles.lockIcon}>🔒</Text>
+                  <Text style={styles.lockStreakText}>{CUSTOMIZATION_TIERS.PREMIUM_COLORS_STREAK}d</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {/* EMOJI */}
       <Text style={styles.sectionLabel}>EMOJI</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-        {BLOCK_ICONS.slice(0, 20).map((icon) => (
+        {BLOCK_ICONS.slice(0, unlockedEmojis).map((icon) => (
           <TouchableOpacity
             key={icon}
             style={[styles.emojiCell, block.emoji === icon && styles.cellSelected]}
-            onPress={() => onEmojiChange(icon)}
+            onPress={() => { onEmojiChange(icon); hapticButtonPress(); }}
           >
             <Text style={styles.emojiText}>{icon}</Text>
           </TouchableOpacity>
         ))}
+        {streak < CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK && (
+          <View style={[styles.emojiCell, styles.lockedEmojiCell]}>
+            <Text style={styles.lockIcon}>🔒</Text>
+            <Text style={styles.lockStreakMini}>{CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK}d</Text>
+          </View>
+        )}
       </ScrollView>
 
-      {/* More styles expander */}
-      <TouchableOpacity
-        style={styles.moreStylesButton}
-        onPress={() => { setShowMoreStyles(!showMoreStyles); hapticButtonPress(); playButtonTap(); }}
-      >
-        <Text style={styles.moreStylesText}>
-          {showMoreStyles ? "Less options" : "More styles \u203A"}
-        </Text>
-      </TouchableOpacity>
-
-      {showMoreStyles && (
-        <>
-          <Text style={styles.sectionLabel}>STYLE</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-            {BLOCK_STYLES.map((s) => (
-              <TouchableOpacity
-                key={s.id}
-                style={[styles.cell, (block.style ?? 0) === s.id && styles.cellSelected]}
-                onPress={() => onStyleChange(s.id)}
-              >
-                <Text style={styles.cellIcon}>{s.icon}</Text>
-                <Text style={[styles.cellLabel, (block.style ?? 0) === s.id && styles.cellLabelSelected]}>
-                  {s.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.sectionLabel}>TEXTURE</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-            {BLOCK_TEXTURES.map((tex) => (
-              <TouchableOpacity
-                key={tex.id}
-                style={[styles.cell, (block.textureId ?? 0) === tex.id && styles.cellSelected]}
-                onPress={() => onTextureChange(tex.id)}
-              >
-                <Text style={styles.cellIcon}>{tex.icon}</Text>
-                <Text style={[styles.cellLabel, (block.textureId ?? 0) === tex.id && styles.cellLabelSelected]}>
-                  {tex.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.sectionLabel}>NAME</Text>
-          <View style={styles.nameRow}>
-            <TextInput
-              style={styles.nameInput}
-              value={nameInput}
-              onChangeText={(t) => setNameInput(t.slice(0, 12))}
-              placeholder={block.name || "My Block"}
-              placeholderTextColor={COLORS.textMuted}
-              maxLength={12}
-              returnKeyType="done"
-              onSubmitEditing={() => onNameSubmit(nameInput)}
-            />
-            <TouchableOpacity style={styles.nameButton} onPress={() => onNameSubmit(nameInput)}>
-              <Text style={styles.nameButtonText}>Set</Text>
+      {/* STYLE */}
+      <Text style={styles.sectionLabel}>STYLE</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+        {BLOCK_STYLES.map((s) => {
+          const locked = !isStyleUnlocked(s.id, streak);
+          return (
+            <TouchableOpacity
+              key={s.id}
+              style={[
+                styles.cell,
+                (block.style ?? 0) === s.id && styles.cellSelected,
+                locked && styles.lockedCell,
+              ]}
+              onPress={() => {
+                if (locked) {
+                  hapticButtonPress();
+                  return;
+                }
+                onStyleChange(s.id);
+                hapticButtonPress();
+                playButtonTap();
+              }}
+            >
+              <Text style={[styles.cellIcon, locked && styles.dimmedText]}>{s.icon}</Text>
+              <Text style={[
+                styles.cellLabel,
+                (block.style ?? 0) === s.id && styles.cellLabelSelected,
+                locked && styles.dimmedText,
+              ]}>
+                {locked ? `🔒 ${CUSTOMIZATION_TIERS.ANIMATED_STYLES_STREAK}d` : s.label}
+              </Text>
             </TouchableOpacity>
-          </View>
-        </>
+          );
+        })}
+      </ScrollView>
+
+      {/* TEXTURE — only show section when unlocked or close to unlocking */}
+      <Text style={styles.sectionLabel}>TEXTURE</Text>
+      {texturesUnlocked ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+          {BLOCK_TEXTURES.map((tex) => (
+            <TouchableOpacity
+              key={tex.id}
+              style={[styles.cell, (block.textureId ?? 0) === tex.id && styles.cellSelected]}
+              onPress={() => { onTextureChange(tex.id); hapticButtonPress(); playButtonTap(); }}
+            >
+              <Text style={styles.cellIcon}>{tex.icon}</Text>
+              <Text style={[styles.cellLabel, (block.textureId ?? 0) === tex.id && styles.cellLabelSelected]}>
+                {tex.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.lockedSection}>
+          <Text style={styles.lockedSectionText}>
+            🔒 Streak {CUSTOMIZATION_TIERS.TEXTURES_STREAK} to unlock textures
+            {streak > 0 ? ` · ${CUSTOMIZATION_TIERS.TEXTURES_STREAK - streak} more days` : ""}
+          </Text>
+        </View>
       )}
+
+      {/* NAME */}
+      <Text style={styles.sectionLabel}>NAME</Text>
+      <View style={styles.nameRow}>
+        <TextInput
+          style={styles.nameInput}
+          value={nameInput}
+          onChangeText={(t) => setNameInput(t.slice(0, 12))}
+          placeholder={block.name || "My Block"}
+          placeholderTextColor={COLORS.textMuted}
+          maxLength={12}
+          returnKeyType="done"
+          onSubmitEditing={() => onNameSubmit(nameInput)}
+        />
+        <TouchableOpacity style={styles.nameButton} onPress={() => onNameSubmit(nameInput)}>
+          <Text style={styles.nameButtonText}>Set</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -136,19 +200,53 @@ export default function InspectorCustomize({
 const styles = StyleSheet.create({
   contentScroll: {
     flexShrink: 1,
-    maxHeight: 300,
+    maxHeight: 340,
   },
   customizeContent: {
     paddingBottom: SPACING.md,
+  },
+  encourageText: {
+    ...TEXT.bodyLg,
+    color: COLORS.gold,
+    textAlign: "center",
+    marginBottom: SPACING.sm,
   },
   sectionLabel: {
     ...TEXT.overline,
     color: COLORS.gold,
     marginTop: SPACING.xs,
   },
+  colorGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  colorCell: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.sm,
+    borderWidth: 2,
+    borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  colorCellSelected: {
+    borderColor: COLORS.text,
+    borderWidth: 3,
+  },
+  check: {
+    fontSize: 16,
+    fontFamily: FONT_FAMILY.bodyBold,
+    color: COLORS.textOnDark,
+    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   hScroll: {
     flexDirection: "row",
     maxHeight: 56,
+    marginTop: SPACING.xs,
   },
   cell: {
     width: 52,
@@ -188,21 +286,54 @@ const styles = StyleSheet.create({
   emojiText: {
     fontSize: 18,
   },
-  moreStylesButton: {
-    paddingVertical: SPACING.sm,
-    marginTop: SPACING.xs,
-    alignSelf: "flex-start",
+  lockedCell: {
+    opacity: 0.45,
   },
-  moreStylesText: {
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: RADIUS.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  lockIcon: {
+    fontSize: 12,
+  },
+  lockStreakText: {
     fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
+    fontSize: 8,
     color: COLORS.gold,
-    letterSpacing: 0.3,
+    marginTop: 1,
+  },
+  lockStreakMini: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 7,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
+  lockedEmojiCell: {
+    backgroundColor: COLORS.bgMuted,
+    opacity: 0.6,
+  },
+  dimmedText: {
+    opacity: 0.5,
+  },
+  lockedSection: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.bgMuted,
+    borderRadius: RADIUS.sm,
+    marginTop: SPACING.xs,
+  },
+  lockedSectionText: {
+    ...TEXT.bodySm,
+    color: COLORS.textMuted,
   },
   nameRow: {
     flexDirection: "row",
     gap: SPACING.sm,
     alignItems: "center",
+    marginTop: SPACING.xs,
   },
   nameInput: {
     flex: 1,

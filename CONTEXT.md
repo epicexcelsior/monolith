@@ -22,7 +22,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - MWA wallet connect (Seed Vault / Phantom)
 - On-chain USDC vault (deposit / withdraw, devnet)
 - Charge system (decay + daily tap + streaks 1x-3x)
-- Block customization (color, emoji, name, style, textureId) — fully networked + persisted
+- Block customization (color, emoji, name, style, textureId) — fully networked + persisted, streak-gated unlock tiers
 - Bot simulation (21 personas, 6 archetypes, ~450 blocks, denser energy distribution)
 - Colyseus multiplayer (server-authoritative, JSON messages, Railway)
 - **Immersive onboarding revamp** (9-phase: cinematic orbit → title → claim → celebration → customize → charge → poke → wallet → done)
@@ -325,6 +325,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: Polish Plan Phase 6 — block customization tiered unlocks: CUSTOMIZATION_TIERS config + helpers in common/constants.ts (8 base colors/streak 3+ all 16, 20 base emojis/streak 30+ all 48, base styles free/streak 7+ animated Lava-Nature, streak 14+ textures), InspectorCustomize rewrite with lock overlays + streak requirements + "Make it yours!" post-claim encouragement, removed "More styles" expander in favor of visible-but-gated grid. 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 5 — charge mechanic dopamine overhaul: XP pill in TopHUD (XPBar + spring pulse on change), streak badge above CHARGE button in InspectorActions, daily first-charge bonus (50 XP + "Daily Charge ✓" label + haptic), recentlyChargedId set on local charge for 3D flash, FloatingPoints dynamic positioning (above inspector when visible) + custom label support, MyBlocksPanel charge bug fixed (removed hardcoded pts=25, added recentlyChargedId + daily bonus). 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 4 — onboarding charge & poke full simulation: charge step triggers FloatingPoints "+25 XP", energy bar fill animation in StepCard, hapticChargeTap(); poke step uses new `recentlyPokedId` store field → TowerGrid orange-red shake/flash animation (1s, decaying amplitude), camera flies to bot block then returns to ghost block after 1.5s. 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 3 — claim celebration camera fix: removed aftershock shake, added buildup shake escalation (0.1→0.4), dramatic zoom-out (1.6x), orbit stops at ZOOM_RETURN_DELAY, zoom-back before cinematic exits, gold→owner color glow-up transition, inspector reopens after celebration, blockId stored in ClaimCelebrationState. Durations: normal 4→5.5s, firstClaim 5.5→7s. 222 tests passing.

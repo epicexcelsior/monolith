@@ -418,6 +418,11 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 
 ## UI/UX & Design System
 
+### Duplicated Charge Logic in MyBlocksPanel — Route Through Shared Pattern (2026-02-25)
+**Problem**: MyBlocksPanel had its own `handleCharge` with hardcoded `pts = 25`, no `recentlyChargedId` set (no 3D flash), and no daily first-charge bonus. Meanwhile `useBlockActions.handleCharge` had the correct logic. The panel couldn't reuse `useBlockActions` directly because it takes a `blockId` parameter (charges any block), while `useBlockActions.handleCharge` operates on `selectedBlockId`.
+**Solution**: Applied the same charge logic pattern to both locations: `setRecentlyChargedId(blockId)` for 3D flash + `isFirstChargeToday()` / `markChargeToday()` for daily bonus. Removed `onChargeResult` import from MyBlocksPanel (was imported but never called — silent dead code).
+**Key Insight**: When two components handle the same action with different contexts (selectedBlockId vs arbitrary blockId), keep separate handlers but audit them together. Dead callback imports (`onChargeResult` imported but never called) are a silent footgun — the wrapup audit catches these.
+
 ### BottomPanel Animated Dismiss — Animate Off-Screen Before Calling onClose (2026-02-25)
 **Problem**: Swipe-to-dismiss on BottomPanel caused a pop-back flash. Root cause: `dragOffset.setValue(0)` was called in the dismiss callback before React could unmount the component, so for one frame the panel snapped back to position 0. Also, a useEffect `else` branch tried to animate slide-out on `visible=false`, but the component had `if (!visible) return null` which unmounted it before the effect could run — dead code that caused race conditions.
 **Solution**: Created an `animateClose()` callback that uses `Animated.timing` to slide off-screen (dragOffset → totalHeight, 200ms) and only calls `onClose()` in the `.start()` completion callback. Removed the dead `else` branch entirely. `dragOffset` is only reset to 0 when the panel opens (in the `if (visible)` branch).
