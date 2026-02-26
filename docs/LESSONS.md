@@ -418,6 +418,11 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 
 ## UI/UX & Design System
 
+### Streak-Gated Unlocks — Gate at UI, Define in Shared Constants (2026-02-25)
+**Problem**: Block customization had all options visible with no progression. Adding gamified unlock tiers required deciding where to gate: UI layer, store action layer, or server.
+**Solution**: Define unlock tier thresholds + helper functions (`getUnlockedColorCount`, `isStyleUnlocked`, etc.) in `@monolith/common/constants.ts`. Gate at the UI layer only (InspectorCustomize reads `block.streak` and dims/locks items). No server-side enforcement — this is a soft gamification feature, not a security boundary. Locked items stay visible but dimmed with lock overlay showing streak requirement.
+**Key Insight**: For gamification features (not security-critical), gate at the UI layer with shared constants defining thresholds. Keep locked items visible to create aspiration — hiding them entirely removes the motivation to unlock.
+
 ### Duplicated Charge Logic in MyBlocksPanel — Route Through Shared Pattern (2026-02-25)
 **Problem**: MyBlocksPanel had its own `handleCharge` with hardcoded `pts = 25`, no `recentlyChargedId` set (no 3D flash), and no daily first-charge bonus. Meanwhile `useBlockActions.handleCharge` had the correct logic. The panel couldn't reuse `useBlockActions` directly because it takes a `blockId` parameter (charges any block), while `useBlockActions.handleCharge` operates on `selectedBlockId`.
 **Solution**: Applied the same charge logic pattern to both locations: `setRecentlyChargedId(blockId)` for 3D flash + `isFirstChargeToday()` / `markChargeToday()` for daily bonus. Removed `onChargeResult` import from MyBlocksPanel (was imported but never called — silent dead code).

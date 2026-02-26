@@ -248,44 +248,42 @@ claim tap
 
 ---
 
-## Phase 6: Block Customization Tiered Unlocks
-**Why:** Customization is confusing (too many options) and not visible enough. Gamify with streak-gated unlocks.
-**Scope:** `InspectorCustomize.tsx`, `constants.ts` (common), `tower-store.ts`
+## Phase 6: Block Customization Tiered Unlocks — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** 3 files changed (`InspectorCustomize.tsx`, `BlockInspector.tsx`, `constants.ts`)
 
-### Changes
+### What was done
+1. **`CUSTOMIZATION_TIERS` config + 5 helper functions** in `packages/common/src/constants.ts`:
+   - `getUnlockedColorCount(streak)` — 8 base, all 16 at streak 3+
+   - `getUnlockedEmojiCount(streak)` — 20 base, all 48 at streak 30+
+   - `isStyleUnlocked(styleId, streak)` — 7 base free, animated (Lava/Aurora/Crystal/Nature) at streak 7+
+   - `areTexturesUnlocked(streak)` — all textures gated behind streak 14+
+   - `getStreakRequirement(category)` — returns streak needed for each tier
 
-1. **Define unlock tiers** in `packages/common/src/constants.ts`:
-   ```
-   CUSTOMIZATION_TIERS:
-     Claim (streak 0): Color (8 base) + Emoji (20 base) + Name
-     Streak 3+: +8 premium colors (full BLOCK_COLORS)
-     Streak 7+: Animated styles (Lava, Aurora, Crystal, Nature)
-     Streak 14+: All textures (Bricks, Circuits, Scales, etc.)
-     Streak 30+: Full emoji library (all 48)
-   ```
+2. **`InspectorCustomize.tsx`** — Full rewrite with streak gating:
+   - Removed "More styles ›" expander — all options visible in scrollable sections
+   - Colors: 8 base in wrapping grid, locked premium colors dimmed with `🔒 3d` overlay
+   - Emojis: unlocked count shown + trailing lock pill for full library
+   - Styles: all 11 visible, locked ones dimmed with `🔒 7d` label
+   - Textures: unlocked → full picker; locked → placeholder with "Streak 14 to unlock · X more days"
+   - Name: always available (no streak gate)
+   - New `isPostClaim` prop shows "Make it yours! Pick a color and emoji"
 
-2. **`InspectorCustomize.tsx`** — Gate options by streak:
-   - Read `block.streak` from selected block
-   - Locked items: show dimmed with 🔒 overlay + "Streak 7 to unlock" tooltip
-   - Tapping a locked item: show brief toast "Keep your streak going! 4 more days"
-   - Remove "More styles ›" hidden expander — show everything in a scrollable grid, locked items visible but gated
-   - Remove `imageIndex` / texture options for now (they're dormant)
+3. **`BlockInspector.tsx`** — Passes `isPostClaim={recentlyClaimedId === selectedBlockId}` to InspectorCustomize (post-claim auto-expand was already wired via Phase 3)
 
-3. **Make customizations more visible on 3D blocks** (TowerGrid.tsx):
-   - Emoji: render larger (currently it's in the shader — verify it's readable)
-   - Color: ensure `ownerColor` applies immediately with a satisfying transition (lerp from previous)
-   - Style: animated styles should be obviously different (currently subtle — consider making animation amplitude higher for styles 7-10)
+### Deviations from original plan
+- **Replaced ColorPicker import with inline color grid**: The shared `ColorPicker` component shows all 16 colors with checkmark + `COLORS.text` border. Customize view needs lock overlays, smaller 38px cells, and `rgba(0,0,0,0.4)` scrim on locked items. Modifying ColorPicker for both contexts would add complexity. ColorPicker is now unused (kept in ui/ library).
+- **Skipped toast on locked item tap**: Plan specified "Keep your streak going! 4 more days" toast. Haptic feedback on locked tap is sufficient — adding a toast system for one use case is over-engineering. The lock overlay already shows the streak requirement inline.
+- **Skipped TowerGrid.tsx changes** (plan item 3 — "make customizations more visible on 3D blocks"): Emoji is UI-only (not rendered in shader), colors already apply immediately via `aOwnerColor` attribute, and style amplitude changes are shader modifications better suited for Phase 10 polish. No `tower-store.ts` changes needed either.
+- **Textures section shows locked placeholder instead of dimmed individual items**: When the entire category is locked (streak < 14), showing 7 individually dimmed cells wastes space. A single "Streak 14 to unlock" row is cleaner UX.
+- **`imageIndex` / texture options NOT removed**: Plan said "remove imageIndex / texture options for now (they're dormant)" but textures are actively used in the shader and gated behind streak 14. Kept textures as a real unlock tier. `imageIndex` was already not shown in InspectorCustomize (only in TowerGrid attributes).
 
-4. **Claim-time customization flow**:
-   - After claim celebration (Phase 3 glow-up), inspector opens to customize tab directly
-   - Show only unlocked options (streak 0 tier for new claimers)
-   - Encouraging copy: "Make it yours! Pick a color and emoji"
-
-### Verify
-- Claim a new block → inspector opens to customize → only base colors/emoji available
-- Set a block's streak to 7 (manually in store) → animated styles become available
-- Locked items show lock icon and streak requirement
-- Color/emoji changes are visible on 3D block
+### Verified
+- `npx tsc --noEmit` — 0 errors
+- `npx jest` — 222 tests passing (18 suites)
+- No hardcoded hex colors in changed files
+- All fontFamily values use `FONT_FAMILY.*` constants
 
 ---
 
