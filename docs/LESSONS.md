@@ -418,6 +418,21 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 
 ## UI/UX & Design System
 
+### Dead Components — Always Verify Mount Point Exists (2026-02-25)
+**Problem**: Redesigned HotBlockTicker from tiny 9px pills to 44px mini-cards with per-type colors, entrance animations, and priority sorting. The redesign was invisible — `HotBlockTicker` was never imported or rendered in `index.tsx`. `LiveActivityTicker` (a separate event feed component) had replaced it at some point, but the file stayed as dead code.
+**Solution**: Grepped for `HotBlockTicker` imports across the codebase — found zero consumers. Mounted it in `index.tsx` inside the HUD wrapper, positioned bottom-right (LiveActivityTicker occupies bottom-left). Both serve complementary purposes: event stream vs notable block status.
+**Key Insight**: Before modifying a component, verify it's actually mounted. A component file existing doesn't mean it's rendered. Quick check: `grep -r "ComponentName" --include="*.tsx" | grep -v "ComponentName.tsx"` to find consumers.
+
+### Modal State Persists Across Opens — Reset in useEffect (2026-02-25)
+**Problem**: ClaimModal used `useState(minPrice.toFixed(2))` for the initial amount. When the modal reopened for a different layer block, `amount` still showed the previous block's price. React Modal with `visible` prop doesn't unmount children — state persists.
+**Solution**: Added `useEffect` that watches `visible` and `minPrice` — resets `amount`, `selectedColor`, and `error` when the modal opens. This pattern is necessary for any Modal that reuses state across different data contexts.
+**Key Insight**: React Native `<Modal visible>` keeps children mounted when hidden. Any `useState` initial value only runs once. Always add a reset `useEffect` watching the `visible` prop when modal content depends on changing props.
+
+### ScrollView + pointerEvents="box-none" = Broken Scrolling (2026-02-25)
+**Problem**: HotBlockTicker used `ScrollView` with `pointerEvents="box-none"` to allow 3D scene touches to pass through. But `box-none` means the ScrollView itself doesn't receive touch events — only children do. Scroll gestures (which target the ScrollView container, not individual items) were silently dropped.
+**Solution**: Replaced `ScrollView` with plain `View` + `pointerEvents="box-none"`. With MAX_CARDS=3 at 120px min-width, cards fit on all modern phones (360px+) without scrolling. If scrolling were truly needed, would need to remove `box-none` and accept blocking 3D touches in that strip.
+**Key Insight**: `pointerEvents="box-none"` and scrollable containers are fundamentally incompatible. The container needs touch events to detect scroll gestures, but `box-none` prevents exactly that. Choose one: pass-through touches OR scrolling.
+
 ### Streak-Gated Unlocks — Gate at UI, Define in Shared Constants (2026-02-25)
 **Problem**: Block customization had all options visible with no progression. Adding gamified unlock tiers required deciding where to gate: UI layer, store action layer, or server.
 **Solution**: Define unlock tier thresholds + helper functions (`getUnlockedColorCount`, `isStyleUnlocked`, etc.) in `@monolith/common/constants.ts`. Gate at the UI layer only (InspectorCustomize reads `block.streak` and dims/locks items). No server-side enforcement — this is a soft gamification feature, not a security boundary. Locked items stay visible but dimmed with lock overlay showing streak requirement.

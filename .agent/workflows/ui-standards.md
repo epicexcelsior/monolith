@@ -37,7 +37,14 @@ cd /home/epic/Downloads/monolith && grep -rn "fontFamily:" apps/mobile/app/ apps
 ```
 All fontFamily values must reference `FONT_FAMILY.*` constants from theme.
 
-## 5. TypeScript compilation
+## 5. Orphaned component check
+// turbo
+```bash
+cd /home/epic/Downloads/monolith && for f in apps/mobile/components/ui/*.tsx; do name=$(basename "$f" .tsx); if [ "$name" != "index" ] && ! grep -rq "$name" apps/mobile/app/ apps/mobile/components/ --include='*.tsx' --include='*.ts' | grep -v "$f" > /dev/null 2>&1; then count=$(grep -rl "$name" apps/mobile/app/ apps/mobile/components/ --include='*.tsx' --include='*.ts' 2>/dev/null | grep -v "$f" | wc -l); if [ "$count" -eq 0 ]; then echo "ORPHANED: $f"; fi; fi; done
+```
+Components in `ui/` that are never imported by any other file are dead code. Either mount them or delete them.
+
+## 6. TypeScript compilation
 // turbo
 ```bash
 cd /home/epic/Downloads/monolith && timeout 90 npx tsc --noEmit --project apps/mobile/tsconfig.json 2>&1 | head -30
