@@ -3,7 +3,7 @@
  * Shows energy bars, streak badges, and quick-charge buttons.
  * Tapping a block navigates the camera to it.
  */
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -13,12 +13,10 @@ import {
 } from "react-native";
 import BottomPanel from "./BottomPanel";
 import ChargeBar from "./ChargeBar";
-import Badge from "./Badge";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, getChargeColor } from "@/constants/theme";
 import { useTowerStore, getStreakMultiplier } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
-import { useMultiplayerStore, onChargeResult } from "@/stores/multiplayer-store";
-import type { ChargeResult } from "@/stores/multiplayer-store";
+import { useMultiplayerStore } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { ENERGY_THRESHOLDS } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
@@ -74,6 +72,8 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
     onClose();
   }, [selectBlock, onClose]);
 
+  const setRecentlyChargedId = useTowerStore((s) => s.setRecentlyChargedId);
+
   const handleCharge = useCallback((blockId: string) => {
     hapticChargeTap();
     if (mpConnected && wallet) {
@@ -88,12 +88,18 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
         playError();
       } else if (result.success) {
         playChargeTap();
-        const pts = 25;
+        // Trigger 3D charge flash
+        setRecentlyChargedId(blockId);
+        // Daily first-charge bonus
         const store = usePlayerStore.getState();
-        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level });
+        const isFirstToday = store.isFirstChargeToday();
+        const pts = isFirstToday ? 50 : 25;
+        const label = isFirstToday ? "Daily Charge \u2713" : undefined;
+        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level, label });
+        if (isFirstToday) store.markChargeToday();
       }
     }
-  }, [mpConnected, wallet, sendCharge, chargeBlock]);
+  }, [mpConnected, wallet, sendCharge, chargeBlock, setRecentlyChargedId]);
 
   const renderBlock = useCallback(({ item }: { item: typeof myBlocks[0] }) => {
     const state = getBlockState(item.energy);

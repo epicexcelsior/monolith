@@ -37,6 +37,8 @@ export default function BlockInspector() {
     isUnclaimed,
     isDormant,
     energyPct,
+    streak,
+    multiplier,
     isWalletConnected,
     mpConnected,
     cooldownText,
@@ -182,6 +184,8 @@ export default function BlockInspector() {
                 mpConnected={mpConnected}
                 cooldownText={cooldownText}
                 pokeStatus={pokeStatus}
+                streak={streak}
+                multiplier={multiplier}
                 canPoke={canPoke}
                 isOnboarding={isOnboardingClaim}
                 onClaim={isOnboardingClaim ? handleOnboardingClaim : () => setShowClaimModal(true)}

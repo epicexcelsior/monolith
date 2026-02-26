@@ -148,6 +148,8 @@ export function useBlockActions() {
   }, [selectedBlockId, ghostClaimBlock, getDemoBlockById, triggerCelebration, advanceOnboarding]);
 
   // Handle charge
+  const setRecentlyChargedId = useTowerStore((s) => s.setRecentlyChargedId);
+
   const handleCharge = useCallback(() => {
     if (!selectedBlockId) return;
     hapticChargeTap();
@@ -166,16 +168,25 @@ export function useBlockActions() {
         playError();
       } else if (result.success) {
         playChargeTap();
+        // Trigger 3D charge flash
+        setRecentlyChargedId(selectedBlockId);
         if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
           hapticStreakMilestone();
           playStreakMilestone();
         }
-        const pts = 25;
+        // Daily first-charge bonus
         const store = usePlayerStore.getState();
-        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level });
+        const isFirstToday = store.isFirstChargeToday();
+        const pts = isFirstToday ? 50 : 25;
+        const label = isFirstToday ? "Daily Charge \u2713" : undefined;
+        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level, label });
+        if (isFirstToday) {
+          store.markChargeToday();
+          hapticStreakMilestone();
+        }
       }
     }
-  }, [selectedBlockId, chargeBlock, mpConnected, sendCharge]);
+  }, [selectedBlockId, chargeBlock, mpConnected, sendCharge, setRecentlyChargedId]);
 
   // Handle poke
   const handlePoke = useCallback(() => {

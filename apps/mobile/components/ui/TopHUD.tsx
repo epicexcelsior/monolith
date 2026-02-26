@@ -1,9 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withSpring,
+} from "react-native-reanimated";
 import { COLORS, SPACING, RADIUS, FONT_FAMILY, GLASS_STYLE } from "@/constants/theme";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
+import { usePlayerStore } from "@/stores/player-store";
+import XPBar from "@/components/ui/XPBar";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 
@@ -20,6 +28,24 @@ export default function TopHUD({ onReplayOnboarding }: TopHUDProps) {
   const insets = useSafeAreaInsets();
   const isConnected = useWalletStore((s) => s.isConnected);
   const truncatedAddress = useTruncatedAddress();
+  const xp = usePlayerStore((s) => s.xp);
+  const level = usePlayerStore((s) => s.level);
+  const lastPointsEarned = usePlayerStore((s) => s.lastPointsEarned);
+
+  // Pulse scale when XP increases
+  const xpScale = useSharedValue(1);
+  useEffect(() => {
+    if (lastPointsEarned != null) {
+      xpScale.value = withSequence(
+        withSpring(1.12, { damping: 8, stiffness: 200 }),
+        withSpring(1, { damping: 12, stiffness: 150 }),
+      );
+    }
+  }, [lastPointsEarned, xpScale]);
+
+  const xpAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: xpScale.value }],
+  }));
 
   return (
     <Animated.View
@@ -38,6 +64,11 @@ export default function TopHUD({ onReplayOnboarding }: TopHUDProps) {
       >
         <Text style={styles.title}>MONOLITH</Text>
       </TouchableOpacity>
+
+      {/* Center: XP pill */}
+      <Animated.View style={[styles.xpPill, xpAnimStyle]}>
+        <XPBar xp={xp} level={level} size="sm" />
+      </Animated.View>
 
       {/* Right: Wallet pill */}
       <TouchableOpacity
@@ -74,6 +105,10 @@ const styles = StyleSheet.create({
     textShadowColor: COLORS.goldGlow,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
+  },
+  xpPill: {
+    flex: 1,
+    marginHorizontal: SPACING.sm,
   },
   walletPill: {
     ...GLASS_STYLE.hudDark,

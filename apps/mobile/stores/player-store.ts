@@ -14,11 +14,13 @@ interface PlayerStore {
   combo: number;
   lastPointsEarned: number | null;
   lastCombo: number | null;
+  lastPointsLabel: string | null; // Custom label for FloatingPoints (e.g. "Daily Charge ✓")
   levelUp: number | null; // the new level, or null
   totalClaims: number;
   totalCharges: number;
   comboBest: number;
   username: string | null;
+  lastChargeDateLocal: string | null; // ISO date string (YYYY-MM-DD) for daily first-charge tracking
 
   // ─── Actions ──────────────────────────────
   addPoints: (data: {
@@ -27,7 +29,12 @@ interface PlayerStore {
     totalXp?: number;
     level?: number;
     levelUp?: boolean;
+    label?: string;
   }) => void;
+  /** Check if today's first charge has been done */
+  isFirstChargeToday: () => boolean;
+  /** Mark today's charge as done */
+  markChargeToday: () => void;
   setFromServer: (data: {
     xp: number;
     level: number;
@@ -50,11 +57,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   combo: 0,
   lastPointsEarned: null,
   lastCombo: null,
+  lastPointsLabel: null,
   levelUp: null,
   totalClaims: 0,
   totalCharges: 0,
   comboBest: 0,
   username: null,
+  lastChargeDateLocal: null,
 
   addPoints: (data) => {
     // Clear any pending timers
@@ -64,6 +73,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({
       lastPointsEarned: data.pointsEarned,
       lastCombo: data.combo ?? null,
+      lastPointsLabel: data.label ?? null,
       combo: data.combo ?? get().combo,
       ...(data.totalXp != null ? { xp: data.totalXp } : {}),
       ...(data.level != null ? { level: data.level } : {}),
@@ -72,7 +82,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     // Auto-clear floating points after 2s
     pointsClearTimer = setTimeout(() => {
-      set({ lastPointsEarned: null, lastCombo: null });
+      set({ lastPointsEarned: null, lastCombo: null, lastPointsLabel: null });
     }, 2000);
 
     // Auto-clear level-up after 3s
@@ -81,6 +91,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         set({ levelUp: null });
       }, 3000);
     }
+  },
+
+  isFirstChargeToday: () => {
+    const today = new Date().toISOString().slice(0, 10);
+    return get().lastChargeDateLocal !== today;
+  },
+
+  markChargeToday: () => {
+    const today = new Date().toISOString().slice(0, 10);
+    set({ lastChargeDateLocal: today });
   },
 
   setFromServer: (data) => {
@@ -96,6 +116,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   setUsername: (username) => set({ username }),
 
-  clearPoints: () => set({ lastPointsEarned: null, lastCombo: null }),
+  clearPoints: () => set({ lastPointsEarned: null, lastCombo: null, lastPointsLabel: null }),
   clearLevelUp: () => set({ levelUp: null }),
 }));

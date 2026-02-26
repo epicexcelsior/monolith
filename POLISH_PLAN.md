@@ -200,49 +200,51 @@ claim tap
 
 ---
 
-## Phase 5: Charge Mechanic Dopamine Overhaul
-**Why:** Charging feels like it does nothing. Need visible feedback, points, streaks, daily reward.
-**Scope:** `TopHUD.tsx`, `InspectorActions.tsx`, `useBlockActions.ts`, `FloatingPoints.tsx`, `player-store.ts`
+## Phase 5: Charge Mechanic Dopamine Overhaul — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** 6 files changed (`TopHUD.tsx`, `InspectorActions.tsx`, `useBlockActions.ts`, `FloatingPoints.tsx`, `player-store.ts`, `MyBlocksPanel.tsx`)
 
-### Changes
+### What was done
+1. **XP in TopHUD** — Compact XPBar between MONOLITH title and wallet pill:
+   - `XPBar size="sm"` shows level badge + progress bar + XP count
+   - Spring scale pulse (1→1.12→1) when `lastPointsEarned` changes
+   - Flex layout: title (left) · XP pill (center, flex:1) · wallet pill (right)
 
-1. **XP in TopHUD** — Add compact XP pill next to wallet:
-   - Import `usePlayerStore` for `xp` and `level`
-   - Render: `[Level badge] [mini progress bar] [XP count]` using `XPBar size="sm"`
-   - Position: between MONOLITH title and wallet pill (or below title on left)
-   - Animate on change: spring scale pulse when XP increases
-
-2. **Streak badge on InspectorActions** — Show streak info prominently:
-   - Above the CHARGE button: `"🔥 7-day streak · 2× multiplier"` in gold
-   - If no streak: `"Start a streak! Charge daily for bonus XP"`
-   - Next milestone: `"3 more days until 2× multiplier"`
-   - Use `getStreakMultiplier()` and `getNextStreakMilestone()` from tower-store
+2. **Streak badge on InspectorActions** — Above CHARGE button:
+   - Active streak: `"🔥 7-day streak · 2× multiplier"` in gold on `COLORS.goldSubtle` bg
+   - No streak: `"Start a streak! Charge daily for bonus XP"` in muted text
+   - New props: `streak` and `multiplier` passed from BlockInspector
 
 3. **Enhanced charge animation** in `useBlockActions.ts`:
-   - On successful charge: set `recentlyChargedId` (existing) + new `chargeWaveBlockId`
-   - `chargeWaveBlockId` triggers a brief energy wave ripple in TowerGrid (radial pulse outward from block)
-   - Block brightness should visibly increase after charge (energy → brightness mapping in shader)
-   - Particle burst on charge (reuse ClaimVFX subset — just the spark burst, smaller scale)
+   - On successful local charge: `setRecentlyChargedId(selectedBlockId)` → triggers existing blue-white flash on 3D block
+   - Same fix applied in MyBlocksPanel `handleCharge`
 
-4. **Daily first-charge celebration** in `useBlockActions.ts`:
-   - Track `lastChargeDateLocal` in player-store (ISO date string, persisted to SecureStore)
-   - First charge of each calendar day: play `playClaimCelebration()` (reuse, shorter version), show special FloatingPoints: `"Daily Charge ✓ +50 XP"` (bonus 25 XP)
-   - Haptic: `hapticStreakMilestone()`
-   - Subsequent charges that day: normal 25 XP
+4. **Daily first-charge celebration**:
+   - `player-store.ts`: added `lastChargeDateLocal` (ISO date string), `lastPointsLabel`, `isFirstChargeToday()`, `markChargeToday()`
+   - First charge of day: 50 XP (vs normal 25 XP) + `hapticStreakMilestone()` + FloatingPoints shows "Daily Charge ✓"
+   - `addPoints` now accepts optional `label` field for custom FloatingPoints text
 
-5. **Fix FloatingPoints positioning** — `bottom: 200` is hardcoded:
-   - Make position dynamic: when BlockInspector is visible, position above it
-   - Use Reanimated shared value tied to inspector height
+5. **Fixed FloatingPoints positioning**:
+   - Dynamic `bottom`: 340 when BlockInspector visible (`selectedBlockId !== null`), 200 otherwise
+   - Added `lastPointsLabel` display above the XP number (e.g. "Daily Charge ✓")
 
-6. **Fix MyBlocksPanel charge XP bug**:
-   - Add `onChargeResult` listener in MyBlocksPanel (or extract to shared hook)
-   - Or simpler: always route charges through `useBlockActions.handleCharge` instead of duplicating logic
+6. **Fixed MyBlocksPanel charge XP bug**:
+   - Removed hardcoded `pts = 25` — now uses same daily first-charge logic as `useBlockActions`
+   - Added `setRecentlyChargedId(blockId)` for 3D flash on charge from panel
 
-### Verify
-- Open app → charge a block → see: flash on block, "+25 XP" float, XP bar in HUD updates
-- Check streak display on inspector
-- First charge of day → special celebration
-- Charge from MyBlocksPanel → XP should also show
+### Deviations from original plan
+- **Skipped `chargeWaveBlockId` / energy wave ripple**: The existing `recentlyChargedId` flash is sufficient visual feedback. A second wave animation would add complexity to TowerGrid for marginal visual benefit.
+- **Skipped particle burst on charge**: Would require importing ClaimVFX subset into TowerGrid. The flash + haptic + XP float already provides strong dopamine. Can add later.
+- **`lastChargeDateLocal` stored in Zustand state, not SecureStore**: The plan said "persisted to SecureStore" but daily first-charge is a soft bonus — resetting on app restart is fine. Avoids async SecureStore read in the charge path.
+- **FloatingPoints uses simple conditional bottom instead of Reanimated shared value**: Inspector visibility is binary — shared value would add complexity for the same result.
+- **Kept MyBlocksPanel's own charge handler**: Instead of routing through `useBlockActions.handleCharge` (which depends on `selectedBlockId`), kept the panel's handler but applied the same fixes (recentlyChargedId + daily bonus).
+
+### Verified
+- `npx tsc --noEmit` — 0 errors
+- `npx jest` — 222 tests passing (18 suites)
+- No hardcoded `pts = 25` remaining (grep clean)
+- `recentlyChargedId` set in both useBlockActions and MyBlocksPanel local charge paths
 
 ---
 

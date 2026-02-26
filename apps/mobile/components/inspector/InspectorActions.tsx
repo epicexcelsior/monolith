@@ -18,6 +18,8 @@ interface InspectorActionsProps {
   mpConnected: boolean;
   cooldownText: string | null;
   pokeStatus: string | null;
+  streak: number;
+  multiplier: number;
   canPoke: (blockId: string) => boolean;
   onClaim: () => void;
   onCharge: () => void;
@@ -38,6 +40,8 @@ export default function InspectorActions({
   mpConnected,
   cooldownText,
   pokeStatus,
+  streak,
+  multiplier,
   canPoke,
   onClaim,
   onCharge,
@@ -71,6 +75,18 @@ export default function InspectorActions({
 
       {isOwner && (
         <>
+          {/* Streak info */}
+          <View style={styles.streakBadge}>
+            {streak > 0 ? (
+              <Text style={styles.streakBadgeText}>
+                {"\uD83D\uDD25"} {streak}-day streak {multiplier > 1 ? `\u00B7 ${multiplier}\u00D7 multiplier` : ""}
+              </Text>
+            ) : (
+              <Text style={styles.streakHintText}>
+                Start a streak! Charge daily for bonus XP
+              </Text>
+            )}
+          </View>
           <Button
             title={cooldownText || "CHARGE"}
             variant="primary"
@@ -158,6 +174,23 @@ const styles = StyleSheet.create({
   ctaSection: {
     gap: SPACING.sm,
     marginTop: SPACING.xs,
+  },
+  streakBadge: {
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.goldSubtle,
+    alignItems: "center",
+  },
+  streakBadgeText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 13,
+    color: COLORS.gold,
+  },
+  streakHintText: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 12,
+    color: COLORS.textMuted,
   },
   actionRow: {
     flexDirection: "row",

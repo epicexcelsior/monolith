@@ -2,6 +2,8 @@
  * FloatingPoints — "+25 XP" floating animation above BlockInspector.
  *
  * Triggered by usePlayerStore.lastPointsEarned.
+ * Positions dynamically: higher when BlockInspector is visible.
+ * Shows optional label (e.g. "Daily Charge ✓") from player-store.
  */
 
 import React, { useEffect } from "react";
@@ -11,14 +13,16 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSequence,
-  runOnJS,
 } from "react-native-reanimated";
 import { usePlayerStore } from "@/stores/player-store";
+import { useTowerStore } from "@/stores/tower-store";
 import { COLORS, FONT_FAMILY } from "@/constants/theme";
 
 export default function FloatingPoints() {
   const lastPointsEarned = usePlayerStore((s) => s.lastPointsEarned);
   const lastCombo = usePlayerStore((s) => s.lastCombo);
+  const lastPointsLabel = usePlayerStore((s) => s.lastPointsLabel);
+  const hasInspector = useTowerStore((s) => s.selectedBlockId) !== null;
 
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(0);
@@ -51,13 +55,21 @@ export default function FloatingPoints() {
 
   if (lastPointsEarned == null) return null;
 
+  // Position above BlockInspector when it's visible, otherwise lower
+  const bottom = hasInspector ? 340 : 200;
+
   return (
-    <View style={styles.container} pointerEvents="none">
-      <Animated.View style={[styles.content, animatedStyle]}>
-        <Text style={styles.points}>+{lastPointsEarned} XP</Text>
-        {lastCombo != null && lastCombo > 1 && (
-          <Text style={styles.combo}>{"\u00D7"}{lastCombo}</Text>
+    <View style={[styles.container, { bottom }]} pointerEvents="none">
+      <Animated.View style={[styles.contentColumn, animatedStyle]}>
+        {lastPointsLabel && (
+          <Text style={styles.label}>{lastPointsLabel}</Text>
         )}
+        <View style={styles.content}>
+          <Text style={styles.points}>+{lastPointsEarned} XP</Text>
+          {lastCombo != null && lastCombo > 1 && (
+            <Text style={styles.combo}>{"\u00D7"}{lastCombo}</Text>
+          )}
+        </View>
       </Animated.View>
     </View>
   );
@@ -68,9 +80,20 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 200,
     alignItems: "center",
     zIndex: 100,
+  },
+  label: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 13,
+    color: COLORS.goldLight,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    marginBottom: 2,
+  },
+  contentColumn: {
+    alignItems: "center",
   },
   content: {
     flexDirection: "row",
