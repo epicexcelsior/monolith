@@ -139,6 +139,7 @@ interface TowerStore {
   isGestureActive: boolean;
   recentlyClaimedId: string | null;
   recentlyChargedId: string | null;
+  recentlyPokedId: string | null;
   glowUpBlockId: string | null;
   onboardingDone: boolean;
   initialized: boolean;
@@ -183,6 +184,8 @@ interface TowerStore {
   setRecentlyClaimedId: (id: string | null) => void;
   setRecentlyChargedId: (id: string | null) => void;
   clearRecentlyCharged: () => void;
+  setRecentlyPokedId: (id: string | null) => void;
+  clearRecentlyPoked: () => void;
   setGlowUpBlockId: (id: string | null) => void;
   clearGlowUpBlock: () => void;
   completeOnboarding: () => void;
@@ -224,6 +227,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   isGestureActive: false,
   recentlyClaimedId: null,
   recentlyChargedId: null,
+  recentlyPokedId: null,
   glowUpBlockId: null,
   onboardingDone: false,
   initialized: false,
@@ -475,6 +479,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setRecentlyClaimedId: (id) => set({ recentlyClaimedId: id }),
   setRecentlyChargedId: (id) => set({ recentlyChargedId: id }),
   clearRecentlyCharged: () => set({ recentlyChargedId: null }),
+  setRecentlyPokedId: (id) => set({ recentlyPokedId: id }),
+  clearRecentlyPoked: () => set({ recentlyPokedId: null }),
   setGlowUpBlockId: (id) => set({ glowUpBlockId: id }),
   clearGlowUpBlock: () => set({ glowUpBlockId: null }),
 

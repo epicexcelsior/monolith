@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import {
     View,
     Text,
@@ -10,10 +10,11 @@ import {
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useTowerStore } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
+import { usePlayerStore } from "@/stores/player-store";
 import TitleReveal from "./TitleReveal";
 import { BLOCK_COLORS, BLOCK_ICONS } from "@monolith/common";
 import { COLORS, SPACING, RADIUS, TEXT, TIMING } from "@/constants/theme";
-import { hapticButtonPress } from "@/utils/haptics";
+import { hapticButtonPress, hapticChargeTap } from "@/utils/haptics";
 import { playCustomize, playButtonTap, playChargeTap, playPokeSend } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 import Button from "@/components/ui/Button";
@@ -92,8 +93,14 @@ export default function OnboardingFlow() {
     const completeOnboarding = useTowerStore((s) => s.completeOnboarding);
     const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
     const setRecentlyChargedId = useTowerStore((s) => s.setRecentlyChargedId);
+    const setRecentlyPokedId = useTowerStore((s) => s.setRecentlyPokedId);
     const setShowConnectSheet = useWalletStore((s) => s.setShowConnectSheet);
+    const addPoints = usePlayerStore((s) => s.addPoints);
     const { triggerCelebration } = useClaimCelebration();
+
+    // Track charge animation state
+    const [chargeAnimating, setChargeAnimating] = useState(false);
+    const chargeBarWidth = useRef(new Animated.Value(0)).current;
 
     // Animations
     const claimFade = useRef(new Animated.Value(0)).current;
@@ -183,14 +190,27 @@ export default function OnboardingFlow() {
     // ─── Phase: CHARGE ────────────────────────────
     const handleCharge = useCallback(() => {
         if (!ghostBlockId) return;
-        hapticButtonPress();
+        hapticChargeTap();
         playChargeTap();
         ghostChargeBlock(ghostBlockId);
         setRecentlyChargedId(ghostBlockId);
+
+        // Trigger FloatingPoints "+25 XP"
+        addPoints({ pointsEarned: 25 });
+
+        // Animate energy bar fill
+        setChargeAnimating(true);
+        chargeBarWidth.setValue(0);
+        Animated.timing(chargeBarWidth, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: false,
+        }).start();
+
         setTimeout(() => {
             advancePhase(); // → poke
-        }, 800);
-    }, [ghostBlockId, ghostChargeBlock, setRecentlyChargedId, advancePhase]);
+        }, 1200);
+    }, [ghostBlockId, ghostChargeBlock, setRecentlyChargedId, addPoints, advancePhase, chargeBarWidth]);
 
     // ─── Phase: POKE ──────────────────────────────
     const handlePoke = useCallback(() => {
@@ -199,13 +219,18 @@ export default function OnboardingFlow() {
         playPokeSend();
         const nearbyId = pickNearbyBotBlock(ghostBlockId, demoBlocks as any);
         if (nearbyId) {
+            // Fly camera to the bot block + trigger poke shake
             selectBlock(nearbyId);
-            setRecentlyChargedId(nearbyId);
+            setRecentlyPokedId(nearbyId);
         }
+        // After 1.5s: fly camera back to ghost block, then advance
         setTimeout(() => {
-            advancePhase(); // → wallet
-        }, 600);
-    }, [ghostBlockId, demoBlocks, selectBlock, setRecentlyChargedId, advancePhase]);
+            selectBlock(ghostBlockId);
+            setTimeout(() => {
+                advancePhase(); // → wallet
+            }, 400);
+        }, 1500);
+    }, [ghostBlockId, demoBlocks, selectBlock, setRecentlyPokedId, advancePhase]);
 
     const handlePokeSkip = useCallback(() => {
         hapticButtonPress();
@@ -364,12 +389,35 @@ export default function OnboardingFlow() {
                             Miss 3 days and anyone can take it
                         </Text>
 
+                        {/* Energy bar */}
+                        <View style={styles.energyBarContainer}>
+                            <View style={styles.energyBarTrack}>
+                                <Animated.View
+                                    style={[
+                                        styles.energyBarFill,
+                                        {
+                                            width: chargeAnimating
+                                                ? chargeBarWidth.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: ["20%", "100%"],
+                                                })
+                                                : "20%",
+                                        },
+                                    ]}
+                                />
+                            </View>
+                            <Text style={styles.energyBarLabel}>
+                                {chargeAnimating ? "FULL" : "LOW"}
+                            </Text>
+                        </View>
+
                         <View style={styles.buttonRow}>
                             <Button
-                                title="⚡ CHARGE"
+                                title={chargeAnimating ? "⚡ CHARGED!" : "⚡ CHARGE"}
                                 variant="gold"
                                 size="lg"
                                 onPress={handleCharge}
+                                disabled={chargeAnimating}
                             />
                         </View>
 
@@ -543,6 +591,30 @@ const styles = StyleSheet.create({
         color: COLORS.fading,
         textAlign: "center",
         marginBottom: SPACING.md,
+    },
+    energyBarContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACING.sm,
+        marginBottom: SPACING.md,
+        paddingHorizontal: SPACING.sm,
+    },
+    energyBarTrack: {
+        flex: 1,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: COLORS.hudHighlight,
+        overflow: "hidden",
+    },
+    energyBarFill: {
+        height: "100%",
+        borderRadius: 6,
+        backgroundColor: COLORS.blazing,
+    },
+    energyBarLabel: {
+        ...TEXT.caption,
+        color: COLORS.textMuted,
+        width: 32,
     },
     panelHint: {
         ...TEXT.bodySm,

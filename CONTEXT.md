@@ -117,7 +117,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 ### State Management
 | File | Purpose |
 |------|---------|
-| `apps/mobile/stores/tower-store.ts` | Block data, selection, charge, decay loop, recentlyChargedId |
+| `apps/mobile/stores/tower-store.ts` | Block data, selection, charge, decay loop, recentlyChargedId, recentlyPokedId |
 | `apps/mobile/stores/multiplayer-store.ts` | Colyseus connection, state sync, recentEvents, chargesToday |
 | `apps/mobile/stores/player-store.ts` | XP, level, combo, lastPointsEarned, levelUp state |
 | `apps/mobile/stores/wallet-store.ts` | Wallet connection + balance |
@@ -325,6 +325,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: Polish Plan Phase 4 — onboarding charge & poke full simulation: charge step triggers FloatingPoints "+25 XP", energy bar fill animation in StepCard, hapticChargeTap(); poke step uses new `recentlyPokedId` store field → TowerGrid orange-red shake/flash animation (1s, decaying amplitude), camera flies to bot block then returns to ghost block after 1.5s. 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 3 — claim celebration camera fix: removed aftershock shake, added buildup shake escalation (0.1→0.4), dramatic zoom-out (1.6x), orbit stops at ZOOM_RETURN_DELAY, zoom-back before cinematic exits, gold→owner color glow-up transition, inspector reopens after celebration, blockId stored in ClaimCelebrationState. Durations: normal 4→5.5s, firstClaim 5.5→7s. 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 2 — onboarding UI standardization: all CTA buttons → `<Button>` component, all panel containers → `<StepCard>`, typography → TEXT presets, spring animations → TIMING tokens, CoachMark hardcoded rgba → COLORS tokens. Net -200 lines. On `feat/polish-plan` branch.
 - **2026-02-25**: Polish Plan Phase 1 — design system foundations: added `COLORS.goldMid`, `COLORS.blazingLight`, `COLORS.hudGlassStrong`, `SHADOW.blazing`, `TIMING.springOnboarding`/`springOnboardingReanimated` tokens; `Button` "gold" variant; new `ProgressDots` + `StepCard` reusable components; documented TIMING spring API split (RN Animated vs Reanimated). See `POLISH_PLAN.md` for full 10-phase plan.

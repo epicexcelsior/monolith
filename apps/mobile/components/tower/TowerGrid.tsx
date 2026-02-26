@@ -60,6 +60,8 @@ export default function TowerGrid() {
   const recentlyChargedId = useTowerStore((s) => s.recentlyChargedId);
   const clearRecentlyCharged = useTowerStore((s) => s.clearRecentlyCharged);
   const claimCelebrationRef = useTowerStore((s) => s.claimCelebrationRef);
+  const recentlyPokedId = useTowerStore((s) => s.recentlyPokedId);
+  const clearRecentlyPoked = useTowerStore((s) => s.clearRecentlyPoked);
   const glowUpBlockId = useTowerStore((s) => s.glowUpBlockId);
   const clearGlowUpBlock = useTowerStore((s) => s.clearGlowUpBlock);
 
@@ -72,8 +74,12 @@ export default function TowerGrid() {
   // Reusable Color objects to avoid per-frame GC pressure
   const tmpColorRef = useRef(new THREE.Color());
   const goldColorRef = useRef(new THREE.Color(1.0, 0.85, 0.2));
+  // Track poke flash animation (shake + orange-red flash)
+  const pokeFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
   // Reusable Color for charge flash — avoids `new THREE.Color()` every frame
   const chargeFlashColorRef = useRef(new THREE.Color(0.8, 0.9, 1.0));
+  // Reusable Color for poke flash
+  const pokeFlashColorRef = useRef(new THREE.Color(1.0, 0.5, 0.2));
 
   // Inspect focus animation state
   const fadeTargetsRef = useRef<Float32Array | null>(null);
@@ -424,6 +430,18 @@ export default function TowerGrid() {
     }
   }, [glowUpBlockId, blockData, clearGlowUpBlock]);
 
+  // Handle poke flash trigger (shake + orange-red flash)
+  useEffect(() => {
+    if (recentlyPokedId) {
+      const idx = blockData.findIndex((b) => b.id === recentlyPokedId);
+      if (idx >= 0) {
+        pokeFlashRef.current = { blockIndex: idx, time: 0 };
+      }
+      const timer = setTimeout(() => clearRecentlyPoked(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [recentlyPokedId, blockData, clearRecentlyPoked]);
+
   // ─── Reveal animation: scale blocks by layer during reveal ──
   // Tracked separately from transforms since it changes every frame during reveal
   const revealAppliedRef = useRef(false);
@@ -718,6 +736,96 @@ export default function TowerGrid() {
             colorAttr.needsUpdate = true;
           }
           glowUpRef.current = null;
+        }
+      }
+    }
+
+    // ─── Poke flash: orange-red shake pulse for 1.0 seconds ──
+    const pokeFlash = pokeFlashRef.current;
+    if (pokeFlash && meshRef.current) {
+      pokeFlash.time += delta;
+      const geo = meshRef.current.geometry;
+      const energyAttr = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+      const colorAttr = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+
+      if (energyAttr && colorAttr) {
+        const POKE_DURATION = 1.0;
+        if (pokeFlash.time < POKE_DURATION) {
+          const t = pokeFlash.time;
+          const block = blockData[pokeFlash.blockIndex];
+          if (block) {
+            // Intensity: quick flash then fade
+            let intensity: number;
+            if (t < 0.15) {
+              intensity = t / 0.15; // ramp up
+            } else if (t < 0.4) {
+              intensity = 1.0 - (t - 0.15) * 2.0; // fast fade
+              intensity = Math.max(0.3, intensity);
+            } else {
+              intensity = 0.3 * (1.0 - (t - 0.4) / 0.6); // gentle settle
+              intensity = Math.max(0, intensity);
+            }
+
+            energyAttr.array[pokeFlash.blockIndex] = Math.max(block.energy / 100, intensity);
+            energyAttr.needsUpdate = true;
+
+            // Blend orange-red poke color with owner color
+            const ownerCol = tmpColorRef.current.set(block.ownerColor);
+            const flashCol = pokeFlashColorRef.current.set(1.0, 0.5, 0.2);
+            const blended = flashCol.lerp(ownerCol, 1 - intensity);
+            colorAttr.array[pokeFlash.blockIndex * 3] = blended.r;
+            colorAttr.array[pokeFlash.blockIndex * 3 + 1] = blended.g;
+            colorAttr.array[pokeFlash.blockIndex * 3 + 2] = blended.b;
+            colorAttr.needsUpdate = true;
+
+            // Shake: offset the block's matrix with oscillating displacement
+            const layoutItem = layoutData[pokeFlash.blockIndex];
+            if (layoutItem) {
+              const shakeAmp = 0.08 * (1 - t / POKE_DURATION);
+              const shakeX = Math.sin(t * 40) * shakeAmp;
+              const shakeZ = Math.cos(t * 35) * shakeAmp;
+              const layerScale = getLayerScale(block.layer, config.layerCount);
+              const ts = layoutItem.tileScale;
+              const tempObj = tempObjRef.current;
+              tempObj.position.set(
+                block.position.x + shakeX,
+                block.position.y,
+                block.position.z + shakeZ,
+              );
+              tempObj.scale.set(layerScale * ts, layerScale, layerScale);
+              tempObj.rotation.set(0, layoutItem.rotY, 0);
+              tempObj.updateMatrix();
+              meshRef.current!.setMatrixAt(pokeFlash.blockIndex, tempObj.matrix);
+              meshRef.current!.instanceMatrix.needsUpdate = true;
+            }
+          }
+        } else {
+          // Flash complete — restore actual values + matrix
+          const block = blockData[pokeFlash.blockIndex];
+          if (block) {
+            energyAttr.array[pokeFlash.blockIndex] = block.energy / 100;
+            energyAttr.needsUpdate = true;
+            const tempColor = tmpColorRef.current.set(block.ownerColor);
+            colorAttr.array[pokeFlash.blockIndex * 3] = tempColor.r;
+            colorAttr.array[pokeFlash.blockIndex * 3 + 1] = tempColor.g;
+            colorAttr.array[pokeFlash.blockIndex * 3 + 2] = tempColor.b;
+            colorAttr.needsUpdate = true;
+
+            // Restore matrix to base position
+            const layoutItem = layoutData[pokeFlash.blockIndex];
+            if (layoutItem) {
+              const layerScale = getLayerScale(block.layer, config.layerCount);
+              const ts = layoutItem.tileScale;
+              const tempObj = tempObjRef.current;
+              tempObj.position.set(block.position.x, block.position.y, block.position.z);
+              tempObj.scale.set(layerScale * ts, layerScale, layerScale);
+              tempObj.rotation.set(0, layoutItem.rotY, 0);
+              tempObj.updateMatrix();
+              meshRef.current!.setMatrixAt(pokeFlash.blockIndex, tempObj.matrix);
+              meshRef.current!.instanceMatrix.needsUpdate = true;
+            }
+          }
+          pokeFlashRef.current = null;
         }
       }
     }

@@ -156,35 +156,47 @@ claim tap
 
 ---
 
-## Phase 4: Onboarding Charge & Poke Full Simulation
-**Why:** Charge and poke steps feel dead — button does nothing visible. Users should experience the REAL mechanic.
-**Scope:** `OnboardingFlow.tsx`, `tower-store.ts` (ghost functions), `TowerScene.tsx`
+## Phase 4: Onboarding Charge & Poke Full Simulation — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** 3 files changed (`OnboardingFlow.tsx`, `tower-store.ts`, `TowerGrid.tsx`)
 
-### Changes
-1. **Charge step simulation** (OnboardingFlow customize→charge transition):
-   - On "CHARGE" tap: call `ghostChargeBlock(ghostBlockId)`
-   - Set `recentlyChargedId` in tower-store → triggers blue-white charge flash on 3D block
-   - Show `FloatingPoints` with "+25 XP" (call `addPoints({ pointsEarned: 25, ... })`)
-   - Camera stays on the ghost block (already selected)
-   - Show energy bar filling in the StepCard (render a small `ChargeBar` inside the panel)
-   - Play `playChargeTap()` SFX + `hapticChargeTap()`
-   - After 800ms delay: advance to poke phase
+### What was done
+1. **Charge step simulation** (OnboardingFlow):
+   - `ghostChargeBlock(ghostBlockId)` + `setRecentlyChargedId` → blue-white charge flash on 3D block
+   - `addPoints({ pointsEarned: 25 })` → triggers FloatingPoints "+25 XP" animation
+   - Energy bar in StepCard: animates from 20% → 100% fill (600ms, `COLORS.blazing`)
+   - Button text → "⚡ CHARGED!" + disabled after tap
+   - `hapticChargeTap()` + `playChargeTap()` SFX
+   - Advance delay: 1200ms (lets energy bar + XP animation play out)
 
-2. **Poke step simulation** (OnboardingFlow poke phase):
-   - On "POKE" tap: find nearest bot block (existing logic, line ~472)
-   - Briefly fly camera to the bot block (`selectBlock(botBlockId)`)
-   - Show a "poke" visual on the bot block (set `recentlyPokedId` → shake animation)
-   - Play `playPoke()` SFX + haptic
-   - After 1.5s: fly camera back to ghost block, advance to wallet phase
+2. **Poke step simulation** (OnboardingFlow):
+   - Finds nearest bot block via existing `pickNearbyBotBlock`
+   - Camera flies to bot block + `setRecentlyPokedId(nearbyId)` → orange-red shake flash on 3D block
+   - After 1.5s: camera flies back to ghost block
+   - After 400ms settling: advance to wallet phase
 
-3. **`tower-store.ts`** — Add `recentlyPokedId` state (mirrors `recentlyChargedId` pattern):
-   - Set on poke, auto-clear after 1s
-   - TowerGrid reads it for a brief shake/flash on the poked instance
+3. **`tower-store.ts`** — Added `recentlyPokedId` state:
+   - New state field + `setRecentlyPokedId` / `clearRecentlyPoked` actions
+   - Mirrors `recentlyChargedId` pattern exactly
 
-### Verify
-- Run through onboarding from scratch (long-press MONOLITH to replay)
-- Charge step: block should flash blue-white, "+25 XP" should float, energy bar in panel should fill
-- Poke step: camera flies to neighbor, block shakes, camera returns
+4. **`TowerGrid.tsx`** — Poke shake animation:
+   - Subscribes to `recentlyPokedId`, triggers on change
+   - 1.0s animation: orange-red color flash (`rgb(1.0, 0.5, 0.2)`) + high-frequency shake (40Hz oscillation, decaying amplitude 0.08→0)
+   - Pre-allocated `pokeFlashColorRef` (no GC pressure)
+   - Matrix restored to base position after animation completes
+
+### Deviations from original plan
+- **Advance delay changed from 800ms to 1200ms:** Needed more time for the energy bar fill + FloatingPoints animation to be visible before transitioning to poke phase.
+- **Poke advance uses nested timeouts (1500ms + 400ms) instead of single 1500ms:** Camera return to ghost block needs a settling delay before the wallet phase UI appears, otherwise the transition feels jarring.
+- **Used simple Animated.Value energy bar instead of `ChargeBar` component:** Plan specified "render a small `ChargeBar` inside the panel" — no `ChargeBar` component exists. Built a lightweight inline energy bar (track + fill + label) instead of creating a new component for a single use.
+- **Poke visual is orange-red flash + shake, not just shake:** Added color flash for visibility — a pure position shake on a small 3D block is hard to notice. Orange-red differentiates from the blue-white charge flash.
+- **Scope changed from `TowerScene.tsx` to `TowerGrid.tsx`:** Poke animation is a per-instance color+position effect, which belongs in TowerGrid (where all instance attribute animations live), not TowerScene (camera orchestration).
+
+### Verified
+- `npx tsc --noEmit` — 0 errors
+- `npx jest` — 222 tests passing (18 suites)
+- Grep for hardcoded colors in changed files — clean (only `rgba(0,0,0,0.8)` text shadow)
 
 ---
 
