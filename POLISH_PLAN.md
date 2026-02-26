@@ -344,8 +344,9 @@ claim tap
    - FAB visibility: `revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen`
 
 ### Deviations from original plan
-- **Skipped pulse animation on FAB**: The red urgency dot is sufficient visual indicator. A pulsing FAB would be distracting during normal gameplay.
-- **Kept charge handler in MyBlocksPanel** rather than routing through `useBlockActions`: Panel's handler works differently (no selectedBlockId dependency), and the daily bonus logic is already correct from Phase 5.
+- **Skipped pulse animation on FAB**: The red urgency dot is sufficient visual indicator. A pulsing FAB would be distracting during normal gameplay and causes unnecessary re-renders.
+- **Kept charge handler in MyBlocksPanel** rather than routing through `useBlockActions`: Panel's handler works differently (batch "Charge All" with stagger, no selectedBlockId dependency). The daily bonus logic (`isFirstToday ? 50 : 25`) is duplicated from useBlockActions but consistent — extracting to a shared constant would add indirection for two call sites.
+- **Did not extract `pts = 25/50` to constants**: Plan suggested importing from constants. Values are duplicated in MyBlocksPanel and useBlockActions, but they're identical and intentional (50 for daily bonus, 25 for regular). A constant adds import overhead for a 2-site duplication. Acceptable trade-off for a hackathon codebase.
 
 ### Verified
 - `npx tsc --noEmit` — 0 errors
@@ -385,7 +386,10 @@ claim tap
 ### Deviations from original plan
 - **Split "fading" into dying + fading types**: Blocks < 5% energy get "dying" type with red `COLORS.flickering` tint, 5-19% get "fading" with amber tint. Better urgency differentiation.
 - **Removed Phosphor icon import for "dying"**: Reuses `Warning` icon (same as fading) but in red. Adding a new icon for one variant is unnecessary.
-- **Used View instead of ScrollView**: Plan said "horizontally scrollable". With MAX_CARDS=3 at 120px min-width, cards fit on all modern phones. ScrollView with `pointerEvents="box-none"` (needed to pass through 3D touches) breaks scroll gestures — a fundamental conflict. View with `box-none` is correct.
+- **Icon size 14px (plan said 16px)**: 14px balances better with 12px text at 44px card height. 16px felt oversized in testing.
+- **No "·" separator in layout**: Plan described `[icon] [emoji] [name] [·] [detail]`. Implementation uses `gap: SPACING.xs` between elements instead — cleaner than a literal dot separator, which would add visual noise at 12px scale.
+- **Used View instead of ScrollView**: Plan said "horizontally scrollable". With MAX_CARDS=3 at 120px min-width, cards fit on all modern phones (360px+ width). ScrollView with `pointerEvents="box-none"` (needed to pass through 3D touches) breaks scroll gestures — a fundamental RN conflict. View with `box-none` is correct.
+- **Vertical stack instead of horizontal row**: Cards stack vertically (right-aligned) instead of a horizontal scroll row. This avoids the ScrollView+pointerEvents conflict entirely and makes each card independently tappable without scroll confusion.
 - **Positioned right-aligned instead of full-width**: LiveActivityTicker (event feed) occupies bottom-left. HotBlockTicker (notable blocks) now sits bottom-right. Avoids overlap, both serve complementary purposes.
 - **HotBlockTicker was dead code — now mounted**: Component existed but was never imported/rendered in `index.tsx`. Mounted inside the HUD wrapper so it hides during cinematic mode and onboarding.
 
