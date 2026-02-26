@@ -46,9 +46,11 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Real activity feed on Board tab** (fetches from /api/events, fallback to generated)
 - **Poke mechanic** (tap opponent's block → poke, 30s cooldown, server-validated, push notification)
 - **Username system** (set display name, persisted to Supabase, shown on blocks + leaderboard)
-- **My Blocks panel** (bottom sheet listing owned blocks, tap to fly camera)
+- **My Blocks panel** (bottom sheet listing owned blocks, urgency-sorted, Charge All, tap to fly camera)
+- **My Blocks FAB** (floating action button, bottom-right — single block: fly to it, multi: open panel, red urgency dot)
 - **Push notifications** (hourly decay check, poke alerts — server handler + expo-notifications)
-- **HotBlockTicker** (bottom-left pills for claimable/fading/streak blocks, tap to inspect)
+- **HotBlockTicker** (bottom-right mini-cards for dying/fading/claimable/streak blocks — per-type colors, tap to inspect)
+- **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
 - **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast)
 - **Settings polish** (haptics toggle, username display, replay onboarding)
 - **UI overhaul** — tower reveal animation, FloatingNav pills (replaced tab bar), TopHUD, BoardSheet/SettingsSheet bottom panels, WalletConnectSheet card, LiveActivityTicker with poke-random, BlockInspector split into sub-components, swipe-to-dismiss everywhere, dead code cleanup
@@ -102,7 +104,9 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/LayerIndicator.tsx` | Floor scrubber / layer nav |
 | `apps/mobile/components/ui/ClaimModal.tsx` | Block claim confirmation modal |
 | `apps/mobile/components/ui/AchievementToast.tsx` | Slide-in achievement notifications (7 types) |
-| `apps/mobile/components/ui/MyBlocksPanel.tsx` | Bottom sheet listing owned blocks |
+| `apps/mobile/components/ui/MyBlocksPanel.tsx` | Bottom sheet listing owned blocks (urgency-sorted, Charge All) |
+| `apps/mobile/components/ui/MyBlockFAB.tsx` | Floating action button for quick access to owned blocks |
+| `apps/mobile/components/ui/HotBlockTicker.tsx` | Bottom-right notable block mini-cards (dying/fading/claimable/streak) |
 | `apps/mobile/components/ui/UsernameModal.tsx` | Set display name modal |
 | `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator |
 | `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions |
@@ -129,7 +133,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 ### Screens (Expo Router)
 | File | Purpose |
 |------|---------|
-| `apps/mobile/app/(tabs)/index.tsx` | Home screen (tower + HUD + FloatingPoints + LevelUp + HotBlockTicker) |
+| `apps/mobile/app/(tabs)/index.tsx` | Home screen (tower + HUD + FloatingPoints + LevelUp + HotBlockTicker + MyBlockFAB) |
 | `apps/mobile/app/(tabs)/blocks.tsx` | Board: leaderboard (tappable) + real activity feed |
 | `apps/mobile/app/(tabs)/settings.tsx` | Me tab: XP stats, best streak, faucet button |
 | `apps/mobile/app/faucet.tsx` | Devnet faucet (SOL airdrop + USDC link) |
@@ -162,7 +166,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | File | Purpose |
 |------|---------|
 | `packages/common/src/layout.ts` | Tower geometry / block position math |
-| `packages/common/src/constants.ts` | Shared tower dimensions, limits |
+| `packages/common/src/constants.ts` | Shared tower dimensions, limits, layer pricing, customization tiers |
 | `packages/common/src/types.ts` | Shared TypeScript types (ClaimMessage, ChargeMessage, ActivityEvent) |
 
 ### Database
@@ -257,7 +261,7 @@ cd apps/mobile && npx expo start --dev-client
 
 ### Test
 ```bash
-cd apps/mobile && npx jest              # 220 tests, 18 suites
+cd apps/mobile && npx jest              # 222 tests, 18 suites
 cd apps/server && npx jest              # 84 tests, 6 suites
 ```
 
@@ -325,6 +329,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: Polish Plan Phases 7-10 — layer-based pricing (getLayerMinPrice quadratic curve, tier badges in ClaimModal + InspectorActions), MyBlockFAB (bottom-right FAB for owned blocks, urgency dot), MyBlocksPanel polish (urgency sorting, Charge All with stagger, bigger rows), HotBlockTicker redesign (44px mini-cards, per-type colors/borders, priority sorting, FadeInLeft animation, mounted bottom-right), final polish (LayerIndicator → TIMING.springSnappy, ClaimModal stale-state fix, HotBlockTicker mounted). 222 mobile + 84 server tests passing.
 - **2026-02-25**: Polish Plan Phase 6 — block customization tiered unlocks: CUSTOMIZATION_TIERS config + helpers in common/constants.ts (8 base colors/streak 3+ all 16, 20 base emojis/streak 30+ all 48, base styles free/streak 7+ animated Lava-Nature, streak 14+ textures), InspectorCustomize rewrite with lock overlays + streak requirements + "Make it yours!" post-claim encouragement, removed "More styles" expander in favor of visible-but-gated grid. 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 5 — charge mechanic dopamine overhaul: XP pill in TopHUD (XPBar + spring pulse on change), streak badge above CHARGE button in InspectorActions, daily first-charge bonus (50 XP + "Daily Charge ✓" label + haptic), recentlyChargedId set on local charge for 3D flash, FloatingPoints dynamic positioning (above inspector when visible) + custom label support, MyBlocksPanel charge bug fixed (removed hardcoded pts=25, added recentlyChargedId + daily bonus). 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 4 — onboarding charge & poke full simulation: charge step triggers FloatingPoints "+25 XP", energy bar fill animation in StepCard, hapticChargeTap(); poke step uses new `recentlyPokedId` store field → TowerGrid orange-red shake/flash animation (1s, decaying amplitude), camera flies to bot block then returns to ghost block after 1.5s. 222 tests passing.

@@ -342,6 +342,31 @@ export function getStreakRequirement(category: "premiumColors" | "animatedStyles
   }
 }
 
+// ─── Layer-Based Pricing ─────────────────────────────────
+// Higher floors cost more to claim. Gentle exponential curve.
+// Layer 0: $0.10, Layer 12 (mid): ~$0.35, Layer 24 (top): ~$1.00
+
+/**
+ * Get the minimum stake price (in USD) for a given layer.
+ * Uses a gentle quadratic curve: base + 0.90 * (layer/maxLayer)^2
+ */
+export function getLayerMinPrice(layer: number): number {
+  const maxLayer = DEFAULT_TOWER_CONFIG.layerCount - 1;
+  const ratio = Math.min(layer, maxLayer) / maxLayer;
+  return Math.round((0.10 + 0.90 * ratio * ratio) * 100) / 100;
+}
+
+/**
+ * Get a human-readable tier label for a layer's price tier.
+ */
+export function getLayerTierLabel(layer: number): string {
+  const maxLayer = DEFAULT_TOWER_CONFIG.layerCount - 1;
+  const ratio = layer / maxLayer;
+  if (ratio < 0.33) return "Ground Floor";
+  if (ratio < 0.66) return "Mid Tower";
+  return "Penthouse";
+}
+
 // ─── Network ──────────────────────────────────────────────
 /** Default Solana RPC endpoint */
 export const DEFAULT_RPC_URL = "https://api.devnet.solana.com";

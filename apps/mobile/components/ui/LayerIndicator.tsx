@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo, useCallback } from "react";
 import { View, Text, StyleSheet, Animated, PanResponder, useWindowDimensions } from "react-native";
-import { COLORS, SPACING } from "@/constants/theme";
+import { COLORS, SPACING, TIMING } from "@/constants/theme";
 import { useTowerStore } from "@/stores/tower-store";
 import { DEFAULT_TOWER_CONFIG, getLayerY } from "@monolith/common";
 import { hapticBlockSelect, hapticLayerCross } from "@/utils/haptics";
@@ -137,8 +137,7 @@ export default function LayerIndicator() {
         Animated.spring(dotPosition, {
             toValue: targetY,
             useNativeDriver: true,
-            tension: 80,
-            friction: 12,
+            ...TIMING.springSnappy,
         }).start();
 
         // Show indicator on change (but don't override bright state while dragging)

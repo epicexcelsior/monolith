@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,12 +6,11 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
 } from "react-native";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT, TIMING } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT } from "@/constants/theme";
 import Input from "./Input";
 import Button from "./Button";
-import { BLOCK_COLORS } from "@monolith/common";
+import { BLOCK_COLORS, getLayerMinPrice, getLayerTierLabel } from "@monolith/common";
 import { hapticButtonPress, hapticError } from "@/utils/haptics";
 import { playButtonTap, playError } from "@/utils/audio";
 
@@ -32,13 +31,24 @@ export default function ClaimModal({
   onClaim,
   onClose,
 }: ClaimModalProps) {
-  const [amount, setAmount] = useState("1");
+  const minPrice = getLayerMinPrice(layer);
+  const tierLabel = getLayerTierLabel(layer);
+  const [amount, setAmount] = useState(minPrice.toFixed(2));
   const [selectedColor, setSelectedColor] = useState<string>(BLOCK_COLORS[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset amount when modal opens for a (potentially different) block
+  useEffect(() => {
+    if (visible) {
+      setAmount(minPrice.toFixed(2));
+      setSelectedColor(BLOCK_COLORS[0]);
+      setError(null);
+    }
+  }, [visible, minPrice]);
+
   const amountNum = parseFloat(amount) || 0;
-  const isValidAmount = amountNum >= 0.10;
+  const isValidAmount = amountNum >= minPrice;
 
   const handleClaim = async () => {
     if (!isValidAmount || isLoading) return;
@@ -79,6 +89,10 @@ export default function ClaimModal({
           <Text style={styles.subtitle}>
             Layer {layer} / Block {index}
           </Text>
+          <View style={styles.tierBadge}>
+            <Text style={styles.tierLabel}>{tierLabel}</Text>
+            <Text style={styles.tierPrice}>${minPrice.toFixed(2)} minimum</Text>
+          </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {/* Amount input */}
@@ -92,9 +106,9 @@ export default function ClaimModal({
               prefix="$"
               suffix="USDC"
               keyboardType="decimal-pad"
-              placeholder="1.00"
-              error={amount.length > 0 && !isValidAmount ? "Minimum 0.10 USDC" : undefined}
-              hint="Stake USDC to claim this block"
+              placeholder={minPrice.toFixed(2)}
+              error={amount.length > 0 && !isValidAmount ? `Minimum $${minPrice.toFixed(2)} for Layer ${layer}` : undefined}
+              hint={`Layer ${layer} minimum: $${minPrice.toFixed(2)} USDC`}
             />
 
             {/* Color picker */}
@@ -178,7 +192,28 @@ const styles = StyleSheet.create({
   subtitle: {
     ...TEXT.caption,
     marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  tierBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.goldSubtle,
     marginBottom: SPACING.lg,
+  },
+  tierLabel: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 12,
+    color: COLORS.gold,
+    letterSpacing: 0.3,
+  },
+  tierPrice: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 12,
+    color: COLORS.gold,
   },
   body: {
     marginBottom: SPACING.lg,

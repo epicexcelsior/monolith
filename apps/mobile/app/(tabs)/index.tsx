@@ -16,9 +16,12 @@ import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import ScreenFlash from "@/components/ui/ScreenFlash";
 import LiveActivityTicker from "@/components/ui/LiveActivityTicker";
+import HotBlockTicker from "@/components/ui/HotBlockTicker";
 import AchievementToast from "@/components/ui/AchievementToast";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import FloatingNav from "@/components/ui/FloatingNav";
+import MyBlockFAB from "@/components/ui/MyBlockFAB";
+import MyBlocksPanel from "@/components/ui/MyBlocksPanel";
 import BoardSheet from "@/components/ui/BoardSheet";
 import SettingsSheet from "@/components/ui/SettingsSheet";
 import TopHUD from "@/components/ui/TopHUD";
@@ -45,10 +48,11 @@ export default function TowerScreen() {
   const [activeNav, setActiveNav] = useState<"tower" | "board" | "me">("tower");
   const [showBoard, setShowBoard] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showMyBlocks, setShowMyBlocks] = useState(false);
   const showWalletConnect = useWalletStore((s) => s.showConnectSheet);
 
   // FloatingNav hides when any overlay/sheet is open — single derived boolean
-  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect;
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks;
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -181,6 +185,9 @@ export default function TowerScreen() {
         {/* Live activity ticker — bottom-left, streaming events */}
         {initialized && !isOnboarding && <LiveActivityTicker />}
 
+        {/* Hot block ticker — bottom-right, notable blocks needing attention */}
+        {initialized && !isOnboarding && <HotBlockTicker />}
+
         {/* Achievement toast — slides in from top, auto-dismisses */}
         <AchievementToast />
       </Animated.View>
@@ -192,6 +199,18 @@ export default function TowerScreen() {
         activeTab={activeNav}
         onTabPress={handleNavTab}
         visible={revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen}
+      />
+
+      {/* My Blocks FAB — quick access to owned blocks */}
+      <MyBlockFAB
+        visible={revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen}
+        onOpenPanel={() => setShowMyBlocks(true)}
+      />
+
+      {/* My Blocks panel — opened by FAB for multi-block owners */}
+      <MyBlocksPanel
+        visible={showMyBlocks}
+        onClose={() => setShowMyBlocks(false)}
       />
 
       {/* Board sheet — opens over tower */}

@@ -287,139 +287,145 @@ claim tap
 
 ---
 
-## Phase 7: Layer-Based Pricing
-**Why:** Higher floors should feel more exclusive and valuable.
-**Scope:** `packages/common/src/constants.ts`, `ClaimModal.tsx`, `InspectorActions.tsx`
+## Phase 7: Layer-Based Pricing — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** 3 files changed (`constants.ts`, `ClaimModal.tsx`, `InspectorActions.tsx`)
 
-### Changes
-
-1. **Pricing formula** in `packages/common/src/constants.ts`:
-   ```ts
-   export function getLayerMinPrice(layer: number): number {
-     // Layer 0: $0.10, Layer 12 (mid): ~$0.35, Layer 24 (top): ~$1.00
-     // Gentle exponential: base * (1 + layer/maxLayer)^2
-     const ratio = layer / MAX_LAYERS;
-     return Math.round((0.10 + 0.90 * ratio * ratio) * 100) / 100;
-   }
-   ```
+### What was done
+1. **`packages/common/src/constants.ts`** — Added `getLayerMinPrice(layer)` and `getLayerTierLabel(layer)`:
+   - Gentle quadratic curve: Layer 0 = $0.10, Layer 12 = ~$0.35, Layer 24 = ~$1.00
+   - Tier labels: "Ground Floor" / "Mid Tower" / "Penthouse"
+   - Uses `DEFAULT_TOWER_CONFIG.layerCount` for max layer (no hardcoded magic number)
 
 2. **`ClaimModal.tsx`**:
-   - Import `getLayerMinPrice`
-   - Set initial amount to `getLayerMinPrice(layer)` instead of "1"
-   - Validate: `amountNum >= getLayerMinPrice(layer)` instead of `>= 0.10`
-   - Show: `"Layer ${layer} minimum: $${min}"` helper text
-   - Show layer price tier badge: "Ground Floor" / "Mid Tower" / "Penthouse"
+   - Initial amount defaults to layer min price (not hardcoded "1")
+   - Validation uses `amountNum >= minPrice` (not `>= 0.10`)
+   - Tier badge row: shows tier label + minimum price on `COLORS.goldSubtle` background
+   - Error message includes layer number: "Minimum $X.XX for Layer Y"
+   - Hint text shows layer-specific minimum
 
-3. **`InspectorActions.tsx`** — Show price on unclaimed blocks:
-   - Below "CLAIM" button: `"$${getLayerMinPrice(layer)} minimum stake"`
-   - Higher layers get a premium badge
+3. **`InspectorActions.tsx`** — Price row below CLAIM button:
+   - `"$X.XX minimum stake"` in mono font
+   - Premium badge (gold on `goldSubtle` bg) for layers 16+ (Penthouse tier)
 
-### Verify
-- Tap unclaimed block at layer 0 → ClaimModal shows $0.10 min
-- Tap unclaimed block at layer 20 → ClaimModal shows ~$0.75 min
-- Try to enter less than minimum → error shown
+### Verified
+- `npx tsc --noEmit` — 0 errors
+- `npx jest` — 222 tests passing (18 suites)
 
 ---
 
-## Phase 8: Block Management — My Block FAB + Panel Polish
-**Why:** Can't find or manage blocks easily. Need one-tap access + better multi-block UX.
-**Scope:** `index.tsx` (home screen), `MyBlocksPanel.tsx`, NEW `MyBlockFAB.tsx`
+## Phase 8: Block Management — My Block FAB + Panel Polish — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** 3 files changed/created (`MyBlockFAB.tsx` NEW, `MyBlocksPanel.tsx`, `index.tsx`)
 
-### Changes
-
+### What was done
 1. **`components/ui/MyBlockFAB.tsx`** — NEW floating action button:
-   - Position: bottom-right, above FloatingNav (use `insets.bottom + 56 + SPACING.md`)
-   - Shows when player owns 1+ blocks AND no block is selected AND no overlay open
-   - Single block owner: tap → camera flies directly to their block + opens inspector
-   - Multi-block owner: tap → opens improved MyBlocksPanel
-   - Visual: glass circle (48px) with block emoji (or stack icon if multiple), gold border, pulse animation if any block needs attention (fading/dying)
-   - Badge: red dot if any block is below 20% energy (urgency indicator)
+   - 48px glass circle with gold glow border, positioned bottom-right above FloatingNav
+   - Single block owner: tap flies to block + opens inspector
+   - Multi-block owner: tap opens MyBlocksPanel
+   - Shows block emoji (single) or construction icon (multi)
+   - Count badge (gold) for multi-block owners
+   - Red urgency dot when any block < 20% energy
+   - Hidden during onboarding, cinematic mode, or when any overlay is open
 
-2. **`MyBlocksPanel.tsx`** — Polish for multi-block management:
-   - **Sort by urgency**: dying/fading blocks bubble to top (not buried by layer order)
-   - **"Charge All" button** at top: charges all owned blocks in sequence (with 200ms stagger for satisfying cascade), shows total XP earned
-   - **Bigger rows**: emoji 28px (was 20), block name prominent, energy % large
-   - **Color-coded energy bars**: red/orange/green gradient matching block state
-   - **Quick actions without closing panel**: charge button charges in-place (panel stays open), only tapping the block row itself flies camera + closes panel
-   - **Remove hardcoded `pts = 25`**: import from constants or route through `useBlockActions`
-   - **Add scroll indicator**: `showsVerticalScrollIndicator={true}` with styled scrollbar
-   - **Urgency header**: "⚠️ 2 blocks need attention" when dying/fading blocks exist
+2. **`MyBlocksPanel.tsx`** — Full polish:
+   - **Urgency sorting**: dead > dying > fading > healthy (energy-based priority)
+   - **"Charge All" button**: gold variant, charges all blocks with 200ms stagger, shows total XP
+   - **Urgency header**: "⚠️ N blocks need attention" when dying/fading blocks exist
+   - **Bigger rows**: emoji 28px (was 20), block name 14px (was 13), energy % 13px (was 11)
+   - Panel height increased to 420 (was 360) for more visible rows
+   - Scroll indicator enabled (`showsVerticalScrollIndicator={true}`)
 
-3. **`index.tsx`** — Mount MyBlockFAB:
-   - Add to `anyOverlayOpen` check (hide FAB when overlays open)
-   - Position in render tree after FloatingNav
+3. **`index.tsx`** — Mounted FAB + panel:
+   - `showMyBlocks` state added, included in `anyOverlayOpen` derivation
+   - FAB rendered after FloatingNav, panel rendered after FAB
+   - FAB visibility: `revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen`
 
-### Verify
-- Own 1 block → FAB shows with block emoji → tap → flies to block
-- Own 3 blocks → FAB shows stack icon → tap → panel opens sorted by urgency
-- Dying block sorts to top with red energy bar
-- "Charge All" charges all blocks, shows XP cascade
-- FAB hides when inspector/sheet/onboarding is open
+### Deviations from original plan
+- **Skipped pulse animation on FAB**: The red urgency dot is sufficient visual indicator. A pulsing FAB would be distracting during normal gameplay.
+- **Kept charge handler in MyBlocksPanel** rather than routing through `useBlockActions`: Panel's handler works differently (no selectedBlockId dependency), and the daily bonus logic is already correct from Phase 5.
 
----
-
-## Phase 9: HotBlockTicker Upgrade
-**Why:** Pills are too small (9px text!) with no useful info. Need bigger cards with context.
-**Scope:** `HotBlockTicker.tsx`
-
-### Changes
-
-1. **Redesign pill → mini-card**:
-   - Width: auto (min 120px), height: 44px (was ~24px)
-   - Layout: `[icon 16px] [emoji] [owner name or "Unclaimed"] [·] [reason badge]`
-   - Font: 12px bodySemibold (was 9px)
-   - Background: per-type color tint (not all the same `hudPillBg`):
-     - Claimable: `COLORS.dormant` at 20% opacity
-     - Fading: `COLORS.fading` at 20% opacity
-     - New: `COLORS.goldSubtle`
-     - Streak: `COLORS.blazing` at 20% opacity
-   - Border: subtle 1px matching type color at 30% opacity
-
-2. **Better content per type**:
-   - Claimable: `"💀 Unclaimed · L8"` (or owner name + "Lost it!")
-   - Fading: `"⚠️ {emoji} {name} · 12% · L5"` (show energy %)
-   - New: `"✨ {emoji} {name} · Just claimed!"`
-   - Streak: `"🔥 {emoji} {name} · 14d streak"` (show full context)
-
-3. **Priority sorting**: dying (lowest energy first) > fading > claimable > streak > new
-
-4. **Entrance animation**: cards slide in from left with stagger (200ms between each), spring animation
-
-5. **Max 3 cards**, but horizontally scrollable if more notable blocks exist
-
-### Verify
-- Cards are clearly readable (12px+, full context)
-- Tap a card → camera flies to that block
-- Cards animate in smoothly
-- Different types have visually distinct colors
+### Verified
+- `npx tsc --noEmit` — 0 errors
+- `npx jest` — 222 tests passing (18 suites)
 
 ---
 
-## Phase 10: Final Polish Pass
-**Why:** Catch remaining inconsistencies, remove placeholder content, verify everything works together.
-**Scope:** Cross-cutting — all files touched in Phases 1-9
+## Phase 9: HotBlockTicker Upgrade — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** 1 file rewritten (`HotBlockTicker.tsx`)
 
-### Changes
+### What was done
+1. **Redesigned pills → mini-cards**:
+   - Min 120px wide, 44px tall (was ~24px)
+   - Layout: `[icon 14px] [emoji] [name] [detail]`
+   - Font: 12px bodySemibold name, 11px mono detail (was 9px)
+   - Per-type backgrounds: 20% opacity tints of state colors
+   - Per-type borders: 30% opacity matching state colors
+   - 5 card types: dying, fading, claimable, streak, new
 
-1. **Remove placeholder demo artifacts**:
-   - Verify `imageIndex` options aren't shown (solana/dogecoin/etc. are placeholder atlas images)
-   - Verify bot blocks don't show "Charge" action to the player (ownership enforcement)
+2. **Rich content per type**:
+   - Dying: energy % + layer (red tint)
+   - Fading: energy % + layer (amber tint)
+   - Claimable: name or "Unclaimed" + layer (grey tint)
+   - Streak: streak duration (blazing tint)
+   - New: "Just claimed!" (gold tint)
 
-2. **Consistent glass panels**: audit all BottomPanel / sheet usage for consistent `GLASS_STYLE.hudDark` base
+3. **Priority sorting**: dying (0) > fading (1) > claimable (2) > streak (4) > new (5)
 
-3. **Typography audit**: grep for raw `fontSize:` in components — should all use TEXT presets
+4. **Entrance animation**: `FadeInLeft` with 200ms stagger per card, springify with damping 14 / stiffness 120
 
-4. **Animation audit**: grep for raw `tension:` / `friction:` — should all use TIMING presets
+5. **Horizontally scrollable** `ScrollView` with `pointerEvents="box-none"`, max 3 cards shown
 
-5. **Test full flow end-to-end**:
-   - Fresh install (no SecureStore) → cinematic → title → claim → celebration (fixed camera) → customize (tiered) → charge (full sim with VFX + XP) → poke (full sim) → wallet → done
-   - Post-onboarding: charge block → streak display + XP in HUD + dopamine
-   - Find my block via FAB → fly to block
-   - HotBlockTicker shows notable blocks with full context
-   - Higher layer blocks cost more
-   - MyBlocksPanel shows urgency-sorted blocks with charge-all
+6. **Haptic + audio feedback** on card tap (was missing)
 
-6. **Run all tests**: `cd apps/mobile && npx jest` + `timeout 90 npx tsc --noEmit`
+### Deviations from original plan
+- **Split "fading" into dying + fading types**: Blocks < 5% energy get "dying" type with red `COLORS.flickering` tint, 5-19% get "fading" with amber tint. Better urgency differentiation.
+- **Removed Phosphor icon import for "dying"**: Reuses `Warning` icon (same as fading) but in red. Adding a new icon for one variant is unnecessary.
+- **Used View instead of ScrollView**: Plan said "horizontally scrollable". With MAX_CARDS=3 at 120px min-width, cards fit on all modern phones. ScrollView with `pointerEvents="box-none"` (needed to pass through 3D touches) breaks scroll gestures — a fundamental conflict. View with `box-none` is correct.
+- **Positioned right-aligned instead of full-width**: LiveActivityTicker (event feed) occupies bottom-left. HotBlockTicker (notable blocks) now sits bottom-right. Avoids overlap, both serve complementary purposes.
+- **HotBlockTicker was dead code — now mounted**: Component existed but was never imported/rendered in `index.tsx`. Mounted inside the HUD wrapper so it hides during cinematic mode and onboarding.
+
+### Verified
+- `npx tsc --noEmit` — 0 errors
+- `npx jest` — 222 tests passing (18 suites)
+
+---
+
+## Phase 10: Final Polish Pass — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** Cross-cutting audit + 4 files fixed
+
+### What was done
+1. **Animation audit fix**: `LayerIndicator.tsx` had hardcoded `tension: 80, friction: 12` — replaced with `TIMING.springSnappy` (exact match)
+
+2. **Bug fix: ClaimModal stale amount**: `useState(minPrice.toFixed(2))` only ran once — if modal reopened for a different layer, amount was stale. Added `useEffect` to reset `amount`, `selectedColor`, and `error` when `visible` or `minPrice` changes. Also removed unused `ActivityIndicator` import.
+
+3. **Bug fix: HotBlockTicker not mounted**: Component existed as dead code — never imported in `index.tsx`. Now mounted inside the HUD `Animated.View` (hides during cinematic + onboarding). Positioned bottom-right to avoid overlapping LiveActivityTicker (bottom-left).
+
+4. **Bug fix: HotBlockTicker ScrollView → View**: `ScrollView` with `pointerEvents="box-none"` breaks scroll gestures (fundamental conflict). Replaced with `View` since MAX_CARDS=3 at 120px fits on all modern phones without scrolling.
+
+5. **Glass panel audit**: All BottomPanel/sheet usage is consistent — `dark` prop correctly toggles between light glass (BoardSheet, SettingsSheet) and dark HUD glass (MyBlocksPanel, WalletConnectSheet)
+
+6. **Typography audit**: Remaining hardcoded fontSize values (10px, 13px) are intentional — no TEXT preset exists for these sizes. They're used in compact UI elements (badges, streak text, mono labels) where creating a preset for 1-2 uses would be over-engineering.
+
+7. **Remaining hardcoded tension/friction** (intentionally left as-is):
+   - `BottomPanel` + `BlockInspector`: tension 200, friction 20 — deliberately snappy for drag snap-back
+   - `AchievementToast`: tension 60, friction 10 — close to `springOnboarding` (60, 8) but different feel
+   - `index.tsx` cinematic anim: conditional values (80/40 tension) — dynamic, can't use single preset
+
+8. **Hardcoded color audit**: Phase 7-10 files are clean except for:
+   - `MyBlocksPanel` row bg `rgba(255,255,255,0.06)` — standard dark glass pattern, no matching token
+   - `HotBlockTicker` TYPE_BG/TYPE_BORDER maps — derived opacity variants of state colors, creating 10 new tokens would be excessive
+
+### Verified
+- `npx tsc --noEmit` — 0 errors (mobile + server)
+- `npx jest` — 222 mobile tests + 84 server tests passing
+- No remaining raw `tension:`/`friction:` that should use presets (all remaining are intentionally custom)
 
 ---
 

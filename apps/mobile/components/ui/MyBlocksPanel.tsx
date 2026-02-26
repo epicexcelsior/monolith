@@ -1,7 +1,8 @@
 /**
  * MyBlocksPanel — Bottom sheet listing all blocks owned by the current wallet.
- * Shows energy bars, streak badges, and quick-charge buttons.
- * Tapping a block navigates the camera to it.
+ * Sorted by urgency (dying/fading first). Shows energy bars, streak badges,
+ * quick-charge buttons, and a "Charge All" batch action.
+ * Tapping a block row navigates the camera to it.
  */
 import React, { useCallback, useMemo, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import BottomPanel from "./BottomPanel";
 import ChargeBar from "./ChargeBar";
+import Button from "./Button";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, getChargeColor } from "@/constants/theme";
 import { useTowerStore, getStreakMultiplier } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
@@ -42,6 +44,14 @@ function stateColor(state: BlockState): string {
   return map[state] ?? COLORS.textMuted;
 }
 
+/** Urgency priority for sorting — lower = more urgent */
+function urgencyPriority(energy: number): number {
+  if (energy === 0) return 0;                          // dead — most urgent
+  if (energy < ENERGY_THRESHOLDS.fading) return 1;     // dying
+  if (energy < ENERGY_THRESHOLDS.thriving) return 2;   // fading
+  return 3;                                            // healthy
+}
+
 interface MyBlocksPanelProps {
   visible: boolean;
   onClose: () => void;
@@ -54,7 +64,9 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
   const chargeBlock = useTowerStore((s) => s.chargeBlock);
   const mpConnected = useMultiplayerStore((s) => s.connected && !s.reconnecting);
   const sendCharge = useMultiplayerStore((s) => s.sendCharge);
+  const setRecentlyChargedId = useTowerStore((s) => s.setRecentlyChargedId);
   const [cooldownBlockId, setCooldownBlockId] = useState<string | null>(null);
+  const [chargingAll, setChargingAll] = useState(false);
 
   const wallet = publicKey?.toBase58();
 
@@ -62,8 +74,17 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
     if (!wallet) return [];
     return demoBlocks
       .filter((b) => b.owner === wallet)
-      .sort((a, b) => a.layer - b.layer || a.index - b.index);
+      .sort((a, b) => {
+        const urgDiff = urgencyPriority(a.energy) - urgencyPriority(b.energy);
+        if (urgDiff !== 0) return urgDiff;
+        return a.layer - b.layer || a.index - b.index;
+      });
   }, [demoBlocks, wallet]);
+
+  const urgentCount = useMemo(
+    () => myBlocks.filter((b) => b.energy < ENERGY_THRESHOLDS.fading).length,
+    [myBlocks],
+  );
 
   const handleBlockTap = useCallback((blockId: string) => {
     hapticButtonPress();
@@ -71,8 +92,6 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
     selectBlock(blockId);
     onClose();
   }, [selectBlock, onClose]);
-
-  const setRecentlyChargedId = useTowerStore((s) => s.setRecentlyChargedId);
 
   const handleCharge = useCallback((blockId: string) => {
     hapticChargeTap();
@@ -88,9 +107,7 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
         playError();
       } else if (result.success) {
         playChargeTap();
-        // Trigger 3D charge flash
         setRecentlyChargedId(blockId);
-        // Daily first-charge bonus
         const store = usePlayerStore.getState();
         const isFirstToday = store.isFirstChargeToday();
         const pts = isFirstToday ? 50 : 25;
@@ -100,6 +117,39 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
       }
     }
   }, [mpConnected, wallet, sendCharge, chargeBlock, setRecentlyChargedId]);
+
+  const handleChargeAll = useCallback(async () => {
+    if (chargingAll || myBlocks.length === 0) return;
+    setChargingAll(true);
+    let totalXp = 0;
+    for (let i = 0; i < myBlocks.length; i++) {
+      const block = myBlocks[i];
+      if (mpConnected && wallet) {
+        sendCharge({ blockId: block.id, wallet });
+      } else {
+        const result = chargeBlock(block.id);
+        if (result.success) {
+          setRecentlyChargedId(block.id);
+          const store = usePlayerStore.getState();
+          const isFirstToday = store.isFirstChargeToday();
+          const pts = isFirstToday ? 50 : 25;
+          totalXp += pts;
+          if (isFirstToday) store.markChargeToday();
+        }
+      }
+      // Stagger for satisfying cascade
+      if (i < myBlocks.length - 1) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+    if (totalXp > 0) {
+      hapticChargeTap();
+      playChargeTap();
+      const store = usePlayerStore.getState();
+      store.addPoints({ pointsEarned: totalXp, totalXp: store.xp + totalXp, level: store.level, label: "Charge All" });
+    }
+    setChargingAll(false);
+  }, [chargingAll, myBlocks, mpConnected, wallet, sendCharge, chargeBlock, setRecentlyChargedId]);
 
   const renderBlock = useCallback(({ item }: { item: typeof myBlocks[0] }) => {
     const state = getBlockState(item.energy);
@@ -115,8 +165,8 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
       >
         {/* Left: emoji + position */}
         <View style={styles.blockIdentity}>
-          <Text style={styles.blockEmoji}>{item.emoji || "🔲"}</Text>
-          <View>
+          <Text style={styles.blockEmoji}>{item.emoji || "\uD83D\uDD32"}</Text>
+          <View style={styles.blockInfo}>
             <Text style={styles.blockName} numberOfLines={1}>
               {item.name || `L${item.layer} / B${item.index}`}
             </Text>
@@ -126,7 +176,7 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
           </View>
         </View>
 
-        {/* Center: energy bar */}
+        {/* Center: energy bar + percentage */}
         <View style={styles.blockEnergy}>
           <ChargeBar charge={item.energy} size="sm" />
           <Text style={[styles.energyText, { color: getChargeColor(item.energy) }]}>
@@ -138,7 +188,7 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
         <View style={styles.blockActions}>
           {streak > 0 && (
             <Text style={styles.streakText}>
-              {streak}d {multiplier > 1 ? `${multiplier}×` : ""}
+              {streak}d {multiplier > 1 ? `${multiplier}\u00D7` : ""}
             </Text>
           )}
           <TouchableOpacity
@@ -163,38 +213,71 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
       visible={visible}
       onClose={onClose}
       title={`My Blocks (${myBlocks.length})`}
-      height={360}
+      height={420}
       dark
     >
       {myBlocks.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>🏗️</Text>
+          <Text style={styles.emptyEmoji}>{"\uD83C\uDFD7\uFE0F"}</Text>
           <Text style={styles.emptyTitle}>No blocks yet</Text>
           <Text style={styles.emptySubtitle}>
             Tap an unclaimed block on the tower to get started!
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={myBlocks}
-          keyExtractor={(item) => item.id}
-          renderItem={renderBlock}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-        />
+        <>
+          {/* Urgency header + Charge All */}
+          <View style={styles.headerRow}>
+            {urgentCount > 0 && (
+              <Text style={styles.urgentText}>
+                {"\u26A0\uFE0F"} {urgentCount} block{urgentCount > 1 ? "s" : ""} need{urgentCount === 1 ? "s" : ""} attention
+              </Text>
+            )}
+            <View style={styles.chargeAllWrap}>
+              <Button
+                title={chargingAll ? "Charging..." : `Charge All (${myBlocks.length})`}
+                variant="gold"
+                size="sm"
+                onPress={handleChargeAll}
+                loading={chargingAll}
+                disabled={chargingAll}
+              />
+            </View>
+          </View>
+          <FlatList
+            data={myBlocks}
+            keyExtractor={(item) => item.id}
+            renderItem={renderBlock}
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={styles.listContent}
+          />
+        </>
       )}
     </BottomPanel>
   );
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    paddingHorizontal: SPACING.xs,
+    paddingBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  urgentText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 13,
+    color: COLORS.flickering,
+  },
+  chargeAllWrap: {
+    alignSelf: "stretch",
+  },
   listContent: {
     paddingBottom: SPACING.md,
   },
   blockRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.sm + 2,
     paddingHorizontal: SPACING.sm,
     marginBottom: SPACING.xs,
     borderRadius: RADIUS.sm,
@@ -204,14 +287,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.sm,
-    width: 100,
+    width: 110,
+  },
+  blockInfo: {
+    flex: 1,
   },
   blockEmoji: {
-    fontSize: 20,
+    fontSize: 28,
   },
   blockName: {
     fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.textOnDark,
   },
   blockState: {
@@ -228,8 +314,8 @@ const styles = StyleSheet.create({
   },
   energyText: {
     fontFamily: FONT_FAMILY.monoBold,
-    fontSize: 11,
-    width: 32,
+    fontSize: 13,
+    width: 36,
     textAlign: "right",
   },
   blockActions: {
@@ -244,7 +330,7 @@ const styles = StyleSheet.create({
   },
   chargeChip: {
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: RADIUS.sm,
     backgroundColor: COLORS.gold,
   },
@@ -253,7 +339,7 @@ const styles = StyleSheet.create({
   },
   chargeChipText: {
     fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textOnGold,
   },
   chargeChipTextDisabled: {

@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import { truncateAddress, formatUsdc } from "@/hooks/useBlockActions";
+import { getLayerMinPrice, getLayerTierLabel } from "@monolith/common";
 import type { DemoBlock } from "@/stores/tower-store";
 
 interface InspectorActionsProps {
@@ -56,21 +57,31 @@ export default function InspectorActions({
   return (
     <View style={styles.ctaSection}>
       {isUnclaimed && (
-        (isOnboarding || isWalletConnected) ? (
-          <Button
-            title="CLAIM THIS BLOCK"
-            variant="primary"
-            size="lg"
-            onPress={onClaim}
-          />
-        ) : (
-          <Button
-            title="Connect Wallet to Claim"
-            variant="secondary"
-            size="lg"
-            onPress={() => { hapticButtonPress(); playButtonTap(); useWalletStore.getState().setShowConnectSheet(true); }}
-          />
-        )
+        <>
+          {(isOnboarding || isWalletConnected) ? (
+            <Button
+              title="CLAIM THIS BLOCK"
+              variant="primary"
+              size="lg"
+              onPress={onClaim}
+            />
+          ) : (
+            <Button
+              title="Connect Wallet to Claim"
+              variant="secondary"
+              size="lg"
+              onPress={() => { hapticButtonPress(); playButtonTap(); useWalletStore.getState().setShowConnectSheet(true); }}
+            />
+          )}
+          <View style={styles.priceRow}>
+            <Text style={styles.priceText}>
+              ${getLayerMinPrice(block.layer).toFixed(2)} minimum stake
+            </Text>
+            {block.layer >= 16 && (
+              <Text style={styles.premiumBadge}>{getLayerTierLabel(block.layer)}</Text>
+            )}
+          </View>
+        </>
       )}
 
       {isOwner && (
@@ -244,5 +255,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.gold,
     textAlign: "center",
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.sm,
+  },
+  priceText: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  premiumBadge: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 10,
+    color: COLORS.gold,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.goldSubtle,
+    overflow: "hidden",
+    letterSpacing: 0.3,
   },
 });
