@@ -12,10 +12,12 @@ import { useTowerStore } from "@/stores/tower-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import TitleReveal from "./TitleReveal";
 import { BLOCK_COLORS, BLOCK_ICONS } from "@monolith/common";
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOW, BLUR } from "@/constants/theme";
+import { COLORS, SPACING, RADIUS, TEXT, TIMING } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playCustomize, playButtonTap, playChargeTap, playPokeSend } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
+import Button from "@/components/ui/Button";
+import StepCard from "@/components/ui/StepCard";
 
 /**
  * OnboardingFlow — 60-second first session: jaw-dropping immersion → intuitive game entry.
@@ -64,32 +66,15 @@ function pickNearbyBotBlock(
     )[0].id;
 }
 
-/** Step indicator — 5 steps starting from claim */
-function StepDots({ current, total }: { current: number; total: number }) {
-    return (
-        <View style={styles.stepDotsRow}>
-            {Array.from({ length: total }, (_, i) => (
-                <View
-                    key={i}
-                    style={[
-                        styles.stepDot,
-                        i < current && styles.stepDotCompleted,
-                        i === current && styles.stepDotActive,
-                    ]}
-                />
-            ))}
-        </View>
-    );
-}
-
-/** Step label — "Step N of M" */
-function StepLabel({ step, total }: { step: number; total: number }) {
-    return (
-        <Text style={styles.stepLabel}>
-            Step {step} of {total}
-        </Text>
-    );
-}
+/** Step mapping: onboarding phase → 1-based step index (5 steps total) */
+const STEP_MAP: Record<string, number> = {
+    claim: 1, celebration: 1,
+    customize: 2,
+    charge: 3,
+    poke: 4,
+    wallet: 5,
+};
+const TOTAL_STEPS = 5;
 
 export default function OnboardingFlow() {
     const phase = useOnboardingStore((s) => s.phase);
@@ -114,8 +99,6 @@ export default function OnboardingFlow() {
     const claimFade = useRef(new Animated.Value(0)).current;
     const claimScale = useRef(new Animated.Value(0.8)).current;
     const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const panelFade = useRef(new Animated.Value(0)).current;
-    const panelSlide = useRef(new Animated.Value(60)).current;
 
     // ─── Animate claim entrance ──────────────────
     useEffect(() => {
@@ -131,40 +114,17 @@ export default function OnboardingFlow() {
             }),
             Animated.spring(claimScale, {
                 toValue: 1,
-                tension: 60,
-                friction: 8,
+                ...TIMING.springOnboarding,
                 delay: 800,
                 useNativeDriver: true,
             }),
         ]).start();
     }, [phase, claimFade, claimScale]);
 
-    // ─── Animate panel entrance (reused for customize/charge/poke/wallet) ──
-    useEffect(() => {
-        if (phase !== "customize" && phase !== "charge" && phase !== "poke" && phase !== "wallet") return;
-        panelFade.setValue(0);
-        panelSlide.setValue(60);
-        Animated.parallel([
-            Animated.timing(panelFade, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-            }),
-            Animated.spring(panelSlide, {
-                toValue: 0,
-                tension: 50,
-                friction: 10,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    }, [phase, panelFade, panelSlide]);
-
     // ─── Celebration auto-advance ────────────────
     useEffect(() => {
         if (phase !== "celebration") return;
-        // Wait for the celebration VFX to mostly finish, then fly camera back to block
         celebrationTimer.current = setTimeout(() => {
-            // Re-select the ghost block so camera flies back for customize phase
             if (ghostBlockId) {
                 selectBlock(ghostBlockId);
             }
@@ -192,7 +152,6 @@ export default function OnboardingFlow() {
         if (!ghostBlockId) return;
         hapticButtonPress();
         ghostClaimBlock(ghostBlockId);
-        // Trigger full claim celebration
         const block = getDemoBlockById(ghostBlockId);
         if (block) {
             triggerCelebration(block.position, -1, true);
@@ -218,7 +177,6 @@ export default function OnboardingFlow() {
     const handleCustomizeDone = useCallback(() => {
         hapticButtonPress();
         playButtonTap();
-        // Don't selectBlock(null) — keep block selected for charge phase
         advancePhase(); // → charge
     }, [advancePhase]);
 
@@ -228,9 +186,7 @@ export default function OnboardingFlow() {
         hapticButtonPress();
         playChargeTap();
         ghostChargeBlock(ghostBlockId);
-        // Show charge flash
         setRecentlyChargedId(ghostBlockId);
-        // Brief pause then advance
         setTimeout(() => {
             advancePhase(); // → poke
         }, 800);
@@ -244,7 +200,6 @@ export default function OnboardingFlow() {
         const nearbyId = pickNearbyBotBlock(ghostBlockId, demoBlocks as any);
         if (nearbyId) {
             selectBlock(nearbyId);
-            // Visual feedback
             setRecentlyChargedId(nearbyId);
         }
         setTimeout(() => {
@@ -263,8 +218,6 @@ export default function OnboardingFlow() {
         hapticButtonPress();
         playButtonTap();
         setShowConnectSheet(true);
-        // On successful connect, the wallet store will handle state
-        // For now, complete onboarding
         completeOnboarding();
         skipOnboarding();
     }, [setShowConnectSheet, completeOnboarding, skipOnboarding]);
@@ -288,29 +241,24 @@ export default function OnboardingFlow() {
     if (phase === "done") return null;
 
     const ghostBlock = ghostBlockId ? getDemoBlockById(ghostBlockId) : null;
-
-    // Step mapping for the 5-step indicator
-    const stepMap: Record<string, number> = {
-        claim: 0, celebration: 0,
-        customize: 1,
-        charge: 2,
-        poke: 3,
-        wallet: 4,
-    };
-    const currentStep = stepMap[phase] ?? -1;
+    const currentStep = STEP_MAP[phase];
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            {/* Skip button — visible from title phase onward (not during cinematic) */}
+            {/* Skip button — visible from title phase onward */}
             {phase !== "cinematic" && (
-                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-                    <Text style={styles.skipText}>Skip</Text>
-                </TouchableOpacity>
+                <View style={styles.skipContainer}>
+                    <Button
+                        title="Skip"
+                        variant="ghost"
+                        size="sm"
+                        onPress={handleSkip}
+                    />
+                </View>
             )}
 
             {/* ─── CINEMATIC ──────────────────────── */}
             {/* No UI during cinematic — pure camera spectacle */}
-            {/* The useTowerReveal hook handles advancing cinematic → title */}
 
             {/* ─── TITLE ──────────────────────────── */}
             <TitleReveal
@@ -328,13 +276,12 @@ export default function OnboardingFlow() {
                         This block is yours to keep. Or lose.
                     </Text>
 
-                    <TouchableOpacity
-                        style={styles.claimButton}
+                    <Button
+                        title="CLAIM THIS BLOCK"
+                        variant="primary"
+                        size="lg"
                         onPress={handleClaim}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.claimButtonText}>CLAIM THIS BLOCK</Text>
-                    </TouchableOpacity>
+                    />
 
                     {ghostBlock && (
                         <Text style={styles.claimBlockInfo}>
@@ -349,212 +296,158 @@ export default function OnboardingFlow() {
 
             {/* ─── CUSTOMIZE ───────────────────────── */}
             {phase === "customize" && (
-                <Animated.View style={[
-                    styles.panelContainer,
-                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
-                ]}>
-                    <StepLabel step={2} total={5} />
-                    <StepDots current={1} total={5} />
+                <View style={styles.stepCardContainer}>
+                    <StepCard
+                        title="Make it yours"
+                        subtitle="Pick a color and emoji"
+                        step={currentStep}
+                        totalSteps={TOTAL_STEPS}
+                    >
+                        <Text style={styles.sectionHeader}>COLOR</Text>
+                        <View style={styles.colorRow}>
+                            {ONBOARDING_COLORS.map((color) => (
+                                <TouchableOpacity
+                                    key={color}
+                                    style={[
+                                        styles.colorSwatch,
+                                        { backgroundColor: color },
+                                        ghostBlock?.ownerColor === color && styles.swatchSelected,
+                                    ]}
+                                    onPress={() => handleColorPick(color)}
+                                    activeOpacity={0.7}
+                                />
+                            ))}
+                        </View>
 
-                    <Text style={styles.panelTitle}>Make it yours</Text>
-                    <Text style={styles.panelSub}>Pick a color and emoji</Text>
+                        <Text style={styles.sectionHeader}>EMOJI</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.emojiRow}
+                        >
+                            {ONBOARDING_ICONS.map((emoji) => (
+                                <TouchableOpacity
+                                    key={emoji}
+                                    style={[
+                                        styles.emojiSwatch,
+                                        ghostBlock?.emoji === emoji && styles.swatchSelected,
+                                    ]}
+                                    onPress={() => handleEmojiPick(emoji)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.emojiText}>{emoji}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
 
-                    <Text style={styles.sectionHeader}>COLOR</Text>
-                    <View style={styles.colorRow}>
-                        {ONBOARDING_COLORS.map((color) => (
-                            <TouchableOpacity
-                                key={color}
-                                style={[
-                                    styles.colorSwatch,
-                                    { backgroundColor: color },
-                                    ghostBlock?.ownerColor === color && styles.swatchSelected,
-                                ]}
-                                onPress={() => handleColorPick(color)}
+                        <View style={styles.buttonRow}>
+                            <Button
+                                title="LOOKS GOOD →"
+                                variant="primary"
+                                size="md"
+                                onPress={handleCustomizeDone}
                             />
-                        ))}
-                    </View>
-
-                    <Text style={styles.sectionHeader}>EMOJI</Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.emojiRow}
-                    >
-                        {ONBOARDING_ICONS.map((emoji) => (
-                            <TouchableOpacity
-                                key={emoji}
-                                style={[
-                                    styles.emojiSwatch,
-                                    ghostBlock?.emoji === emoji && styles.swatchSelected,
-                                ]}
-                                onPress={() => handleEmojiPick(emoji)}
-                            >
-                                <Text style={styles.emojiText}>{emoji}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-
-                    <TouchableOpacity
-                        style={styles.goldButton}
-                        onPress={handleCustomizeDone}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.goldButtonText}>LOOKS GOOD →</Text>
-                    </TouchableOpacity>
-                </Animated.View>
+                        </View>
+                    </StepCard>
+                </View>
             )}
 
             {/* ─── CHARGE ──────────────────────────── */}
             {phase === "charge" && (
-                <Animated.View style={[
-                    styles.panelContainer,
-                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
-                ]}>
-                    <StepLabel step={3} total={5} />
-                    <StepDots current={2} total={5} />
-
-                    <Text style={styles.panelTitle}>Charge your block daily</Text>
-                    <Text style={styles.chargeWarning}>
-                        Miss 3 days and anyone can take it
-                    </Text>
-
-                    <TouchableOpacity
-                        style={styles.chargeButton}
-                        onPress={handleCharge}
-                        activeOpacity={0.8}
+                <View style={styles.stepCardContainer}>
+                    <StepCard
+                        title="Charge your block daily"
+                        step={currentStep}
+                        totalSteps={TOTAL_STEPS}
                     >
-                        <Text style={styles.chargeButtonText}>⚡ CHARGE</Text>
-                    </TouchableOpacity>
+                        <Text style={styles.chargeWarning}>
+                            Miss 3 days and anyone can take it
+                        </Text>
 
-                    <Text style={styles.panelHint}>
-                        Your block decays every 24 hours.{"\n"}
-                        Come back to keep it alive.
-                    </Text>
-                </Animated.View>
+                        <View style={styles.buttonRow}>
+                            <Button
+                                title="⚡ CHARGE"
+                                variant="gold"
+                                size="lg"
+                                onPress={handleCharge}
+                            />
+                        </View>
+
+                        <Text style={styles.panelHint}>
+                            Your block decays every 24 hours.{"\n"}
+                            Come back to keep it alive.
+                        </Text>
+                    </StepCard>
+                </View>
             )}
 
             {/* ─── POKE ────────────────────────────── */}
             {phase === "poke" && (
-                <Animated.View style={[
-                    styles.panelContainer,
-                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
-                ]}>
-                    <StepLabel step={4} total={5} />
-                    <StepDots current={3} total={5} />
-
-                    <Text style={styles.panelTitle}>Poke your neighbors 👋</Text>
-                    <Text style={styles.panelSub}>Give them a boost of energy</Text>
-
-                    <View style={styles.pokeButtons}>
-                        <TouchableOpacity
-                            style={styles.goldButton}
-                            onPress={handlePoke}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.goldButtonText}>POKE</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.secondaryButton}
-                            onPress={handlePokeSkip}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.secondaryButtonText}>SKIP →</Text>
-                        </TouchableOpacity>
-                    </View>
-                </Animated.View>
+                <View style={styles.stepCardContainer}>
+                    <StepCard
+                        title="Poke your neighbors 👋"
+                        subtitle="Give them a boost of energy"
+                        step={currentStep}
+                        totalSteps={TOTAL_STEPS}
+                    >
+                        <View style={styles.pokeButtons}>
+                            <Button
+                                title="POKE"
+                                variant="secondary"
+                                size="md"
+                                onPress={handlePoke}
+                            />
+                            <Button
+                                title="SKIP →"
+                                variant="secondary"
+                                size="md"
+                                onPress={handlePokeSkip}
+                            />
+                        </View>
+                    </StepCard>
+                </View>
             )}
 
             {/* ─── WALLET ──────────────────────────── */}
             {phase === "wallet" && (
-                <Animated.View style={[
-                    styles.panelContainer,
-                    { opacity: panelFade, transform: [{ translateY: panelSlide }] },
-                ]}>
-                    <StepLabel step={5} total={5} />
-                    <StepDots current={4} total={5} />
+                <View style={styles.stepCardContainer}>
+                    <StepCard
+                        title="You're in."
+                        subtitle={"Connect a wallet to stake real USDC\nand compete on the leaderboard."}
+                        step={currentStep}
+                        totalSteps={TOTAL_STEPS}
+                    >
+                        <View style={styles.walletButtons}>
+                            <Button
+                                title="CONNECT WALLET"
+                                variant="primary"
+                                size="md"
+                                onPress={handleConnectWallet}
+                            />
+                            <Button
+                                title="PLAY DEMO →"
+                                variant="secondary"
+                                size="md"
+                                onPress={handlePlayDemo}
+                            />
+                        </View>
 
-                    <Text style={styles.walletTitle}>You're in.</Text>
-                    <Text style={styles.panelSub}>
-                        Connect a wallet to stake real USDC{"\n"}
-                        and compete on the leaderboard.
-                    </Text>
-
-                    <View style={styles.walletButtons}>
-                        <TouchableOpacity
-                            style={styles.goldButton}
-                            onPress={handleConnectWallet}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.goldButtonText}>CONNECT WALLET</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.secondaryButton}
-                            onPress={handlePlayDemo}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.secondaryButtonText}>PLAY DEMO →</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <Text style={styles.walletHint}>
-                        Seed Vault · Phantom · Solflare
-                    </Text>
-                </Animated.View>
+                        <Text style={styles.walletHint}>
+                            Seed Vault · Phantom · Solflare
+                        </Text>
+                    </StepCard>
+                </View>
             )}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    skipButton: {
+    skipContainer: {
         position: "absolute",
         top: 54,
         right: SPACING.md,
         zIndex: 300,
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm,
-        borderRadius: RADIUS.full,
-        backgroundColor: BLUR.fallbackHudBg,
-        borderWidth: 1,
-        borderColor: COLORS.hudBorder,
-    },
-    skipText: {
-        fontFamily: FONT_FAMILY.bodySemibold,
-        fontSize: 13,
-        color: COLORS.textMuted,
-        letterSpacing: 0.5,
-    },
-
-    // ─── Step indicator ───────────────────────
-    stepDotsRow: {
-        flexDirection: "row",
-        justifyContent: "center",
-        gap: SPACING.sm,
-        marginBottom: SPACING.md,
-    },
-    stepDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "rgba(255, 255, 255, 0.2)",
-    },
-    stepDotActive: {
-        backgroundColor: COLORS.gold,
-        width: 24,
-        borderRadius: 4,
-    },
-    stepDotCompleted: {
-        backgroundColor: COLORS.goldLight,
-    },
-    stepLabel: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 12,
-        color: COLORS.textMuted,
-        textAlign: "center",
-        letterSpacing: 0.5,
-        marginBottom: SPACING.xs,
     },
 
     // ─── Claim ────────────────────────────────
@@ -566,88 +459,33 @@ const styles = StyleSheet.create({
         alignItems: "center",
         zIndex: 100,
     },
-    claimButton: {
-        backgroundColor: COLORS.gold,
-        paddingHorizontal: SPACING.xxl * 1.5,
-        paddingVertical: SPACING.md + 4,
-        borderRadius: RADIUS.md,
-        borderCurve: "continuous",
-        alignItems: "center",
-        boxShadow: SHADOW.gold,
-    },
-    claimButtonText: {
-        fontFamily: FONT_FAMILY.heading,
-        fontSize: 22,
-        color: COLORS.textOnGold,
-        letterSpacing: 2,
-    },
     claimSubtitle: {
-        fontFamily: FONT_FAMILY.bodyMedium,
-        fontSize: 15,
+        ...TEXT.bodyLg,
         color: COLORS.textOnDark,
         marginBottom: SPACING.md,
-        letterSpacing: 0.3,
         textShadowColor: "rgba(0, 0, 0, 0.8)",
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 8,
     },
     claimBlockInfo: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 13,
+        ...TEXT.caption,
         color: COLORS.textMuted,
         marginTop: SPACING.sm,
-        letterSpacing: 0.3,
     },
 
-    // ─── Shared panel container ───────────────
-    panelContainer: {
+    // ─── StepCard positioning ─────────────────
+    stepCardContainer: {
         position: "absolute",
         bottom: 80,
         left: SPACING.md,
         right: SPACING.md,
-        alignItems: "center",
         zIndex: 100,
-        backgroundColor: "rgba(10, 12, 20, 0.90)",
-        borderRadius: RADIUS.lg,
-        borderWidth: 1,
-        borderColor: COLORS.goldGlow,
-        borderCurve: "continuous",
-        paddingTop: SPACING.md,
-        paddingBottom: SPACING.lg,
-        paddingHorizontal: SPACING.lg,
     },
 
-    // ─── Panel text ───────────────────────────
-    panelTitle: {
-        fontFamily: FONT_FAMILY.heading,
-        fontSize: 20,
-        color: COLORS.goldLight,
-        letterSpacing: 0.5,
-        textAlign: "center",
-    },
-    panelSub: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 13,
-        color: COLORS.textMuted,
-        marginTop: SPACING.xs,
-        marginBottom: SPACING.md,
-        textAlign: "center",
-    },
-    panelHint: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 13,
-        color: COLORS.textMuted,
-        marginTop: SPACING.md,
-        textAlign: "center",
-        lineHeight: 20,
-    },
-
-    // ─── Section headers ──────────────────────
+    // ─── Section headers (overline preset) ────
     sectionHeader: {
-        fontFamily: FONT_FAMILY.bodySemibold,
-        fontSize: 11,
+        ...TEXT.overline,
         color: COLORS.textMuted,
-        letterSpacing: 2,
         alignSelf: "flex-start",
         marginBottom: SPACING.sm,
         marginTop: SPACING.sm,
@@ -693,83 +531,44 @@ const styles = StyleSheet.create({
         fontSize: 24,
     },
 
-    // ─── Buttons ──────────────────────────────
-    goldButton: {
-        backgroundColor: COLORS.gold,
-        paddingHorizontal: SPACING.xl,
-        paddingVertical: SPACING.sm + 2,
-        borderRadius: RADIUS.md,
-        borderCurve: "continuous",
-        boxShadow: SHADOW.gold,
-    },
-    goldButtonText: {
-        fontFamily: FONT_FAMILY.bodySemibold,
-        fontSize: 15,
-        color: COLORS.textOnGold,
-        letterSpacing: 1,
-    },
-    secondaryButton: {
-        paddingHorizontal: SPACING.lg,
-        paddingVertical: SPACING.sm + 2,
-        borderRadius: RADIUS.md,
-        borderCurve: "continuous",
-        borderWidth: 1,
-        borderColor: COLORS.hudBorder,
-    },
-    secondaryButtonText: {
-        fontFamily: FONT_FAMILY.bodySemibold,
-        fontSize: 15,
-        color: COLORS.textMuted,
-        letterSpacing: 0.5,
+    // ─── Button row (centered) ────────────────
+    buttonRow: {
+        alignItems: "center",
+        marginTop: SPACING.sm,
     },
 
     // ─── Charge ───────────────────────────────
     chargeWarning: {
-        fontFamily: FONT_FAMILY.bodySemibold,
-        fontSize: 14,
+        ...TEXT.bodySm,
+        fontWeight: "600",
         color: COLORS.fading,
         textAlign: "center",
-        marginTop: SPACING.xs,
-        marginBottom: SPACING.lg,
+        marginBottom: SPACING.md,
     },
-    chargeButton: {
-        backgroundColor: COLORS.blazing,
-        paddingHorizontal: SPACING.xxl,
-        paddingVertical: SPACING.md,
-        borderRadius: RADIUS.md,
-        borderCurve: "continuous",
-        boxShadow: "0 0 20px rgba(255, 184, 0, 0.4)",
-    },
-    chargeButtonText: {
-        fontFamily: FONT_FAMILY.heading,
-        fontSize: 18,
-        color: COLORS.textOnGold,
-        letterSpacing: 1,
+    panelHint: {
+        ...TEXT.bodySm,
+        color: COLORS.textMuted,
+        marginTop: SPACING.md,
+        textAlign: "center",
     },
 
     // ─── Poke ─────────────────────────────────
     pokeButtons: {
         flexDirection: "row",
         gap: SPACING.md,
+        justifyContent: "center",
         marginTop: SPACING.sm,
     },
 
     // ─── Wallet ───────────────────────────────
-    walletTitle: {
-        fontFamily: FONT_FAMILY.heading,
-        fontSize: 24,
-        color: COLORS.goldLight,
-        letterSpacing: 0.5,
-        textAlign: "center",
-    },
     walletButtons: {
         flexDirection: "row",
         gap: SPACING.md,
+        justifyContent: "center",
         marginTop: SPACING.sm,
     },
     walletHint: {
-        fontFamily: FONT_FAMILY.body,
-        fontSize: 12,
+        ...TEXT.caption,
         color: COLORS.textMuted,
         marginTop: SPACING.md,
         textAlign: "center",

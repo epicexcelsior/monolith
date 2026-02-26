@@ -6,7 +6,7 @@ import {
     Animated,
     useWindowDimensions,
 } from "react-native";
-import { COLORS, FONT_FAMILY, SPACING } from "@/constants/theme";
+import { COLORS, FONT_FAMILY, SPACING, TIMING } from "@/constants/theme";
 
 /**
  * CoachMark — Floating tooltip bubble for onboarding guidance.
@@ -44,8 +44,7 @@ export default function CoachMark({
             // Spring entrance (native driver — transform only)
             Animated.spring(scaleAnim, {
                 toValue: 1,
-                tension: 60,
-                friction: 8,
+                ...TIMING.springOnboarding,
                 useNativeDriver: true,
             }).start();
 
@@ -77,7 +76,7 @@ export default function CoachMark({
 
     const borderColor = pulseAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ["rgba(212, 168, 71, 0.4)", "rgba(212, 168, 71, 0.9)"],
+        outputRange: [COLORS.goldGlow, COLORS.goldMid],
     });
 
     // Position styles
@@ -114,14 +113,14 @@ const styles = StyleSheet.create({
         zIndex: 100,
     },
     bubble: {
-        backgroundColor: "rgba(10, 12, 20, 0.92)",
+        backgroundColor: COLORS.hudGlassStrong,
         paddingHorizontal: SPACING.lg,
         paddingVertical: SPACING.md,
         borderRadius: 16,
         borderWidth: 1.5,
         borderCurve: "continuous",
         maxWidth: 300,
-        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4), 0 0 30px rgba(212, 168, 71, 0.2)",
+        boxShadow: `0 4px 20px rgba(0, 0, 0, 0.4), 0 0 30px ${COLORS.goldGlow}`,
     },
     message: {
         fontFamily: FONT_FAMILY.bodySemibold,
@@ -139,7 +138,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 10,
         borderLeftColor: "transparent",
         borderRightColor: "transparent",
-        borderBottomColor: "rgba(212, 168, 71, 0.7)",
+        borderBottomColor: COLORS.goldMid,
         marginBottom: -1,
     },
     arrowDown: {
@@ -150,7 +149,7 @@ const styles = StyleSheet.create({
         borderTopWidth: 10,
         borderLeftColor: "transparent",
         borderRightColor: "transparent",
-        borderTopColor: "rgba(212, 168, 71, 0.7)",
+        borderTopColor: COLORS.goldMid,
         marginTop: -1,
     },
 });

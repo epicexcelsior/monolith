@@ -46,40 +46,65 @@
 
 ---
 
-## Phase 2: Onboarding UI Standardization
-**Why:** Onboarding uses zero reusable components. Replace all inline styles with design system components.
-**Scope:** `OnboardingFlow.tsx`, `TitleReveal.tsx`, `CoachMark.tsx`
+## Phase 2: Onboarding UI Standardization — COMPLETED
+**Status:** Done (2026-02-25)
+**Branch:** `feat/polish-plan`
+**Scope:** 3 files changed (OnboardingFlow.tsx, TitleReveal.tsx, CoachMark.tsx), net -226 lines
 
-### Changes
-1. **Replace all `TouchableOpacity` CTAs** with `<Button>`:
+### What was done
+1. **Replaced all `TouchableOpacity` CTA buttons with `<Button>`:**
    - "GET STARTED" → `<Button variant="primary" size="lg">`
    - "CLAIM THIS BLOCK" → `<Button variant="primary" size="lg">`
-   - "LOOKS GOOD" / "SKIP" → `<Button variant="primary" size="md">` / `<Button variant="secondary" size="md">`
-   - "CHARGE" → `<Button variant="gold" size="lg">` (new blazing variant)
+   - "LOOKS GOOD →" → `<Button variant="primary" size="md">`
+   - "⚡ CHARGE" → `<Button variant="gold" size="lg">`
    - "POKE" → `<Button variant="secondary" size="md">`
-   - "CONNECT WALLET" / "PLAY DEMO" → `<Button variant="primary">` / `<Button variant="secondary">`
+   - "SKIP →" → `<Button variant="secondary" size="md">`
+   - "CONNECT WALLET" → `<Button variant="primary" size="md">`
+   - "PLAY DEMO →" → `<Button variant="secondary" size="md">`
+   - Skip (top-right) → `<Button variant="ghost" size="sm">`
 
-2. **Replace all `panelContainer` Views** with `<StepCard>`:
+2. **Replaced all `panelContainer` Animated.Views with `<StepCard>`:**
    - Customize, charge, poke, wallet phases all use StepCard
-   - Derive step number from `stepMap[phase]` instead of hardcoding per phase
-   - ProgressDots auto-computed from phase
+   - Step number derived from `STEP_MAP[phase]` constant (1-based)
+   - ProgressDots auto-rendered by StepCard footer
+   - Removed inline `StepDots` and `StepLabel` helper components
+   - Removed `panelFade`/`panelSlide` RN Animated refs — StepCard uses Reanimated `FadeInUp.springify()` with `TIMING.springOnboardingReanimated` for entrance
 
-3. **Replace inline color swatches** with `<ColorPicker>` component (already exists in `ui/ColorPicker.tsx`)
+3. **Fixed typography with TEXT presets:**
+   - `claimSubtitle` → `TEXT.bodyLg` (15→16px, uses FONT_FAMILY.body)
+   - `sectionHeader` → `TEXT.overline` (11px bold uppercase with 2px tracking)
+   - `chargeWarning` → `TEXT.bodySm` + fontWeight 600 (14px)
+   - `panelHint` → `TEXT.bodySm` (14px, was 13px)
+   - `claimBlockInfo` → `TEXT.caption` (12px)
+   - `walletHint` → `TEXT.caption` (12px)
+   - TitleReveal tagline → `TEXT.bodyLg` (16px, was bodyMedium 16px — now uses correct preset)
+   - Panel titles use `TEXT.headingLg` via StepCard (20px)
 
-4. **Fix typography** — use TEXT presets:
-   - `panelTitle` → `TEXT.headingLg`
-   - `walletTitle` → `TEXT.displaySm`
-   - `sectionHeader` → `TEXT.overline`
-   - `panelSub` → `TEXT.body` (bump from 13→14px to match preset)
+4. **Fixed spring animations — `TIMING.springOnboarding` everywhere:**
+   - OnboardingFlow claim entrance: `{ tension: 60, friction: 8 }` → `TIMING.springOnboarding`
+   - TitleReveal CTA spring: same
+   - CoachMark entrance spring: same
 
-5. **Fix spring animations** — use `TIMING.springOnboarding` everywhere
+5. **Fixed CoachMark.tsx hardcoded rgba values:**
+   - Arrow colors: `rgba(212, 168, 71, 0.7)` → `COLORS.goldMid`
+   - Bubble bg: `rgba(10, 12, 20, 0.92)` → `COLORS.hudGlassStrong`
+   - Pulse border: interpolates `COLORS.goldGlow` ↔ `COLORS.goldMid`
+   - Box shadow glow: hardcoded rgba → `COLORS.goldGlow` token
 
-6. **Fix CoachMark.tsx** — replace hardcoded rgba values with COLORS tokens
+6. **Cleanup:** Removed ~226 lines of dead inline styles (old button styles, panelContainer, step indicator components, unused imports)
 
-### Verify
-- `cd apps/mobile && npx jest` (ensure existing tests pass)
-- `timeout 90 npx tsc --noEmit --project apps/mobile/tsconfig.json`
-- Visual on device: all 9 onboarding phases should look consistent (same card style, same button style, same typography)
+### Deviations from original plan
+- **Skipped ColorPicker replacement:** Existing `ui/ColorPicker.tsx` uses all 16 `BLOCK_COLORS` with dark-on-light selection style (checkmark + `COLORS.text` border). Onboarding needs only 8 colors with a gold border on dark glass. Modifying ColorPicker to support both contexts would add complexity without clear benefit. Kept inline swatches with `TouchableOpacity` (proper touch feedback).
+- **`walletTitle` uses `TEXT.headingLg` (20px) instead of `TEXT.displaySm` (24px):** StepCard enforces consistent heading size across all onboarding cards. This is intentional — visual consistency across the 4 StepCard phases is more important than one card having a larger title.
+- **`panelSub` uses `TEXT.bodySm` (14px) instead of `TEXT.body`:** No `TEXT.body` preset exists — only `TEXT.bodyLg` (16px) and `TEXT.bodySm` (14px). The plan specified bumping from 13→14px, so `TEXT.bodySm` is the correct match.
+- **Panel entrance animation switched from RN Animated to Reanimated:** StepCard uses `FadeInUp.springify()` with `TIMING.springOnboardingReanimated` (damping/stiffness). This is better — runs on UI thread, consistent with the design system spring tokens, no manual state management.
+
+### Verified
+- `npx tsc --noEmit` — 0 errors
+- `npx jest` — 222 tests passing (18 suites)
+- Grep for hardcoded colors in changed files — clean
+- Grep for raw `tension:`/`friction:` in onboarding files — clean
+- No remaining `TouchableOpacity` used as CTA buttons (only used for color/emoji swatches which are pickers, not CTAs)
 
 ---
 
