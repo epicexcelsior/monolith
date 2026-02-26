@@ -325,6 +325,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: Polish Plan Phase 3 — claim celebration camera fix: removed aftershock shake, added buildup shake escalation (0.1→0.4), dramatic zoom-out (1.6x), orbit stops at ZOOM_RETURN_DELAY, zoom-back before cinematic exits, gold→owner color glow-up transition, inspector reopens after celebration, blockId stored in ClaimCelebrationState. Durations: normal 4→5.5s, firstClaim 5.5→7s. 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 2 — onboarding UI standardization: all CTA buttons → `<Button>` component, all panel containers → `<StepCard>`, typography → TEXT presets, spring animations → TIMING tokens, CoachMark hardcoded rgba → COLORS tokens. Net -200 lines. On `feat/polish-plan` branch.
 - **2026-02-25**: Polish Plan Phase 1 — design system foundations: added `COLORS.goldMid`, `COLORS.blazingLight`, `COLORS.hudGlassStrong`, `SHADOW.blazing`, `TIMING.springOnboarding`/`springOnboardingReanimated` tokens; `Button` "gold" variant; new `ProgressDots` + `StepCard` reusable components; documented TIMING spring API split (RN Animated vs Reanimated). See `POLISH_PLAN.md` for full 10-phase plan.
 - **2026-02-25**: Push notifications FCM wired — `google-services.json` added, `googleServicesFile` in app.json, gitignored. Needs EAS rebuild to activate. 222 mobile + 84 server tests passing.

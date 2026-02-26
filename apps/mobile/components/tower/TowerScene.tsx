@@ -34,7 +34,7 @@ import {
   hapticLayerCross,
 } from "@/utils/haptics";
 import { playBlockSelect, playBlockDeselect } from "@/utils/audio";
-import { CLAIM_SHAKE, CLAIM_PHASES, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
+import { CLAIM_SHAKE, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
 
 // ─── Constants ────────────────────────────────────────────
 
