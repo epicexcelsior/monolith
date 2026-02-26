@@ -134,7 +134,7 @@ export function useBlockActions() {
     if (claimedBlock) {
       const walletStr = publicKey!.toBase58();
       const isFirst = !demoBlocks.some((b) => b.owner === walletStr && b.id !== selectedBlockId);
-      triggerCelebration(claimedBlock.position, -1, isFirst);
+      triggerCelebration(claimedBlock.position, -1, isFirst, selectedBlockId);
     }
   }, [publicKey, selectedBlockId, deposit, claimBlock, mpConnected, sendClaim, triggerCelebration, getStoreState]);
 
@@ -143,10 +143,9 @@ export function useBlockActions() {
     if (!selectedBlockId) return;
     ghostClaimBlock(selectedBlockId);
     const block = getDemoBlockById(selectedBlockId);
-    if (block) triggerCelebration(block.position, -1, true);
-    selectBlock(null);
+    if (block) triggerCelebration(block.position, -1, true, selectedBlockId);
     advanceOnboarding();
-  }, [selectedBlockId, ghostClaimBlock, getDemoBlockById, triggerCelebration, selectBlock, advanceOnboarding]);
+  }, [selectedBlockId, ghostClaimBlock, getDemoBlockById, triggerCelebration, advanceOnboarding]);
 
   // Handle charge
   const handleCharge = useCallback(() => {

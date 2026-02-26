@@ -154,7 +154,7 @@ export default function OnboardingFlow() {
         ghostClaimBlock(ghostBlockId);
         const block = getDemoBlockById(ghostBlockId);
         if (block) {
-            triggerCelebration(block.position, -1, true);
+            triggerCelebration(block.position, -1, true, ghostBlockId);
         }
         advancePhase(); // → celebration
     }, [ghostBlockId, ghostClaimBlock, advancePhase, getDemoBlockById, triggerCelebration]);

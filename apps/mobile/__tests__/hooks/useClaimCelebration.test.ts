@@ -32,6 +32,7 @@ jest.mock("@/stores/tower-store", () => ({
       getState: () => ({
         cinematicMode: mockCinematicMode,
         setCinematicMode: mockSetCinematicMode,
+        selectBlock: mockSelectBlock,
       }),
     },
   ),
@@ -40,7 +41,7 @@ jest.mock("@/stores/tower-store", () => ({
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 import { hapticClaimCelebration } from "@/utils/haptics";
 import { playClaimCelebration } from "@/utils/audio";
-import { CLAIM_DURATIONS } from "@/constants/ClaimEffectConfig";
+import { CLAIM_DURATIONS, CLAIM_CAMERA } from "@/constants/ClaimEffectConfig";
 
 describe("useClaimCelebration", () => {
   beforeEach(() => {
@@ -58,8 +59,8 @@ describe("useClaimCelebration", () => {
   });
 
   it("CLAIM_DURATIONS should have correct values", () => {
-    expect(CLAIM_DURATIONS.normal).toBe(4.0);
-    expect(CLAIM_DURATIONS.firstClaim).toBe(5.5);
+    expect(CLAIM_DURATIONS.normal).toBe(5.5);
+    expect(CLAIM_DURATIONS.firstClaim).toBe(7.0);
   });
 
   it("hapticClaimCelebration should be callable with boolean", () => {
@@ -76,30 +77,22 @@ describe("useClaimCelebration", () => {
     expect(playClaimCelebration).toHaveBeenCalled();
   });
 
-  it("cinematicMode resets to false after celebration via module-level timer", () => {
-    // The module-level timers survive component unmount.
-    // We can verify this by checking that useTowerStore.getState().setCinematicMode(false)
-    // is called after the celebration duration via setTimeout.
-    // The key fix: cinematicEnd timer uses useTowerStore.getState() (module-level)
-    // instead of the hook-captured setCinematicMode ref, so it works even after unmount.
+  it("cinematicMode resets after zoom-back completes via module-level timer", () => {
+    // Cinematic end timing: ZOOM_RETURN_DELAY + zoomRestoreMs/1000 + 0.3s buffer
+    const cinematicEndSecs = CLAIM_CAMERA.zoomReturnDelay + CLAIM_CAMERA.zoomRestoreMs / 1000 + 0.3;
+    const cinematicEndMs = cinematicEndSecs * 1000;
 
-    // Verify that the CLAIM_DURATIONS + 300ms buffer = expected cinematic reset time
-    const normalDurationMs = CLAIM_DURATIONS.normal * 1000 + 300;
-    expect(normalDurationMs).toBe(4300);
-
-    const firstClaimDurationMs = CLAIM_DURATIONS.firstClaim * 1000 + 300;
-    expect(firstClaimDurationMs).toBe(5800);
-
-    // Both under the 8s safety timeout
-    expect(normalDurationMs).toBeLessThan(8000);
-    expect(firstClaimDurationMs).toBeLessThan(8000);
+    // Should be well under the 10s safety timeout
+    expect(cinematicEndMs).toBeLessThan(10000);
+    // Should be after the zoom return starts
+    expect(cinematicEndMs).toBeGreaterThan(CLAIM_CAMERA.zoomReturnDelay * 1000);
   });
 
-  it("safety timeout is set at 8 seconds", () => {
-    // The safety timeout (8000ms) is a hard cap that forces cinematicMode off
+  it("safety timeout is set at 10 seconds", () => {
+    // The safety timeout (10000ms) is a hard cap that forces cinematicMode off
     // even if the main timer fails. This verifies the design invariant.
     const maxCelebrationMs = CLAIM_DURATIONS.firstClaim * 1000 + 500;
-    const safetyTimeoutMs = 8000;
+    const safetyTimeoutMs = 10000;
 
     // Safety timeout must be >= longest celebration + cleanup buffer
     expect(safetyTimeoutMs).toBeGreaterThanOrEqual(maxCelebrationMs);

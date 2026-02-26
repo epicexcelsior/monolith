@@ -19,8 +19,8 @@ export const CLAIM_IMPACT_OFFSET_SECS = 1.5;
 
 // ─── Duration Presets ──────────────────────────────────────────
 export const CLAIM_DURATIONS = {
-  normal:     4.0,
-  firstClaim: 5.5,
+  normal:     5.5,
+  firstClaim: 7.0,
 } as const;
 
 // ─── Phase Timing (fractions of total duration) ────────────────
@@ -66,29 +66,26 @@ export const CLAIM_FLASH = {
 } as const;
 
 // ─── Camera Shake ────────────────────────────────────────────
-// Primary shake at impact — physical, aggressive. Aftershock at +0.4s.
+// Primary shake at impact — physical, aggressive.
 export const CLAIM_SHAKE = {
   magnitude: 0.55,    // up from 0.28 — you FEEL this in your hand
   frequency: 24,
   decay:      5,
   duration:  0.80,
   axes:       3,
-  aftershock: {
-    delay:     0.40,  // seconds after impact
-    magnitude: 0.22,
-    duration:  0.45,
-    decay:     8,
-  },
 } as const;
 
 // ─── Cinematic Camera Orbit ────────────────────────────────
 // Sequence: buildup (camera still) → BOOM → zoom OUT (see full tower ripple) → zoom IN (see block)
 export const CLAIM_CAMERA = {
   orbitSpeed:     0.002,  // radians/frame at 60fps — subtle cinematic drift (reduced for shorter duration)
-  zoomOutFactor:  1.40,   // pull back 40% at impact so shockwave ring fits the screen
+  zoomOutFactor:  1.60,   // pull back 60% at impact so shockwave ring fits the screen
   zoomInFactor:   0.75,   // zoom in 25% after shockwave (slightly closer than original)
   zoomInDelay:    1.40,   // seconds after impact to start zoom in (shockwave nearly done)
   zoomRestoreMs:  1200,   // ms after celebration end to restore zoom
+  buildupHoldSecs: 0.8,   // camera holds close before impact — buildup tension
+  zoomReturnDelay: 3.5,   // seconds after start to stop orbit + begin zoom-back
+  glowUpDuration:  1.2,   // gold→owner color lerp after zoom-back
 } as const;
 
 // ─── Haptic Timing ────────────────────────────────────────────

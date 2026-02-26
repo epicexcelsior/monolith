@@ -18,7 +18,7 @@ import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
-import { CLAIM_PHASES, CLAIM_LIGHT } from "@/constants/ClaimEffectConfig";
+import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA } from "@/constants/ClaimEffectConfig";
 
 export interface BlockMeta {
   id: string;
@@ -60,11 +60,15 @@ export default function TowerGrid() {
   const recentlyChargedId = useTowerStore((s) => s.recentlyChargedId);
   const clearRecentlyCharged = useTowerStore((s) => s.clearRecentlyCharged);
   const claimCelebrationRef = useTowerStore((s) => s.claimCelebrationRef);
+  const glowUpBlockId = useTowerStore((s) => s.glowUpBlockId);
+  const clearGlowUpBlock = useTowerStore((s) => s.clearGlowUpBlock);
 
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
   // Track charge flash animation (multiple can be active)
   const chargeFlashQueueRef = useRef<Array<{ blockIndex: number; time: number }>>([]);
+  // Track glow-up animation (gold→owner color after zoom-back)
+  const glowUpRef = useRef<{ blockIndex: number; time: number; ownerColor: string } | null>(null);
   // Reusable Color objects to avoid per-frame GC pressure
   const tmpColorRef = useRef(new THREE.Color());
   const goldColorRef = useRef(new THREE.Color(1.0, 0.85, 0.2));
@@ -406,6 +410,20 @@ export default function TowerGrid() {
     }
   }, [recentlyChargedId, blockData, clearRecentlyCharged]);
 
+  // Handle glow-up trigger (gold→owner color after zoom-back)
+  useEffect(() => {
+    if (glowUpBlockId) {
+      const idx = blockData.findIndex((b) => b.id === glowUpBlockId);
+      if (idx >= 0) {
+        const block = blockData[idx];
+        glowUpRef.current = { blockIndex: idx, time: 0, ownerColor: block.ownerColor };
+      }
+      // Clear store immediately to allow re-triggering
+      const timer = setTimeout(() => clearGlowUpBlock(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [glowUpBlockId, blockData, clearGlowUpBlock]);
+
   // ─── Reveal animation: scale blocks by layer during reveal ──
   // Tracked separately from transforms since it changes every frame during reveal
   const revealAppliedRef = useRef(false);
@@ -656,6 +674,50 @@ export default function TowerGrid() {
         if (completed.length > 0) {
           const completedSet = new Set(completed);
           chargeFlashQueueRef.current = chargeFlashQueueRef.current.filter((_, i) => !completedSet.has(i));
+        }
+      }
+    }
+
+    // ─── Glow-up animation: gold → owner color lerp after zoom-back ──
+    const glowUp = glowUpRef.current;
+    if (glowUp && meshRef.current) {
+      glowUp.time += delta;
+      const geo = meshRef.current.geometry;
+      const energyAttr = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
+      const colorAttr = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
+
+      if (energyAttr && colorAttr) {
+        const GLOW_DURATION = CLAIM_CAMERA.glowUpDuration;
+        if (glowUp.time < GLOW_DURATION) {
+          const t = glowUp.time / GLOW_DURATION;
+          // Ease-out: fast start, gentle settle
+          const eased = 1 - (1 - t) * (1 - t);
+
+          // Keep energy at max during glow-up
+          energyAttr.array[glowUp.blockIndex] = 1.0;
+          energyAttr.needsUpdate = true;
+
+          // Lerp from gold → owner color
+          const gold = goldColorRef.current.set(1.0, 0.85, 0.2);
+          const ownerCol = tmpColorRef.current.set(glowUp.ownerColor);
+          const blended = gold.lerp(ownerCol, eased);
+          colorAttr.array[glowUp.blockIndex * 3] = blended.r;
+          colorAttr.array[glowUp.blockIndex * 3 + 1] = blended.g;
+          colorAttr.array[glowUp.blockIndex * 3 + 2] = blended.b;
+          colorAttr.needsUpdate = true;
+        } else {
+          // Animation complete — restore actual values
+          const block = blockData[glowUp.blockIndex];
+          if (block) {
+            energyAttr.array[glowUp.blockIndex] = block.energy / 100;
+            energyAttr.needsUpdate = true;
+            const tempColor = tmpColorRef.current.set(block.ownerColor);
+            colorAttr.array[glowUp.blockIndex * 3] = tempColor.r;
+            colorAttr.array[glowUp.blockIndex * 3 + 1] = tempColor.g;
+            colorAttr.array[glowUp.blockIndex * 3 + 2] = tempColor.b;
+            colorAttr.needsUpdate = true;
+          }
+          glowUpRef.current = null;
         }
       }
     }

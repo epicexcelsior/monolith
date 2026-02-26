@@ -18,6 +18,11 @@
 
 ## Camera & Gestures
 
+### Pass blockId Through Animation Refs, Not Position Matching (2025-02-25)
+**Problem**: The glow-up trigger in TowerScene needed to identify the claimed block after zoom-back. Initial approach used `cel.blockIndex` (always -1 from callers) with a fallback to float-tolerance position matching (`Math.abs(pos.x - target.x) < 0.01`). Index never matched; position matching was fragile with floating-point rounding.
+**Solution**: Added `blockId?: string` to `ClaimCelebrationState` interface. Callers pass `blockId` through `triggerCelebration()` → `celebrationRef` → TowerScene `useFrame` reads `cel.blockId` directly. Clean, O(1), no tolerance issues.
+**Key Insight**: When passing block identifiers through animation state refs across the pipeline (hook → ref → useFrame → store), always store the string `blockId` directly — it's the only truly reliable identifier.
+
 ### Onboarding Replay Requires Full Reveal State Reset (2026-02-25)
 **Problem**: Long-press "Replay Onboarding" reset the onboarding store phase to `cinematic`, but the camera reveal never replayed. The HUD wrapper gated on `{revealComplete && ...}` stayed mounted, while `useTowerReveal`'s `doneRef` (a `useRef`) was still `true` from the previous run, causing the useFrame callback to exit immediately.
 **Solution**: `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`. The `useTowerReveal` hook must detect `revealComplete` transitioning from `true → false` (via a `prevRevealCompleteRef`) and reset all internal animation refs (`doneRef`, `revealStartedRef`, `cinematicStartedRef`).

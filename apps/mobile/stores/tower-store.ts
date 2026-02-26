@@ -120,6 +120,7 @@ export interface ClaimCelebrationState {
   duration: number;          // seconds
   blockPosition: { x: number; y: number; z: number };
   blockIndex: number;
+  blockId?: string;          // store block ID for reliable glow-up trigger
   isFirstClaim: boolean;
 }
 
@@ -138,6 +139,7 @@ interface TowerStore {
   isGestureActive: boolean;
   recentlyClaimedId: string | null;
   recentlyChargedId: string | null;
+  glowUpBlockId: string | null;
   onboardingDone: boolean;
   initialized: boolean;
   cameraStateRef: React.MutableRefObject<any> | null;
@@ -181,6 +183,8 @@ interface TowerStore {
   setRecentlyClaimedId: (id: string | null) => void;
   setRecentlyChargedId: (id: string | null) => void;
   clearRecentlyCharged: () => void;
+  setGlowUpBlockId: (id: string | null) => void;
+  clearGlowUpBlock: () => void;
   completeOnboarding: () => void;
   resetOnboardingFlag: () => Promise<void>;
 
@@ -220,6 +224,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   isGestureActive: false,
   recentlyClaimedId: null,
   recentlyChargedId: null,
+  glowUpBlockId: null,
   onboardingDone: false,
   initialized: false,
   cameraStateRef: null,
@@ -470,6 +475,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setRecentlyClaimedId: (id) => set({ recentlyClaimedId: id }),
   setRecentlyChargedId: (id) => set({ recentlyChargedId: id }),
   clearRecentlyCharged: () => set({ recentlyChargedId: null }),
+  setGlowUpBlockId: (id) => set({ glowUpBlockId: id }),
+  clearGlowUpBlock: () => set({ glowUpBlockId: null }),
 
   completeOnboarding: () => {
     set({ onboardingDone: true });
