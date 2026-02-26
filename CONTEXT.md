@@ -325,6 +325,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-25**: Polish Plan Phase 2 — onboarding UI standardization: all CTA buttons → `<Button>` component, all panel containers → `<StepCard>`, typography → TEXT presets, spring animations → TIMING tokens, CoachMark hardcoded rgba → COLORS tokens. Net -200 lines. On `feat/polish-plan` branch.
 - **2026-02-25**: Polish Plan Phase 1 — design system foundations: added `COLORS.goldMid`, `COLORS.blazingLight`, `COLORS.hudGlassStrong`, `SHADOW.blazing`, `TIMING.springOnboarding`/`springOnboardingReanimated` tokens; `Button` "gold" variant; new `ProgressDots` + `StepCard` reusable components; documented TIMING spring API split (RN Animated vs Reanimated). See `POLISH_PLAN.md` for full 10-phase plan.
 - **2026-02-25**: Push notifications FCM wired — `google-services.json` added, `googleServicesFile` in app.json, gitignored. Needs EAS rebuild to activate. 222 mobile + 84 server tests passing.
 - **2026-02-25**: Onboarding revamp — 9-phase immersive flow (cinematic 300° orbit, minimal MONOLITH title, dedicated claim CTA, celebration VFX, color+emoji customize, charge tutorial, poke prompt, wallet connect), VFX timing tightened (2.5s→1.5s impact), enhanced particles (glow orbs, ring shockwave, lingering trails), extended tower-rise SFX (8.5s cinematic pad), camera return after celebration, replay via long-press fix. 222 tests passing.

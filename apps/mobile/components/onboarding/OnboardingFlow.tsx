@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
         borderColor: "transparent",
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.06)",
+        backgroundColor: COLORS.hudHighlight,
     },
     emojiText: {
         fontSize: 24,
@@ -540,7 +540,6 @@ const styles = StyleSheet.create({
     // ─── Charge ───────────────────────────────
     chargeWarning: {
         ...TEXT.bodySm,
-        fontWeight: "600",
         color: COLORS.fading,
         textAlign: "center",
         marginBottom: SPACING.md,
