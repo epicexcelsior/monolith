@@ -1,7 +1,7 @@
 # Monolith — Project Context
 
 > **Living state document.** Auto-updated by `/wrapup` workflow.
-> **Last updated:** 2026-02-25
+> **Last updated:** 2026-02-26
 
 ## What Is This?
 
@@ -27,7 +27,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - Colyseus multiplayer (server-authoritative, JSON messages, Railway)
 - **Immersive onboarding revamp** (9-phase: cinematic orbit → title → claim → celebration → customize → charge → poke → wallet → done)
 - 4 new animated block styles (Lava, Aurora, Crystal, Nature — GLSL, styles 7-10)
-- Demo mode XP feedback (claim 100/300xp, charge 25xp, customize 10xp — offline-first)
+- Demo mode XP feedback (claim 100/300xp, charge 25/50xp — offline-first, customization XP removed)
 - Liquid glass UI design system (solarpunk palette)
 - **Supabase persistence** (blocks, players, events — hosted, migration applied)
 - **XP / level system** (claim=100xp, charge=25xp, combo up to 3x, 10 levels)
@@ -47,13 +47,13 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Poke mechanic** (tap opponent's block → poke, 30s cooldown, server-validated, push notification)
 - **Username system** (set display name, persisted to Supabase, shown on blocks + leaderboard)
 - **My Blocks panel** (bottom sheet listing owned blocks, urgency-sorted, Charge All, tap to fly camera)
-- **My Blocks FAB** (floating action button, bottom-right — single block: fly to it, multi: open panel, red urgency dot)
+- **My Blocks FAB** (floating action button, bottom-left — single block: fly to it, multi: open panel, red urgency dot, 56px)
 - **Push notifications** (hourly decay check, poke alerts — server handler + expo-notifications)
-- **HotBlockTicker** (bottom-right mini-cards for dying/fading/claimable/streak blocks — per-type colors, tap to inspect)
+- **HotBlockTicker** (bottom-right mini-cards for dying/fading/claimable/streak blocks — per-type colors, tap to inspect, 2 cards max, 5s scan)
 - **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
 - **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast)
 - **Settings polish** (haptics toggle, username display, replay onboarding)
-- **UI overhaul** — tower reveal animation, FloatingNav pills (replaced tab bar), TopHUD, BoardSheet/SettingsSheet bottom panels, WalletConnectSheet card, LiveActivityTicker with poke-random, BlockInspector split into sub-components, swipe-to-dismiss everywhere, dead code cleanup
+- **UI overhaul** — tower reveal animation, FloatingNav pills (replaced tab bar), TopHUD, BoardSheet/SettingsSheet bottom panels, WalletConnectSheet card, BlockInspector split into sub-components, swipe-to-dismiss everywhere, dead code cleanup
 - **EAS Update / OTA** (expo-updates configured, channel: preview)
 - **Ownership enforcement** (can't charge/customize another player's block)
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
@@ -95,11 +95,13 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/BoardSheet.tsx` | Board bottom sheet (wraps BoardContent) |
 | `apps/mobile/components/ui/SettingsSheet.tsx` | Settings bottom sheet (wraps SettingsContent) |
 | `apps/mobile/components/ui/WalletConnectSheet.tsx` | Wallet connect card (BottomPanel) |
-| `apps/mobile/components/ui/LiveActivityTicker.tsx` | Bottom-left activity feed + poke-random pill |
+| `apps/mobile/components/ui/LiveActivityTicker.tsx` | Bottom-left activity feed + poke-random pill (REMOVED from index.tsx — not mounted) |
 | `apps/mobile/components/ui/BottomPanel.tsx` | Reusable glass slide-up panel with swipe dismiss |
 | `apps/mobile/components/board/BoardContent.tsx` | Leaderboard + activity feed content |
 | `apps/mobile/components/settings/SettingsContent.tsx` | Profile + settings content |
 | `apps/mobile/hooks/useBlockActions.ts` | Block action handlers (claim/charge/poke/customize) |
+| `apps/mobile/hooks/useClaimCelebration.ts` | Claim celebration orchestrator (timers, cinematic mode, inspector reopen) |
+| `apps/mobile/constants/ClaimEffectConfig.ts` | Claim celebration tuning (shake, zoom, camera, haptics, particles) |
 | `apps/mobile/hooks/useTowerReveal.ts` | Tower build-up reveal + cinematic orbit animation |
 | `apps/mobile/components/ui/LayerIndicator.tsx` | Floor scrubber / layer nav |
 | `apps/mobile/components/ui/ClaimModal.tsx` | Block claim confirmation modal |
@@ -227,7 +229,9 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 19. **FloatingNav visibility** — derived from `anyOverlayOpen` in index.tsx. When adding a new sheet/overlay, add it to `anyOverlayOpen` (one place) — don't thread individual booleans into the visible prop.
 20. **One SFX per action chain** — gesture → state change → UI reaction should play exactly ONE sound at the gesture origin. Don't add sounds to downstream effects (e.g. BottomPanel open, BlockInspector visibility change). Audit with: `grep -rn "play[A-Z]" apps/mobile/components/ apps/mobile/app/ --include="*.tsx"` and trace each call's trigger chain.
 21. **BottomPanel dismiss pattern** — always animate off-screen FIRST (`Animated.timing` to totalHeight), THEN call `onClose()` in `.start()` callback. Never reset `dragOffset` before unmount. Never put slide-out in useEffect else branch when component has `if (!visible) return null`.
-22. **Onboarding replay requires tower reset** — `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`, otherwise the HUD wrapper (`{revealComplete && ...}`) stays mounted and `useTowerReveal` refs won't re-run. The hook detects `revealComplete` going `true→false` and resets its internal animation refs.
+22. **Deselect handler fights celebration camera** — `selectBlock(null)` triggers deselect handler that sets `cs.targetZoom = ZOOM_OVERVIEW`, fighting celebration camera targets. Guard with `if (!isCelActive)` check before applying deselect camera transition.
+23. **Customization must not award XP** — free, instant, repeatable actions must never award points. XP removed from both client (`useBlockActions.ts`) and server (`TowerRoom.ts`).
+24. **Onboarding replay requires tower reset** — `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`, otherwise the HUD wrapper (`{revealComplete && ...}`) stays mounted and `useTowerReveal` refs won't re-run. The hook detects `revealComplete` going `true→false` and resets its internal animation refs.
 
 ---
 
@@ -329,6 +333,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-26**: Post-polish bug fixes — claim celebration camera rewrite (phase state machine: buildup→impact→orbit→return), fixed double claim VFX (skip during cinematic), removed XP from customization (farmable exploit), removed LiveActivityTicker, HotBlockTicker less intrusive (2 cards, 5s scan, 36px), MyBlockFAB moved left + enlarged (56px), charge explainer text in InspectorActions, boosted shake/zoom params. 222 mobile + 84 server tests passing.
 - **2026-02-25**: Polish Plan Phases 7-10 — layer-based pricing (getLayerMinPrice quadratic curve, tier badges in ClaimModal + InspectorActions), MyBlockFAB (bottom-right FAB for owned blocks, urgency dot), MyBlocksPanel polish (urgency sorting, Charge All with stagger, bigger rows), HotBlockTicker redesign (44px mini-cards, per-type colors/borders, priority sorting, FadeInLeft animation, mounted bottom-right), final polish (LayerIndicator → TIMING.springSnappy, ClaimModal stale-state fix, HotBlockTicker mounted). 222 mobile + 84 server tests passing.
 - **2026-02-25**: Polish Plan Phase 6 — block customization tiered unlocks: CUSTOMIZATION_TIERS config + helpers in common/constants.ts (8 base colors/streak 3+ all 16, 20 base emojis/streak 30+ all 48, base styles free/streak 7+ animated Lava-Nature, streak 14+ textures), InspectorCustomize rewrite with lock overlays + streak requirements + "Make it yours!" post-claim encouragement, removed "More styles" expander in favor of visible-but-gated grid. 222 tests passing.
 - **2026-02-25**: Polish Plan Phase 5 — charge mechanic dopamine overhaul: XP pill in TopHUD (XPBar + spring pulse on change), streak badge above CHARGE button in InspectorActions, daily first-charge bonus (50 XP + "Daily Charge ✓" label + haptic), recentlyChargedId set on local charge for 3D flash, FloatingPoints dynamic positioning (above inspector when visible) + custom label support, MyBlocksPanel charge bug fixed (removed hardcoded pts=25, added recentlyChargedId + daily bonus). 222 tests passing.

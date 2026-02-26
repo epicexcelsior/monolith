@@ -108,8 +108,9 @@
 
 ---
 
-## Phase 3: Claim Celebration Camera Fix
-**Why:** The celebration flow is broken — double VFX, camera cooked, no tension buildup.
+## Phase 3: Claim Celebration Camera Fix — COMPLETED (Revised 2026-02-26)
+**Status:** Done (initial: 2026-02-25, revised: 2026-02-26 — see Session 2 deviations below)
+**Why:** The celebration flow was broken — double VFX, camera cooked, no tension buildup.
 **Scope:** `useClaimCelebration.ts`, `TowerScene.tsx` camera block, `ClaimEffectConfig.ts`
 
 ### Target Flow
@@ -153,6 +154,43 @@ claim tap
 - Camera should: hold close → zoom out dramatically → zoom back smoothly → block glows gold → settles
 - No double VFX flash
 - Inspector reopens on the block after celebration
+
+### Session 2 Deviations (2026-02-26 — Post-Phase 10 Bug Fix)
+
+Phase 3's original camera celebration work (2026-02-25) was functionally broken under real usage. A second session identified the root cause and rewrote the camera celebration:
+
+**Root cause discovered**: `selectBlock(null)` in `useClaimCelebration.ts` triggered the deselect handler in TowerScene.tsx which set `cs.targetZoom = ZOOM_OVERVIEW` + `cs.targetLookAt` to overview — directly fighting the celebration camera's zoom/lookAt targets on the same frame. Both wrote to the same mutable state, causing the camera to freeze or jitter.
+
+**What changed (Session 2):**
+
+1. **`TowerScene.tsx`** — Complete rewrite of celebration camera:
+   - Added `if (!isCelActive)` guard to skip deselect→overview camera transition when celebration active
+   - Rewrote celebration camera as clean phase state machine (`idle → buildup → impact → orbit → return`)
+   - Each phase is a one-time transition triggered by elapsed time, not boolean flags
+   - Pre-celebration state captured at `idle → buildup`, restored at `return`
+   - Added `celebLerp = 0.08` (~2x normal transition speed) for cinematic punch during celebration
+
+2. **`ClaimEffectConfig.ts`** — Boosted parameters for more dramatic feel:
+   - Shake: magnitude 0.55→0.70, frequency 24→22, decay 5→4, duration 0.8→1.0s
+   - Camera: zoomOutFactor 1.60→1.80, zoomInFactor 0.75→0.70, orbitSpeed 0.002→0.004, zoomInDelay 1.40→1.20
+
+3. **`useClaimCelebration.ts`** — Restored `selectBlock(null)` (was removed in failed first attempt), cleaned up flow documentation
+
+4. **`multiplayer-store.ts`** — Fixed double claim VFX: skip `setRecentlyClaimedId` when `cinematicMode` active
+
+5. **`useBlockActions.ts`** — Removed XP from customization (was farmable by repeated color changes)
+
+6. **`TowerRoom.ts`** + test — Server-side: removed XP computation from customize handler
+
+7. **`index.tsx`** — Removed LiveActivityTicker (bottom-left), kept HotBlockTicker only
+
+8. **`HotBlockTicker.tsx`** — Made less intrusive: MAX_CARDS 3→2, scan 3s→5s, card height 44→36px
+
+9. **`MyBlockFAB.tsx`** — Moved to left side, enlarged 48→56px
+
+10. **`InspectorActions.tsx`** — Added charge explainer: "Energy decays daily. 0% for 3 days = anyone can reclaim it."
+
+**Key lesson**: When two systems (deselect handler + celebration camera) write to the same mutable camera state, the lower-priority one must yield with an active-state guard. Boolean flag soup for multi-phase animations should be replaced with an explicit state machine.
 
 ---
 

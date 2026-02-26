@@ -18,6 +18,16 @@
 
 ## Camera & Gestures
 
+### Deselect Handler Fights Celebration Camera — Guard with Active Check (2026-02-26)
+**Problem**: `selectBlock(null)` during claim celebration triggered the deselect handler which set `cs.targetZoom = ZOOM_OVERVIEW` + `cs.targetLookAt` to overview — directly fighting the celebration camera's zoom/lookAt targets on the same frame. Result: camera froze or jittered instead of doing the cinematic zoom-out.
+**Solution**: Guard the deselect camera transition: `const isCelActive = claimCelebrationRef?.current?.active ?? false; if (!isCelActive) { /* set overview targets */ }`. The celebration camera phase state machine handles all zoom/lookAt during the sequence.
+**Key Insight**: When two systems write to the same mutable camera state (targets), the lower-priority one must yield. Check for active override states before applying default transitions.
+
+### Phase State Machine for Camera Sequences (2026-02-26)
+**Problem**: Celebration camera used boolean flags and elapsed-time checks scattered across the useFrame loop. Adding phases (buildup → impact → orbit → return) required tracking which phases had fired, leading to stale-flag bugs and overlapping transitions.
+**Solution**: Single `phase` field in a ref (`"idle" | "buildup" | "impact" | "orbit" | "return"`). Each phase transition is a one-time state change triggered by elapsed time. Phase gates prevent re-triggering. Pre-celebration camera state captured at `idle → buildup` transition, restored at `return`.
+**Key Insight**: For multi-phase camera animations in useFrame, use an explicit state machine ref with named phases — not scattered boolean/time checks. Each phase fires once and advances cleanly.
+
 ### Pass blockId Through Animation Refs, Not Position Matching (2025-02-25)
 **Problem**: The glow-up trigger in TowerScene needed to identify the claimed block after zoom-back. Initial approach used `cel.blockIndex` (always -1 from callers) with a fallback to float-tolerance position matching (`Math.abs(pos.x - target.x) < 0.01`). Index never matched; position matching was fragile with floating-point rounding.
 **Solution**: Added `blockId?: string` to `ClaimCelebrationState` interface. Callers pass `blockId` through `triggerCelebration()` → `celebrationRef` → TowerScene `useFrame` reads `cel.blockId` directly. Clean, O(1), no tolerance issues.
@@ -182,6 +192,16 @@ side: THREE.BackSide, blending: THREE.AdditiveBlending,
 ---
 
 ## Multiplayer & Networking
+
+### Skip Client VFX During Cinematic Mode to Prevent Doubles (2026-02-26)
+**Problem**: Client fires `triggerCelebration()` optimistically on claim, which enters cinematic mode. Then server broadcasts `block_update` with `eventType: "claim"` → `setRecentlyClaimedId()` → second gold flash on the block, doubling the VFX.
+**Solution**: In multiplayer-store's `block_update` handler, check `if (!towerStore.cinematicMode)` before calling `setRecentlyClaimedId`. During cinematic mode, the celebration VFX already handles all visual feedback.
+**Key Insight**: When optimistic client actions trigger VFX AND server broadcasts trigger the same VFX, gate the server-side trigger on the client's animation state.
+
+### Remove XP From Farmable Actions (2026-02-26)
+**Problem**: Customization awarded 10 XP per change with no cooldown or dedup. Players could spam color changes to farm unlimited XP. Both client (demo mode) and server awarded XP independently.
+**Solution**: Removed XP from customization entirely — both `useBlockActions.ts` (client) and `TowerRoom.ts` (server). The `onCustomizeResult` callback is now a no-op. Customization should be free and expressive, not a points loop.
+**Key Insight**: Any action that's free, instant, and repeatable should NEVER award XP/points. Gate rewards behind cooldowns (charge), real cost (claim), or social interaction (poke).
 
 ### Result Callbacks Must Be Registered, Not Just Imported (2026-02-21)
 **Problem**: `onCustomizeResult` was imported and the `CustomizeResult` type was used — TypeScript was happy — but the callback was never actually *called* to register it. Server correctly sent `customize_result` with XP, but `customizeResultCallback` was always `null`, silently dropping the XP animation.
@@ -417,6 +437,11 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 ---
 
 ## UI/UX & Design System
+
+### Explain Game Mechanics Inline, Not in Tooltips (2026-02-26)
+**Problem**: Players didn't understand the charge mechanic — "what happens if I don't charge?" Energy decay and the dormant reclaim risk weren't surfaced anywhere in the UI. Users ignored the CHARGE button because the stakes were invisible.
+**Solution**: Added a one-liner below the CHARGE button: "Energy decays daily. 0% for 3 days = anyone can reclaim it." Direct, concise, in the action context. No tooltip, no modal, no tutorial — just text next to the button where eyes already are.
+**Key Insight**: The most effective UX copy is a single sentence placed next to the action, explaining the consequence. If players need to discover a mechanic to care about it, tell them right where they'll act on it.
 
 ### Dead Components — Always Verify Mount Point Exists (2026-02-25)
 **Problem**: Redesigned HotBlockTicker from tiny 9px pills to 44px mini-cards with per-type colors, entrance animations, and priority sorting. The redesign was invisible — `HotBlockTicker` was never imported or rendered in `index.tsx`. `LiveActivityTicker` (a separate event feed component) had replaced it at some point, but the file stayed as dead code.
