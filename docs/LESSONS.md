@@ -13,6 +13,7 @@
 - [Deployment & DevOps](#deployment--devops)
 - [UI/UX & Design System](#uiux--design-system)
 - [Development Workflow](#development-workflow)
+- [Tapestry & Social](#tapestry--social)
 
 ---
 
@@ -566,3 +567,22 @@ timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 **Problem**: Git commits can succeed even when the terminal hangs and doesn't return to prompt.
 **Solution**: Always verify: `git log --oneline -1` (shows latest commit) + `git status --short` (shows staged/unstaged). If message matches, commit succeeded.
 **Key Insight**: Never assume a commit failed just because the terminal hung — always verify with git log.
+
+---
+
+## Tapestry & Social
+
+### Tapestry Content findOrCreate Requires Non-Empty Properties (2026-02-26)
+**Problem**: Calling `/contents/findOrCreate` without a `properties` array (or with an empty one) returns `"properties cannot be empty"` — the content node is silently never created. All subsequent likes and comments on that content ID return 404 (`"Can't find nodes with ids [...]"`), making social features appear broken with no obvious cause.
+**Solution**: Always include at least one default property: `properties: [{ key: "blockId", value: blockId }]`. Never conditionally omit the `properties` field.
+**Key Insight**: Tapestry content nodes require at least one property to exist. Treat `properties` as a required field, not optional, even though the TypeScript types don't enforce it.
+
+### Lazy Content Creation Before Social Interactions (2026-02-26)
+**Problem**: Like/comment buttons were wired up in the BlockInspector, but the Tapestry content node for the block didn't exist yet (only created on claim). Tapping Like instantly reverted because the API 404'd, and the optimistic UI catch handler rolled it back.
+**Solution**: Call `ensureBlockContent()` (findOrCreate) when the block inspector opens, gated by a `contentReadyRef`. Like/comment handlers check `contentReadyRef.current` before firing. Social state checks (checkLiked, getLikeCount, getComments) only run after content is confirmed to exist.
+**Key Insight**: For optimistic UI over external APIs, ensure the target resource exists before allowing interactions — don't assume prior actions created it.
+
+### Duplicate/Split Imports Silently Break React Native Components (2026-02-26)
+**Problem**: BlockInspector had two separate import statements from `@/utils/tapestry` plus an unused import (`BOT_PERSONAS` from seed-tower). Metro bundler silently failed to evaluate the module, causing the entire component tree below it to not mount — block taps did nothing with zero error logs.
+**Solution**: Consolidate all imports from the same module into a single import statement. Remove unused imports immediately.
+**Key Insight**: In React Native with Metro, split imports from the same module or unused imports can cause silent component failures with no error boundary or log output. Always consolidate imports.

@@ -27,6 +27,7 @@ import { useTapestryStore } from "@/stores/tapestry-store";
 import {
   getProfile,
   getBlockContentId,
+  ensureBlockContent,
   followProfile,
   unfollowProfile,
   checkFollowing,
@@ -94,16 +95,19 @@ export default function BlockInspector() {
 
   // Deterministic content ID — always available for any non-unclaimed block
   const currentBlockContentId = block?.id && !isUnclaimed ? getBlockContentId(block.id) : undefined;
+  // Track whether the Tapestry content node exists (to avoid 404s on like/comment)
+  const contentReadyRef = useRef(false);
 
   const showSocial =
     !!tapestryProfileId &&
     !isOwner &&
     !isUnclaimed &&
-    !!block?.owner &&
-    !isBotOwner(block.owner);
+    !!block?.owner;
 
-  // Check follow/like/comment status when viewing another player's block
+  // Ensure block content exists + check follow/like/comment status
   useEffect(() => {
+    contentReadyRef.current = false;
+
     if (!block?.id || isUnclaimed) {
       setIsFollowingOwner(false);
       setHasLikedBlock(false);
@@ -113,36 +117,67 @@ export default function BlockInspector() {
       return;
     }
 
+    let cancelled = false;
     const contentId = getBlockContentId(block.id);
 
-    // Fetch like/comment counts for any non-unclaimed block (owned or not)
-    if (tapestryProfileId) {
-      checkLiked(tapestryProfileId, contentId)
-        .then((result) => setHasLikedBlock(result.hasLiked))
-        .catch(console.warn);
-    }
-    getLikeCount(contentId)
-      .then((count) => setBlockLikeCount(count))
-      .catch(console.warn);
-    getComments(contentId, tapestryProfileId ?? undefined, 1, 1)
-      .then((result) => setBlockCommentCount(result.comments?.length ?? 0))
-      .catch(console.warn);
+    // Step 1: Ensure the content node exists (lazy create), then check social state
+    const ensureAndCheck = async () => {
+      // We need a profileId to create content — use the block owner's Tapestry profile
+      // or our own profileId as fallback (content is keyed by contentId, not profileId)
+      const creatorId = tapestryProfileId || "system";
+      try {
+        await ensureBlockContent(
+          creatorId,
+          block.id,
+          `Block ${block.id} on The Monolith`,
+        );
+        if (cancelled) return;
+        contentReadyRef.current = true;
+      } catch {
+        // Content creation failed — social features won't work for this block
+        if (cancelled) return;
+        contentReadyRef.current = false;
+        return;
+      }
+
+      // Step 2: Now that content exists, check like/comment counts
+      if (tapestryProfileId) {
+        checkLiked(tapestryProfileId, contentId)
+          .then((result) => { if (!cancelled) setHasLikedBlock(result.hasLiked); })
+          .catch(() => {});
+      }
+      getLikeCount(contentId)
+        .then((count) => { if (!cancelled) setBlockLikeCount(count); })
+        .catch(() => {});
+      getComments(contentId, tapestryProfileId ?? undefined, 1, 1)
+        .then((result) => { if (!cancelled) setBlockCommentCount(result.comments?.length ?? 0); })
+        .catch(() => {});
+    };
+
+    ensureAndCheck().catch(console.warn);
 
     // Follow state — only for other people's blocks
     if (showSocial && block.owner) {
-      const ownerName = block.name || block.owner.slice(0, 8);
+      // Bot profiles use their name as ID; real players use username or truncated wallet
+      const ownerName = isBotOwner(block.owner)
+        ? block.owner
+        : (block.name || block.owner.slice(0, 8));
       getProfile(ownerName)
         .then((result) => {
+          if (cancelled) return;
           const ownerId = result.profile.id;
           setOwnerTapestryId(ownerId);
           return checkFollowing(tapestryProfileId!, ownerId);
         })
-        .then((result) => setIsFollowingOwner(result.isFollowing))
+        .then((result) => {
+          if (!cancelled && result) setIsFollowingOwner(result.isFollowing);
+        })
         .catch(() => {
-          // Owner has no Tapestry profile — hide follow button
-          setOwnerTapestryId(null);
+          if (!cancelled) setOwnerTapestryId(null);
         });
     }
+
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [block?.id, tapestryProfileId, showSocial, isUnclaimed]);
 
@@ -161,7 +196,7 @@ export default function BlockInspector() {
   }, [tapestryProfileId, ownerTapestryId]);
 
   const handleTapestryLike = useCallback(() => {
-    if (!tapestryProfileId || !currentBlockContentId) return;
+    if (!tapestryProfileId || !currentBlockContentId || !contentReadyRef.current) return;
     setHasLikedBlock(true);
     setBlockLikeCount((c) => c + 1);
     likeContent(tapestryProfileId, currentBlockContentId).catch(() => {
@@ -171,7 +206,7 @@ export default function BlockInspector() {
   }, [tapestryProfileId, currentBlockContentId]);
 
   const handleTapestryUnlike = useCallback(() => {
-    if (!tapestryProfileId || !currentBlockContentId) return;
+    if (!tapestryProfileId || !currentBlockContentId || !contentReadyRef.current) return;
     setHasLikedBlock(false);
     setBlockLikeCount((c) => c - 1);
     unlikeContent(tapestryProfileId, currentBlockContentId).catch(() => {

@@ -179,7 +179,7 @@ export interface BotPersona {
   activityLevel: number;
 }
 
-const BOT_PERSONAS: BotPersona[] = [
+export const BOT_PERSONAS: BotPersona[] = [
   // ── Whales: High stakes, steady, reliable
   { name: "SolWhale.sol", color: "#5b8fb9", emoji: "🐋", archetype: "whale", stakeRange: [200, 2000], activityLevel: 0.9 },
   { name: "VaultMaxi", color: "#b8860b", emoji: "🏦", archetype: "whale", stakeRange: [500, 5000], activityLevel: 0.95 },

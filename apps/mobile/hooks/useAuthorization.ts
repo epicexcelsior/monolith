@@ -115,10 +115,44 @@ function bootstrapTapestryProfile(walletAddress: string): void {
       getSocialCounts(walletAddress)
         .then((counts) => useTapestryStore.getState().setSocialCounts(counts))
         .catch(console.warn);
+
+      // Bootstrap bot profiles so social features work on bot blocks
+      bootstrapBotProfiles(result.profile.id).catch(console.warn);
     } catch (e) {
       console.warn("Tapestry profile creation failed:", e);
     }
   })();
+}
+
+// ---------------------------------------------------------------------------
+// Bot profile seeding — creates Tapestry profiles for bot personas
+// ---------------------------------------------------------------------------
+async function bootstrapBotProfiles(userProfileId: string): Promise<void> {
+  const flag = await SecureStore.getItemAsync("TAPESTRY_BOTS_SEEDED");
+  if (flag) return;
+
+  const { BOT_PERSONAS } = await import("@/utils/seed-tower");
+  const { getBotWalletAddress, ensureBlockContent, followProfile: followBot } = await import("@/utils/tapestry");
+
+  // Create profiles for all bots (fire-and-forget each)
+  const results = await Promise.allSettled(
+    BOT_PERSONAS.map(async (p) => {
+      const wallet = getBotWalletAddress(p.name);
+      const result = await findOrCreateProfile(wallet, p.name, `Bot keeper on The Monolith`);
+      // Create content for their first block so likes work
+      await ensureBlockContent(result.profile.id, `bot-${p.name}`, `Claimed a block on The Monolith!`).catch(() => {});
+      return result.profile.id;
+    }),
+  );
+
+  // Auto-follow first 3 successful bots so Social tab has content
+  const botIds = results
+    .filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled")
+    .map((r) => r.value)
+    .slice(0, 3);
+  await Promise.allSettled(botIds.map((id) => followBot(userProfileId, id)));
+
+  await SecureStore.setItemAsync("TAPESTRY_BOTS_SEEDED", "true");
 }
 
 // ---------------------------------------------------------------------------

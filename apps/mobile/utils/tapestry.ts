@@ -13,6 +13,22 @@ const TAPESTRY_API_URL =
 const TAPESTRY_API_KEY =
   process.env.EXPO_PUBLIC_TAPESTRY_API_KEY || "";
 
+if (!TAPESTRY_API_KEY) console.warn("[Tapestry] API key missing — all social calls will fail");
+
+// ─── Bot Wallet Addresses ──────────────────────────────
+
+/** Generate a deterministic 44-char base58 string from a bot name (fake wallet address). */
+export function getBotWalletAddress(botName: string): string {
+  const padded = botName.padEnd(32, "0");
+  const bytes = Array.from(padded).map((c) => c.charCodeAt(0));
+  const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  return bytes
+    .map((b) => BASE58[b % 58])
+    .join("")
+    .slice(0, 44)
+    .padEnd(44, "1");
+}
+
 // ─── Types ─────────────────────────────────────────────
 
 export interface TapestryProfileData {
@@ -227,6 +243,10 @@ export async function ensureBlockContent(
   properties?: { key: string; value: string }[],
 ): Promise<TapestryContentCreateResult> {
   const contentId = getBlockContentId(blockId);
+  // Tapestry requires at least one property — always include blockId
+  const props = properties && properties.length > 0
+    ? properties
+    : [{ key: "blockId", value: blockId }];
   return tapestryFetch<TapestryContentCreateResult>("/contents/findOrCreate", {
     method: "POST",
     body: JSON.stringify({
@@ -234,7 +254,7 @@ export async function ensureBlockContent(
       profileId,
       content: text,
       contentType: "text",
-      ...(properties && properties.length > 0 ? { properties } : {}),
+      properties: props,
     }),
   });
 }
@@ -246,6 +266,10 @@ export async function createContent(
 ): Promise<TapestryContentCreateResult> {
   // Generate deterministic ID from profileId + timestamp for findOrCreate
   const contentId = `monolith-${profileId}-${Date.now()}`;
+  // Tapestry requires at least one property
+  const props = properties && properties.length > 0
+    ? properties
+    : [{ key: "type", value: "post" }];
   return tapestryFetch<TapestryContentCreateResult>("/contents/findOrCreate", {
     method: "POST",
     body: JSON.stringify({
@@ -253,7 +277,7 @@ export async function createContent(
       profileId,
       content: text,
       contentType: "text",
-      ...(properties && properties.length > 0 ? { properties } : {}),
+      properties: props,
     }),
   });
 }
@@ -357,29 +381,3 @@ export async function getComments(
   );
 }
 
-// ─── Activity Feed ──────────────────────────────────────
-
-export interface TapestryActivityItem {
-  id: string;
-  activity_type: string;
-  actor_username: string;
-  target_username?: string;
-  content_id?: string;
-  created_at: number;
-  description?: string;
-}
-
-export async function getActivityFeed(
-  username: string,
-  page = 1,
-  pageSize = 20,
-): Promise<{ activities: TapestryActivityItem[]; page: number; pageSize: number }> {
-  const params = new URLSearchParams({
-    username,
-    page: String(page),
-    pageSize: String(pageSize),
-  });
-  return tapestryFetch<{ activities: TapestryActivityItem[]; page: number; pageSize: number }>(
-    `/activity/feed?${params.toString()}`,
-  );
-}
