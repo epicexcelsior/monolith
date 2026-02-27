@@ -180,25 +180,28 @@ function bootstrapSoarRegistration(walletAddress: string, walletUriBase?: string
       const transactOptions = walletUriBase ? { baseUri: walletUriBase } : undefined;
       const authToken = await SecureStore.getItemAsync(SECURE_STORE_KEYS.AUTH_TOKEN);
 
-      await transact(async (wallet: Web3MobileWallet) => {
-        // Reauthorize with cached token (result unused — we just need the session)
-        authToken
-          ? await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY })
-          : await wallet.authorize({ chain: getMwaChain(), identity: APP_IDENTITY });
+      // Send each tx in its own MWA session to avoid multi-sig batch issues
+      const { Connection } = await import("@solana/web3.js");
+      const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
-        // Set fee payer + blockhash
-        const { Connection } = await import("@solana/web3.js");
-        const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+      for (let i = 0; i < txs.length; i++) {
+        const tx = txs[i];
         const { blockhash } = await connection.getLatestBlockhash();
-        for (const tx of txs) {
-          tx.feePayer = pubkey;
-          tx.recentBlockhash = blockhash;
-        }
+        tx.feePayer = pubkey;
+        tx.recentBlockhash = blockhash;
 
-        await wallet.signAndSendTransactions({ transactions: txs });
-        console.log("[SOAR] Player registered on-chain successfully");
-        markPlayerInitialized(pubkey);
-      }, transactOptions);
+        await transact(async (wallet: Web3MobileWallet) => {
+          authToken
+            ? await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY })
+            : await wallet.authorize({ chain: getMwaChain(), identity: APP_IDENTITY });
+
+          await wallet.signAndSendTransactions({ transactions: [tx] });
+          console.log(`[SOAR] Registration tx ${i + 1}/${txs.length} sent`);
+        }, transactOptions);
+      }
+
+      console.log("[SOAR] Player registered on-chain successfully");
+      markPlayerInitialized(pubkey);
     } catch (e) {
       // Graceful degradation — scores just won't be submitted on-chain
       console.warn("[SOAR] Registration failed (scores will be local-only):", e);
