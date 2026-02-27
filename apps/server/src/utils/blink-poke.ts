@@ -55,6 +55,14 @@ export async function applyBlinkPoke(
           lastChargeTime: roomBlock.lastChargeTime,
           streak: roomBlock.streak,
           lastStreakDate: roomBlock.lastStreakDate,
+          imageIndex: roomBlock.imageIndex,
+          appearance: {
+            color: roomBlock.appearance?.color || "",
+            emoji: roomBlock.appearance?.emoji || "",
+            name: roomBlock.appearance?.name || "",
+            style: roomBlock.appearance?.style || 0,
+            textureId: roomBlock.appearance?.textureId || 0,
+          },
           eventType: "poke",
         });
 

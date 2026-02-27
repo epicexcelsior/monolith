@@ -42,7 +42,7 @@ interface ServerBlock {
     style: number;
     textureId: number;
   };
-  eventType?: "claim" | "charge" | "customize";
+  eventType?: "claim" | "charge" | "customize" | "poke";
 }
 
 interface ServerState {
@@ -291,7 +291,7 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
 
   if (idx >= 0) {
     const cur = existing[idx];
-    if (
+    const dataChanged = !(
       cur.energy === updated.energy &&
       cur.owner === updated.owner &&
       cur.ownerColor === updated.ownerColor &&
@@ -301,16 +301,19 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
       cur.textureId === updated.textureId &&
       cur.emoji === updated.emoji &&
       cur.name === updated.name
-    ) {
+    );
+
+    if (dataChanged) {
+      const newBlocks = existing.slice();
+      newBlocks[idx] = updated;
+      store.setDemoBlocks(newBlocks);
+    } else if (!serverBlock.eventType) {
+      // No data changed AND no event — skip entirely
       return;
     }
-
-    const newBlocks = existing.slice();
-    newBlocks[idx] = updated;
-    store.setDemoBlocks(newBlocks);
   }
 
-  // Trigger visual effects based on eventType
+  // Trigger visual effects based on eventType (always, even if data didn't change)
   // Skip claim flash if cinematic mode is active — local player already triggered celebration VFX
   if (serverBlock.eventType === "claim") {
     if (!towerStore.cinematicMode) {
@@ -389,7 +392,8 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
 
     try {
       client = new Client(GAME_SERVER_URL);
-      room = await client.joinOrCreate("tower");
+      const wallet = useWalletStore.getState().publicKey?.toBase58();
+      room = await client.joinOrCreate("tower", wallet ? { wallet } : undefined);
 
       // ─── JSON message handlers ────
 
@@ -404,6 +408,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       });
 
       room.onMessage("block_update", (data: ServerBlock) => {
+        if (__DEV__ && data.eventType) console.log(`[Multiplayer] block_update: ${data.id} eventType=${data.eventType}`);
         applySingleBlockUpdate(data);
       });
 
@@ -425,6 +430,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       });
 
       room.onMessage("poke_received", (data: PokeReceived) => {
+        if (__DEV__) console.log(`[Multiplayer] poke_received:`, data);
         pokeReceivedCallback?.(data);
       });
 
