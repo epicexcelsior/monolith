@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Monolith — Graveyard Hack 2026</title>
+
+    <!-- Fonts: Outfit (display), Inter (body), Cormorant Garamond (editorial accent) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg:           #1A1612;
+            --bg-raised:    #22201A;
+            --bg-card:      rgba(255, 252, 245, 0.04);
+            --bg-card-hover:rgba(255, 252, 245, 0.07);
+            --card-border:  rgba(212, 168, 71, 0.12);
+            --card-shadow:  0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+
+            --gold:         #D4A847;
+            --gold-light:   #F0BC5E;
+            --gold-dark:    #B08A30;
+            --gold-glow:    rgba(212, 168, 71, 0.30);
+            --gold-subtle:  rgba(212, 168, 71, 0.10);
+            --amber:        #E07A2F;
+
+            --blazing:  #FFB800;
+            --thriving: #5C9E31;
+            --fading:   #E07A2F;
+            --flickering:#C4402A;
+            --dormant:  #9E9189;
+
+            --tapestry:         #D4A847;
+            --tapestry-bg:      rgba(212, 168, 71, 0.08);
+            --tapestry-border:  rgba(212, 168, 71, 0.22);
+            --orbitflare:       #5B8FB9;
+            --orbitflare-bg:    rgba(91, 143, 185, 0.08);
+            --orbitflare-border:rgba(91, 143, 185, 0.25);
+            --exchangeart:      #9B6DB5;
+            --exchangeart-bg:   rgba(155, 109, 181, 0.08);
+            --exchangeart-border:rgba(155, 109, 181, 0.25);
+
+            --text:           #F0ECE6;
+            --text-secondary: rgba(240, 236, 230, 0.60);
+            --text-muted:     rgba(240, 236, 230, 0.32);
+
+            --font-display: 'Outfit', sans-serif;
+            --font-body:    'Inter', sans-serif;
+            --font-serif:   'Cormorant Garamond', 'Georgia', serif;
+
+            --hero-size:   clamp(3rem, 9vw, 8rem);
+            --title-size:  clamp(2rem, 5.5vw, 4.5rem);
+            --h2-size:     clamp(1.5rem, 3.8vw, 3rem);
+            --h3-size:     clamp(1.1rem, 2.2vw, 1.6rem);
+            --body-size:   clamp(0.9rem, 1.5vw, 1.2rem);
+            --body-lg:     clamp(1.05rem, 2vw, 1.55rem);
+            --small-size:  clamp(0.7rem, 1vw, 0.9rem);
+            --stat-size:   clamp(2.5rem, 6vw, 5rem);
+
+            --pad:    clamp(1.5rem, 4vw, 4.5rem);
+            --gap:    clamp(0.65rem, 1.8vw, 1.6rem);
+            --gap-sm: clamp(0.35rem, 0.8vw, 0.65rem);
+
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --dur:  0.65s;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            height: 100%;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            height: 100%;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===========================================
+           BACKGROUND LAYERS
+           Smoke, particles, vignette, bottom haze
+           =========================================== */
+
+        /* Drifting golden smoke pools */
+        .smoke-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 70% 55% at 15% 85%, rgba(212, 168, 71, 0.045) 0%, transparent 65%),
+                radial-gradient(ellipse 55% 65% at 85% 15%, rgba(212, 168, 71, 0.035) 0%, transparent 65%),
+                radial-gradient(ellipse 60% 40% at 50% 95%, rgba(224, 122, 47, 0.030) 0%, transparent 60%),
+                radial-gradient(ellipse 45% 55% at 5%  30%, rgba(212, 168, 71, 0.025) 0%, transparent 60%);
+            animation: smokeDrift 22s ease-in-out infinite alternate;
+        }
+
+        @keyframes smokeDrift {
+            0%   { transform: translate(-1.5%, 1%) scale(1.02); }
+            33%  { transform: translate(0.5%, -0.5%) scale(1.00); }
+            66%  { transform: translate(1%, 0.8%) scale(1.01); }
+            100% { transform: translate(-0.5%, -1.2%) scale(1.03); }
+        }
+
+        /* Vignette */
+        .smoke-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.35) 100%);
+        }
+
+        /* Bottom haze band: warm golden fog sitting at the base */
+        .bottom-haze {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 35vh;
+            z-index: 0;
+            pointer-events: none;
+            background: linear-gradient(to top,
+                rgba(212, 168, 71, 0.06) 0%,
+                rgba(212, 168, 71, 0.035) 25%,
+                rgba(224, 122, 47, 0.02) 50%,
+                transparent 100%
+            );
+            animation: hazeBreath 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes hazeBreath {
+            0%   { opacity: 0.7; transform: translateY(2%); }
+            100% { opacity: 1.0; transform: translateY(-1%); }
+        }
+
+        /* =========================================== */
+        /* SLIDES                                      */
+        /* =========================================== */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: var(--pad);
+        }
+
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(212,168,71,0.018) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212,168,71,0.018) 1px, transparent 1px);
+            background-size: 90px 90px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .slide > * { position: relative; z-index: 1; }
+
+        .slide-inner {
+            width: 100%;
+            max-width: 1040px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* =========================================== */
+        /* TYPOGRAPHY                                  */
+        /* =========================================== */
+        h1, h2, h3, .display { font-family: var(--font-display); line-height: 1.08; letter-spacing: -0.03em; }
+        h1 { font-size: var(--title-size); font-weight: 900; }
+        h2 { font-size: var(--h2-size);    font-weight: 800; }
+        h3 { font-size: var(--h3-size);    font-weight: 700; color: var(--gold); }
+        p  { font-size: var(--body-size);  line-height: 1.55; color: var(--text-secondary); }
+
+        .body-lg { font-size: var(--body-lg); line-height: 1.5; }
+
+        .overline {
+            font-size: var(--small-size);
+            font-weight: 800;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: clamp(0.4rem, 1.2vh, 0.8rem);
+        }
+
+        /* Serif accent: used for quotes & editorial emphasis */
+        .serif {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        .serif-bold {
+            font-family: var(--font-serif);
+            font-weight: 600;
+        }
+
+        .gold      { color: var(--gold); }
+        .gold-lt   { color: var(--gold-light); }
+        .dim       { color: var(--text-muted); }
+        .center    { text-align: center; }
+
+        .stat {
+            font-family: var(--font-display);
+            font-size: var(--stat-size);
+            font-weight: 900;
+            color: var(--gold);
+            line-height: 1;
+        }
+
+        .glow-text {
+            background: linear-gradient(135deg, #F0BC5E, #D4A847, #E07A2F);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Big editorial quote block */
+        .quote-block {
+            font-family: var(--font-serif);
+            font-size: clamp(1.2rem, 2.5vw, 2.2rem);
+            font-weight: 400;
+            font-style: italic;
+            line-height: 1.35;
+            color: var(--text-secondary);
+            max-width: 680px;
+            position: relative;
+            padding-left: clamp(1rem, 2vw, 1.5rem);
+        }
+
+        .quote-block::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, var(--gold), transparent);
+            border-radius: 2px;
+        }
+
+        /* =========================================== */
+        /* REVEAL ANIMATIONS                           */
+        /* =========================================== */
+        .r {
+            opacity: 0;
+            transform: translateY(22px);
+            transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        }
+        .slide.visible .r { opacity: 1; transform: translateY(0); }
+        .r1 { transition-delay: 0.07s; }
+        .r2 { transition-delay: 0.14s; }
+        .r3 { transition-delay: 0.21s; }
+        .r4 { transition-delay: 0.28s; }
+        .r5 { transition-delay: 0.35s; }
+        .r6 { transition-delay: 0.42s; }
+
+        .r-scale {
+            opacity: 0; transform: scale(0.93);
+            transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        }
+        .slide.visible .r-scale { opacity: 1; transform: scale(1); }
+
+        /* =========================================== */
+        /* COMPONENTS                                  */
+        /* =========================================== */
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: clamp(0.8rem, 1.6vw, 1.4rem);
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(212, 168, 71, 0.22);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: var(--small-size);
+            font-weight: 700;
+            padding: 0.28em 0.75em;
+            border-radius: 999px;
+            background: rgba(212, 168, 71, 0.09);
+            color: var(--gold-light);
+            border: 1px solid rgba(212, 168, 71, 0.18);
+        }
+        .pill-green  { background: rgba(92,158,49,0.09);   color: #6BB84A; border-color: rgba(92,158,49,0.22); }
+        .pill-red    { background: rgba(196,64,42,0.08);   color: #E8705A; border-color: rgba(196,64,42,0.2); }
+        .pill-blue   { background: rgba(91,143,185,0.09);  color: #7EB3D9; border-color: rgba(91,143,185,0.22); }
+        .pill-purple { background: rgba(155,109,181,0.09); color: #B98FD4; border-color: rgba(155,109,181,0.22); }
+
+        .divider {
+            width: 56px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--amber));
+            border-radius: 2px;
+            margin: clamp(0.4rem, 1.2vh, 0.8rem) 0;
+        }
+
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+        .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+        @media (max-width: 680px) { .g3 { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 480px) { .g2 { grid-template-columns: 1fr; } }
+
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(0.3rem, 0.9vw, 0.75rem);
+            flex-wrap: wrap;
+        }
+        .flow-arrow { font-size: clamp(16px, 2vw, 26px); color: var(--gold); opacity: 0.3; }
+
+        .ico {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: clamp(48px, 5.5vw, 68px);
+            height: clamp(48px, 5.5vw, 68px);
+            border-radius: 16px;
+            background: rgba(212, 168, 71, 0.08);
+            border: 1px solid rgba(212, 168, 71, 0.14);
+            font-size: clamp(22px, 2.8vw, 32px);
+            flex-shrink: 0;
+        }
+
+        .insight {
+            background: linear-gradient(135deg, rgba(212,168,71,0.07), rgba(224,122,47,0.03));
+            border-left: 4px solid var(--gold);
+            padding: clamp(0.7rem, 1.4vw, 1.1rem);
+            border-radius: 0 14px 14px 0;
+        }
+        .insight p { color: var(--text); font-weight: 500; font-size: var(--body-lg); }
+
+        .bounty-badge {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: var(--small-size);
+            padding: 0.3em 0.8em;
+            border-radius: 8px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .bb-tapestry   { background: var(--tapestry-bg);   color: var(--gold-light);   border: 1px solid var(--tapestry-border); }
+        .bb-orbitflare { background: var(--orbitflare-bg); color: #7EB3D9; border: 1px solid var(--orbitflare-border); }
+        .bb-exchange   { background: var(--exchangeart-bg);color: #B98FD4; border: 1px solid var(--exchangeart-border); }
+
+        .compare-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+        .compare-item .emoji { font-size: clamp(16px, 2vw, 22px); flex-shrink: 0; margin-top: 2px; }
+
+        /* =========================================== */
+        /* TIMELINE (ROADMAP) - much bigger text       */
+        /* =========================================== */
+        .timeline { display: flex; gap: clamp(5px, 0.6vw, 10px); width: 100%; }
+        .t-phase {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: clamp(0.8rem, 1.5vw, 1.3rem);
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(6px);
+            transition: all 0.3s;
+        }
+        .t-phase.now {
+            border-color: var(--gold);
+            background: rgba(212, 168, 71, 0.08);
+            box-shadow: 0 0 30px rgba(212, 168, 71, 0.12), var(--card-shadow);
+        }
+        .t-label  { font-family: var(--font-display); font-weight: 800; font-size: clamp(0.85rem, 1.2vw, 1.1rem); color: var(--gold-light); }
+        .t-time   { font-size: clamp(0.65rem, 0.85vw, 0.78rem); color: var(--text-muted); margin: 4px 0 6px; }
+        .t-desc   { font-size: clamp(0.75rem, 1vw, 0.95rem); color: var(--text-secondary); line-height: 1.45; }
+        .t-metric { font-family: var(--font-display); font-weight: 800; font-size: clamp(0.78rem, 1vw, 0.95rem); color: var(--gold-light); margin-top: 6px; }
+
+        /* =========================================== */
+        /* CSS 3D TOWER                                */
+        /* =========================================== */
+        .tower-scene { perspective: 700px; display: flex; justify-content: center; align-items: flex-end; }
+        .tower-3d {
+            transform: rotateX(20deg) rotateY(-22deg);
+            transform-style: preserve-3d;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 3px;
+        }
+        .t-layer { display: flex; gap: 3px; transform-style: preserve-3d; }
+
+        .blk {
+            position: relative;
+            border-radius: 2px;
+            transform-style: preserve-3d;
+            animation: blkPulse 3s ease-in-out infinite;
+        }
+        .blk-sm { width: clamp(10px,1.4vw,15px); height: clamp(10px,1.4vw,15px); }
+        .blk-md { width: clamp(13px,1.8vw,20px); height: clamp(13px,1.8vw,20px); }
+        .blk-lg { width: clamp(16px,2.2vw,26px); height: clamp(16px,2.2vw,26px); }
+
+        @keyframes blkPulse {
+            0%,100% { opacity: 0.72; filter: brightness(0.9); }
+            50%      { opacity: 1.00; filter: brightness(1.15); }
+        }
+
+        /* =========================================== */
+        /* HERO                                        */
+        /* =========================================== */
+        .hero-title {
+            font-family: var(--font-display);
+            font-size: var(--hero-size);
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-align: center;
+            background: linear-gradient(175deg, #FFFFFF 25%, var(--gold-light) 60%, var(--amber) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-glow {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: clamp(300px, 55vw, 580px);
+            height: clamp(300px, 55vw, 580px);
+            background: radial-gradient(circle, rgba(212,168,71,0.16) 0%, transparent 65%);
+            pointer-events: none;
+            animation: heroGlow 4s ease-in-out infinite;
+        }
+        @keyframes heroGlow {
+            0%,100% { opacity: 0.5; transform: translate(-50%,-50%) scale(1); }
+            50%      { opacity: 1;   transform: translate(-50%,-50%) scale(1.14); }
+        }
+
+        /* =========================================== */
+        /* PROGRESS BAR + NAV                          */
+        /* =========================================== */
+        #progress {
+            position: fixed;
+            top: 0; left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--amber));
+            z-index: 1000;
+            width: 0%;
+            transition: width 0.3s var(--ease);
+            box-shadow: 0 0 14px var(--gold-glow);
+        }
+
+        #nav {
+            position: fixed;
+            right: clamp(10px, 1.5vw, 20px);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 100;
+        }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(212,168,71,0.15);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 0;
+        }
+        .dot.active {
+            background: var(--gold);
+            box-shadow: 0 0 12px var(--gold-glow);
+            transform: scale(1.4);
+        }
+        .dot:hover { background: rgba(212,168,71,0.4); }
+
+        #counter {
+            position: fixed;
+            bottom: clamp(10px,1.5vh,18px);
+            right: clamp(14px,2vw,28px);
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            z-index: 100;
+        }
+
+        #keys {
+            position: fixed;
+            bottom: clamp(10px,1.5vh,18px);
+            left: clamp(14px,2vw,28px);
+            font-size: clamp(0.55rem, 0.7vw, 0.6rem);
+            color: var(--text-muted);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .key {
+            padding: 1px 5px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 3px;
+            font-family: var(--font-display);
+            font-size: 0.55rem;
+        }
+
+        /* =========================================== */
+        /* RESPONSIVE                                  */
+        /* =========================================== */
+        @media (max-height: 700px) {
+            :root {
+                --pad: clamp(1rem, 3vw, 2.5rem);
+                --gap: clamp(0.4rem, 1.2vw, 0.9rem);
+                --hero-size:  clamp(2rem, 6.5vw, 4.5rem);
+                --title-size: clamp(1.5rem, 4.2vw, 2.8rem);
+                --h2-size:    clamp(1.2rem, 2.8vw, 2rem);
+            }
+        }
+        @media (max-height: 600px) {
+            :root {
+                --pad: clamp(0.75rem, 2.5vw, 1.5rem);
+                --gap: clamp(0.3rem, 0.8vw, 0.6rem);
+            }
+            #keys { display: none; }
+        }
+        @media (max-height: 500px) {
+            #nav { display: none; }
+            :root {
+                --title-size: clamp(1.2rem, 3.5vw, 2rem);
+                --body-size:  clamp(0.65rem, 0.95vw, 0.85rem);
+            }
+        }
+        @media (max-width: 600px) {
+            .timeline { flex-wrap: wrap; }
+            .t-phase  { min-width: 44%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.15s !important;
+            }
+            html { scroll-behavior: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="smoke-bg"></div>
+<div class="bottom-haze"></div>
+
+<div id="progress"></div>
+<nav id="nav" aria-label="Slide navigation"></nav>
+<div id="counter">01 / 09</div>
+<div id="keys"><span class="key">&uarr;</span><span class="key">&darr;</span> navigate</div>
+<canvas id="particles"></canvas>
+
+
+<!-- ==================== 1. TITLE ==================== -->
+<section class="slide" id="s-title" style="background: radial-gradient(ellipse at 50% 58%, rgba(212,168,71,0.09) 0%, transparent 55%);">
+    <div class="slide-inner" style="align-items: center; text-align: center; gap: clamp(0.7rem, 1.8vh, 1.4rem);">
+
+        <div style="position: relative; display: inline-block;">
+            <div class="hero-glow"></div>
+            <h1 class="hero-title r">THE MONOLITH</h1>
+        </div>
+
+        <p class="r r1" style="font-family: var(--font-serif); font-size: var(--body-lg); color: var(--text-secondary); max-width: 480px; margin: 0 auto; font-style: italic;">
+            r/Place meets DeFi, in three dimensions
+        </p>
+        <div class="divider r r2" style="margin: 0 auto;"></div>
+
+        <!-- CSS 3D Tower -->
+        <div class="tower-scene r r3" style="height: clamp(110px, 20vh, 200px);">
+            <div class="tower-3d">
+                <div class="t-layer">
+                    <div class="blk blk-lg" style="background:#E07A2F;animation-delay:.7s;box-shadow:0 0 8px rgba(224,122,47,.5);"></div>
+                    <div class="blk blk-lg" style="background:#D4A847;animation-delay:.1s;box-shadow:0 0 10px rgba(212,168,71,.6);"></div>
+                    <div class="blk blk-lg" style="background:#5C9E31;animation-delay:.4s;box-shadow:0 0 8px rgba(92,158,49,.5);"></div>
+                    <div class="blk blk-lg" style="background:rgba(158,145,137,.22);animation-delay:.8s;"></div>
+                    <div class="blk blk-lg" style="background:#D4A847;animation-delay:.3s;box-shadow:0 0 8px rgba(212,168,71,.5);"></div>
+                    <div class="blk blk-lg" style="background:rgba(158,145,137,.15);animation-delay:.6s;"></div>
+                    <div class="blk blk-lg" style="background:#5B8FB9;animation-delay:.2s;box-shadow:0 0 8px rgba(91,143,185,.4);"></div>
+                    <div class="blk blk-lg" style="background:rgba(158,145,137,.10);animation-delay:.9s;"></div>
+                    <div class="blk blk-lg" style="background:#C4402A;animation-delay:.5s;box-shadow:0 0 8px rgba(196,64,42,.4);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-lg" style="background:#FFB800;animation-delay:.2s;box-shadow:0 0 12px rgba(255,184,0,.7);"></div>
+                    <div class="blk blk-lg" style="background:#9B6DB5;animation-delay:.6s;box-shadow:0 0 8px rgba(155,109,181,.4);"></div>
+                    <div class="blk blk-lg" style="background:#E07A2F;animation-delay:.1s;box-shadow:0 0 8px rgba(224,122,47,.5);"></div>
+                    <div class="blk blk-lg" style="background:#5C9E31;animation-delay:.8s;box-shadow:0 0 8px rgba(92,158,49,.5);"></div>
+                    <div class="blk blk-lg" style="background:#D4A847;animation-delay:.4s;box-shadow:0 0 10px rgba(212,168,71,.6);"></div>
+                    <div class="blk blk-lg" style="background:#C4402A;animation-delay:.3s;box-shadow:0 0 8px rgba(196,64,42,.4);"></div>
+                    <div class="blk blk-lg" style="background:#5C9E31;animation-delay:.9s;box-shadow:0 0 8px rgba(92,158,49,.5);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-lg" style="background:#E07A2F;animation-delay:.3s;box-shadow:0 0 10px rgba(224,122,47,.6);"></div>
+                    <div class="blk blk-lg" style="background:#FFB800;animation-delay:.7s;box-shadow:0 0 14px rgba(255,184,0,.8);"></div>
+                    <div class="blk blk-lg" style="background:#5C9E31;animation-delay:.1s;box-shadow:0 0 8px rgba(92,158,49,.5);"></div>
+                    <div class="blk blk-lg" style="background:#D4A847;animation-delay:.5s;box-shadow:0 0 10px rgba(212,168,71,.6);"></div>
+                    <div class="blk blk-lg" style="background:#9B6DB5;animation-delay:.4s;box-shadow:0 0 8px rgba(155,109,181,.4);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-lg" style="background:#FFB800;animation-delay:.4s;box-shadow:0 0 14px rgba(255,184,0,.8);"></div>
+                    <div class="blk blk-lg" style="background:#D4A847;animation-delay:.2s;box-shadow:0 0 12px rgba(212,168,71,.7);"></div>
+                    <div class="blk blk-lg" style="background:#F0BC5E;animation-delay:.7s;box-shadow:0 0 12px rgba(240,188,94,.7);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-lg" style="background:#FFB800;animation-delay:.6s;box-shadow:0 0 18px rgba(255,184,0,.9);"></div>
+                </div>
+            </div>
+        </div>
+
+        <p class="r r4" style="font-family: var(--font-display); font-weight: 800; font-size: var(--body-size); color: var(--gold); letter-spacing: 0.2em; text-transform: uppercase;">
+            Stake · Glow · Compete
+        </p>
+
+        <div class="r r5" style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--small-size);">
+            <svg viewBox="0 0 397.7 311.7" fill="currentColor" width="16" height="16"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></svg>
+            Solana Graveyard Hack 2026
+        </div>
+    </div>
+</section>
+
+
+<!-- ==================== 2. THE PROBLEM ==================== -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">The Problem</div>
+        <h1 class="r r1">DeFi is <span class="glow-text">Boring</span></h1>
+        <p class="r r2 body-lg" style="max-width: 560px;">
+            You deposit. You see a number. You forget it exists.<br>
+            So does everyone else.
+        </p>
+
+        <div class="r r3" style="display: flex; gap: clamp(0.4rem, 1vw, 0.75rem); flex-wrap: wrap; justify-content: center;">
+            <span class="pill pill-red">📉 Under 30-day retention</span>
+            <span class="pill pill-red">😴 Nothing to do daily</span>
+            <span class="pill pill-red">🚪 Users leave for the next farm</span>
+        </div>
+
+        <div class="r r4 quote-block" style="margin: 0 auto;">
+            People open Snapchat <strong class="gold">30 times a day</strong> for a streak counter.
+            They play Wordle every morning for a colored grid.
+            <br><br>
+            Nobody comes back for yield. They come back because <strong class="gold">they feel something.</strong>
+        </div>
+    </div>
+</section>
+
+
+<!-- ==================== 3. THE SOLUTION ==================== -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">The Solution</div>
+        <h1 class="r r1">Your DeFi position is<br>a <span class="glow-text">glowing block</span><br>on a shared 3D tower</h1>
+
+        <div class="tower-scene r r2" style="height: clamp(80px, 14vh, 140px);">
+            <div class="tower-3d">
+                <div class="t-layer">
+                    <div class="blk blk-md" style="background:#D4A847;animation-delay:.7s;box-shadow:0 0 8px rgba(212,168,71,.6);"></div>
+                    <div class="blk blk-md" style="background:#FFB800;animation-delay:.1s;box-shadow:0 0 10px rgba(255,184,0,.7);"></div>
+                    <div class="blk blk-md" style="background:#5C9E31;animation-delay:.4s;box-shadow:0 0 7px rgba(92,158,49,.5);"></div>
+                    <div class="blk blk-md" style="background:rgba(158,145,137,.18);animation-delay:.8s;"></div>
+                    <div class="blk blk-md" style="background:#5B8FB9;animation-delay:.3s;box-shadow:0 0 7px rgba(91,143,185,.4);"></div>
+                    <div class="blk blk-md" style="background:rgba(158,145,137,.12);animation-delay:.5s;"></div>
+                    <div class="blk blk-md" style="background:#C4402A;animation-delay:.2s;box-shadow:0 0 7px rgba(196,64,42,.4);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-md" style="background:#E07A2F;animation-delay:.3s;box-shadow:0 0 8px rgba(224,122,47,.5);"></div>
+                    <div class="blk blk-md" style="background:#9B6DB5;animation-delay:.6s;box-shadow:0 0 7px rgba(155,109,181,.4);"></div>
+                    <div class="blk blk-md" style="background:#D4A847;animation-delay:.1s;box-shadow:0 0 8px rgba(212,168,71,.6);"></div>
+                    <div class="blk blk-md" style="background:#5C9E31;animation-delay:.8s;box-shadow:0 0 7px rgba(92,158,49,.5);"></div>
+                    <div class="blk blk-md" style="background:#FFB800;animation-delay:.5s;box-shadow:0 0 10px rgba(255,184,0,.7);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-md" style="background:#FFB800;animation-delay:.4s;box-shadow:0 0 12px rgba(255,184,0,.8);"></div>
+                    <div class="blk blk-md" style="background:#D4A847;animation-delay:.2s;box-shadow:0 0 10px rgba(212,168,71,.6);"></div>
+                    <div class="blk blk-md" style="background:#F0BC5E;animation-delay:.7s;box-shadow:0 0 9px rgba(240,188,94,.6);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-md" style="background:#FFB800;animation-delay:.5s;box-shadow:0 0 14px rgba(255,184,0,.9);"></div>
+                </div>
+            </div>
+        </div>
+
+        <p class="r r3 body-lg" style="max-width: 550px;">
+            Stake <strong class="gold">$1 USDC</strong> and your block lights up on the tower.
+            Stop playing and it fades. Leave for too long, and <strong style="color: var(--flickering);">someone else takes your spot</strong>.
+        </p>
+        <p class="r r4 serif" style="font-size: var(--body-lg); color: var(--text-muted);">
+            Think Tamagotchi meets staking. Your block needs you.
+        </p>
+    </div>
+</section>
+
+
+<!-- ==================== 4. HOW IT WORKS ==================== -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">How It Works</div>
+        <h1 class="r r1"><span class="glow-text">30 seconds.</span> Every day.</h1>
+
+        <div class="flow r r2" style="margin: var(--gap) 0; gap: clamp(0.5rem, 1.5vw, 1.5rem);">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">💰</div>
+                <strong style="font-size: var(--body-size); color: var(--gold-light);">Stake</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">$1 USDC min</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">✨</div>
+                <strong style="font-size: var(--body-size); color: var(--gold-light);">Claim</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">Block ignites</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">⚡</div>
+                <strong style="font-size: var(--body-size); color: var(--gold-light);">Charge</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">Tap daily to stay lit</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">🏆</div>
+                <strong style="font-size: var(--body-size); color: var(--gold-light);">Compete</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">Climb the skyline</span>
+            </div>
+        </div>
+
+        <!-- Energy state row with real shader colors -->
+        <div class="r r3" style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+            <span class="pill" style="color: #FFB800; border-color: rgba(255,184,0,0.3); background: rgba(255,184,0,0.08);">🔥 Blazing</span>
+            <span class="pill" style="color: #6BB84A; border-color: rgba(92,158,49,0.3); background: rgba(92,158,49,0.08);">✨ Thriving</span>
+            <span class="pill" style="color: #E07A2F; border-color: rgba(224,122,47,0.3); background: rgba(224,122,47,0.08);">💫 Fading</span>
+            <span class="pill" style="color: #C4402A; border-color: rgba(196,64,42,0.3); background: rgba(196,64,42,0.08);">⚡ Flickering</span>
+            <span class="pill" style="color: #9E9189; border-color: rgba(158,145,137,0.3); background: rgba(158,145,137,0.06);">💤 Dormant</span>
+        </div>
+
+        <p class="r r4 body-lg center" style="max-width: 520px;">
+            Streaks multiply your charge. <strong class="gold">Day 7 gets 2x. Day 30 gets 3x.</strong><br>
+            Miss three days and your block goes up for grabs.
+        </p>
+    </div>
+</section>
+
+
+<!-- ==================== 5. TAPESTRY ==================== -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); border-left: 4px solid var(--tapestry); padding-left: clamp(0.75rem, 1.5vw, 1.25rem);">
+        <div style="display: flex; align-items: center; gap: 10px;" class="r">
+            <span class="bounty-badge bb-tapestry">Tapestry Track</span>
+            <span class="pill pill-green">✅ Integrated</span>
+        </div>
+
+        <h2 class="r r1">Your tower presence<br><span style="color: var(--gold-light);">is your social identity</span></h2>
+
+        <div class="g2 r r2" style="max-width: 840px; width: 100%;">
+            <div class="card" style="display: flex; flex-direction: column; gap: var(--gap-sm);">
+                <h3 style="color: var(--gold-light); font-size: var(--h3-size);">🪪 On-chain profiles</h3>
+                <div class="compare-item"><span class="emoji">👤</span> Tapestry profile created on wallet connect</div>
+                <div class="compare-item"><span class="emoji">🌐</span> Portable across any Solana app</div>
+                <div class="compare-item"><span class="emoji">🏷️</span> Your block IS your presence</div>
+            </div>
+            <div class="card" style="display: flex; flex-direction: column; gap: var(--gap-sm);">
+                <h3 style="color: var(--gold-light); font-size: var(--h3-size);">📣 Social mechanics</h3>
+                <div class="compare-item"><span class="emoji">⚡</span> Every claim, charge, and poke writes on-chain content</div>
+                <div class="compare-item"><span class="emoji">👥</span> Follow players. Like and comment on blocks.</div>
+                <div class="compare-item"><span class="emoji">📰</span> Live activity feed from people you follow</div>
+            </div>
+        </div>
+
+        <div class="insight r r3" style="max-width: 700px;">
+            <p class="serif" style="font-size: var(--body-lg);">When your followers can see your block going dark, <strong class="gold">you come back.</strong> Social pressure is the strongest retention mechanic there is.</p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ==================== 6. ORBITFLARE ==================== -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); border-left: 4px solid var(--orbitflare); padding-left: clamp(0.75rem, 1.5vw, 1.25rem);">
+        <div style="display: flex; align-items: center; gap: 10px;" class="r">
+            <span class="bounty-badge bb-orbitflare">OrbitFlare Track</span>
+            <span class="pill pill-green">✅ Built</span>
+        </div>
+
+        <h2 class="r r1">Every block is<br><span style="color: #7EB3D9;">a shareable Blink</span></h2>
+
+        <div class="flow r r2" style="margin: var(--gap-sm) 0; gap: clamp(0.5rem, 1.2vw, 1rem);">
+            <div class="card center" style="padding: clamp(0.6rem, 1.2vw, 1rem); min-width: clamp(85px, 13vw, 130px);">
+                <div style="font-size: clamp(1.3rem, 2.2vw, 1.8rem);">📤</div>
+                <p style="font-size: var(--body-size); font-weight: 700; color: var(--text);">Share block</p>
+            </div>
+            <span class="flow-arrow" style="color: var(--orbitflare);">→</span>
+            <div class="card center" style="padding: clamp(0.6rem, 1.2vw, 1rem); min-width: clamp(85px, 13vw, 130px);">
+                <div style="font-size: clamp(1.3rem, 2.2vw, 1.8rem);">🔗</div>
+                <p style="font-size: var(--body-size); font-weight: 700; color: var(--text);">Blink card</p>
+                <p style="font-size: var(--small-size); color: var(--text-muted);">Rich preview on socials</p>
+            </div>
+            <span class="flow-arrow" style="color: var(--orbitflare);">→</span>
+            <div class="card center" style="padding: clamp(0.6rem, 1.2vw, 1rem); min-width: clamp(85px, 13vw, 130px);">
+                <div style="font-size: clamp(1.3rem, 2.2vw, 1.8rem);">👆</div>
+                <p style="font-size: var(--body-size); font-weight: 700; color: var(--text);">One-click poke</p>
+                <p style="font-size: var(--small-size); color: var(--text-muted);">No app needed</p>
+            </div>
+            <span class="flow-arrow" style="color: var(--orbitflare);">→</span>
+            <div class="card center" style="padding: clamp(0.6rem, 1.2vw, 1rem); min-width: clamp(85px, 13vw, 130px);">
+                <div style="font-size: clamp(1.3rem, 2.2vw, 1.8rem);">🔔</div>
+                <p style="font-size: var(--body-size); font-weight: 700; color: var(--text);">Push alert</p>
+                <p style="font-size: var(--small-size); color: var(--text-muted);">Player comes back</p>
+            </div>
+        </div>
+
+        <div class="insight r r3" style="max-width: 700px; border-left-color: var(--orbitflare);">
+            <p class="serif" style="font-size: var(--body-lg);">Blinks are the <strong style="color: #7EB3D9;">viral transport layer</strong>. The tower spreads through Twitter and Discord without anyone installing the app first.</p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ==================== 7. EXCHANGE ART ==================== -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); border-left: 4px solid var(--exchangeart); padding-left: clamp(0.75rem, 1.5vw, 1.25rem);">
+        <div style="display: flex; align-items: center; gap: 10px;" class="r">
+            <span class="bounty-badge bb-exchange">Exchange Art Track</span>
+            <span class="pill pill-purple">🎨 Living canvas</span>
+        </div>
+
+        <h2 class="r r1">The tower is<br><span style="color: #B98FD4;">collaborative art</span></h2>
+
+        <div class="g2 r r2" style="max-width: 840px; width: 100%;">
+            <div style="display: flex; flex-direction: column; gap: clamp(0.4rem, 1vh, 0.7rem);">
+                <div class="compare-item"><span class="emoji" style="font-size: 1.3em;">🏗️</span> <span><strong class="gold">650 blocks</strong>, each customized by a real player</span></div>
+                <div class="compare-item"><span class="emoji" style="font-size: 1.3em;">🎨</span> <span>Colors, emojis, names, animated GLSL shaders (Lava, Aurora, Crystal, Nature)</span></div>
+                <div class="compare-item"><span class="emoji" style="font-size: 1.3em;">🏘️</span> <span>Neighborhoods and districts form on their own</span></div>
+                <div class="compare-item"><span class="emoji" style="font-size: 1.3em;">⏱️</span> <span>The canvas shifts constantly as players compete and customize</span></div>
+            </div>
+
+            <div class="card center" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+                <div class="tower-scene" style="height: clamp(70px, 12vh, 110px);">
+                    <div class="tower-3d">
+                        <div class="t-layer">
+                            <div class="blk blk-md" style="background:#9B6DB5;animation-delay:.2s;box-shadow:0 0 8px rgba(155,109,181,.5);"></div>
+                            <div class="blk blk-md" style="background:#E07A2F;animation-delay:.5s;box-shadow:0 0 8px rgba(224,122,47,.5);"></div>
+                            <div class="blk blk-md" style="background:#5C9E31;animation-delay:.8s;box-shadow:0 0 8px rgba(92,158,49,.5);"></div>
+                            <div class="blk blk-md" style="background:#5B8FB9;animation-delay:.3s;box-shadow:0 0 8px rgba(91,143,185,.5);"></div>
+                            <div class="blk blk-md" style="background:#D4A847;animation-delay:.1s;box-shadow:0 0 8px rgba(212,168,71,.6);"></div>
+                            <div class="blk blk-md" style="background:#C4402A;animation-delay:.7s;box-shadow:0 0 8px rgba(196,64,42,.4);"></div>
+                        </div>
+                        <div class="t-layer">
+                            <div class="blk blk-md" style="background:#FFB800;animation-delay:.6s;box-shadow:0 0 12px rgba(255,184,0,.7);"></div>
+                            <div class="blk blk-md" style="background:#9B6DB5;animation-delay:.2s;box-shadow:0 0 8px rgba(155,109,181,.4);"></div>
+                            <div class="blk blk-md" style="background:#5B8FB9;animation-delay:.4s;box-shadow:0 0 8px rgba(91,143,185,.5);"></div>
+                            <div class="blk blk-md" style="background:#5C9E31;animation-delay:.9s;box-shadow:0 0 8px rgba(92,158,49,.5);"></div>
+                        </div>
+                        <div class="t-layer">
+                            <div class="blk blk-md" style="background:#F0BC5E;animation-delay:.3s;box-shadow:0 0 10px rgba(240,188,94,.6);"></div>
+                            <div class="blk blk-md" style="background:#E07A2F;animation-delay:.7s;box-shadow:0 0 8px rgba(224,122,47,.5);"></div>
+                        </div>
+                    </div>
+                </div>
+                <p class="serif" style="font-size: var(--small-size); color: var(--text-muted);">Each block is someone's art</p>
+            </div>
+        </div>
+
+        <div class="insight r r3" style="max-width: 700px; border-left-color: var(--exchangeart);">
+            <p class="serif" style="font-size: var(--body-lg);">Think <strong style="color: #B98FD4;">r/Place but 3D and financially backed</strong>. In the future, NFT snapshots will preserve the tower at season endings. The canvas evolves. The art endures.</p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ==================== 8. ROADMAP ==================== -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap);">
+        <div class="overline r center">Roadmap</div>
+        <h2 class="r r1 center" style="font-size: var(--title-size);">From hackathon to <span class="glow-text">platform</span></h2>
+
+        <div class="timeline r r2" style="margin: var(--gap-sm) 0;">
+            <div class="t-phase now">
+                <div class="t-label">Now ✅</div>
+                <div class="t-time">Hackathon</div>
+                <div class="t-desc">Working demo<br>Tapestry + Blinks<br>300+ tests, 60 FPS</div>
+                <div class="t-metric">Shipped</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 2</div>
+                <div class="t-time">Month 1 to 3</div>
+                <div class="t-desc">Real DeFi yield<br>SKR staking<br>Seeker launch</div>
+                <div class="t-metric">1K MAU</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 3</div>
+                <div class="t-time">Month 3 to 6</div>
+                <div class="t-desc">Monolith LST<br>Keeper Score<br>Challenges</div>
+                <div class="t-metric">10K MAU</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 4</div>
+                <div class="t-time">Month 6 to 12</div>
+                <div class="t-desc">Multi-tower SDK<br>Seasons<br>NFT snapshots</div>
+                <div class="t-metric">50K MAU</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 5</div>
+                <div class="t-time">Year 2+</div>
+                <div class="t-desc">Protocol towers<br>DAO, AR mode<br>Tower-as-a-Service</div>
+                <div class="t-metric">500K MAU</div>
+            </div>
+        </div>
+
+        <div class="r r3" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+            <span class="pill">⚓ Anchor/Rust</span>
+            <span class="pill">🎮 React Three Fiber</span>
+            <span class="pill">🌐 Colyseus Multiplayer</span>
+            <span class="pill">🔐 MWA + Seed Vault</span>
+            <span class="pill pill-green">✅ Tapestry</span>
+            <span class="pill pill-blue">✅ Blinks</span>
+        </div>
+
+        <div class="insight r r4">
+            <p class="serif" style="font-size: var(--body-lg);">Phase 1 is done. This is not a plan. <strong class="gold">It's a working product.</strong></p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ==================== 9. CLOSING ==================== -->
+<section class="slide" id="s-close" style="background: radial-gradient(ellipse at 50% 55%, rgba(212,168,71,0.1) 0%, transparent 50%);">
+    <div class="slide-inner" style="align-items: center; text-align: center; gap: clamp(0.75rem, 2vh, 1.4rem);">
+        <div style="position: relative; display: inline-block;">
+            <div class="hero-glow"></div>
+            <h1 class="hero-title r" style="font-size: clamp(2.2rem, 7vw, 6rem);">THE MONOLITH</h1>
+        </div>
+
+        <p class="r r2 serif" style="font-size: var(--body-lg); color: var(--text-secondary);">
+            Your stake has never been this alive.
+        </p>
+
+        <div class="divider r r3" style="margin: 0 auto;"></div>
+
+        <div class="tower-scene r r4" style="height: clamp(65px, 11vh, 105px);">
+            <div class="tower-3d">
+                <div class="t-layer">
+                    <div class="blk blk-md" style="background:#FFB800;animation-delay:.1s;box-shadow:0 0 12px rgba(255,184,0,.8);"></div>
+                    <div class="blk blk-md" style="background:#D4A847;animation-delay:.5s;box-shadow:0 0 10px rgba(212,168,71,.7);"></div>
+                    <div class="blk blk-md" style="background:#5C9E31;animation-delay:.3s;box-shadow:0 0 8px rgba(92,158,49,.5);"></div>
+                    <div class="blk blk-md" style="background:#E07A2F;animation-delay:.7s;box-shadow:0 0 8px rgba(224,122,47,.5);"></div>
+                    <div class="blk blk-md" style="background:#5B8FB9;animation-delay:.4s;box-shadow:0 0 8px rgba(91,143,185,.5);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-md" style="background:#F0BC5E;animation-delay:.6s;box-shadow:0 0 10px rgba(240,188,94,.6);"></div>
+                    <div class="blk blk-md" style="background:#9B6DB5;animation-delay:.2s;box-shadow:0 0 8px rgba(155,109,181,.4);"></div>
+                    <div class="blk blk-md" style="background:#FFB800;animation-delay:.8s;box-shadow:0 0 12px rgba(255,184,0,.8);"></div>
+                </div>
+                <div class="t-layer">
+                    <div class="blk blk-md" style="background:#D4A847;animation-delay:.4s;box-shadow:0 0 12px rgba(212,168,71,.8);"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="r r5" style="display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;">
+            <span class="pill pill-green">✅ Live demo</span>
+            <span class="pill">Tapestry</span>
+            <span class="pill pill-blue">Blinks</span>
+            <span class="pill pill-purple">Collaborative art</span>
+        </div>
+
+        <div class="r r6" style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--small-size);">
+            <svg viewBox="0 0 397.7 311.7" fill="currentColor" width="16" height="16"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></svg>
+            Built on Solana · Graveyard Hack 2026
+        </div>
+    </div>
+</section>
+
+
+<script>
+class Particles {
+    constructor(canvas) {
+        this.c = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.p = [];
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        const n = Math.min(45, Math.floor(window.innerWidth / 28));
+        for (let i = 0; i < n; i++) {
+            this.p.push({
+                x: Math.random() * this.c.width,
+                y: Math.random() * this.c.height,
+                s: Math.random() * 1.8 + 0.4,
+                vy: -(Math.random() * 0.35 + 0.08),
+                vx: (Math.random() - 0.5) * 0.12,
+                o: Math.random() * 0.45 + 0.1,
+                ph: Math.random() * Math.PI * 2
+            });
+        }
+        this.loop();
+    }
+    resize() {
+        this.c.width  = window.innerWidth;
+        this.c.height = window.innerHeight;
+        this.c.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;';
+    }
+    loop() {
+        this.ctx.clearRect(0, 0, this.c.width, this.c.height);
+        for (const p of this.p) {
+            p.y  += p.vy;
+            p.x  += p.vx;
+            p.ph += 0.011;
+            const o = p.o * (0.4 + 0.6 * Math.sin(p.ph));
+            if (p.y < -10) { p.y = this.c.height + 10; p.x = Math.random() * this.c.width; }
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2);
+            this.ctx.fillStyle = `rgba(212, 168, 71, ${o})`;
+            this.ctx.fill();
+        }
+        requestAnimationFrame(() => this.loop());
+    }
+}
+
+class Deck {
+    constructor() {
+        this.slides = [...document.querySelectorAll('.slide')];
+        this.idx    = 0;
+        this.buildNav();
+        this.observe();
+        this.keys();
+        this.touch();
+        this.wheel();
+        this.updateUI();
+    }
+    buildNav() {
+        const nav = document.getElementById('nav');
+        this.slides.forEach((_, i) => {
+            const d = document.createElement('button');
+            d.className = 'dot';
+            d.setAttribute('aria-label', `Slide ${i + 1}`);
+            d.onclick = () => this.go(i);
+            nav.appendChild(d);
+        });
+        this.dots = [...nav.querySelectorAll('.dot')];
+    }
+    observe() {
+        const obs = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('visible');
+                    const i = this.slides.indexOf(e.target);
+                    if (i !== -1) { this.idx = i; this.updateUI(); }
+                }
+            });
+        }, { threshold: 0.5 });
+        this.slides.forEach(s => obs.observe(s));
+    }
+    keys() {
+        document.addEventListener('keydown', e => {
+            if (['ArrowDown','ArrowRight',' '].includes(e.key)) {
+                e.preventDefault(); this.go(Math.min(this.idx + 1, this.slides.length - 1));
+            } else if (['ArrowUp','ArrowLeft'].includes(e.key)) {
+                e.preventDefault(); this.go(Math.max(this.idx - 1, 0));
+            } else if (e.key === 'Home') { e.preventDefault(); this.go(0); }
+              else if (e.key === 'End')  { e.preventDefault(); this.go(this.slides.length - 1); }
+        });
+    }
+    touch() {
+        let y0 = 0;
+        document.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', e => {
+            const d = y0 - e.changedTouches[0].clientY;
+            if (Math.abs(d) > 50) this.go(d > 0
+                ? Math.min(this.idx + 1, this.slides.length - 1)
+                : Math.max(this.idx - 1, 0));
+        }, { passive: true });
+    }
+    wheel() {
+        let last = 0;
+        document.addEventListener('wheel', e => {
+            const now = Date.now();
+            if (now - last < 500) return;
+            last = now;
+            this.go(e.deltaY > 0
+                ? Math.min(this.idx + 1, this.slides.length - 1)
+                : Math.max(this.idx - 1, 0));
+        }, { passive: true });
+    }
+    go(i) {
+        if (i < 0 || i >= this.slides.length) return;
+        this.idx = i;
+        this.slides[i].scrollIntoView({ behavior: 'smooth' });
+        this.updateUI();
+    }
+    updateUI() {
+        const pct = (this.idx / (this.slides.length - 1)) * 100;
+        document.getElementById('progress').style.width = pct + '%';
+        this.dots.forEach((d, i) => d.classList.toggle('active', i === this.idx));
+        document.getElementById('counter').textContent =
+            String(this.idx + 1).padStart(2, '0') + ' / ' +
+            String(this.slides.length).padStart(2, '0');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    new Particles(document.getElementById('particles'));
+    new Deck();
+    document.querySelector('.slide')?.classList.add('visible');
+});
+</script>
+</body>
+</html>
