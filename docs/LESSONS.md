@@ -214,6 +214,21 @@ side: THREE.BackSide, blending: THREE.AdditiveBlending,
 
 ## Multiplayer & Networking
 
+### Colyseus matchMaker.getRoomById() Returns a Proxy, Not the Room (2026-02-27)
+**Problem**: Tried to call `broadcast()` and iterate `clients` on the object returned by `matchMaker.getRoomById()` — it returns a proxy/wrapper, not the actual `Room` instance. Broadcasts silently did nothing.
+**Solution**: Store a module-level `activeRoom` reference directly: set it in `onCreate`, clear in `onDispose`, export via `getActiveRoom()`. External code (like blink-poke.ts) uses this direct reference.
+**Key Insight**: When external code needs to interact with a live Colyseus room (broadcast, iterate clients), use a direct room reference — not the matchMaker API.
+
+### Early-Return Optimization Can Skip Event Effects (2026-02-27)
+**Problem**: `applySingleBlockUpdate` had an early-return when block data hadn't changed (energy/owner/color all equal). But poke broadcasts include `eventType: "poke"` which should trigger shake VFX even when energy is already at max (no data change). The early-return skipped all visual effects.
+**Solution**: Restructure: compute `dataChanged` boolean, update store only if changed, but only early-return if `!dataChanged && !serverBlock.eventType`. Event effects always fire regardless of data changes.
+**Key Insight**: When server messages carry both data updates AND event triggers, never early-return on "no data changed" without checking for event metadata first.
+
+### Client Must Send Wallet on joinOrCreate for Targeted Messages (2026-02-27)
+**Problem**: `poke_received` messages were sent to clients matching `_wallet === block.owner`, but the client called `joinOrCreate("tower")` with no options — `_wallet` was never set. Targeted messages silently reached nobody.
+**Solution**: Pass wallet in room options: `joinOrCreate("tower", wallet ? { wallet } : undefined)`. Server sets `(client as any)._wallet = options.wallet` in `onJoin`.
+**Key Insight**: If server-side code targets specific clients by property (wallet, userId), that property must be passed during `joinOrCreate` — it's not automatically available.
+
 ### Skip Client VFX During Cinematic Mode to Prevent Doubles (2026-02-26)
 **Problem**: Client fires `triggerCelebration()` optimistically on claim, which enters cinematic mode. Then server broadcasts `block_update` with `eventType: "claim"` → `setRecentlyClaimedId()` → second gold flash on the block, doubling the VFX.
 **Solution**: In multiplayer-store's `block_update` handler, check `if (!towerStore.cinematicMode)` before calling `setRecentlyClaimedId`. During cinematic mode, the celebration VFX already handles all visual feedback.
@@ -247,6 +262,21 @@ const positionCache = new Map<string, {x,y,z}>();
 ---
 
 ## Solana & Anchor
+
+### Solana Blinks: SPL Memo v2 Requires All Keys to Be Signers (2026-02-27)
+**Problem**: Added `MONOLITH_PROGRAM_ID` as a read-only non-signer key in the memo instruction (as a marker for future tx detection). Phantom wallet threw "WalletSendTransactionError: Unexpected error" on sign.
+**Solution**: Remove non-signer accounts from memo instruction keys. SPL Memo v2 program validates that ALL accounts in the keys array are signers — no exceptions.
+**Key Insight**: SPL Memo v2 is strict: every account in `keys[]` must be `isSigner: true`. Use the memo `data` field for metadata, not extra accounts.
+
+### Solana Blinks: createActionHeaders Required for dial.to (2026-02-27)
+**Problem**: Used `ACTIONS_CORS_HEADERS` from `@solana/actions` for CORS headers. dial.to returned "page failed to respond" — it requires `X-Action-Version` and `X-Blockchain-Ids` headers that `ACTIONS_CORS_HEADERS` doesn't include.
+**Solution**: Use `createActionHeaders({ chainId: "devnet", actionVersion: "2.2.1" })` instead. This generates the full spec-compliant header set including the version and chain ID fields.
+**Key Insight**: `ACTIONS_CORS_HEADERS` is just CORS. `createActionHeaders()` adds the Solana Actions spec headers that renderers (dial.to) actually validate.
+
+### Solana Blinks: Express Middleware Order Matters for CORS (2026-02-27)
+**Problem**: Express global `cors()` middleware intercepted OPTIONS preflight before the blinks router, returning minimal CORS headers without Solana-spec fields. dial.to rejected the response.
+**Solution**: Mount the blinks router BEFORE `app.use(cors())` so blinks routes handle their own OPTIONS with full Solana headers.
+**Key Insight**: When a specific route needs custom CORS headers (like Solana Actions spec), mount its router before any global CORS middleware.
 
 ### BorshAccountsCoder Incompatibility with React Native (2026-02-13)
 **Problem**: Anchor's `BorshAccountsCoder.decode()` uses Node.js `Buffer.readUIntLE()` which doesn't exist in React Native's Buffer polyfill.
