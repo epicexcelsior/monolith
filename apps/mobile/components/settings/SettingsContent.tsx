@@ -146,9 +146,9 @@ export default function SettingsContent({ onClose }: SettingsContentProps) {
           style={styles.settingRow}
           onPress={() => {
             const next = !soundMuted;
-            if (!next) playToggle();
             setSoundMuted(next);
             setMuted(next);
+            if (!next) playToggle(); // play after unmuting so it's audible
             hapticButtonPress();
           }}
         >

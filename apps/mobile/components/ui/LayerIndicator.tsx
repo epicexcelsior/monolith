@@ -74,7 +74,7 @@ export default function LayerIndicator() {
     const panResponder = useMemo(
         () =>
             PanResponder.create({
-                onStartShouldSetPanResponder: () => true,
+                onStartShouldSetPanResponder: () => false,
                 onMoveShouldSetPanResponder: () => true,
                 // Prevent parent (TowerScene) from stealing touches
                 onPanResponderTerminationRequest: () => false,

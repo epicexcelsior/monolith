@@ -55,6 +55,7 @@ export default function AchievementToast() {
 
   return (
     <Animated.View
+      pointerEvents="none"
       style={[
         styles.container,
         {

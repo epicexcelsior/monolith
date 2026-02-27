@@ -266,9 +266,9 @@ export default function MeScreen() {
               style={styles.cardRow}
               onPress={() => {
                 const next = !soundMuted;
-                if (!next) playToggle(); // play before unmuting
                 setSoundMuted(next);
                 setMuted(next);
+                if (!next) playToggle(); // play after unmuting so it's audible
                 hapticButtonPress();
               }}
             >

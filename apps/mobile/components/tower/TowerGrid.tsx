@@ -99,6 +99,10 @@ export default function TowerGrid() {
   const popAnimatingRef = useRef(false);
   // Track last popped index for single-block matrix restore
   const lastPoppedIndexRef = useRef<number>(-1);
+  // Track celebration state changes (so we update targets when celebration ends)
+  const prevCelActiveRef = useRef(false);
+  // Safety timeout: force-stop pop animation if stuck > 2s with no meaningful delta
+  const popAnimStartRef = useRef(0);
 
   const material = useMemo(() => {
     const mat = createBlockMaterial();
@@ -864,8 +868,29 @@ export default function TowerGrid() {
         // New targets set — enable animation loops
         fadeAnimatingRef.current = true;
         popAnimatingRef.current = true;
+        popAnimStartRef.current = performance.now();
       }
     }
+
+    // Detect celebration END — targets must be re-set even if selectedBlockId didn't change
+    const isCelActiveNow = claimCelebrationRef?.current?.active ?? false;
+    if (prevCelActiveRef.current && !isCelActiveNow) {
+      // Celebration just ended — reset all targets to default (no selection, no celebration)
+      const count = blockData.length;
+      if (fadeTargetsRef.current && highlightTargetsRef.current && popOutTargetRef.current && count > 0) {
+        if (!selectedBlockId) {
+          for (let i = 0; i < count; i++) {
+            fadeTargetsRef.current[i] = 1.0;
+            highlightTargetsRef.current[i] = 0.0;
+            popOutTargetRef.current[i] = 0.0;
+          }
+          fadeAnimatingRef.current = true;
+          popAnimatingRef.current = true;
+          popAnimStartRef.current = performance.now();
+        }
+      }
+    }
+    prevCelActiveRef.current = isCelActiveNow;
 
     // Animate fade/highlight values toward targets
     // PERF: Skip entire 650-element loop when no animation is active
@@ -919,6 +944,13 @@ export default function TowerGrid() {
     const popCur = popOutCurrentRef.current;
     const popTgt = popOutTargetRef.current;
     if (popAnimatingRef.current && popCur && popTgt && meshRef.current) {
+      // Safety timeout: force-stop if stuck animating > 3 seconds
+      if (performance.now() - popAnimStartRef.current > 3000) {
+        // Snap all values to targets and stop
+        for (let i = 0; i < popCur.length; i++) popCur[i] = popTgt[i];
+        popAnimatingRef.current = false;
+      }
+
       let needsMatrixUpdate = false;
       const POP_LERP = 0.12;
       const POP_DISTANCE = CAMERA_CONFIG.inspect.popDistance;

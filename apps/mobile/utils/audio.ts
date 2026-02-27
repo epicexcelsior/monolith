@@ -49,8 +49,16 @@ export async function initAudio(): Promise<void> {
 
         // Play through silent mode + activate session upfront
         // (pre-warming avoids first-sound latency on iOS)
-        await expoAudio.setAudioModeAsync({ playsInSilentMode: true });
-        await expoAudio.setIsAudioActiveAsync(true);
+        // Best-effort — don't let audio mode failure prevent player loading
+        try {
+            await expoAudio.setAudioModeAsync({
+                playsInSilentMode: true,
+                interruptionMode: "mixWithOthers",
+            });
+            await expoAudio.setIsAudioActiveAsync(true);
+        } catch (e) {
+            console.warn("Audio mode setup failed (non-fatal):", e);
+        }
 
         audioAvailable = true;
 
@@ -86,7 +94,8 @@ export async function initAudio(): Promise<void> {
         await loadPlayer("claimCelebration", require("../assets/sfx/claim-celebration.wav"));
 
         initialized = true;
-    } catch {
+    } catch (e) {
+        console.warn("initAudio failed:", e);
         initialized = true;
         audioAvailable = false;
     }
@@ -99,8 +108,8 @@ async function loadPlayer(key: string, source: any): Promise<void> {
         const player = AudioModule.createAudioPlayer(source);
         player.volume = 1.0; // WAV files carry the volume hierarchy
         players[key] = player;
-    } catch {
-        // Load error — no-op, this sound won't play
+    } catch (e) {
+        console.warn(`loadPlayer("${key}") failed:`, e);
     }
 }
 
