@@ -118,6 +118,12 @@ interface PlayerState {
   username: string | null;
 }
 
+/** Active room reference for Blink pokes to access directly */
+let activeRoom: TowerRoom | null = null;
+export function getActiveRoom(): TowerRoom | null {
+  return activeRoom;
+}
+
 export class TowerRoom extends Room<TowerRoomState> {
   private decayInterval!: ReturnType<typeof setInterval>;
   private broadcastInterval!: ReturnType<typeof setInterval>;
@@ -130,6 +136,7 @@ export class TowerRoom extends Room<TowerRoomState> {
   private decayTickCounter = 0;
 
   async onCreate() {
+    activeRoom = this;
     this.setState(new TowerRoomState());
 
     // Seed tower with bots
@@ -704,6 +711,7 @@ export class TowerRoom extends Room<TowerRoomState> {
   }
 
   onDispose() {
+    activeRoom = null;
     clearInterval(this.decayInterval);
     clearInterval(this.broadcastInterval);
     clearInterval(this.persistenceInterval);
