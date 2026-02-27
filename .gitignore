@@ -49,6 +49,9 @@ target/
 .claude/
 .gemini/
 
+# Internal planning docs
+docs/graveyard-hack/
+
 # Misc
 *.log
 npm-debug.log*
