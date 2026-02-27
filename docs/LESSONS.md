@@ -293,6 +293,11 @@ function readU64(data: Uint8Array, offset: number): number {
 
 ## React Native & Expo
 
+### expo-audio initAudio Must Isolate setAudioModeAsync (2026-02-27)
+**Problem**: No sounds played at all — only haptics worked. `initAudio()` wrapped `setAudioModeAsync`, `setIsAudioActiveAsync`, and all 17 `loadPlayer` calls in ONE try/catch. On Android, `setAudioModeAsync({ playsInSilentMode: true })` passes all `undefined` values to the native module (playsInSilentMode is iOS-only). If the native module rejects, the entire init fails silently — `audioAvailable` stays false, no players load.
+**Solution**: Wrap `setAudioModeAsync` + `setIsAudioActiveAsync` in their own try/catch (best-effort). Add `interruptionMode: "mixWithOthers"` for proper Android audio session. Set `audioAvailable = true` before player loading. Add `console.warn` to all catch blocks.
+**Key Insight**: Audio mode configuration is platform-specific and can fail — never let it gate player loading. Isolate setup steps in separate try/catch blocks, and ALWAYS log errors from catch blocks in init functions.
+
 ### expo-audio: seekTo(0) on Finished Player Causes Infinite Loop (2026-02-23)
 **Problem**: Adding a `playbackStatusUpdate` listener that calls `seekTo(0)` when `didJustFinish` fires triggers expo-audio to auto-play again — creating an infinite playback loop.
 **Solution**: Remove the listener entirely. Use fire-and-forget: `player.seekTo(0).catch(()=>{})` immediately followed by `player.play()`. Both calls queue to the same native player in FIFO order, so seek always completes before play executes.
@@ -381,6 +386,11 @@ const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0);
 **Solution**: Priority order: (1) Fragment shader ALU ops — most expensive (hex pattern 3x/fragment was biggest cost, replace with `fract()` cracks), (2) Triangle count — RoundedBoxGeometry segments=2 is 96 tri/block x 650 = 62K, halve with segments=1, (3) Light count — hemisphere replaces 2-3 fill lights, (4) Texture/noise lookups — FBM 4 octaves costs 25% more than 3 for <6% visual return, (5) Particle count — 120->80 saves draw overhead.
 **Key Insight**: Shader ALU > triangles > lights > textures > particles — optimize in that order on mobile.
 
+### Pop Animation Loop Must Detect External State Changes (2026-02-27)
+**Problem**: After claim celebration, tower performance degraded permanently. The pop-out animation loop (650-block matrix recomputation every frame) never stopped. Root cause: celebration-end didn't re-trigger target-setting because `selectedBlockId` hadn't changed (still null), so the claimed block's `popOutTarget` stayed at 1.0 forever — converged but never cleaned up.
+**Solution**: Added `prevCelActiveRef` to detect celebration state transitions in useFrame. When `isCelActive` goes true→false, explicitly reset all targets to 0. Also added a 3-second safety timeout that force-snaps all popCur to popTgt and stops the loop.
+**Key Insight**: useFrame animation loops gated by `prevSelectedIdRef` miss state changes from OTHER sources (celebration refs). Track ALL state sources that set animation targets, and add safety timeouts for loops that iterate 650+ elements per frame.
+
 ---
 
 ## Deployment & DevOps
@@ -453,6 +463,11 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 ---
 
 ## UI/UX & Design System
+
+### Absolute Overlays Block R3F Canvas Touches by Default (2026-02-27)
+**Problem**: Tapping blocks did nothing — inspector never opened. LayerIndicator's PanResponder had `onStartShouldSetPanResponder: () => true`, stealing ALL taps in its 52px-wide zone. AchievementToast (zIndex 999, spanning center) had no `pointerEvents` prop, intercepting touches even when invisible (opacity=0).
+**Solution**: LayerIndicator → `onStartShouldSetPanResponder: () => false` (only captures on drag via `onMoveShouldSetPanResponder`). AchievementToast → `pointerEvents="none"`. Verified FloatingPoints and LevelUpCelebration already had `pointerEvents="none"`.
+**Key Insight**: Every absolute-positioned overlay above the R3F Canvas must explicitly set `pointerEvents="none"` or `"box-none"`. PanResponder `onStartShouldSetPanResponder: () => true` steals taps from everything underneath — use `() => false` if you only need drag gestures.
 
 ### Explain Game Mechanics Inline, Not in Tooltips (2026-02-26)
 **Problem**: Players didn't understand the charge mechanic — "what happens if I don't charge?" Energy decay and the dormant reclaim risk weren't surfaced anywhere in the UI. Users ignored the CHARGE button because the stakes were invisible.
