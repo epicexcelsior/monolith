@@ -24,14 +24,18 @@ import blinksRouter from "./routes/blinks.js";
  */
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
 // Static files (Blink icons)
 app.use("/static", express.static(path.join(__dirname, "../static")));
 
-// Solana Blinks
+// Solana Blinks — mounted BEFORE global cors() so our Actions-spec
+// CORS headers (X-Action-Version, X-Blockchain-Ids) aren't stripped
+// by Express's default OPTIONS handler
 app.use(blinksRouter);
+
+// Global CORS for all other routes
+app.use(cors());
 
 // Health check
 app.get("/health", (_req, res) => {
