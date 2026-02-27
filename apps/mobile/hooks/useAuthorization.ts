@@ -32,6 +32,8 @@ import { useWalletStore } from "@/stores/wallet-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import { findOrCreateProfile, searchProfiles, getSocialCounts } from "@/utils/tapestry";
+import { buildPlayerInitTransactions, markPlayerInitialized } from "@/utils/soar";
+import { PublicKey } from "@solana/web3.js";
 
 // ---------------------------------------------------------------------------
 // Error messages — user-friendly strings for known MWA failure modes
@@ -156,6 +158,55 @@ async function bootstrapBotProfiles(userProfileId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// SOAR — fire-and-forget on-chain registration
+// ---------------------------------------------------------------------------
+function bootstrapSoarRegistration(walletAddress: string, walletUriBase?: string): void {
+  (async () => {
+    try {
+      const pubkey = new PublicKey(walletAddress);
+      const username = usePlayerStore.getState().username || walletAddress.slice(0, 8);
+      const txs = await buildPlayerInitTransactions(pubkey, username);
+
+      if (txs.length === 0) {
+        // Already registered
+        markPlayerInitialized(pubkey);
+        console.log("[SOAR] Player already registered on-chain");
+        return;
+      }
+
+      console.log("[SOAR] Registering player on-chain:", txs.length, "txs");
+
+      // Sign via MWA (opens wallet again — user approves)
+      const transactOptions = walletUriBase ? { baseUri: walletUriBase } : undefined;
+      const authToken = await SecureStore.getItemAsync(SECURE_STORE_KEYS.AUTH_TOKEN);
+
+      await transact(async (wallet: Web3MobileWallet) => {
+        // Reauthorize with cached token (result unused — we just need the session)
+        authToken
+          ? await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY })
+          : await wallet.authorize({ chain: getMwaChain(), identity: APP_IDENTITY });
+
+        // Set fee payer + blockhash
+        const { Connection } = await import("@solana/web3.js");
+        const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+        const { blockhash } = await connection.getLatestBlockhash();
+        for (const tx of txs) {
+          tx.feePayer = pubkey;
+          tx.recentBlockhash = blockhash;
+        }
+
+        await wallet.signAndSendTransactions({ transactions: txs });
+        console.log("[SOAR] Player registered on-chain successfully");
+        markPlayerInitialized(pubkey);
+      }, transactOptions);
+    } catch (e) {
+      // Graceful degradation — scores just won't be submitted on-chain
+      console.warn("[SOAR] Registration failed (scores will be local-only):", e);
+    }
+  })();
+}
+
+// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 export function useAuthorization() {
@@ -264,6 +315,9 @@ export function useAuthorization() {
       // Tapestry profile — fire-and-forget, never blocks wallet connect
       bootstrapTapestryProfile(pubkey.toBase58());
 
+      // SOAR on-chain registration — fire-and-forget, opens second MWA popup
+      bootstrapSoarRegistration(pubkey.toBase58(), walletUriBase);
+
       return pubkey;
     } catch (err) {
       const userMessage = classifyError(err);
@@ -359,6 +413,12 @@ export function useAuthorization() {
 
         // Tapestry profile — fire-and-forget on hydration too
         bootstrapTapestryProfile(pubkey.toBase58());
+
+        // SOAR: check registration (no MWA popup on hydration — just marks cache)
+        // Only check, don't open MWA on app start
+        import("@/utils/soar").then(({ ensureSoarPlayer }) => {
+          ensureSoarPlayer(pubkey).catch(console.warn);
+        }).catch(console.warn);
       }
     },
     [setConnected],

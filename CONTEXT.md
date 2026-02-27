@@ -60,6 +60,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Server hardening** (try/catch all handlers, error messages to client)
 - **Tapestry social layer** (on-chain profiles, follow/like/comment, deterministic block content IDs, activity feed tab, comments in inspector, namespace isolation — client-side only, fire-and-forget)
 - **Solana Blinks** (shareable poke URLs via memo transactions — dial.to cards, actions.json discovery, Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var, in-game poke effects: block shake/bounce/flash + gold toast + SFX + haptic + push notification)
+- **MagicBlock SOAR** (on-chain leaderboard + 7 achievements via `@magicblock-labs/soar-sdk` — fire-and-forget score submission on claim/charge/poke, auto-register on wallet connect, feature-flagged `SOAR_ENABLED`, needs on-chain setup to activate)
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
@@ -138,6 +139,9 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/stores/activity-store.ts` | Real-time activity events (wired to multiplayer) |
 | `apps/mobile/stores/tapestry-store.ts` | Tapestry social state (profile, social counts) |
 | `apps/mobile/utils/tapestry.ts` | Tapestry API wrapper (profiles, follows, content, likes, comments, activity feed) |
+| `apps/mobile/utils/soar.ts` | SOAR on-chain leaderboard/achievements wrapper (fire-and-forget, feature-flagged) |
+| `apps/mobile/services/soar-constants.ts` | SOAR addresses, authority key, SOAR_ENABLED flag |
+| `apps/mobile/scripts/setup-soar.ts` | One-shot SOAR game registration on devnet |
 
 ### Screens (Expo Router)
 | File | Purpose |
@@ -330,6 +334,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `supabase/migrations/` | Run `npx supabase db push` to apply to hosted DB |
 | Supabase table schema | Update `BlockRow` / `PlayerRow` interfaces in `supabase.ts` |
 | Tapestry API wrapper (`tapestry.ts`) | `tapestry-store.ts`, `useAuthorization.ts`, `useBlockActions.ts`, `BlockInspector.tsx` |
+| SOAR constants (`soar-constants.ts`) | `soar.ts`, `BoardContent.tsx` (badge visibility) |
 
 ---
 
@@ -351,6 +356,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-02-27**: MagicBlock SOAR integration (Graveyard Hack bounty) — `@magicblock-labs/soar-sdk` installed, fire-and-forget score submission on claim/charge/poke (5 call sites in useBlockActions.ts), auto-register on wallet connect via MWA, feature-flagged `SOAR_ENABLED`, on-chain leaderboard + 7 achievements, "Verified on Solana via SOAR" badge on XP leaderboard, one-shot setup script (`setup-soar.ts`), pnpm overrides for Anchor version conflict, demo guide for judges. 222 mobile + 84 server tests passing.
 
 - **2026-02-27**: Blink poke client-side effects — PokeReceivedToast (hudDark glass, gold glow pulse, energy badge, scale+slide entrance, 6s), block shake/bounce VFX (0.18 amp, Y-axis pop, 1.4s flash with peak hold), SFX+haptic from block_update path (no _wallet dependency), blink-poke.ts broadcasts full appearance to prevent data loss, wallet passed on joinOrCreate for poke_received targeting. 222 mobile + 84 server tests passing.
 - **2026-02-27**: Marble pedestal + aurora wisps + dark sky — Foundation rewritten with real marble textures (triplanar UV, normal mapping, classical molding details), GroundPlane/AtmosphericHaze removed (pedestal descends into abyss), AuroraWisps added (35 ephemeral squiggly light streams with lifecycle), sky gradient darkened with brighter stars, canvas bg #0a0812. Perf audit passed (13 idle draw calls, 15K tris). 222 mobile tests passing.
