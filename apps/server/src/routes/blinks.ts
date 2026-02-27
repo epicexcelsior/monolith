@@ -9,7 +9,7 @@
 import { Router, type Request, type Response } from "express";
 import { PublicKey } from "@solana/web3.js";
 import {
-  ACTIONS_CORS_HEADERS,
+  createActionHeaders,
   createPostResponse,
 } from "@solana/actions";
 import { getBlockById } from "../utils/supabase.js";
@@ -23,8 +23,15 @@ const SERVER_URL =
   process.env.SERVER_URL ||
   "https://monolith-server-production.up.railway.app";
 
+// Full spec-compliant headers including X-Action-Version + X-Blockchain-Ids
+// Required by dial.to and wallet clients to validate the Action
+const ACTION_HEADERS = createActionHeaders({
+  chainId: "devnet",
+  actionVersion: "2.2.1",
+});
+
 function setCorsHeaders(res: Response): void {
-  for (const [key, value] of Object.entries(ACTIONS_CORS_HEADERS)) {
+  for (const [key, value] of Object.entries(ACTION_HEADERS)) {
     res.setHeader(key, value);
   }
 }
