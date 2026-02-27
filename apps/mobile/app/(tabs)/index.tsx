@@ -17,6 +17,7 @@ import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import ScreenFlash from "@/components/ui/ScreenFlash";
 import HotBlockTicker from "@/components/ui/HotBlockTicker";
 import AchievementToast from "@/components/ui/AchievementToast";
+import PokeReceivedToast from "@/components/ui/PokeReceivedToast";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import FloatingNav from "@/components/ui/FloatingNav";
 import MyBlockFAB from "@/components/ui/MyBlockFAB";
@@ -186,6 +187,9 @@ export default function TowerScreen() {
 
         {/* Achievement toast — slides in from top, auto-dismisses */}
         <AchievementToast />
+
+        {/* Poke received toast — Blink pokes + in-app pokes */}
+        <PokeReceivedToast />
       </Animated.View>
       </Reanimated.View>
       )}
