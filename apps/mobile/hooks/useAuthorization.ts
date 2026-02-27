@@ -414,11 +414,8 @@ export function useAuthorization() {
         // Tapestry profile — fire-and-forget on hydration too
         bootstrapTapestryProfile(pubkey.toBase58());
 
-        // SOAR: check registration (no MWA popup on hydration — just marks cache)
-        // Only check, don't open MWA on app start
-        import("@/utils/soar").then(({ ensureSoarPlayer }) => {
-          ensureSoarPlayer(pubkey).catch(console.warn);
-        }).catch(console.warn);
+        // SOAR: register on-chain if needed (opens MWA if not registered)
+        bootstrapSoarRegistration(pubkey.toBase58(), cachedWalletUriBase ?? undefined);
       }
     },
     [setConnected],
