@@ -16,10 +16,6 @@ const MEMO_PROGRAM_ID = new PublicKey(
   "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
 );
 
-const MONOLITH_PROGRAM_ID = new PublicKey(
-  "Fu76EqtVLqX2LKCW5ZW8zWBqdgsQTbkvQ9nBDyykgwDh",
-);
-
 let connection: Connection | null = null;
 
 function getConnection(): Connection {
@@ -38,7 +34,10 @@ function getConnection(): Connection {
  *
  * - User is fee payer (required by Actions spec)
  * - Memo instruction carries the poke data (e.g. "monolith:poke:block-5-3")
- * - Monolith program ID added as read-only account for future tx detection
+ * - Memo text includes "monolith:" prefix for future on-chain detection
+ *
+ * Note: SPL Memo v2 requires ALL accounts in keys to be signers.
+ * Only the user pubkey is included (no extra read-only accounts).
  */
 export async function createMemoTransaction(
   userPubkey: PublicKey,
@@ -58,7 +57,6 @@ export async function createMemoTransaction(
       programId: MEMO_PROGRAM_ID,
       keys: [
         { pubkey: userPubkey, isSigner: true, isWritable: true },
-        { pubkey: MONOLITH_PROGRAM_ID, isSigner: false, isWritable: false },
       ],
       data: Buffer.from(memo, "utf-8"),
     }),
