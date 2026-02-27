@@ -60,6 +60,7 @@ function postBlockContent(
 /** Fire-and-forget SOAR score submission. Never blocks gameplay. */
 function recordSoarScore(wallet: string, totalXp: number): void {
   try {
+    console.log("[SOAR] recordSoarScore called:", totalXp, "XP for", wallet.slice(0, 8));
     const pk = new PublicKey(wallet);
     submitScore(pk, totalXp).catch(console.warn);
   } catch { /* invalid pubkey in demo mode */ }
@@ -347,7 +348,7 @@ export function useBlockActions() {
         }
         // SOAR: submit score + streak achievement (multiplayer)
         const wallet = useWalletStore.getState().publicKey?.toBase58();
-        if (wallet && result.totalXp) {
+        if (wallet && result.totalXp != null) {
           recordSoarScore(wallet, result.totalXp);
           if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
             recordSoarAchievement(wallet, `streak_${result.streak}`);
@@ -380,7 +381,7 @@ export function useBlockActions() {
         });
       }
       // SOAR: submit score + first claim achievement (multiplayer)
-      if (result.success && result.totalXp) {
+      if (result.success && result.totalXp != null) {
         const wallet = useWalletStore.getState().publicKey?.toBase58();
         if (wallet) {
           recordSoarScore(wallet, result.totalXp);
@@ -437,7 +438,7 @@ export function useBlockActions() {
           });
         }
         // SOAR: submit score (multiplayer poke)
-        if (result.totalXp) {
+        if (result.totalXp != null) {
           const pokeWallet = useWalletStore.getState().publicKey?.toBase58();
           if (pokeWallet) recordSoarScore(pokeWallet, result.totalXp);
         }

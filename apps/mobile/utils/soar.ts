@@ -23,27 +23,47 @@ import {
 // Devnet RPC — same one we use everywhere
 const DEVNET_RPC = "https://api.devnet.solana.com";
 
-let _soar: SoarProgram | null = null;
 let _authority: Keypair | null = null;
-let _lastWallet: string | null = null;
 
-function getSoar(walletPubkey: PublicKey): SoarProgram {
-  const key = walletPubkey.toBase58();
-  if (!_soar || _lastWallet !== key) {
-    _soar = SoarProgram.getFromConnection(
-      new Connection(DEVNET_RPC, "confirmed"),
-      walletPubkey,
-    );
-    _lastWallet = key;
-  }
-  return _soar;
-}
+// Authority-based SoarProgram — used for score/achievement submission.
+// The authority is BOTH the payer and signer, so no MWA popup needed.
+let _soarAuthority: SoarProgram | null = null;
+
+// Player-based SoarProgram — used for buildPlayerInitTransactions
+// where the player must sign via MWA.
+let _soarPlayer: SoarProgram | null = null;
+let _lastPlayerWallet: string | null = null;
 
 function getAuthority(): Keypair {
   if (!_authority) {
     _authority = Keypair.fromSecretKey(SOAR_AUTHORITY_SECRET);
   }
   return _authority;
+}
+
+/** SoarProgram with authority as provider wallet (for score/achievement — authority pays + signs). */
+function getSoarForAuthority(): SoarProgram {
+  if (!_soarAuthority) {
+    const authority = getAuthority();
+    _soarAuthority = SoarProgram.getFromConnection(
+      new Connection(DEVNET_RPC, "confirmed"),
+      authority.publicKey,
+    );
+  }
+  return _soarAuthority;
+}
+
+/** SoarProgram with player as provider wallet (for init txs — player signs via MWA). */
+function getSoarForPlayer(walletPubkey: PublicKey): SoarProgram {
+  const key = walletPubkey.toBase58();
+  if (!_soarPlayer || _lastPlayerWallet !== key) {
+    _soarPlayer = SoarProgram.getFromConnection(
+      new Connection(DEVNET_RPC, "confirmed"),
+      walletPubkey,
+    );
+    _lastPlayerWallet = key;
+  }
+  return _soarPlayer;
 }
 
 // Track initialized players to avoid redundant on-chain checks
@@ -61,7 +81,7 @@ export async function ensureSoarPlayer(walletPubkey: PublicKey): Promise<boolean
   if (initializedPlayers.has(key)) return true;
 
   try {
-    const soar = getSoar(walletPubkey);
+    const soar = getSoarForAuthority();
     const connection = soar.provider.connection;
 
     // Check if player account exists
@@ -117,10 +137,12 @@ export async function submitScore(
       if (!ready) return null;
     }
 
-    const soar = getSoar(walletPubkey);
+    const soar = getSoarForAuthority();
     const connection = soar.provider.connection;
     const authority = getAuthority();
 
+    // Authority is both payer (from provider) and game authority signer.
+    // Player pubkey is used only to derive the player PDA (not a signer).
     const { transaction } = await soar.submitScoreToLeaderBoard(
       walletPubkey,
       authority.publicKey,
@@ -164,10 +186,11 @@ export async function unlockAchievement(
       if (!ready) return null;
     }
 
-    const soar = getSoar(walletPubkey);
+    const soar = getSoarForAuthority();
     const connection = soar.provider.connection;
     const authority = getAuthority();
 
+    // Authority is both payer and game authority signer.
     const { transaction } = await soar.unlockPlayerAchievement(
       walletPubkey,
       authority.publicKey,
@@ -201,7 +224,7 @@ export async function buildPlayerInitTransactions(
   if (!SOAR_ENABLED) return [];
 
   try {
-    const soar = getSoar(walletPubkey);
+    const soar = getSoarForPlayer(walletPubkey);
     const connection = soar.provider.connection;
     const txs: Transaction[] = [];
 
@@ -227,8 +250,8 @@ export async function buildPlayerInitTransactions(
       soar.utils.programId,
     );
 
-    const scoresAccount = await connection.getAccountInfo(scoresListPda);
-    if (!scoresAccount) {
+    const scoresListAccount = await connection.getAccountInfo(scoresListPda);
+    if (!scoresListAccount) {
       const { transaction } = await soar.registerPlayerEntryForLeaderBoard(
         walletPubkey,
         SOAR_LEADERBOARD_ADDRESS,
@@ -258,8 +281,7 @@ export async function fetchSoarLeaderboard(): Promise<
   if (!SOAR_ENABLED) return [];
 
   try {
-    const connection = new Connection(DEVNET_RPC, "confirmed");
-    const soar = SoarProgram.getFromConnection(connection, PublicKey.default);
+    const soar = getSoarForAuthority();
 
     const [topEntriesPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("top-scores"), SOAR_LEADERBOARD_ADDRESS.toBuffer()],
