@@ -59,6 +59,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
 - **Server hardening** (try/catch all handlers, error messages to client)
 - **Tapestry social layer** (on-chain profiles, follow/like/comment, deterministic block content IDs, activity feed tab, comments in inspector, namespace isolation — client-side only, fire-and-forget)
+- **Solana Blinks** (shareable poke URLs via memo transactions — dial.to cards, actions.json discovery, Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var)
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
@@ -167,6 +168,9 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/server/src/utils/supabase.ts` | Supabase client + CRUD helpers (fire-and-forget writes) |
 | `apps/server/src/utils/xp.ts` | XP computation, level thresholds, combo tracking |
 | `apps/server/src/utils/notifications.ts` | Push notification helpers (Expo push API) |
+| `apps/server/src/routes/blinks.ts` | Solana Blinks routes (actions.json, GET metadata, POST poke tx) |
+| `apps/server/src/utils/memo-tx.ts` | RPC connection + unsigned memo transaction builder |
+| `apps/server/static/blink-icon.png` | Tower icon for Blink action cards |
 
 ### Shared Package
 | File | Purpose |
@@ -341,6 +345,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-26**: Solana Blinks integration — shareable poke URLs via memo transactions. `routes/blinks.ts` (actions.json, GET block metadata, POST poke tx), `utils/memo-tx.ts` (RPC + memo builder), static icon, mobile share/tweet URLs use dial.to Blink wrapper, `getBlockById` in supabase.ts. Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var. 222 mobile + 84 server tests passing.
 - **2026-02-26**: Tapestry demo-ready fixes — `ensureBlockContent` requires `properties` (was silently 404ing all likes/comments), lazy content creation on inspector open (contentReadyRef gate), bot profile bootstrap on first connect (21 Tapestry profiles, auto-follow 3), removed isBotOwner gate on social UI (bots are social too), Social tab replaced broken /activity/feed with server events, fixed duplicate/split imports silently crashing BlockInspector, dead code cleanup (getActivityFeed, TapestryActivityItem, socialEmptyIcon). 222 mobile tests passing.
 - **2026-02-26**: Tapestry full integration fix — deterministic block content IDs (`monolith-block-{id}`), namespace isolation (`themonolith`), comments on blocks (InspectorComments with optimistic add), activity feed replaces N+1 social feed (single API call), stop creating ghost profiles (getProfile instead of findOrCreate for owners), poke content only on confirmed success, dead store cleanup (removed followingIds/feedItems/blockContentMap), improved Social tab empty states. 222 mobile tests passing.
 - **2026-02-26**: Tapestry social integration (Graveyard Hack) — on-chain profiles via findOrCreate on wallet connect, cross-app profile import, game events (claim/charge/poke) as Tapestry content, follow/like buttons on block inspector (bot-aware, optimistic UI), Social sub-tab on Board (replaces Territory, fetches feed from followed users), social stats in Settings. Client-side only, all fire-and-forget. 222 mobile tests passing.
