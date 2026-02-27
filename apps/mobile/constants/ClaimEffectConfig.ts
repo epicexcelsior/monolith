@@ -78,7 +78,7 @@ export const CLAIM_SHAKE = {
 // ─── Cinematic Camera Orbit ────────────────────────────────
 // Sequence: buildup (camera still) → BOOM → zoom OUT (see full tower ripple) → zoom IN (see block)
 export const CLAIM_CAMERA = {
-  orbitSpeed:     0.004,  // radians/frame at 60fps — noticeable cinematic drift
+  orbitSpeed:     0.004,  // radians/frame at 60fps — applied with delta (dt * 60)
   zoomOutFactor:  1.80,   // pull back 80% at impact so shockwave ring fits the screen
   zoomInFactor:   0.70,   // zoom in 30% after shockwave (closer inspection)
   zoomInDelay:    1.20,   // seconds after impact to start zoom in (faster transition)

@@ -22,6 +22,18 @@ import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING } from "@/constants/theme"
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import { useTowerStore } from "@/stores/tower-store";
+import { useTapestryStore } from "@/stores/tapestry-store";
+import {
+  findOrCreateProfile,
+  followProfile,
+  unfollowProfile,
+  checkFollowing,
+  checkLiked,
+  getLikeCount,
+  likeContent,
+  unlikeContent,
+} from "@/utils/tapestry";
+import { isBotOwner } from "@/utils/seed-tower";
 
 const PANEL_HEIGHT = 420;
 const DISMISS_THRESHOLD = 80;
@@ -67,6 +79,91 @@ export default function BlockInspector() {
   const isVisible = selectedBlockId !== null;
 
   const [showCustomize, setShowCustomize] = useState(false);
+
+  // ─── Tapestry social state ─────────────────────────────
+  const tapestryProfileId = useTapestryStore((s) => s.profileId);
+  const blockContentMap = useTapestryStore((s) => s.blockContentMap);
+  const [isFollowingOwner, setIsFollowingOwner] = useState(false);
+  const [hasLikedBlock, setHasLikedBlock] = useState(false);
+  const [blockLikeCount, setBlockLikeCount] = useState(0);
+  const [ownerTapestryId, setOwnerTapestryId] = useState<string | null>(null);
+
+  const currentBlockContentId = block?.id ? blockContentMap[block.id] : undefined;
+  const showSocial =
+    !!tapestryProfileId &&
+    !isOwner &&
+    !isUnclaimed &&
+    !!block?.owner &&
+    !isBotOwner(block.owner);
+
+  // Check follow/like status when viewing another player's block
+  useEffect(() => {
+    if (!showSocial || !block?.owner) {
+      setIsFollowingOwner(false);
+      setHasLikedBlock(false);
+      setBlockLikeCount(0);
+      setOwnerTapestryId(null);
+      return;
+    }
+
+    const ownerAddr = block.owner;
+    const ownerName = block.name || ownerAddr.slice(0, 8);
+
+    findOrCreateProfile(ownerAddr, ownerName)
+      .then((result) => {
+        const ownerId = result.profile.id;
+        setOwnerTapestryId(ownerId);
+        return checkFollowing(tapestryProfileId!, ownerId);
+      })
+      .then((result) => setIsFollowingOwner(result.isFollowing))
+      .catch(console.warn);
+
+    if (currentBlockContentId) {
+      checkLiked(tapestryProfileId!, currentBlockContentId)
+        .then((result) => setHasLikedBlock(result.hasLiked))
+        .catch(console.warn);
+      getLikeCount(currentBlockContentId)
+        .then((count) => setBlockLikeCount(count))
+        .catch(console.warn);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block?.id, tapestryProfileId, showSocial, currentBlockContentId]);
+
+  const handleTapestryFollow = useCallback(() => {
+    if (!tapestryProfileId || !ownerTapestryId) return;
+    setIsFollowingOwner(true);
+    followProfile(tapestryProfileId, ownerTapestryId)
+      .then(() => useTapestryStore.getState().addFollowing(ownerTapestryId))
+      .catch(() => setIsFollowingOwner(false));
+  }, [tapestryProfileId, ownerTapestryId]);
+
+  const handleTapestryUnfollow = useCallback(() => {
+    if (!tapestryProfileId || !ownerTapestryId) return;
+    setIsFollowingOwner(false);
+    unfollowProfile(tapestryProfileId, ownerTapestryId)
+      .then(() => useTapestryStore.getState().removeFollowing(ownerTapestryId))
+      .catch(() => setIsFollowingOwner(true));
+  }, [tapestryProfileId, ownerTapestryId]);
+
+  const handleTapestryLike = useCallback(() => {
+    if (!tapestryProfileId || !currentBlockContentId) return;
+    setHasLikedBlock(true);
+    setBlockLikeCount((c) => c + 1);
+    likeContent(tapestryProfileId, currentBlockContentId).catch(() => {
+      setHasLikedBlock(false);
+      setBlockLikeCount((c) => c - 1);
+    });
+  }, [tapestryProfileId, currentBlockContentId]);
+
+  const handleTapestryUnlike = useCallback(() => {
+    if (!tapestryProfileId || !currentBlockContentId) return;
+    setHasLikedBlock(false);
+    setBlockLikeCount((c) => c - 1);
+    unlikeContent(tapestryProfileId, currentBlockContentId).catch(() => {
+      setHasLikedBlock(true);
+      setBlockLikeCount((c) => c + 1);
+    });
+  }, [tapestryProfileId, currentBlockContentId]);
 
   // Swipe-to-dismiss — works from anywhere on the panel
   const handleDismissRef = useRef(handleDismiss);
@@ -195,6 +292,15 @@ export default function BlockInspector() {
                 onShare={() => handleShare(block, shareCardRef)}
                 onTweet={() => handleTweet(block)}
                 showCustomize={showCustomize}
+                tapestryProfileId={showSocial ? tapestryProfileId : null}
+                blockContentId={currentBlockContentId ?? null}
+                isFollowing={isFollowingOwner}
+                hasLiked={hasLikedBlock}
+                likeCount={blockLikeCount}
+                onFollow={handleTapestryFollow}
+                onUnfollow={handleTapestryUnfollow}
+                onLike={handleTapestryLike}
+                onUnlike={handleTapestryUnlike}
               />
             </View>
 
@@ -286,7 +392,7 @@ const styles = StyleSheet.create({
     boxShadow: "0 -4px 24px rgba(26, 22, 18, 0.08)",
   },
   handle: {
-    width: 36,
+    width: 40,
     height: 4,
     borderRadius: 2,
     backgroundColor: COLORS.borderStrong,
@@ -312,7 +418,7 @@ const styles = StyleSheet.create({
   closeText: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: FONT_FAMILY.bodyBold,
+    fontFamily: FONT_FAMILY.bodySemibold,
   },
   scrollContent: {
     flex: 1,

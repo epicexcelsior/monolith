@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { COLORS, SPACING, FONT_FAMILY, getChargeColor } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, TEXT, getChargeColor } from "@/constants/theme";
 import ChargeBar from "@/components/ui/ChargeBar";
 
 interface InspectorStatsProps {
@@ -29,8 +29,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   energyPct: {
+    ...TEXT.bodySm,
     fontFamily: FONT_FAMILY.monoBold,
-    fontSize: 13,
     width: 36,
     textAlign: "right",
   },

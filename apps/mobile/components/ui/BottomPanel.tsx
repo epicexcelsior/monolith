@@ -8,7 +8,7 @@ import {
     Text,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS, RADIUS, SPACING, TIMING, FONT_FAMILY, BLUR } from "@/constants/theme";
+import { COLORS, RADIUS, SPACING, TIMING, FONT_FAMILY, TEXT, BLUR } from "@/constants/theme";
 import { hapticBlockDeselect } from "@/utils/haptics";
 
 // Safe BlurView import — falls back when native module isn't compiled into the build
@@ -208,9 +208,7 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.md,
     },
     title: {
-        fontFamily: FONT_FAMILY.heading,
-        fontSize: 18,
-        letterSpacing: 0.3,
+        ...TEXT.headingLg,
     },
     closeButton: {
         width: 28,
@@ -232,7 +230,7 @@ const styles = StyleSheet.create({
     },
     closeText: {
         fontSize: 12,
-        fontWeight: "700",
+        fontFamily: FONT_FAMILY.bodyBold,
     },
     content: {
         flex: 1,

@@ -17,6 +17,7 @@ import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
 import { hapticButtonPress, setHapticsEnabled, isHapticsEnabled } from "@/utils/haptics";
 import { playButtonTap, playToggle, setMuted, isMuted } from "@/utils/audio";
 import { getClusterName } from "@/services/mwa";
+import { useTapestryStore } from "@/stores/tapestry-store";
 
 interface SettingsContentProps {
   onClose?: () => void;
@@ -38,6 +39,7 @@ export default function SettingsContent({ onClose }: SettingsContentProps) {
   const totalClaims = usePlayerStore((s) => s.totalClaims);
   const totalCharges = usePlayerStore((s) => s.totalCharges);
   const cluster = getClusterName();
+  const socialCounts = useTapestryStore((s) => s.socialCounts);
 
   const [soundMuted, setSoundMuted] = useState(isMuted());
   const [hapticsMuted, setHapticsMuted] = useState(!isHapticsEnabled());
@@ -117,6 +119,24 @@ export default function SettingsContent({ onClose }: SettingsContentProps) {
           <Text style={styles.xpStatText}>{totalCharges} charges</Text>
         </View>
       </View>
+
+      {/* Social stats (Tapestry) */}
+      {socialCounts && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SOCIAL</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{socialCounts.followers}</Text>
+              <Text style={styles.statLabel}>Followers</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{socialCounts.following}</Text>
+              <Text style={styles.statLabel}>Following</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Settings toggles */}
       <View style={styles.section}>

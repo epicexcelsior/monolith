@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { COLORS, SPACING, RADIUS, FONT_FAMILY } from "@/constants/theme";
+import { COLORS, SPACING, RADIUS, FONT_FAMILY, TEXT } from "@/constants/theme";
 import { useWalletStore } from "@/stores/wallet-store";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -30,6 +30,16 @@ interface InspectorActionsProps {
   onTweet: () => void;
   showCustomize: boolean;
   isOnboarding?: boolean;
+  // Tapestry social
+  tapestryProfileId?: string | null;
+  blockContentId?: string | null;
+  isFollowing?: boolean;
+  hasLiked?: boolean;
+  likeCount?: number;
+  onFollow?: () => void;
+  onUnfollow?: () => void;
+  onLike?: () => void;
+  onUnlike?: () => void;
 }
 
 export default function InspectorActions({
@@ -52,6 +62,15 @@ export default function InspectorActions({
   onTweet,
   showCustomize,
   isOnboarding,
+  tapestryProfileId,
+  blockContentId,
+  isFollowing,
+  hasLiked,
+  likeCount,
+  onFollow,
+  onUnfollow,
+  onLike,
+  onUnlike,
 }: InspectorActionsProps) {
 
   return (
@@ -158,6 +177,37 @@ export default function InspectorActions({
               )}
             </View>
           )}
+          {/* Tapestry social row — Follow + Like */}
+          {tapestryProfileId && (
+            <View style={styles.actionRow}>
+              {blockContentId != null && (
+                <TouchableOpacity
+                  style={[styles.actionChip, hasLiked && styles.actionChipActive]}
+                  onPress={() => {
+                    hapticButtonPress();
+                    playButtonTap();
+                    hasLiked ? onUnlike?.() : onLike?.();
+                  }}
+                >
+                  <Text style={styles.actionChipText}>
+                    {hasLiked ? "\u2764\uFE0F" : "\uD83E\uDD0D"} {likeCount ?? 0}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.actionChip, isFollowing && styles.actionChipActive]}
+                onPress={() => {
+                  hapticButtonPress();
+                  playButtonTap();
+                  isFollowing ? onUnfollow?.() : onFollow?.();
+                }}
+              >
+                <Text style={styles.actionChipText}>
+                  {isFollowing ? "Following \u2713" : "+ Follow"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {isDormant && (
             <>
               <Badge label="DORMANT" color={COLORS.dormant} />
@@ -197,14 +247,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   streakBadgeText: {
+    ...TEXT.bodySm,
     fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
     color: COLORS.gold,
   },
   streakHintText: {
-    fontFamily: FONT_FAMILY.body,
-    fontSize: 12,
-    color: COLORS.textMuted,
+    ...TEXT.caption,
   },
   actionRow: {
     flexDirection: "row",
@@ -212,12 +260,16 @@ const styles = StyleSheet.create({
   },
   actionChip: {
     flex: 1,
-    paddingVertical: SPACING.xs + 2,
+    paddingVertical: 6, // 6px: visually balanced, not a token multiple
     borderRadius: RADIUS.sm,
     backgroundColor: COLORS.bgMuted,
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  actionChipActive: {
+    backgroundColor: COLORS.goldSubtle,
+    borderColor: COLORS.goldMid,
   },
   actionChipText: {
     fontFamily: FONT_FAMILY.bodySemibold,
@@ -240,15 +292,13 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   otherOwnerText: {
+    ...TEXT.bodySm,
     fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
     color: COLORS.text,
     flex: 1,
   },
   stakedText: {
-    fontFamily: FONT_FAMILY.mono,
-    fontSize: 12,
-    color: COLORS.textMuted,
+    ...TEXT.monoSm,
   },
   pokeRow: {
     gap: SPACING.xs,
@@ -271,11 +321,8 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   chargeExplainer: {
-    fontFamily: FONT_FAMILY.body,
-    fontSize: 11,
-    color: COLORS.textMuted,
+    ...TEXT.caption,
     textAlign: "center",
-    lineHeight: 15,
   },
   premiumBadge: {
     fontFamily: FONT_FAMILY.bodySemibold,

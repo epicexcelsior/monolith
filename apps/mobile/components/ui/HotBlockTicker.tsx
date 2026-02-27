@@ -33,18 +33,20 @@ const TYPE_COLORS: Record<TickerCard["type"], string> = {
   new: COLORS.goldLight,
 };
 
+// Derived from COLORS tokens — C4402A=flickering, E07A2F=fading, 9E9189=dormant, FFB800=blazing, D4A847=gold
 const TYPE_BG: Record<TickerCard["type"], string> = {
-  dying: "rgba(196, 64, 42, 0.20)",
-  fading: "rgba(227, 167, 51, 0.20)",
-  claimable: "rgba(110, 110, 110, 0.20)",
-  streak: "rgba(255, 184, 0, 0.20)",
-  new: "rgba(212, 168, 71, 0.15)",
+  dying: "rgba(196, 64, 42, 0.20)",   // flickering
+  fading: "rgba(224, 122, 47, 0.20)",  // fading (COLORS.fading #E07A2F)
+  claimable: "rgba(158, 145, 137, 0.20)", // dormant
+  streak: "rgba(255, 184, 0, 0.20)",   // blazing
+  new: "rgba(212, 168, 71, 0.15)",     // gold
 };
 
+// Derived from COLORS tokens
 const TYPE_BORDER: Record<TickerCard["type"], string> = {
   dying: "rgba(196, 64, 42, 0.30)",
-  fading: "rgba(227, 167, 51, 0.30)",
-  claimable: "rgba(110, 110, 110, 0.30)",
+  fading: "rgba(224, 122, 47, 0.30)",   // fading (COLORS.fading #E07A2F)
+  claimable: "rgba(158, 145, 137, 0.30)",
   streak: "rgba(255, 184, 0, 0.30)",
   new: "rgba(212, 168, 71, 0.25)",
 };

@@ -58,6 +58,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Ownership enforcement** (can't charge/customize another player's block)
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
 - **Server hardening** (try/catch all handlers, error messages to client)
+- **Tapestry social layer** (on-chain profiles, follow/like, content creation on claim/charge/poke, social feed tab, social stats — client-side only, fire-and-forget)
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
@@ -131,6 +132,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/stores/poke-store.ts` | Poke cooldown tracking |
 | `apps/mobile/stores/achievement-store.ts` | Achievement unlocks (7 types, SecureStore persistence) |
 | `apps/mobile/stores/activity-store.ts` | Real-time activity events (wired to multiplayer) |
+| `apps/mobile/stores/tapestry-store.ts` | Tapestry social state (profile, following, content cache, feed) |
+| `apps/mobile/utils/tapestry.ts` | Tapestry API wrapper (profiles, follows, content, likes) |
 
 ### Screens (Expo Router)
 | File | Purpose |
@@ -232,6 +235,9 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 22. **Deselect handler fights celebration camera** — `selectBlock(null)` triggers deselect handler that sets `cs.targetZoom = ZOOM_OVERVIEW`, fighting celebration camera targets. Guard with `if (!isCelActive)` check before applying deselect camera transition.
 23. **Customization must not award XP** — free, instant, repeatable actions must never award points. XP removed from both client (`useBlockActions.ts`) and server (`TowerRoom.ts`).
 24. **Onboarding replay requires tower reset** — `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`, otherwise the HUD wrapper (`{revealComplete && ...}`) stays mounted and `useTowerReveal` refs won't re-run. The hook detects `revealComplete` going `true→false` and resets its internal animation refs.
+25. **Tapestry: both profiles must exist before follow** — `findOrCreateProfile()` must be called for the block owner before `followProfile()`. BlockInspector does this automatically in its useEffect.
+26. **Tapestry: `startId` = follower, `endId` = followee** — naming feels backwards but is correct per API docs.
+27. **Tapestry: ChargeResult has no blockId** — use `useTowerStore.getState().selectedBlockId` in the charge result handler instead.
 
 ---
 
@@ -311,6 +317,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `TowerRoom.ts` message format | Client handlers in `multiplayer-store.ts` |
 | `supabase/migrations/` | Run `npx supabase db push` to apply to hosted DB |
 | Supabase table schema | Update `BlockRow` / `PlayerRow` interfaces in `supabase.ts` |
+| Tapestry API wrapper (`tapestry.ts`) | `tapestry-store.ts`, `useAuthorization.ts`, `useBlockActions.ts`, `BlockInspector.tsx` |
 
 ---
 
@@ -333,6 +340,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-26**: Tapestry social integration (Graveyard Hack) — on-chain profiles via findOrCreate on wallet connect, cross-app profile import, game events (claim/charge/poke) as Tapestry content, follow/like buttons on block inspector (bot-aware, optimistic UI), Social sub-tab on Board (replaces Territory, fetches feed from followed users), social stats in Settings. Client-side only, all fire-and-forget. 222 mobile tests passing.
 - **2026-02-26**: Post-polish bug fixes — claim celebration camera rewrite (phase state machine: buildup→impact→orbit→return), fixed double claim VFX (skip during cinematic), removed XP from customization (farmable exploit), removed LiveActivityTicker, HotBlockTicker less intrusive (2 cards, 5s scan, 36px), MyBlockFAB moved left + enlarged (56px), charge explainer text in InspectorActions, boosted shake/zoom params. 222 mobile + 84 server tests passing.
 - **2026-02-25**: Polish Plan Phases 7-10 — layer-based pricing (getLayerMinPrice quadratic curve, tier badges in ClaimModal + InspectorActions), MyBlockFAB (bottom-right FAB for owned blocks, urgency dot), MyBlocksPanel polish (urgency sorting, Charge All with stagger, bigger rows), HotBlockTicker redesign (44px mini-cards, per-type colors/borders, priority sorting, FadeInLeft animation, mounted bottom-right), final polish (LayerIndicator → TIMING.springSnappy, ClaimModal stale-state fix, HotBlockTicker mounted). 222 mobile + 84 server tests passing.
 - **2026-02-25**: Polish Plan Phase 6 — block customization tiered unlocks: CUSTOMIZATION_TIERS config + helpers in common/constants.ts (8 base colors/streak 3+ all 16, 20 base emojis/streak 30+ all 48, base styles free/streak 7+ animated Lava-Nature, streak 14+ textures), InspectorCustomize rewrite with lock overlays + streak requirements + "Make it yours!" post-claim encouragement, removed "More styles" expander in favor of visible-but-gated grid. 222 tests passing.

@@ -80,6 +80,7 @@ export const COLORS = {
   successSubtle: "rgba(46, 139, 87, 0.12)",
   warning: "#E8A94D",
   error: "#C4402A",
+  errorSubtle: "rgba(196, 64, 42, 0.12)",
   info: "#5B8FB9",
 
   // ─── HUD-specific tokens ────────────────

@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: SPACING.xs,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
+    paddingVertical: 6, // 6px: visually balanced, not a token multiple
     minHeight: 32,
   },
   walletPillConnected: {

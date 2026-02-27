@@ -12,13 +12,17 @@
     "clean": "pnpm -r exec rm -rf node_modules && rm -rf node_modules",
     "anchor:build": "anchor build",
     "anchor:test": "anchor test",
-    "anchor:deploy": "anchor deploy --provider.cluster devnet"
+    "anchor:deploy": "anchor deploy --provider.cluster devnet",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "engines": {
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "expo": "^54.0.33"
+    "expo": "^54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "^0.31.1",
@@ -29,5 +33,6 @@
     "mocha": "^11.7.5",
     "ts-mocha": "^11.1.0",
     "typescript": "~5.9.3"
-  }
+  },
+  "version": "1.0.0"
 }

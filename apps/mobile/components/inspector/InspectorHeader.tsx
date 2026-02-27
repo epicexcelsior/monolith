@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { COLORS, SPACING, FONT_FAMILY } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, TEXT } from "@/constants/theme";
 import Badge from "@/components/ui/Badge";
 import { getBlockState, stateColor } from "@/hooks/useBlockActions";
 import { getStreakMultiplier } from "@/stores/tower-store";
@@ -72,25 +72,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   blockName: {
-    fontFamily: FONT_FAMILY.heading,
-    color: COLORS.text,
-    fontSize: 18,
-    letterSpacing: 0.3,
+    ...TEXT.headingLg,
   },
   ownerLabel: {
+    ...TEXT.caption,
     fontFamily: FONT_FAMILY.mono,
-    fontSize: 11,
-    color: COLORS.textMuted,
     marginTop: 1,
   },
   statusCol: {
     alignItems: "flex-end",
-    gap: 3,
+    gap: SPACING.xs,
   },
   streakBadge: {
-    fontFamily: FONT_FAMILY.monoBold,
-    fontSize: 11,
+    ...TEXT.overline,
     color: COLORS.gold,
-    letterSpacing: 0.5,
   },
 });

@@ -31,6 +31,25 @@ import {
   playPokeSend,
   playPokeReceive,
 } from "@/utils/audio";
+import { createContent } from "@/utils/tapestry";
+import { useTapestryStore } from "@/stores/tapestry-store";
+
+/** Fire-and-forget Tapestry content creation. Never blocks gameplay. */
+function postTapestryContent(
+  text: string,
+  customProps: { key: string; value: string }[],
+  blockId?: string,
+): void {
+  const profileId = useTapestryStore.getState().profileId;
+  if (!profileId) return;
+  createContent(profileId, text, customProps)
+    .then((result) => {
+      if (blockId) {
+        useTapestryStore.getState().setBlockContent(blockId, result.content.id);
+      }
+    })
+    .catch(console.warn);
+}
 
 export function getBlockState(energy: number): BlockState {
   if (energy >= ENERGY_THRESHOLDS.blazing) return "blazing";
@@ -128,6 +147,18 @@ export function useBlockActions() {
       const pts = isFirst ? 300 : 100;
       const pStore = usePlayerStore.getState();
       pStore.addPoints({ pointsEarned: pts, totalXp: pStore.xp + pts, level: pStore.level });
+
+      // Tapestry: post claim content (offline)
+      const ob = useTowerStore.getState().demoBlocks.find((b) => b.id === selectedBlockId);
+      postTapestryContent(
+        `Claimed Block #${selectedBlockId} on Layer ${ob?.layer ?? "?"}!`,
+        [
+          { key: "type", value: "block_claim" },
+          { key: "blockId", value: selectedBlockId },
+          { key: "layer", value: String(ob?.layer ?? 0) },
+        ],
+        selectedBlockId,
+      );
     }
     const { demoBlocks } = getStoreState();
     const claimedBlock = demoBlocks.find((b) => b.id === selectedBlockId);
@@ -184,6 +215,15 @@ export function useBlockActions() {
           store.markChargeToday();
           hapticStreakMilestone();
         }
+        // Tapestry: post charge content (offline)
+        postTapestryContent(
+          `Charged Block #${selectedBlockId} — Day ${result.streak ?? 1} streak!`,
+          [
+            { key: "type", value: "charge" },
+            { key: "blockId", value: selectedBlockId },
+            { key: "streak", value: String(result.streak ?? 1) },
+          ],
+        );
       }
     }
   }, [selectedBlockId, chargeBlock, mpConnected, sendCharge, setRecentlyChargedId]);
@@ -201,6 +241,17 @@ export function useBlockActions() {
     hapticButtonPress();
     playPokeSend();
     sendPoke({ blockId: selectedBlockId, wallet: publicKey.toBase58() });
+
+    // Tapestry: post poke content (fire-and-forget, before result)
+    const pokedBlock = useTowerStore.getState().demoBlocks.find((b) => b.id === selectedBlockId);
+    const ownerDisplay = pokedBlock?.owner ? truncateAddress(pokedBlock.owner) : "someone";
+    postTapestryContent(
+      `Poked ${ownerDisplay}'s Block #${selectedBlockId}!`,
+      [
+        { key: "type", value: "poke" },
+        { key: "blockId", value: selectedBlockId },
+      ],
+    );
   }, [selectedBlockId, publicKey, mpConnected, canPoke, sendPoke]);
 
   // Handle dismiss
@@ -270,6 +321,18 @@ export function useBlockActions() {
             levelUp: result.levelUp,
           });
         }
+        // Tapestry: post charge content (multiplayer)
+        const chargedBlockId = useTowerStore.getState().selectedBlockId;
+        if (chargedBlockId) {
+          postTapestryContent(
+            `Charged Block #${chargedBlockId} — Day ${result.streak ?? 1} streak!`,
+            [
+              { key: "type", value: "charge" },
+              { key: "blockId", value: chargedBlockId },
+              { key: "streak", value: String(result.streak ?? 1) },
+            ],
+          );
+        }
       }
     });
 
@@ -282,6 +345,19 @@ export function useBlockActions() {
           level: result.level,
           levelUp: result.levelUp,
         });
+      }
+      // Tapestry: post claim content (multiplayer)
+      if (result.success && result.blockId) {
+        const b = useTowerStore.getState().demoBlocks.find((d) => d.id === result.blockId);
+        postTapestryContent(
+          `Claimed Block #${result.blockId} on Layer ${b?.layer ?? "?"}!`,
+          [
+            { key: "type", value: "block_claim" },
+            { key: "blockId", value: result.blockId },
+            { key: "layer", value: String(b?.layer ?? 0) },
+          ],
+          result.blockId,
+        );
       }
     });
 

@@ -204,10 +204,19 @@ function CameraRig({
     phase: "idle", triggeredForStartTime: -1, glowUpTriggered: false,
   });
 
-  useFrame(() => {
+  // Smooth transition blend — decays gradually instead of snapping lerp 4x
+  const transitionBlendRef = useRef(0);
+
+  useFrame((_, delta) => {
     const cs = cameraState.current;
     const now = performance.now() / 1000;
     const idleTime = now - lastTouchTime.current;
+
+    // ─── Delta-corrected factors ─────────────────
+    // Frame-rate-independent: identical feel at 30fps, 60fps, 120fps
+    const dt = Math.min(delta, 0.1); // cap to avoid spiral on tab-switch
+    const frictionK = Math.pow(MOMENTUM_FRICTION, dt * 60);
+    const elasticK = 1 - Math.pow(1 - ELASTIC_SPRING, dt * 60);
 
     // ─── Fly to selected block ──────────────────
     // NOTE: Depends on DemoBlock.position being pre-computed at store boundaries
@@ -247,6 +256,7 @@ function CameraRig({
           cs.velocityElevation = 0;
           cs.velocityLookAtY = 0;
           cs.isTransitioning = true;
+          transitionBlendRef.current = 1;
           hapticBlockSelect();
           playBlockSelect();
         }
@@ -262,6 +272,7 @@ function CameraRig({
           cs.velocityElevation = 0;
           cs.velocityLookAtY = 0;
           cs.isTransitioning = true;
+          transitionBlendRef.current = 1;
           hapticBlockDeselect();
           playBlockDeselect();
         }
@@ -277,12 +288,35 @@ function CameraRig({
       }
     }
 
-    // ─── Pick lerp rate ─────────────────────────
+    // Decay transition blend smoothly (avoids snapping lerp 4x when transition ends)
+    if (!cs.isTransitioning && transitionBlendRef.current > 0.001) {
+      transitionBlendRef.current *= Math.pow(0.05, dt * 60); // decay toward 0
+    } else if (!cs.isTransitioning) {
+      transitionBlendRef.current = 0;
+    }
+
+    // ─── Pick lerp rate (delta-corrected) ────────
     // During claim celebration, use faster lerp for dramatic zoom changes
     const isCelebrating = claimCelebrationRef?.current?.active ?? false;
-    const celebLerp = 0.08; // ~2x normal transition speed for cinematic punch
-    const orbitLerp = cs.isTransitioning ? (isCelebrating ? celebLerp : TRANSITION_LERP) : ORBIT_LERP;
-    const zoomLerp = cs.isTransitioning ? (isCelebrating ? celebLerp : TRANSITION_LERP) : ZOOM_LERP;
+    const celebLerpBase = 0.08; // ~2x normal transition speed for cinematic punch
+    const rawOrbitLerp = cs.isTransitioning
+      ? (isCelebrating ? celebLerpBase : TRANSITION_LERP)
+      : ORBIT_LERP;
+    const rawZoomLerp = cs.isTransitioning
+      ? (isCelebrating ? celebLerpBase : TRANSITION_LERP)
+      : ZOOM_LERP;
+
+    // Blend smoothly between transition and orbit lerp rates
+    const blendedOrbitLerp = transitionBlendRef.current > 0.001
+      ? ORBIT_LERP + (rawOrbitLerp - ORBIT_LERP) * transitionBlendRef.current
+      : rawOrbitLerp;
+    const blendedZoomLerp = transitionBlendRef.current > 0.001
+      ? ZOOM_LERP + (rawZoomLerp - ZOOM_LERP) * transitionBlendRef.current
+      : rawZoomLerp;
+
+    // Delta-correct the lerp factors
+    const orbitK = 1 - Math.pow(1 - blendedOrbitLerp, dt * 60);
+    const zoomK = 1 - Math.pow(1 - blendedZoomLerp, dt * 60);
 
     // ─── Orbit momentum coasting (when finger lifted) ─
     if (!cs.isTouching && !cs.isTransitioning) {
@@ -292,8 +326,8 @@ function CameraRig({
       ) {
         cs.targetAzimuth += cs.velocityAzimuth;
         cs.targetElevation += cs.velocityElevation;
-        cs.velocityAzimuth *= MOMENTUM_FRICTION;
-        cs.velocityElevation *= MOMENTUM_FRICTION;
+        cs.velocityAzimuth *= frictionK;
+        cs.velocityElevation *= frictionK;
 
         cs.targetElevation = Math.max(
           ELEVATION_MIN,
@@ -304,17 +338,17 @@ function CameraRig({
       // lookAt.y momentum (vertical pan coasting)
       if (Math.abs(cs.velocityLookAtY) > MOMENTUM_MIN_VEL) {
         cs.targetLookAt.y += cs.velocityLookAtY;
-        cs.velocityLookAtY *= MOMENTUM_FRICTION;
+        cs.velocityLookAtY *= frictionK;
       }
     }
 
     // ─── Elastic overscroll bounce-back ──────────
     if (!cs.isTouching) {
       if (cs.targetLookAt.y < LOOKAT_Y_MIN) {
-        cs.targetLookAt.y += (LOOKAT_Y_MIN - cs.targetLookAt.y) * ELASTIC_SPRING;
+        cs.targetLookAt.y += (LOOKAT_Y_MIN - cs.targetLookAt.y) * elasticK;
         cs.velocityLookAtY = 0;
       } else if (cs.targetLookAt.y > LOOKAT_Y_MAX) {
-        cs.targetLookAt.y += (LOOKAT_Y_MAX - cs.targetLookAt.y) * ELASTIC_SPRING;
+        cs.targetLookAt.y += (LOOKAT_Y_MAX - cs.targetLookAt.y) * elasticK;
         cs.velocityLookAtY = 0;
       }
     }
@@ -324,22 +358,21 @@ function CameraRig({
     if (idleTime > IDLE_TIMEOUT && !selectedBlockId && !cs.isTransitioning) {
       // Rotate slower when zoomed in
       const zoomFactor = cs.zoom / ZOOM_OVERVIEW;
-      cs.targetAzimuth += AUTO_ROTATE_SPEED * zoomFactor;
+      cs.targetAzimuth += AUTO_ROTATE_SPEED * 60 * dt * zoomFactor;
 
       // Smoothly drift lookAt back toward tower center Y-axis
-      // This ensures auto-rotate always orbits around the tower,
-      // not around the last-selected block's position
-      cs.targetLookAt.x += (0 - cs.targetLookAt.x) * 0.02;
-      cs.targetLookAt.z += (0 - cs.targetLookAt.z) * 0.02;
-      // Gently return Y to tower center too
-      cs.targetLookAt.y += (OVERVIEW_LOOKAT_Y - cs.targetLookAt.y) * 0.01;
+      const driftK = 1 - Math.pow(1 - 0.02, dt * 60);
+      const driftYK = 1 - Math.pow(1 - 0.01, dt * 60);
+      cs.targetLookAt.x += (0 - cs.targetLookAt.x) * driftK;
+      cs.targetLookAt.z += (0 - cs.targetLookAt.z) * driftK;
+      cs.targetLookAt.y += (OVERVIEW_LOOKAT_Y - cs.targetLookAt.y) * driftYK;
     }
 
     // ─── Spring-damped interpolation ────────────
-    cs.azimuth += (cs.targetAzimuth - cs.azimuth) * orbitLerp;
-    cs.elevation += (cs.targetElevation - cs.elevation) * orbitLerp;
-    cs.zoom += (cs.targetZoom - cs.zoom) * zoomLerp;
-    cs.lookAt.lerp(cs.targetLookAt, orbitLerp);
+    cs.azimuth += (cs.targetAzimuth - cs.azimuth) * orbitK;
+    cs.elevation += (cs.targetElevation - cs.elevation) * orbitK;
+    cs.zoom += (cs.targetZoom - cs.zoom) * zoomK;
+    cs.lookAt.lerp(cs.targetLookAt, orbitK);
 
     // Clamp
     cs.elevation = Math.max(ELEVATION_MIN, Math.min(ELEVATION_MAX, cs.elevation));
@@ -391,13 +424,13 @@ function CameraRig({
           }
           const buildupT = elapsed / CLAIM_IMPACT_OFFSET_SECS;
           const buildupMag = 0.15 + buildupT * 0.40; // escalate 0.15 → 0.55
-          shakeRef.current = {
-            startTime: now - 0.01,
-            active: true,
-            magnitude: buildupMag,
-            duration: 0.1,
-            decay: 0,
-          };
+          // Mutate in-place to avoid allocation every frame
+          const sr = shakeRef.current;
+          sr.startTime = now - 0.01;
+          sr.active = true;
+          sr.magnitude = buildupMag;
+          sr.duration = 0.1;
+          sr.decay = 0;
         }
 
         // ── PHASE 2: IMPACT (at 1.5s) — BIG shake + zoom OUT to see full tower ──
@@ -409,14 +442,14 @@ function CameraRig({
           cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y, 0);
           cs.targetElevation = OVERVIEW_ELEVATION;
           cs.isTransitioning = true;
-          // Big impact shake
-          shakeRef.current = {
-            startTime: now,
-            active: true,
-            magnitude: CLAIM_SHAKE.magnitude,
-            duration: CLAIM_SHAKE.duration,
-            decay: CLAIM_SHAKE.decay,
-          };
+          transitionBlendRef.current = 1;
+          // Big impact shake — mutate in-place
+          const sr = shakeRef.current;
+          sr.startTime = now;
+          sr.active = true;
+          sr.magnitude = CLAIM_SHAKE.magnitude;
+          sr.duration = CLAIM_SHAKE.duration;
+          sr.decay = CLAIM_SHAKE.decay;
           shakeTriggeredForRef.current = cel.startTime;
         }
 
@@ -425,7 +458,8 @@ function CameraRig({
           cc.phase = "orbit";
         }
         if (cc.phase === "orbit" && elapsed < CLAIM_CAMERA.zoomReturnDelay) {
-          cs.targetAzimuth += CLAIM_CAMERA.orbitSpeed;
+          // Delta-corrected orbit speed (orbitSpeed is per-frame at 60fps)
+          cs.targetAzimuth += CLAIM_CAMERA.orbitSpeed * dt * 60;
         }
 
         // ── PHASE 4: RETURN (at 3.5s) — zoom back to block ──
@@ -441,6 +475,7 @@ function CameraRig({
           );
           cs.targetElevation = cc.preElevation;
           cs.isTransitioning = true;
+          transitionBlendRef.current = 1;
         }
 
         // ── GLOW-UP: trigger gold→owner color transition after zoom-back ──

@@ -5,19 +5,21 @@
  * that renders well on a dark glass background (inside BottomPanel dark mode).
  */
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useWalletStore } from "@/stores/wallet-store";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { usePlayerStore } from "@/stores/player-store";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE, TEXT } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playTabSwitch } from "@/utils/audio";
 import { isBotOwner } from "@/utils/seed-tower";
 import { GAME_SERVER_URL } from "@/constants/network";
+import { useTapestryStore } from "@/stores/tapestry-store";
+import { getFollowing, getContentByProfile, type TapestryContent } from "@/utils/tapestry";
 
 // ─── Types ─────────────────────────────────────────────
-type LeaderboardTab = "skyline" | "brightest" | "streak" | "territory" | "xp";
+type LeaderboardTab = "skyline" | "brightest" | "streak" | "social" | "xp";
 
 interface LeaderboardEntry {
   rank: number;
@@ -64,7 +66,7 @@ const LEADERBOARD_TABS: { key: LeaderboardTab; label: string }[] = [
   { key: "skyline", label: "Skyline" },
   { key: "brightest", label: "Brightest" },
   { key: "streak", label: "Streaks" },
-  { key: "territory", label: "Territory" },
+  { key: "social", label: "Social" },
 ];
 
 // ─── Leaderboard computation ───────────────────────────
@@ -117,11 +119,9 @@ function computeLeaderboard(tab: LeaderboardTab, blocks: DemoBlock[], userAddres
         entries.push({ owner, sortVal: best.streak ?? 0, display: `Day ${best.streak ?? 0}`, blockId: best.id });
       }
       break;
-    case "territory":
-      for (const [owner, obs] of byOwner) {
-        entries.push({ owner, sortVal: obs.length, display: `${obs.length} block${obs.length !== 1 ? "s" : ""}` });
-      }
-      break;
+    case "social":
+      // Social tab renders its own content — no leaderboard computation
+      return [];
   }
 
   entries.sort((a, b) => b.sortVal - a.sortVal);
@@ -179,6 +179,25 @@ function generateActivityFeed(blocks: DemoBlock[], userAddress: string | null): 
   return items.slice(0, 6);
 }
 
+// ─── Social feed (Tapestry) ──────────────────────────────
+async function fetchSocialFeed(myProfileId: string): Promise<TapestryContent[]> {
+  const following = await getFollowing(myProfileId, 10);
+  const results = await Promise.allSettled(
+    following.following.map((f) =>
+      getContentByProfile(f.profile.id, 5),
+    ),
+  );
+  const allContent: TapestryContent[] = [];
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value?.contents) {
+      allContent.push(...result.value.contents);
+    }
+  }
+  return allContent.sort(
+    (a, b) => new Date(b.content.createdAt).getTime() - new Date(a.content.createdAt).getTime(),
+  );
+}
+
 // ─── Component ─────────────────────────────────────────
 interface BoardContentProps {
   onSelectBlock?: (blockId: string) => void;
@@ -194,6 +213,12 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
   const [xpLeaderboard, setXpLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [liveActivity, setLiveActivity] = useState<ActivityItem[] | null>(null);
   const activityFetchedRef = useRef(false);
+
+  // Tapestry social
+  const tapestryProfileId = useTapestryStore((s) => s.profileId);
+  const socialCounts = useTapestryStore((s) => s.socialCounts);
+  const [socialFeed, setSocialFeed] = useState<TapestryContent[]>([]);
+  const [socialLoading, setSocialLoading] = useState(false);
 
   const userAddress = publicKey?.toBase58() ?? null;
 
@@ -214,6 +239,16 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
       if (items && items.length > 0) setLiveActivity(items);
     });
   }, []);
+
+  // Fetch social feed when Social tab is active
+  useEffect(() => {
+    if (activeTab !== "social" || !tapestryProfileId) return;
+    setSocialLoading(true);
+    fetchSocialFeed(tapestryProfileId)
+      .then(setSocialFeed)
+      .catch(console.warn)
+      .finally(() => setSocialLoading(false));
+  }, [activeTab, tapestryProfileId]);
 
   const activityFeed = liveActivity ?? generateActivityFeed(demoBlocks, userAddress);
 
@@ -251,35 +286,78 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
         ))}
       </View>
 
-      {/* Leaderboard entries */}
-      <View style={styles.leaderboardList}>
-        {leaderboardData.length === 0 && (
-          <Text style={styles.emptyListText}>No data yet</Text>
-        )}
-        {leaderboardData.map((entry, i) => (
-          <TouchableOpacity
-            key={`${entry.rank}-${entry.address}`}
-            activeOpacity={0.7}
-            onPress={() => entry.blockId && handleBlockTap(entry.blockId)}
-          >
-            <Animated.View
-              entering={FadeInDown.delay(100 + i * 40).duration(200)}
-              style={[styles.leaderboardRow, entry.isYou && styles.leaderboardRowYou]}
-            >
-              <Text style={[styles.rankCol, entry.rank <= 3 && styles.rankColTop]}>
-                {entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : `${entry.rank}`}
-              </Text>
-              <Text style={[styles.addressCol, entry.isYou && styles.addressColYou]} numberOfLines={1}>
-                {entry.isYou ? `${entry.address} (you)` : entry.address}
-              </Text>
-              <Text style={[styles.valueCol, entry.isYou && styles.valueColYou]}>{entry.value}</Text>
-            </Animated.View>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Social tab — Tapestry feed */}
+      {activeTab === "social" && (
+        <View style={styles.socialSection}>
+          {socialCounts && (
+            <View style={styles.socialStatsRow}>
+              <Text style={styles.socialStatText}>{socialCounts.followers} followers</Text>
+              <Text style={styles.socialStatDivider}>{"\u00B7"}</Text>
+              <Text style={styles.socialStatText}>{socialCounts.following} following</Text>
+            </View>
+          )}
+          {socialLoading ? (
+            <ActivityIndicator color={COLORS.gold} style={{ marginTop: SPACING.xl }} />
+          ) : !tapestryProfileId ? (
+            <Text style={styles.emptyListText}>
+              Connect wallet to see social activity
+            </Text>
+          ) : socialFeed.length === 0 ? (
+            <Text style={styles.emptyListText}>
+              Follow block owners to see their activity here
+            </Text>
+          ) : (
+            socialFeed.map((item) => {
+              const blockId = item.content.customProperties?.blockId;
+              return (
+                <TouchableOpacity
+                  key={item.content.id}
+                  style={styles.socialFeedItem}
+                  activeOpacity={0.7}
+                  onPress={() => blockId && handleBlockTap(blockId)}
+                >
+                  <Text style={styles.socialFeedText}>{item.content.content}</Text>
+                  <Text style={styles.socialFeedTime}>
+                    {relativeTime(item.content.createdAt)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      )}
 
-      {/* Activity feed */}
-      {activityFeed.length > 0 && (
+      {/* Leaderboard entries (hidden on social tab) */}
+      {activeTab !== "social" && (
+        <View style={styles.leaderboardList}>
+          {leaderboardData.length === 0 && (
+            <Text style={styles.emptyListText}>No data yet</Text>
+          )}
+          {leaderboardData.map((entry, i) => (
+            <TouchableOpacity
+              key={`${entry.rank}-${entry.address}`}
+              activeOpacity={0.7}
+              onPress={() => entry.blockId && handleBlockTap(entry.blockId)}
+            >
+              <Animated.View
+                entering={FadeInDown.delay(100 + i * 40).duration(200)}
+                style={[styles.leaderboardRow, entry.isYou && styles.leaderboardRowYou]}
+              >
+                <Text style={[styles.rankCol, entry.rank <= 3 && styles.rankColTop]}>
+                  {entry.rank <= 3 ? ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"][entry.rank - 1] : `${entry.rank}`}
+                </Text>
+                <Text style={[styles.addressCol, entry.isYou && styles.addressColYou]} numberOfLines={1}>
+                  {entry.isYou ? `${entry.address} (you)` : entry.address}
+                </Text>
+                <Text style={[styles.valueCol, entry.isYou && styles.valueColYou]}>{entry.value}</Text>
+              </Animated.View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Activity feed (hidden on social tab) */}
+      {activeTab !== "social" && activityFeed.length > 0 && (
         <View style={styles.activitySection}>
           <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
           {activityFeed.map((item) => (
@@ -330,17 +408,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gold,
   },
   tabLabel: {
+    ...TEXT.overline,
     fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 11,
-    color: COLORS.textMuted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
   },
   tabLabelActive: { color: COLORS.goldLight },
 
   // Leaderboard
   leaderboardList: { gap: 2 },
-  emptyListText: { fontFamily: FONT_FAMILY.body, fontSize: 13, color: COLORS.textMuted, textAlign: "center", paddingVertical: SPACING.lg },
+  emptyListText: { ...TEXT.bodySm, textAlign: "center", paddingVertical: SPACING.lg },
   leaderboardRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -351,9 +426,9 @@ const styles = StyleSheet.create({
   leaderboardRowYou: { backgroundColor: COLORS.goldSubtle },
   rankCol: { fontFamily: FONT_FAMILY.mono, fontSize: 14, color: COLORS.textMuted, width: 32, textAlign: "center" },
   rankColTop: { fontSize: 18 },
-  addressCol: { flex: 1, fontFamily: FONT_FAMILY.mono, fontSize: 13, color: COLORS.textOnDark },
+  addressCol: { flex: 1, ...TEXT.bodySm, fontFamily: FONT_FAMILY.mono, color: COLORS.textOnDark },
   addressColYou: { color: COLORS.gold, fontFamily: FONT_FAMILY.bodySemibold },
-  valueCol: { fontFamily: FONT_FAMILY.bodySemibold, fontSize: 13, color: COLORS.textMuted, textAlign: "right" },
+  valueCol: { ...TEXT.bodySm, fontFamily: FONT_FAMILY.bodySemibold, textAlign: "right" },
   valueColYou: { color: COLORS.gold },
 
   // Activity
@@ -369,6 +444,24 @@ const styles = StyleSheet.create({
   activityRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm },
   activityIcon: { fontSize: 14, marginTop: 2 },
   activityContent: { flex: 1 },
-  activityText: { fontFamily: FONT_FAMILY.body, fontSize: 13, color: COLORS.textOnDark, lineHeight: 18 },
-  activityTime: { fontFamily: FONT_FAMILY.bodyMedium, fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  activityText: { ...TEXT.bodySm, color: COLORS.textOnDark },
+  activityTime: { ...TEXT.caption, marginTop: 2 },
+
+  // Social tab
+  socialSection: { gap: SPACING.xs },
+  socialStatsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  socialStatText: { ...TEXT.caption, color: COLORS.textSecondary },
+  socialStatDivider: { ...TEXT.caption, color: COLORS.textMuted },
+  socialFeedItem: {
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  socialFeedText: { ...TEXT.bodySm, color: COLORS.textOnDark },
+  socialFeedTime: { ...TEXT.caption, marginTop: 2 },
 });

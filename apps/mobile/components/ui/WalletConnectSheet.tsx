@@ -4,7 +4,7 @@ import BottomPanel from "./BottomPanel";
 import Button from "./Button";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { useWalletStore, useTruncatedAddress } from "@/stores/wallet-store";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 
@@ -116,20 +116,17 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   title: {
-    fontFamily: FONT_FAMILY.heading,
-    fontSize: 22,
+    ...TEXT.displaySm,
     color: COLORS.goldLight,
-    letterSpacing: 0.5,
   },
   description: {
-    fontFamily: FONT_FAMILY.body,
-    fontSize: 14,
-    color: COLORS.textMuted,
+    ...TEXT.bodySm,
     textAlign: "center",
-    lineHeight: 20,
+    maxWidth: "90%",
+    alignSelf: "center",
   },
   errorRow: {
-    backgroundColor: "rgba(220, 50, 50, 0.15)",
+    backgroundColor: COLORS.errorSubtle,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -150,12 +147,12 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#2ecc71",
+    backgroundColor: COLORS.success,
   },
   connectedLabel: {
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 14,
-    color: "#2ecc71",
+    color: COLORS.success,
     letterSpacing: 0.3,
   },
   address: {
@@ -165,9 +162,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   hint: {
-    fontFamily: FONT_FAMILY.body,
-    fontSize: 13,
-    color: COLORS.textMuted,
+    ...TEXT.bodySm,
     textAlign: "center",
   },
   buttonRow: {

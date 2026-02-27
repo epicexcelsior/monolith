@@ -15,8 +15,9 @@ import TitleReveal from "./TitleReveal";
 import { BLOCK_COLORS, BLOCK_ICONS } from "@monolith/common";
 import { COLORS, SPACING, RADIUS, TEXT, TIMING } from "@/constants/theme";
 import { hapticButtonPress, hapticChargeTap } from "@/utils/haptics";
-import { playCustomize, playButtonTap, playChargeTap, playPokeSend } from "@/utils/audio";
+import { playCustomize, playButtonTap, playChargeTap, playPokeSend, playPokeReceive } from "@/utils/audio";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "@/components/ui/Button";
 import StepCard from "@/components/ui/StepCard";
 
@@ -78,6 +79,7 @@ const STEP_MAP: Record<string, number> = {
 const TOTAL_STEPS = 5;
 
 export default function OnboardingFlow() {
+    const insets = useSafeAreaInsets();
     const phase = useOnboardingStore((s) => s.phase);
     const advancePhase = useOnboardingStore((s) => s.advancePhase);
     const ghostBlockId = useOnboardingStore((s) => s.ghostBlockId);
@@ -213,15 +215,22 @@ export default function OnboardingFlow() {
     }, [ghostBlockId, ghostChargeBlock, setRecentlyChargedId, addPoints, advancePhase, chargeBarWidth]);
 
     // ─── Phase: POKE ──────────────────────────────
+    const [pokeStatus, setPokeStatus] = useState<string | null>(null);
     const handlePoke = useCallback(() => {
         if (!ghostBlockId) return;
         hapticButtonPress();
         playPokeSend();
         const nearbyId = pickNearbyBotBlock(ghostBlockId, demoBlocks as any);
         if (nearbyId) {
-            // Fly camera to the bot block + trigger poke shake
+            // Fly camera to the bot block first
             selectBlock(nearbyId);
-            setRecentlyPokedId(nearbyId);
+            // Delay shake 300ms so camera arrives before the visual feedback
+            setTimeout(() => {
+                setRecentlyPokedId(nearbyId);
+                playPokeReceive();
+                setPokeStatus("Poke sent!");
+                addPoints({ pointsEarned: 10 });
+            }, 300);
         }
         // After 1.5s: fly camera back to ghost block, then advance
         setTimeout(() => {
@@ -230,7 +239,7 @@ export default function OnboardingFlow() {
                 advancePhase(); // → wallet
             }, 400);
         }, 1500);
-    }, [ghostBlockId, demoBlocks, selectBlock, setRecentlyPokedId, advancePhase]);
+    }, [ghostBlockId, demoBlocks, selectBlock, setRecentlyPokedId, addPoints, advancePhase]);
 
     const handlePokeSkip = useCallback(() => {
         hapticButtonPress();
@@ -272,7 +281,7 @@ export default function OnboardingFlow() {
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
             {/* Skip button — visible from title phase onward */}
             {phase !== "cinematic" && (
-                <View style={styles.skipContainer}>
+                <View style={[styles.skipContainer, { top: insets.top + SPACING.xs }]}>
                     <Button
                         title="Skip"
                         variant="ghost"
@@ -295,7 +304,7 @@ export default function OnboardingFlow() {
             {phase === "claim" && (
                 <Animated.View style={[
                     styles.claimContainer,
-                    { opacity: claimFade, transform: [{ scale: claimScale }] },
+                    { bottom: Math.max(insets.bottom, 12) + SPACING.xxl, opacity: claimFade, transform: [{ scale: claimScale }] },
                 ]}>
                     <Text style={styles.claimSubtitle}>
                         This block is yours to keep. Or lose.
@@ -321,7 +330,7 @@ export default function OnboardingFlow() {
 
             {/* ─── CUSTOMIZE ───────────────────────── */}
             {phase === "customize" && (
-                <View style={styles.stepCardContainer}>
+                <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
                         title="Make it yours"
                         subtitle="Pick a color and emoji"
@@ -379,7 +388,7 @@ export default function OnboardingFlow() {
 
             {/* ─── CHARGE ──────────────────────────── */}
             {phase === "charge" && (
-                <View style={styles.stepCardContainer}>
+                <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
                         title="Charge your block daily"
                         step={currentStep}
@@ -431,19 +440,23 @@ export default function OnboardingFlow() {
 
             {/* ─── POKE ────────────────────────────── */}
             {phase === "poke" && (
-                <View style={styles.stepCardContainer}>
+                <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
                         title="Poke your neighbors 👋"
                         subtitle="Give them a boost of energy"
                         step={currentStep}
                         totalSteps={TOTAL_STEPS}
                     >
+                        {pokeStatus && (
+                            <Text style={styles.pokeStatusText}>{pokeStatus}</Text>
+                        )}
                         <View style={styles.pokeButtons}>
                             <Button
                                 title="POKE"
                                 variant="secondary"
                                 size="md"
                                 onPress={handlePoke}
+                                disabled={!!pokeStatus}
                             />
                             <Button
                                 title="SKIP →"
@@ -458,7 +471,7 @@ export default function OnboardingFlow() {
 
             {/* ─── WALLET ──────────────────────────── */}
             {phase === "wallet" && (
-                <View style={styles.stepCardContainer}>
+                <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
                         title="You're in."
                         subtitle={"Connect a wallet to stake real USDC\nand compete on the leaderboard."}
@@ -469,13 +482,13 @@ export default function OnboardingFlow() {
                             <Button
                                 title="CONNECT WALLET"
                                 variant="primary"
-                                size="md"
+                                size="lg"
                                 onPress={handleConnectWallet}
                             />
                             <Button
                                 title="PLAY DEMO →"
-                                variant="secondary"
-                                size="md"
+                                variant="ghost"
+                                size="sm"
                                 onPress={handlePlayDemo}
                             />
                         </View>
@@ -493,7 +506,6 @@ export default function OnboardingFlow() {
 const styles = StyleSheet.create({
     skipContainer: {
         position: "absolute",
-        top: 54,
         right: SPACING.md,
         zIndex: 300,
     },
@@ -501,7 +513,6 @@ const styles = StyleSheet.create({
     // ─── Claim ────────────────────────────────
     claimContainer: {
         position: "absolute",
-        bottom: 120,
         left: SPACING.lg,
         right: SPACING.lg,
         alignItems: "center",
@@ -524,7 +535,6 @@ const styles = StyleSheet.create({
     // ─── StepCard positioning ─────────────────
     stepCardContainer: {
         position: "absolute",
-        bottom: 80,
         left: SPACING.md,
         right: SPACING.md,
         zIndex: 100,
@@ -631,11 +641,19 @@ const styles = StyleSheet.create({
         marginTop: SPACING.sm,
     },
 
+    // ─── Poke status ─────────────────────────
+    pokeStatusText: {
+        ...TEXT.bodySm,
+        color: COLORS.gold,
+        textAlign: "center",
+        marginBottom: SPACING.xs,
+    },
+
     // ─── Wallet ───────────────────────────────
     walletButtons: {
-        flexDirection: "row",
-        gap: SPACING.md,
-        justifyContent: "center",
+        flexDirection: "column",
+        gap: SPACING.sm,
+        alignItems: "center",
         marginTop: SPACING.sm,
     },
     walletHint: {

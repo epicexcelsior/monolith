@@ -29,6 +29,9 @@ import {
   SECURE_STORE_KEYS,
 } from "@/services/mwa";
 import { useWalletStore } from "@/stores/wallet-store";
+import { usePlayerStore } from "@/stores/player-store";
+import { useTapestryStore } from "@/stores/tapestry-store";
+import { findOrCreateProfile, searchProfiles } from "@/utils/tapestry";
 
 // ---------------------------------------------------------------------------
 // Error messages — user-friendly strings for known MWA failure modes
@@ -77,6 +80,41 @@ function classifyError(err: unknown): string {
   }
 
   return ERROR_MESSAGES.UNEXPECTED;
+}
+
+// ---------------------------------------------------------------------------
+// Tapestry — fire-and-forget profile bootstrap
+// ---------------------------------------------------------------------------
+function bootstrapTapestryProfile(walletAddress: string): void {
+  (async () => {
+    try {
+      const username =
+        usePlayerStore.getState().username || walletAddress.slice(0, 8);
+
+      // Check for cross-app Tapestry profiles (pre-fill username)
+      let externalUsername: string | undefined;
+      try {
+        const search = await searchProfiles(walletAddress, true);
+        externalUsername = search?.profiles?.[0]?.username;
+      } catch {
+        /* cross-app search is optional */
+      }
+
+      const result = await findOrCreateProfile(
+        walletAddress,
+        externalUsername || username,
+        "Keeper on The Monolith",
+      );
+
+      useTapestryStore.getState().setProfile(
+        result.profile.id,
+        result.profile,
+        result.socialCounts,
+      );
+    } catch (e) {
+      console.warn("Tapestry profile creation failed:", e);
+    }
+  })();
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +223,9 @@ export function useAuthorization() {
         walletUriBase,
       });
 
+      // Tapestry profile — fire-and-forget, never blocks wallet connect
+      bootstrapTapestryProfile(pubkey.toBase58());
+
       return pubkey;
     } catch (err) {
       const userMessage = classifyError(err);
@@ -277,6 +318,9 @@ export function useAuthorization() {
           base64Address: cachedBase64Address,
           walletUriBase: cachedWalletUriBase ?? "",
         });
+
+        // Tapestry profile — fire-and-forget on hydration too
+        bootstrapTapestryProfile(pubkey.toBase58());
       }
     },
     [setConnected],

@@ -9,7 +9,9 @@
         "EXPO_PUBLIC_SOLANA_RPC_URL": "https://api.devnet.solana.com",
         "EXPO_PUBLIC_SOLANA_NETWORK": "devnet",
         "EXPO_PUBLIC_SUPABASE_URL": "https://pscgsbdznfitscxflxrm.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_UIlZ_m0z0yx5sr3uqvNdEg_GN39XvoT"
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_UIlZ_m0z0yx5sr3uqvNdEg_GN39XvoT",
+        "EXPO_PUBLIC_TAPESTRY_API_URL": "https://api.usetapestry.dev/v1",
+        "EXPO_PUBLIC_TAPESTRY_API_KEY": "b304bcef-94f9-4b37-aa88-c4bc2de536b7"
       }
     },
     "development": {
