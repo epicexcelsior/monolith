@@ -281,10 +281,9 @@ function applyFullState(data: ServerState) {
 
 /** Apply a single block update from server */
 function applySingleBlockUpdate(serverBlock: ServerBlock) {
-  const store = useTowerStore.getState();
   const towerStore = useTowerStore.getState();
   const updated = serverBlockToDemo(serverBlock);
-  const existing = store.demoBlocks;
+  const existing = towerStore.demoBlocks;
 
   const key = cacheKey(serverBlock.layer, serverBlock.index);
   const idx = existing.findIndex(
@@ -308,7 +307,7 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
     if (dataChanged) {
       const newBlocks = existing.slice();
       newBlocks[idx] = updated;
-      store.setDemoBlocks(newBlocks);
+      towerStore.setDemoBlocks(newBlocks);
     } else if (!serverBlock.eventType) {
       // No data changed AND no event — skip entirely
       return;
@@ -416,7 +415,6 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       });
 
       room.onMessage("block_update", (data: ServerBlock) => {
-        if (__DEV__ && data.eventType) console.log(`[Multiplayer] block_update: ${data.id} eventType=${data.eventType}`);
         applySingleBlockUpdate(data);
       });
 
@@ -438,7 +436,6 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       });
 
       room.onMessage("poke_received", (data: PokeReceived) => {
-        if (__DEV__) console.log(`[Multiplayer] poke_received:`, data);
         pokeReceivedCallback?.(data);
       });
 

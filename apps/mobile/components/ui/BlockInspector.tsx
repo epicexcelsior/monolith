@@ -144,14 +144,14 @@ export default function BlockInspector() {
       if (tapestryProfileId) {
         checkLiked(tapestryProfileId, contentId)
           .then((result) => { if (!cancelled) setHasLikedBlock(result.hasLiked); })
-          .catch(() => {});
+          .catch(() => { });
       }
       getLikeCount(contentId)
         .then((count) => { if (!cancelled) setBlockLikeCount(count); })
-        .catch(() => {});
+        .catch(() => { });
       getComments(contentId, tapestryProfileId ?? undefined, 1, 1)
         .then((result) => { if (!cancelled) setBlockCommentCount(result.comments?.length ?? 0); })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     ensureAndCheck().catch(console.warn);
@@ -414,7 +414,7 @@ async function handleTweet(block: { layer: number; index: number; energy: number
   )}`;
   const text = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged!\n\nPoke it \u{1F447}\n${blinkUrl}`;
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-  try { await Linking.openURL(twitterUrl); } catch {}
+  try { await Linking.openURL(twitterUrl); } catch { }
 }
 
 // Share helper with Blink URL
@@ -438,9 +438,9 @@ async function handleShare(block: { layer: number; index: number; energy: number
         return;
       }
     }
-  } catch {}
+  } catch { }
 
-  try { await Share.share({ message: textMessage }); } catch {}
+  try { await Share.share({ message: textMessage }); } catch { }
 }
 
 const styles = StyleSheet.create({

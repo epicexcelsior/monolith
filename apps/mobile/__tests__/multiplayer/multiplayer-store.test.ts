@@ -31,6 +31,14 @@ jest.mock("@/services/mwa", () => ({
   },
 }));
 
+// Mock haptics + audio (native modules)
+jest.mock("@/utils/haptics", () => ({
+  hapticButtonPress: jest.fn(),
+}));
+jest.mock("@/utils/audio", () => ({
+  playPokeReceive: jest.fn(),
+}));
+
 // Mock activity-store
 const mockAddEvent = jest.fn();
 jest.mock("@/stores/activity-store", () => ({

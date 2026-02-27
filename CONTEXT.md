@@ -59,7 +59,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
 - **Server hardening** (try/catch all handlers, error messages to client)
 - **Tapestry social layer** (on-chain profiles, follow/like/comment, deterministic block content IDs, activity feed tab, comments in inspector, namespace isolation — client-side only, fire-and-forget)
-- **Solana Blinks** (shareable poke URLs via memo transactions — dial.to cards, actions.json discovery, Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var)
+- **Solana Blinks** (shareable poke URLs via memo transactions — dial.to cards, actions.json discovery, Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var, in-game poke effects: block shake/bounce/flash + gold toast + SFX + haptic + push notification)
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
@@ -113,6 +113,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/MyBlocksPanel.tsx` | Bottom sheet listing owned blocks (urgency-sorted, Charge All) |
 | `apps/mobile/components/ui/MyBlockFAB.tsx` | Floating action button for quick access to owned blocks |
 | `apps/mobile/components/ui/HotBlockTicker.tsx` | Bottom-right notable block mini-cards (dying/fading/claimable/streak) |
+| `apps/mobile/components/ui/PokeReceivedToast.tsx` | Blink/in-app poke notification toast (gold glow, SFX, haptic) |
 | `apps/mobile/components/ui/UsernameModal.tsx` | Set display name modal |
 | `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator |
 | `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions |
@@ -171,6 +172,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/server/src/utils/notifications.ts` | Push notification helpers (Expo push API) |
 | `apps/server/src/routes/blinks.ts` | Solana Blinks routes (actions.json, GET metadata, POST poke tx) |
 | `apps/server/src/utils/memo-tx.ts` | RPC connection + unsigned memo transaction builder |
+| `apps/server/src/utils/blink-poke.ts` | Apply Blink poke to live TowerRoom (energy boost, broadcast, push notif) |
 | `apps/server/static/blink-icon.png` | Tower icon for Blink action cards |
 
 ### Shared Package
@@ -207,8 +209,10 @@ Claim/Charge → multiplayer-store.ts → Colyseus room.send() → TowerRoom.ts 
   → upsertBlock() → Supabase blocks table
   → charge_result/claim_result → BlockInspector → player-store → FloatingPoints/LevelUp
 Server mutation → room.broadcast("block_update", { eventType }) → multiplayer-store.ts
-  → tower-store.ts → TowerGrid re-render (claim flash gold / charge flash blue-white)
+  → tower-store.ts → TowerGrid re-render (claim flash gold / charge flash blue-white / poke shake orange)
   → recentEvents → activity-store → HotBlockTicker / Board tab
+Blink poke → routes/blinks.ts POST → blink-poke.ts → getActiveRoom().broadcast("block_update", eventType:"poke")
+  + poke_received to owner client → PokeReceivedToast + SFX + haptic
 Position math → @monolith/common/layout.ts (shared) → positionCache (client-side Map)
 USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-chain)
 ```
@@ -348,6 +352,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-27**: Blink poke client-side effects — PokeReceivedToast (hudDark glass, gold glow pulse, energy badge, scale+slide entrance, 6s), block shake/bounce VFX (0.18 amp, Y-axis pop, 1.4s flash with peak hold), SFX+haptic from block_update path (no _wallet dependency), blink-poke.ts broadcasts full appearance to prevent data loss, wallet passed on joinOrCreate for poke_received targeting. 222 mobile + 84 server tests passing.
 - **2026-02-27**: Marble pedestal + aurora wisps + dark sky — Foundation rewritten with real marble textures (triplanar UV, normal mapping, classical molding details), GroundPlane/AtmosphericHaze removed (pedestal descends into abyss), AuroraWisps added (35 ephemeral squiggly light streams with lifecycle), sky gradient darkened with brighter stars, canvas bg #0a0812. Perf audit passed (13 idle draw calls, 15K tris). 222 mobile tests passing.
 - **2026-02-27**: Fix block selection (LayerIndicator stealing taps via onStartShouldSetPanResponder, AchievementToast missing pointerEvents="none"), fix pop animation perf degradation (celebration-end detection + 3s safety timeout), fix audio silence (isolate setAudioModeAsync + add interruptionMode:"mixWithOthers" for Android, console.warn on failures), fix unmute toggle ordering. 222 mobile tests passing.
 - **2026-02-27**: Claim celebration choreography overhaul — audio-synced cinematic camera (sound delay=0, 2.5s buildup matches audio), block jitter via per-block matrix offset in TowerGrid (no camera shake during buildup), all VFX delayed to impact (autoStart={false} on 8 burst emitters), block stays popped out during celebration, phase-specific camera lerp (buildup 0.020/impact 0.055/return 0.025), removed orbit phase, longer tower hold (5.3s). 222 mobile tests passing.

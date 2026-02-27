@@ -78,7 +78,7 @@ export async function applyBlinkPoke(
         }
 
         console.log(
-          `[Blinks] Poke applied to room: ${truncatedPoker} → ${blockId} (+${energyBoost}% energy) | clients: ${room.clients.length}, wallets: ${Array.from(room.clients).map((c: any) => c._wallet?.slice(0, 6) || "none").join(",")}`,
+          `[Blinks] Poke applied: ${truncatedPoker} → ${blockId} (+${energyBoost}% energy) [${room.clients.length} clients]`,
         );
       } else {
         console.warn(`[Blinks] Block ${blockId} not found in room state`);
