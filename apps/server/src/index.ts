@@ -4,9 +4,11 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { createServer } from "http";
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { GAME_SERVER_PORT } from "@monolith/common";
 import { TowerRoom } from "./rooms/TowerRoom.js";
 import { getRecentEvents, getTopPlayers, initSupabase } from "./utils/supabase.js";
+import blinksRouter from "./routes/blinks.js";
 
 /**
  * Monolith Game Server
@@ -24,6 +26,12 @@ import { getRecentEvents, getTopPlayers, initSupabase } from "./utils/supabase.j
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Static files (Blink icons)
+app.use("/static", express.static(path.join(__dirname, "../static")));
+
+// Solana Blinks
+app.use(blinksRouter);
 
 // Health check
 app.get("/health", (_req, res) => {

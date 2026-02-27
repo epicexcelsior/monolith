@@ -403,24 +403,30 @@ export default function BlockInspector() {
   );
 }
 
-// Twitter intent
+// Twitter intent with Blink URL
 async function handleTweet(block: { layer: number; index: number; energy: number; emoji?: string; name?: string }) {
   const label = block.name || `Layer ${block.layer}`;
   const charge = Math.round(block.energy);
   const icon = block.emoji || "";
-  const deepLink = `https://monolith.gg/block/${block.layer}/${block.index}`;
-  const text = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged!\n\n${deepLink}`;
+  const blockId = `block-${block.layer}-${block.index}`;
+  const blinkUrl = `https://dial.to/?action=solana-action:${encodeURIComponent(
+    `https://monolith-server-production.up.railway.app/api/actions/block/${blockId}`
+  )}`;
+  const text = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged!\n\nPoke it \u{1F447}\n${blinkUrl}`;
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   try { await Linking.openURL(twitterUrl); } catch {}
 }
 
-// Share helper
+// Share helper with Blink URL
 async function handleShare(block: { layer: number; index: number; energy: number; emoji?: string; name?: string; ownerColor: string; owner: string | null; streak?: number }, shareCardRef: React.RefObject<View | null>) {
   const label = block.name || `Layer ${block.layer}`;
   const charge = Math.round(block.energy);
   const icon = block.emoji || "";
-  const deepLink = `https://monolith.gg/block/${block.layer}/${block.index}`;
-  const textMessage = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged! ${deepLink}`;
+  const blockId = `block-${block.layer}-${block.index}`;
+  const blinkUrl = `https://dial.to/?action=solana-action:${encodeURIComponent(
+    `https://monolith-server-production.up.railway.app/api/actions/block/${blockId}`
+  )}`;
+  const textMessage = `${icon} My block on The Monolith \u2014 ${label}, ${charge}% charged! Poke it: ${blinkUrl}`;
 
   try {
     const ViewShot = await import("react-native-view-shot");
