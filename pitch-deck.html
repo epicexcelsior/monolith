@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Monolith — Pitch Deck</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           MONOLITH PITCH DECK — BRIGHT GOLD THEME
+           YC-style: one idea per slide, huge text,
+           maximum clarity, minimum words.
+           =========================================== */
+        :root {
+            /* BRIGHTER color system */
+            --bg: #08090A;
+            --bg-raised: #0F1114;
+            --bg-card: rgba(255, 184, 0, 0.04);
+            --bg-card-hover: rgba(255, 184, 0, 0.08);
+            --card-border: rgba(255, 184, 0, 0.12);
+
+            /* Vivid golds */
+            --gold: #FFB800;
+            --gold-bright: #FFCB45;
+            --amber: #F5A623;
+            --orange: #FF8C42;
+            --gold-glow: rgba(255, 184, 0, 0.4);
+            --gold-subtle: rgba(255, 184, 0, 0.06);
+
+            /* States */
+            --green: #34D399;
+            --red: #F87171;
+            --blue: #60A5FA;
+            --purple: #A78BFA;
+
+            /* Text — brighter */
+            --text: #FFFFFF;
+            --text-secondary: rgba(255, 255, 255, 0.65);
+            --text-muted: rgba(255, 255, 255, 0.35);
+
+            /* Typography — HUGE for YC style */
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+
+            --hero-size: clamp(3rem, 8vw, 7rem);
+            --title-size: clamp(2rem, 5.5vw, 4.5rem);
+            --h2-size: clamp(1.5rem, 3.5vw, 3rem);
+            --h3-size: clamp(1.1rem, 2vw, 1.5rem);
+            --body-size: clamp(0.85rem, 1.4vw, 1.15rem);
+            --body-lg: clamp(1rem, 1.8vw, 1.4rem);
+            --small-size: clamp(0.7rem, 1vw, 0.9rem);
+            --stat-size: clamp(2.5rem, 6vw, 5rem);
+
+            /* Spacing */
+            --pad: clamp(1.5rem, 5vw, 5rem);
+            --gap: clamp(0.75rem, 2vw, 2rem);
+            --gap-sm: clamp(0.4rem, 1vw, 0.75rem);
+
+            /* Animation */
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --dur: 0.7s;
+        }
+
+        /* ===========================================
+           RESET
+           =========================================== */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            height: 100%;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            height: 100%;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===========================================
+           SLIDES — EXACT VIEWPORT FIT
+           =========================================== */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: var(--pad);
+        }
+
+        .slide-inner {
+            width: 100%;
+            max-width: 1000px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Subtle grid */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,184,0,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,184,0,0.02) 1px, transparent 1px);
+            background-size: 80px 80px;
+            pointer-events: none;
+        }
+
+        .slide > * { position: relative; z-index: 1; }
+
+        /* ===========================================
+           TYPOGRAPHY
+           =========================================== */
+        h1, h2, h3, .display {
+            font-family: var(--font-display);
+            line-height: 1.05;
+            letter-spacing: -0.03em;
+        }
+
+        h1 { font-size: var(--title-size); font-weight: 900; }
+        h2 { font-size: var(--h2-size); font-weight: 800; }
+        h3 { font-size: var(--h3-size); font-weight: 700; color: var(--gold); }
+
+        p { font-size: var(--body-size); line-height: 1.55; color: var(--text-secondary); }
+        .body-lg { font-size: var(--body-lg); line-height: 1.5; }
+
+        .overline {
+            font-size: var(--small-size);
+            font-weight: 800;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: clamp(0.5rem, 1.5vh, 1rem);
+        }
+
+        .gold { color: var(--gold); }
+        .dim { color: var(--text-muted); }
+        .green { color: var(--green); }
+
+        .stat {
+            font-family: var(--font-display);
+            font-size: var(--stat-size);
+            font-weight: 900;
+            color: var(--gold);
+            line-height: 1;
+        }
+
+        .center { text-align: center; }
+
+        /* Gold gradient text */
+        .glow-text {
+            background: linear-gradient(135deg, #FFD700, #FFB800, #FF8C42);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ===========================================
+           REVEAL ANIMATIONS
+           =========================================== */
+        .r {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        }
+        .slide.visible .r { opacity: 1; transform: translateY(0); }
+
+        .r1 { transition-delay: 0.08s; }
+        .r2 { transition-delay: 0.16s; }
+        .r3 { transition-delay: 0.24s; }
+        .r4 { transition-delay: 0.32s; }
+        .r5 { transition-delay: 0.4s; }
+        .r6 { transition-delay: 0.48s; }
+        .r7 { transition-delay: 0.56s; }
+
+        .r-scale {
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        }
+        .slide.visible .r-scale { opacity: 1; transform: scale(1); }
+
+        /* ===========================================
+           COMPONENTS
+           =========================================== */
+
+        /* Icon circle — large, vivid */
+        .ico {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: clamp(52px, 6vw, 72px);
+            height: clamp(52px, 6vw, 72px);
+            border-radius: 16px;
+            background: rgba(255, 184, 0, 0.08);
+            border: 1px solid rgba(255, 184, 0, 0.15);
+            font-size: clamp(24px, 3vw, 34px);
+            flex-shrink: 0;
+        }
+
+        .ico-sm {
+            width: clamp(40px, 4.5vw, 52px);
+            height: clamp(40px, 4.5vw, 52px);
+            border-radius: 12px;
+            font-size: clamp(18px, 2.2vw, 24px);
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: clamp(1rem, 2vw, 1.5rem);
+            transition: all 0.3s;
+        }
+        .card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255, 184, 0, 0.25);
+            box-shadow: 0 0 40px rgba(255, 184, 0, 0.06);
+        }
+
+        /* Pill */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: var(--small-size);
+            font-weight: 700;
+            padding: 0.3em 0.8em;
+            border-radius: 999px;
+            background: rgba(255, 184, 0, 0.1);
+            color: var(--gold);
+            border: 1px solid rgba(255, 184, 0, 0.2);
+        }
+
+        .pill-green {
+            background: rgba(52, 211, 153, 0.1);
+            color: var(--green);
+            border-color: rgba(52, 211, 153, 0.2);
+        }
+
+        .pill-red {
+            background: rgba(248, 113, 113, 0.08);
+            color: var(--red);
+            border-color: rgba(248, 113, 113, 0.2);
+        }
+
+        /* Divider */
+        .divider {
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--orange));
+            border-radius: 2px;
+            margin: clamp(0.5rem, 1.5vh, 1rem) 0;
+        }
+
+        /* Grids */
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+        .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+        .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap-sm); }
+
+        @media (max-width: 700px) {
+            .g3 { grid-template-columns: 1fr 1fr; }
+            .g4 { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 480px) {
+            .g2 { grid-template-columns: 1fr; }
+        }
+
+        /* Horizontal flow */
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(0.3rem, 1vw, 0.75rem);
+            flex-wrap: wrap;
+        }
+
+        .flow-arrow {
+            font-size: clamp(16px, 2vw, 24px);
+            color: var(--gold);
+            opacity: 0.4;
+        }
+
+        /* Feature row */
+        .feat {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.75rem, 1.5vw, 1rem);
+        }
+
+        .feat-text h3 {
+            font-size: var(--body-lg);
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+
+        .feat-text p {
+            font-size: var(--small-size);
+            color: var(--text-muted);
+        }
+
+        /* Insight box — bright */
+        .insight {
+            background: linear-gradient(135deg, rgba(255,184,0,0.08), rgba(255,140,66,0.04));
+            border-left: 4px solid var(--gold);
+            padding: clamp(0.75rem, 1.5vw, 1.25rem);
+            border-radius: 0 12px 12px 0;
+        }
+
+        .insight p {
+            color: var(--text);
+            font-size: var(--body-size);
+            font-weight: 500;
+        }
+
+        /* Big quote */
+        .quote {
+            font-family: var(--font-display);
+            font-size: clamp(1.3rem, 3vw, 2.5rem);
+            font-weight: 800;
+            line-height: 1.25;
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Quadrant */
+        .quadrant {
+            position: relative;
+            width: min(380px, 50vw, 50vh);
+            height: min(380px, 50vw, 50vh);
+            margin: 0 auto;
+        }
+
+        .q-grid {
+            position: absolute;
+            inset: 0;
+            border: 1px solid rgba(255,184,0,0.12);
+            border-radius: 8px;
+        }
+        .q-grid::before {
+            content: '';
+            position: absolute;
+            left: 50%; top: 0; bottom: 0;
+            width: 1px;
+            background: rgba(255,184,0,0.12);
+        }
+        .q-grid::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 0; right: 0;
+            height: 1px;
+            background: rgba(255,184,0,0.12);
+        }
+
+        .q-label {
+            position: absolute;
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .q-label-top { top: -1.6em; left: 50%; transform: translateX(-50%); }
+        .q-label-bottom { bottom: -1.6em; left: 50%; transform: translateX(-50%); }
+        .q-label-left { left: -0.5em; top: 50%; transform: translateY(-50%) rotate(-90deg); white-space: nowrap; }
+        .q-label-right { right: -0.5em; top: 50%; transform: translateY(-50%) rotate(90deg); white-space: nowrap; }
+
+        .q-dot {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-size: clamp(0.6rem, 0.9vw, 0.8rem);
+            white-space: nowrap;
+            color: var(--text-muted);
+        }
+
+        .q-star {
+            color: var(--gold) !important;
+            font-weight: 900;
+            font-size: clamp(0.75rem, 1.1vw, 0.95rem) !important;
+            text-shadow: 0 0 30px rgba(255,184,0,0.6);
+        }
+
+        .q-star::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, rgba(255,184,0,0.25), transparent 70%);
+            border-radius: 50%;
+            animation: pulse 2.5s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+            50% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+        }
+
+        /* Timeline */
+        .timeline {
+            display: flex;
+            gap: clamp(4px, 0.5vw, 8px);
+            width: 100%;
+        }
+
+        .t-phase {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: clamp(0.6rem, 1.2vw, 1rem);
+            text-align: center;
+        }
+
+        .t-phase.now {
+            border-color: var(--gold);
+            box-shadow: 0 0 25px rgba(255,184,0,0.12);
+            background: rgba(255,184,0,0.06);
+        }
+
+        .t-label {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: var(--small-size);
+            color: var(--gold);
+        }
+
+        .t-time {
+            font-size: clamp(0.55rem, 0.7vw, 0.65rem);
+            color: var(--text-muted);
+            margin: 2px 0 4px;
+        }
+
+        .t-desc {
+            font-size: clamp(0.6rem, 0.85vw, 0.75rem);
+            color: var(--text-secondary);
+            line-height: 1.3;
+        }
+
+        .t-metric {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: clamp(0.6rem, 0.85vw, 0.75rem);
+            color: var(--gold-bright);
+            margin-top: 4px;
+        }
+
+        /* Fund bar */
+        .fund-bar {
+            display: flex;
+            height: clamp(32px, 4vh, 48px);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: var(--gap-sm) 0;
+        }
+
+        .fund-seg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: var(--small-size);
+            color: var(--bg);
+        }
+
+        /* Tower illustration (CSS only) */
+        .tower-vis {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            opacity: 0.9;
+        }
+
+        .tower-row {
+            display: flex;
+            gap: 2px;
+        }
+
+        .tower-block {
+            width: clamp(10px, 1.5vw, 16px);
+            height: clamp(10px, 1.5vw, 16px);
+            border-radius: 2px;
+            animation: blockGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes blockGlow {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* ===========================================
+           PROGRESS BAR
+           =========================================== */
+        #progress {
+            position: fixed;
+            top: 0; left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--orange));
+            z-index: 1000;
+            width: 0%;
+            transition: width 0.3s var(--ease);
+            box-shadow: 0 0 15px var(--gold-glow);
+        }
+
+        /* ===========================================
+           NAV DOTS
+           =========================================== */
+        #nav {
+            position: fixed;
+            right: clamp(10px, 1.5vw, 20px);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 100;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,184,0,0.15);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 0;
+        }
+
+        .dot.active {
+            background: var(--gold);
+            box-shadow: 0 0 14px var(--gold-glow);
+            transform: scale(1.4);
+        }
+
+        .dot:hover { background: rgba(255,184,0,0.4); }
+
+        /* Slide counter */
+        #counter {
+            position: fixed;
+            bottom: clamp(10px, 1.5vh, 20px);
+            right: clamp(14px, 2vw, 28px);
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            z-index: 100;
+        }
+
+        /* Keyboard hint */
+        #keys {
+            position: fixed;
+            bottom: clamp(10px, 1.5vh, 20px);
+            left: clamp(14px, 2vw, 28px);
+            font-size: clamp(0.55rem, 0.75vw, 0.65rem);
+            color: var(--text-muted);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .key {
+            padding: 1px 5px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 3px;
+            font-family: var(--font-display);
+            font-size: 0.6rem;
+        }
+
+        /* ===========================================
+           RESPONSIVE
+           =========================================== */
+        @media (max-height: 700px) {
+            :root {
+                --pad: clamp(1rem, 3vw, 2.5rem);
+                --gap: clamp(0.5rem, 1.5vw, 1rem);
+                --hero-size: clamp(2rem, 6vw, 4rem);
+                --title-size: clamp(1.5rem, 4vw, 3rem);
+                --h2-size: clamp(1.2rem, 2.5vw, 2rem);
+            }
+        }
+
+        @media (max-height: 600px) {
+            :root {
+                --pad: clamp(0.75rem, 2.5vw, 1.5rem);
+                --gap: clamp(0.3rem, 1vw, 0.75rem);
+            }
+            #keys { display: none; }
+        }
+
+        @media (max-height: 500px) {
+            #nav { display: none; }
+            :root {
+                --title-size: clamp(1.25rem, 3.5vw, 2rem);
+                --body-size: clamp(0.65rem, 1vw, 0.85rem);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .timeline { flex-wrap: wrap; }
+            .t-phase { min-width: 44%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.15s !important;
+            }
+            html { scroll-behavior: auto; }
+            #particles { display: none; }
+        }
+
+        /* ===========================================
+           TITLE SLIDE — HERO
+           =========================================== */
+        #s-title {
+            background:
+                radial-gradient(ellipse at 50% 55%, rgba(255,184,0,0.1) 0%, transparent 55%),
+                var(--bg);
+        }
+
+        .hero-title {
+            font-family: var(--font-display);
+            font-size: var(--hero-size);
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-align: center;
+            background: linear-gradient(180deg, #FFFFFF 20%, var(--gold) 80%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-glow {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: clamp(250px, 55vw, 550px);
+            height: clamp(250px, 55vw, 550px);
+            background: radial-gradient(circle, rgba(255,184,0,0.18) 0%, transparent 65%);
+            pointer-events: none;
+            animation: heroGlow 4s ease-in-out infinite;
+        }
+
+        @keyframes heroGlow {
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+        }
+
+        /* Comparison table on problem slide */
+        .compare {
+            display: flex;
+            gap: var(--gap);
+            align-items: stretch;
+        }
+
+        .compare-side {
+            flex: 1;
+            border-radius: 14px;
+            padding: clamp(0.75rem, 1.5vw, 1.25rem);
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap-sm);
+        }
+
+        .compare-bad {
+            background: rgba(248,113,113,0.04);
+            border: 1px solid rgba(248,113,113,0.12);
+        }
+
+        .compare-good {
+            background: rgba(255,184,0,0.04);
+            border: 1px solid rgba(255,184,0,0.15);
+        }
+
+        .compare-side h3 { font-size: var(--body-size); }
+
+        .compare-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: var(--small-size);
+            color: var(--text-secondary);
+        }
+
+        .compare-item .emoji { font-size: clamp(16px, 2vw, 22px); flex-shrink: 0; }
+
+        /* For the fund allocation legend */
+        .fund-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+            justify-content: center;
+        }
+
+        .fund-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: var(--small-size);
+            color: var(--text-secondary);
+        }
+
+        .fund-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Particle canvas -->
+<canvas id="particles"></canvas>
+
+<!-- Progress bar -->
+<div id="progress"></div>
+
+<!-- Nav dots -->
+<nav id="nav" aria-label="Slide navigation"></nav>
+
+<!-- Counter -->
+<div id="counter">01 / 15</div>
+
+<!-- Keyboard hint -->
+<div id="keys"><span class="key">&uarr;</span><span class="key">&darr;</span> navigate</div>
+
+
+<!-- ============================================
+     1. TITLE
+     ============================================ -->
+<section class="slide" id="s-title">
+    <div class="slide-inner" style="align-items: center; text-align: center; gap: clamp(0.75rem, 2vh, 1.5rem);">
+        <div style="position: relative;">
+            <div class="hero-glow"></div>
+            <h1 class="hero-title r">THE MONOLITH</h1>
+        </div>
+        <p class="r r2 body-lg" style="color: var(--text-secondary); max-width: 500px; margin: 0 auto;">
+            r/Place meets DeFi — in 3D
+        </p>
+        <div class="divider r r3" style="margin: 0 auto;"></div>
+        <p class="r r4" style="font-family: var(--font-display); font-weight: 800; font-size: var(--body-size); color: var(--gold); letter-spacing: 0.2em; text-transform: uppercase;">
+            Stake · Glow · Compete
+        </p>
+        <div class="r r5" style="display: flex; align-items: center; gap: 8px; margin-top: clamp(1rem, 3vh, 2rem); color: var(--text-muted); font-size: var(--small-size);">
+            <svg viewBox="0 0 397.7 311.7" fill="currentColor" width="18" height="18"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></svg>
+            Built on Solana · Seeker Native
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     2. THE PROBLEM
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">The Problem</div>
+        <h1 class="r r1" style="font-size: var(--title-size);">
+            DeFi is <span class="glow-text">Boring</span>
+        </h1>
+        <p class="r r2 body-lg" style="max-width: 600px;">
+            You deposit money. You see a number go up slowly. You forget about it. You leave.
+        </p>
+
+        <div class="r r3" style="display: flex; gap: clamp(0.5rem, 1.5vw, 1rem); flex-wrap: wrap; justify-content: center; margin: var(--gap-sm) 0;">
+            <span class="pill pill-red">📉 &lt;30 day avg retention</span>
+            <span class="pill pill-red">😴 Zero daily engagement</span>
+            <span class="pill pill-red">🚪 Users churn to next yield</span>
+        </div>
+
+        <div class="insight r r4" style="max-width: 650px;">
+            <p style="font-size: var(--body-lg);">
+                People check <strong class="gold">Snapchat 30x/day</strong> for a streak counter.
+                They play <strong class="gold">Wordle every morning</strong> for a colored grid.
+                <br><br>
+                People don't come back for yield. They come back for <strong class="gold">feeling something.</strong>
+            </p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     3. THE SOLUTION
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">The Solution</div>
+        <h1 class="r r1" style="font-size: var(--title-size);">
+            What if your DeFi position<br>was a <span class="glow-text">glowing block</span><br>on a 3D tower?
+        </h1>
+
+        <!-- CSS Tower Illustration -->
+        <div class="tower-vis r r2" style="margin: var(--gap-sm) 0;">
+            <div class="tower-row">
+                <div class="tower-block" style="background: #FFB800; animation-delay: 0.1s;"></div>
+                <div class="tower-block" style="background: #F5A623; animation-delay: 0.3s;"></div>
+                <div class="tower-block" style="background: #FFD700; animation-delay: 0.5s;"></div>
+            </div>
+            <div class="tower-row">
+                <div class="tower-block" style="background: #FF8C42; animation-delay: 0.2s;"></div>
+                <div class="tower-block" style="background: #FFB800; animation-delay: 0.7s;"></div>
+                <div class="tower-block" style="background: #34D399; animation-delay: 0.4s;"></div>
+                <div class="tower-block" style="background: #FFD700; animation-delay: 0.6s;"></div>
+                <div class="tower-block" style="background: #F5A623; animation-delay: 0.8s;"></div>
+            </div>
+            <div class="tower-row">
+                <div class="tower-block" style="background: #FFB800; animation-delay: 0.3s;"></div>
+                <div class="tower-block" style="background: #60A5FA; animation-delay: 0.1s;"></div>
+                <div class="tower-block" style="background: #A78BFA; animation-delay: 0.5s;"></div>
+                <div class="tower-block" style="background: #FF8C42; animation-delay: 0.9s;"></div>
+                <div class="tower-block" style="background: #FFD700; animation-delay: 0.2s;"></div>
+                <div class="tower-block" style="background: #F87171; animation-delay: 0.6s;"></div>
+                <div class="tower-block" style="background: #34D399; animation-delay: 0.4s;"></div>
+            </div>
+            <div class="tower-row">
+                <div class="tower-block" style="background: #F5A623; animation-delay: 0.7s;"></div>
+                <div class="tower-block" style="background: #FFB800; animation-delay: 0.1s;"></div>
+                <div class="tower-block" style="background: #34D399; animation-delay: 0.4s;"></div>
+                <div class="tower-block" style="background: rgba(255,184,0,0.2); animation-delay: 0.8s;"></div>
+                <div class="tower-block" style="background: #FFD700; animation-delay: 0.3s;"></div>
+                <div class="tower-block" style="background: rgba(255,184,0,0.15); animation-delay: 0.5s;"></div>
+                <div class="tower-block" style="background: #FF8C42; animation-delay: 0.6s;"></div>
+                <div class="tower-block" style="background: rgba(255,184,0,0.1); animation-delay: 0.9s;"></div>
+                <div class="tower-block" style="background: #60A5FA; animation-delay: 0.2s;"></div>
+            </div>
+        </div>
+
+        <p class="r r3 body-lg" style="max-width: 550px;">
+            Stake <strong class="gold">$1 USDC</strong> → your block <strong class="gold">ignites</strong> on the tower.
+            Stop playing → it <strong style="color: var(--red);">fades</strong>. Others can <strong style="color: var(--red);">take your spot</strong>.
+        </p>
+    </div>
+</section>
+
+
+<!-- ============================================
+     4. HOW IT WORKS — Big Icons
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">How It Works</div>
+        <h1 class="r r1" style="font-size: var(--title-size);">
+            <span class="glow-text">30 seconds.</span> Every day.
+        </h1>
+
+        <div class="flow r r2" style="margin: var(--gap) 0;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">💰</div>
+                <strong style="font-size: var(--body-size); color: var(--gold);">Stake</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">$1 USDC</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">✨</div>
+                <strong style="font-size: var(--body-size); color: var(--gold);">Claim</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">Your block glows</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">⚡</div>
+                <strong style="font-size: var(--body-size); color: var(--gold);">Charge</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">Tap daily to keep it lit</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div class="ico">🏆</div>
+                <strong style="font-size: var(--body-size); color: var(--gold);">Compete</strong>
+                <span style="font-size: var(--small-size); color: var(--text-muted);">Climb the skyline</span>
+            </div>
+        </div>
+
+        <p class="r r3 body-lg" style="max-width: 520px;">
+            Like <strong class="gold">Tamagotchi</strong> meets <strong class="gold">DeFi</strong>. Your block needs you — or someone else takes it.
+        </p>
+    </div>
+</section>
+
+
+<!-- ============================================
+     5. WHY IT HOOKS YOU
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap);">
+        <div class="overline r center">Why It Hooks You</div>
+        <h2 class="r r1 center">Six Reasons Players <span class="glow-text">Come Back</span></h2>
+
+        <div class="g3 r r2">
+            <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                <div class="ico">🔄</div>
+                <h3 style="font-size: var(--body-size); color: var(--text);">Daily Ritual</h3>
+                <p style="font-size: var(--small-size);">Tap to charge — free, 30 sec</p>
+            </div>
+            <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                <div class="ico">🔥</div>
+                <h3 style="font-size: var(--body-size); color: var(--text);">Streaks</h3>
+                <p style="font-size: var(--small-size);">Day 7 = 2x charge, Day 30 = 3x</p>
+            </div>
+            <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                <div class="ico">💀</div>
+                <h3 style="font-size: var(--body-size); color: var(--text);">Visual Decay</h3>
+                <p style="font-size: var(--small-size);">Block fades if you stop playing</p>
+            </div>
+            <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                <div class="ico">👆</div>
+                <h3 style="font-size: var(--body-size); color: var(--text);">Poke Friends</h3>
+                <p style="font-size: var(--small-size);">Send energy + push notification</p>
+            </div>
+            <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                <div class="ico">🏅</div>
+                <h3 style="font-size: var(--body-size); color: var(--text);">Leaderboards</h3>
+                <p style="font-size: var(--small-size);">Brightest block, longest streak</p>
+            </div>
+            <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                <div class="ico">🎨</div>
+                <h3 style="font-size: var(--body-size); color: var(--text);">Customization</h3>
+                <p style="font-size: var(--small-size);">Color, emoji, name — it's YOU</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     6. WHY DIFFERENT
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">What Makes Us Different</div>
+        <h1 class="r r1" style="font-size: var(--title-size);">
+            Not a Dashboard.<br>A <span class="glow-text">Living Monument.</span>
+        </h1>
+
+        <div class="compare r r2" style="max-width: 700px; width: 100%;">
+            <div class="compare-side compare-bad">
+                <h3 style="color: var(--red);">🏦 Every DeFi App</h3>
+                <div class="compare-item"><span class="emoji">📊</span> Numbers on a screen</div>
+                <div class="compare-item"><span class="emoji">😴</span> Nothing to do daily</div>
+                <div class="compare-item"><span class="emoji">🧍</span> Solo experience</div>
+                <div class="compare-item"><span class="emoji">⏰</span> Forget it exists</div>
+            </div>
+            <div class="compare-side compare-good">
+                <h3 style="color: var(--gold);">🗼 The Monolith</h3>
+                <div class="compare-item"><span class="emoji">✨</span> Glowing 3D block</div>
+                <div class="compare-item"><span class="emoji">⚡</span> 30-second daily ritual</div>
+                <div class="compare-item"><span class="emoji">👥</span> Multiplayer + social</div>
+                <div class="compare-item"><span class="emoji">🔥</span> Can't stop checking</div>
+            </div>
+        </div>
+
+        <p class="r r3" style="font-size: var(--body-lg); color: var(--text-muted);">
+            Same yield. <strong class="gold">10x the engagement.</strong>
+        </p>
+    </div>
+</section>
+
+
+<!-- ============================================
+     7. MARKET POSITION
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center;">
+        <div class="overline r center">Market Position</div>
+        <h2 class="r r1 center">Nobody Else Sits <span class="gold">Here</span></h2>
+
+        <div class="quadrant r-scale r2">
+            <div class="q-grid"></div>
+            <span class="q-label q-label-top">SOCIAL</span>
+            <span class="q-label q-label-bottom">SOLO</span>
+            <span class="q-label q-label-left">GAME</span>
+            <span class="q-label q-label-right">FINANCE</span>
+
+            <span class="q-dot" style="left: 22%; top: 28%;">r/Place</span>
+            <span class="q-dot" style="left: 20%; top: 58%;">StepN</span>
+            <span class="q-dot" style="left: 15%; top: 66%;">Axie</span>
+            <span class="q-dot" style="left: 80%; top: 72%;">Drift</span>
+            <span class="q-dot" style="left: 85%; top: 80%;">Kamino</span>
+            <span class="q-dot" style="left: 32%; top: 42%;">Decentraland</span>
+            <span class="q-dot q-star" style="left: 50%; top: 26%;">THE MONOLITH ★</span>
+        </div>
+
+        <p class="r r3 center body-lg" style="max-width: 500px;">
+            Game + Finance + Social — <strong class="gold">a category of one.</strong>
+        </p>
+    </div>
+</section>
+
+
+<!-- ============================================
+     8. TRACTION — Big Numbers
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap);">
+        <div class="overline r center">What We've Built</div>
+        <h2 class="r r1 center">Solo Dev. <span class="gold">3 Weeks.</span> Shipping.</h2>
+
+        <div class="g3 r r2">
+            <div class="card center">
+                <div class="stat">60</div>
+                <p style="font-size: var(--body-size); font-weight: 700; color: var(--text);">FPS on mobile</p>
+                <p style="font-size: var(--small-size);">650 blocks, custom GLSL shaders</p>
+            </div>
+            <div class="card center">
+                <div class="stat">318</div>
+                <p style="font-size: var(--body-size); font-weight: 700; color: var(--text);">Tests passing</p>
+                <p style="font-size: var(--small-size);">Mobile + Server + On-chain</p>
+            </div>
+            <div class="card center">
+                <div class="stat">100%</div>
+                <p style="font-size: var(--body-size); font-weight: 700; color: var(--text);">On-chain custody</p>
+                <p style="font-size: var(--small-size);">USDC always withdrawable</p>
+            </div>
+        </div>
+
+        <div class="r r3" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+            <span class="pill">⚓ Anchor / Rust</span>
+            <span class="pill">📱 Expo 54</span>
+            <span class="pill">🎮 React Three Fiber</span>
+            <span class="pill">🌐 Colyseus Multiplayer</span>
+            <span class="pill">🔐 MWA + Seed Vault</span>
+            <span class="pill">🔔 Push Notifications</span>
+            <span class="pill">🎵 Haptic + SFX</span>
+            <span class="pill pill-green">✅ EAS OTA Updates</span>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     9. BUSINESS MODEL — Simple
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">Business Model</div>
+        <h1 class="r r1" style="font-size: var(--title-size);">
+            Revenue from <span class="glow-text">Real Yield</span>
+        </h1>
+        <p class="r r2 body-lg" style="max-width: 580px;">
+            Route staked USDC into DeFi protocols. Keep a spread. <br><strong class="gold">No token required to generate revenue.</strong>
+        </p>
+
+        <div class="g4 r r3" style="max-width: 800px; width: 100%;">
+            <div class="card center" style="padding: var(--gap-sm);">
+                <div style="font-size: clamp(1.5rem, 2.5vw, 2rem);">📈</div>
+                <h3 style="font-size: var(--small-size); color: var(--text);">Yield Spread</h3>
+                <p style="font-size: clamp(0.6rem, 0.8vw, 0.7rem);">10-20% of DeFi yield</p>
+            </div>
+            <div class="card center" style="padding: var(--gap-sm);">
+                <div style="font-size: clamp(1.5rem, 2.5vw, 2rem);">⚡</div>
+                <h3 style="font-size: var(--small-size); color: var(--text);">Boost Purchases</h3>
+                <p style="font-size: clamp(0.6rem, 0.8vw, 0.7rem);">Instant charge refill</p>
+            </div>
+            <div class="card center" style="padding: var(--gap-sm);">
+                <div style="font-size: clamp(1.5rem, 2.5vw, 2rem);">🎨</div>
+                <h3 style="font-size: var(--small-size); color: var(--text);">Premium Skins</h3>
+                <p style="font-size: clamp(0.6rem, 0.8vw, 0.7rem);">AI textures, animations</p>
+            </div>
+            <div class="card center" style="padding: var(--gap-sm);">
+                <div style="font-size: clamp(1.5rem, 2.5vw, 2rem);">🔗</div>
+                <h3 style="font-size: var(--small-size); color: var(--text);">$SKR Integration</h3>
+                <p style="font-size: clamp(0.6rem, 0.8vw, 0.7rem);">Seeker ecosystem staking</p>
+            </div>
+        </div>
+
+        <div class="g2 r r4" style="max-width: 500px; width: 100%;">
+            <div class="card center">
+                <p style="font-size: var(--small-size); color: var(--text-muted);">At 10K users</p>
+                <div class="stat" style="font-size: clamp(1.5rem, 3.5vw, 2.5rem);">$8K+</div>
+                <p style="font-size: var(--small-size);">/ year from yield alone</p>
+            </div>
+            <div class="card center">
+                <p style="font-size: var(--small-size); color: var(--text-muted);">At 100K users</p>
+                <div class="stat" style="font-size: clamp(1.5rem, 3.5vw, 2.5rem);">$80K+</div>
+                <p style="font-size: var(--small-size);">/ year + 10x from premium</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     10. SEEKER + $SKR ECOSYSTEM
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">Ecosystem Play</div>
+        <h1 class="r r1" style="font-size: var(--title-size);">
+            Seeker Native.<br><span class="glow-text">$SKR Powered.</span>
+        </h1>
+
+        <div class="g2 r r2" style="max-width: 700px; width: 100%;">
+            <div class="card" style="text-align: left;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: var(--gap-sm);">
+                    <div class="ico ico-sm">📱</div>
+                    <h3 style="color: var(--text); font-size: var(--body-size);">Seeker-First</h3>
+                </div>
+                <p style="font-size: var(--small-size);">
+                    MWA + Seed Vault integration. <strong style="color: var(--text);">One-tap wallet connect.</strong> Hardware-native 3D performance. Built for the device.
+                </p>
+            </div>
+            <div class="card" style="text-align: left;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: var(--gap-sm);">
+                    <div class="ico ico-sm">🪙</div>
+                    <h3 style="color: var(--text); font-size: var(--body-size);">$SKR Staking</h3>
+                </div>
+                <p style="font-size: var(--small-size);">
+                    Integrate SKR staking rewards. <strong style="color: var(--text);">Stake SKR → earn tower perks.</strong> Lighthouse glow bonuses for SKR delegators. Aligned with Solana Mobile.
+                </p>
+            </div>
+        </div>
+
+        <div class="g3 r r3" style="max-width: 700px; width: 100%;">
+            <div class="card center" style="padding: var(--gap-sm);">
+                <div style="font-size: clamp(1.2rem, 2vw, 1.5rem);">🔐</div>
+                <p style="font-size: var(--small-size); font-weight: 700; color: var(--text);">Seed Vault Auth</p>
+                <p style="font-size: clamp(0.6rem, 0.8vw, 0.7rem);">Seamless sign-in</p>
+            </div>
+            <div class="card center" style="padding: var(--gap-sm);">
+                <div style="font-size: clamp(1.2rem, 2vw, 1.5rem);">💧</div>
+                <p style="font-size: var(--small-size); font-weight: 700; color: var(--text);">Monolith LST</p>
+                <p style="font-size: clamp(0.6rem, 0.8vw, 0.7rem);">Liquid staking receipt token</p>
+            </div>
+            <div class="card center" style="padding: var(--gap-sm);">
+                <div style="font-size: clamp(1.2rem, 2vw, 1.5rem);">🤖</div>
+                <p style="font-size: var(--small-size); font-weight: 700; color: var(--text);">Agent API</p>
+                <p style="font-size: clamp(0.6rem, 0.8vw, 0.7rem);">AI agents as first-class players</p>
+            </div>
+        </div>
+
+        <div class="insight r r4" style="max-width: 600px;">
+            <p>Solana Mobile needs <strong class="gold">killer apps</strong>. We want to be <strong class="gold">the reason people open their Seeker.</strong></p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     11. GROWTH ENGINE
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">Growth</div>
+        <h1 class="r r1" style="font-size: var(--title-size);">
+            Virality is <span class="glow-text">Built In</span>
+        </h1>
+
+        <div class="g3 r r2" style="max-width: 600px; width: 100%;">
+            <div class="card center">
+                <div class="stat" style="font-size: clamp(1.75rem, 4vw, 3rem);">K &gt; 0.5</div>
+                <p style="font-size: var(--small-size);">Viral coefficient</p>
+            </div>
+            <div class="card center">
+                <div class="stat" style="font-size: clamp(1.75rem, 4vw, 3rem);">&lt; 60s</div>
+                <p style="font-size: var(--small-size);">To "aha moment"</p>
+            </div>
+            <div class="card center">
+                <div class="stat" style="font-size: clamp(1.75rem, 4vw, 3rem);">60%+</div>
+                <p style="font-size: var(--small-size);">Target D1 retention</p>
+            </div>
+        </div>
+
+        <div class="r r3" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 600px;">
+            <span class="pill">👆 Poke → Re-engage friends</span>
+            <span class="pill">🔗 Blink → Shareable block URLs</span>
+            <span class="pill">🏘️ Neighbors → Bring friends nearby</span>
+            <span class="pill">📸 Skyline flex → Social screenshots</span>
+            <span class="pill">🔄 Referrals → 3-deep bonus chain</span>
+        </div>
+
+        <p class="r r4 body-lg" style="max-width: 500px; color: var(--text-muted);">
+            Every block is shareable. Every poke is a re-engagement loop.
+            <strong class="gold">The tower IS the content.</strong>
+        </p>
+    </div>
+</section>
+
+
+<!-- ============================================
+     12. ROADMAP
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap);">
+        <div class="overline r center">Roadmap</div>
+        <h2 class="r r1 center">From Hackathon to <span class="gold">Platform</span></h2>
+
+        <div class="timeline r r2">
+            <div class="t-phase now">
+                <div class="t-label">NOW ✅</div>
+                <div class="t-time">Hackathon</div>
+                <div class="t-desc">Working demo<br>318 tests<br>Seeker native</div>
+                <div class="t-metric">SHIPPED</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 2</div>
+                <div class="t-time">Month 1-3</div>
+                <div class="t-desc">Poke + sharing<br>SKR integration<br>Blink URLs</div>
+                <div class="t-metric">1K MAU</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 3</div>
+                <div class="t-time">Month 3-6</div>
+                <div class="t-desc">Real DeFi yield<br>Challenges<br>Monolith LST</div>
+                <div class="t-metric">10K MAU · $500K TVL</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 4</div>
+                <div class="t-time">Month 6-12</div>
+                <div class="t-desc">Multi-platform<br>Seasons<br>Agent economy</div>
+                <div class="t-metric">50K MAU · $5M TVL</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Phase 5</div>
+                <div class="t-time">Year 2+</div>
+                <div class="t-desc">Multiple towers<br>DAO · AR mode<br>Tower SDK</div>
+                <div class="t-metric">500K MAU · $50M TVL</div>
+            </div>
+        </div>
+
+        <div class="insight r r3">
+            <p>Phase 1 is <strong class="gold">done</strong>. We're not planning — we're <strong class="gold">shipping</strong>.</p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     13. THE VISION
+     ============================================ -->
+<section class="slide" style="background: radial-gradient(ellipse at 50% 50%, rgba(255,184,0,0.08) 0%, transparent 55%), var(--bg);">
+    <div class="slide-inner" style="align-items: center; text-align: center; gap: clamp(1rem, 3vh, 2rem);">
+        <div class="overline r">The Endgame</div>
+
+        <div class="quote r r1">
+            We're not building a game.<br>
+            We're building the<br>
+            <span class="glow-text">engagement layer for DeFi.</span>
+        </div>
+
+        <div class="divider r r2" style="margin: 0 auto;"></div>
+
+        <p class="r r3 body-lg" style="max-width: 600px; color: var(--text-secondary);">
+            Every DeFi protocol needs depositors. We create the <strong class="gold">most engaged depositors in crypto</strong>. Protocols will pay to be the yield source behind our tower.
+        </p>
+
+        <p class="r r4" style="font-size: var(--body-size); color: var(--text-muted); font-style: italic; max-width: 480px;">
+            "Stake on The Monolith" becomes the default way people interact with DeFi.
+        </p>
+    </div>
+</section>
+
+
+<!-- ============================================
+     14. THE ASK
+     ============================================ -->
+<section class="slide">
+    <div class="slide-inner" style="gap: var(--gap); align-items: center; text-align: center;">
+        <div class="overline r">The Ask</div>
+        <h1 class="r r1 glow-text" style="font-size: var(--title-size);">Pre-Seed Round</h1>
+
+        <p class="r r2 body-lg" style="max-width: 550px;">
+            Scale from working demo to <strong class="gold">10,000 engaged users</strong>. Prove that DeFi retention is a solvable problem.
+        </p>
+
+        <div class="fund-bar r r3" style="max-width: 600px; width: 100%;">
+            <div class="fund-seg" style="flex: 4; background: linear-gradient(135deg, #FFB800, #F5A623);">40% Eng</div>
+            <div class="fund-seg" style="flex: 3; background: linear-gradient(135deg, #FFCB45, #FFB800);">30% Growth</div>
+            <div class="fund-seg" style="flex: 2; background: linear-gradient(135deg, #FF8C42, #F5A623);">20% Infra</div>
+            <div class="fund-seg" style="flex: 1; background: rgba(255,184,0,0.4); color: var(--text);">10%</div>
+        </div>
+
+        <div class="fund-legend r r4">
+            <div class="fund-legend-item"><div class="fund-dot" style="background: #FFB800;"></div> Engineering</div>
+            <div class="fund-legend-item"><div class="fund-dot" style="background: #FFCB45;"></div> Growth & Marketing</div>
+            <div class="fund-legend-item"><div class="fund-dot" style="background: #FF8C42;"></div> Infrastructure</div>
+            <div class="fund-legend-item"><div class="fund-dot" style="background: rgba(255,184,0,0.4);"></div> Legal & Compliance</div>
+        </div>
+
+        <div class="insight r r5" style="max-width: 580px;">
+            <p style="font-size: var(--body-lg);">
+                Ground floor of the <strong class="gold">engagement layer for DeFi</strong>.<br>
+                Duolingo's streaks meet Solana staking.
+            </p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     15. CLOSE
+     ============================================ -->
+<section class="slide" id="s-close" style="background: radial-gradient(ellipse at 50% 55%, rgba(255,184,0,0.12) 0%, transparent 50%), var(--bg);">
+    <div class="slide-inner" style="align-items: center; text-align: center; gap: clamp(1rem, 2.5vh, 1.5rem);">
+        <div style="position: relative;">
+            <div class="hero-glow"></div>
+            <h1 class="hero-title r" style="font-size: clamp(2.5rem, 7vw, 6rem);">THE MONOLITH</h1>
+        </div>
+
+        <p class="r r2" style="font-family: var(--font-display); font-size: clamp(1rem, 2vw, 1.5rem); color: var(--text-secondary);">
+            Your stake has never been this alive.
+        </p>
+
+        <div class="divider r r3" style="margin: 0 auto;"></div>
+
+        <div class="r r4" style="display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+            <p style="font-size: var(--body-size); color: var(--text-muted);">contact@themonolith.app</p>
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <span class="pill pill-green">✅ Live on Seeker</span>
+                <span class="pill">Solana Hackathon 2026</span>
+            </div>
+        </div>
+
+        <div class="r r5" style="display: flex; align-items: center; gap: 8px; margin-top: clamp(0.5rem, 2vh, 1rem); color: var(--text-muted); font-size: var(--small-size);">
+            <svg viewBox="0 0 397.7 311.7" fill="currentColor" width="20" height="20"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></svg>
+            Built on Solana
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================
+     JAVASCRIPT
+     ============================================ -->
+<script>
+/* ===========================================
+   PARTICLES — bright gold motes
+   =========================================== */
+class Particles {
+    constructor(canvas) {
+        this.c = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.p = [];
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        const n = Math.min(50, Math.floor(window.innerWidth / 30));
+        for (let i = 0; i < n; i++) {
+            this.p.push({
+                x: Math.random() * this.c.width,
+                y: Math.random() * this.c.height,
+                s: Math.random() * 2.5 + 0.5,
+                vy: -(Math.random() * 0.4 + 0.1),
+                vx: (Math.random() - 0.5) * 0.15,
+                o: Math.random() * 0.6 + 0.15,
+                ph: Math.random() * Math.PI * 2
+            });
+        }
+        this.loop();
+    }
+
+    resize() {
+        this.c.width = window.innerWidth;
+        this.c.height = window.innerHeight;
+        this.c.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:0.5;';
+    }
+
+    loop() {
+        this.ctx.clearRect(0, 0, this.c.width, this.c.height);
+        for (const p of this.p) {
+            p.y += p.vy;
+            p.x += p.vx;
+            p.ph += 0.012;
+            const o = p.o * (0.4 + 0.6 * Math.sin(p.ph));
+            if (p.y < -10) { p.y = this.c.height + 10; p.x = Math.random() * this.c.width; }
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2);
+            this.ctx.fillStyle = `rgba(255, 184, 0, ${o})`;
+            this.ctx.fill();
+        }
+        requestAnimationFrame(() => this.loop());
+    }
+}
+
+/* ===========================================
+   SLIDE CONTROLLER
+   =========================================== */
+class Deck {
+    constructor() {
+        this.slides = [...document.querySelectorAll('.slide')];
+        this.idx = 0;
+        this.buildNav();
+        this.observe();
+        this.keys();
+        this.touch();
+        this.wheel();
+        this.updateUI();
+    }
+
+    buildNav() {
+        const nav = document.getElementById('nav');
+        this.slides.forEach((_, i) => {
+            const d = document.createElement('button');
+            d.className = 'dot';
+            d.setAttribute('aria-label', `Slide ${i + 1}`);
+            d.onclick = () => this.go(i);
+            nav.appendChild(d);
+        });
+        this.dots = [...nav.querySelectorAll('.dot')];
+    }
+
+    observe() {
+        const obs = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('visible');
+                    const i = this.slides.indexOf(e.target);
+                    if (i !== -1) { this.idx = i; this.updateUI(); }
+                }
+            });
+        }, { threshold: 0.5 });
+        this.slides.forEach(s => obs.observe(s));
+    }
+
+    keys() {
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault(); this.go(Math.min(this.idx + 1, this.slides.length - 1));
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault(); this.go(Math.max(this.idx - 1, 0));
+            } else if (e.key === 'Home') { e.preventDefault(); this.go(0); }
+            else if (e.key === 'End') { e.preventDefault(); this.go(this.slides.length - 1); }
+        });
+    }
+
+    touch() {
+        let y0 = 0;
+        document.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', e => {
+            const d = y0 - e.changedTouches[0].clientY;
+            if (Math.abs(d) > 50) this.go(d > 0 ? Math.min(this.idx + 1, this.slides.length - 1) : Math.max(this.idx - 1, 0));
+        }, { passive: true });
+    }
+
+    wheel() {
+        let last = 0;
+        document.addEventListener('wheel', e => {
+            const now = Date.now();
+            if (now - last < 500) return;
+            last = now;
+            this.go(e.deltaY > 0 ? Math.min(this.idx + 1, this.slides.length - 1) : Math.max(this.idx - 1, 0));
+        }, { passive: true });
+    }
+
+    go(i) {
+        if (i < 0 || i >= this.slides.length) return;
+        this.idx = i;
+        this.slides[i].scrollIntoView({ behavior: 'smooth' });
+        this.updateUI();
+    }
+
+    updateUI() {
+        const pct = (this.idx / (this.slides.length - 1)) * 100;
+        document.getElementById('progress').style.width = pct + '%';
+        this.dots.forEach((d, i) => d.classList.toggle('active', i === this.idx));
+        document.getElementById('counter').textContent =
+            String(this.idx + 1).padStart(2, '0') + ' / ' + String(this.slides.length).padStart(2, '0');
+    }
+}
+
+/* INIT */
+document.addEventListener('DOMContentLoaded', () => {
+    new Particles(document.getElementById('particles'));
+    new Deck();
+    // Ensure first slide animations trigger immediately
+    document.querySelector('.slide')?.classList.add('visible');
+});
+</script>
+</body>
+</html>
