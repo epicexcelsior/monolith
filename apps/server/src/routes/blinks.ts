@@ -12,8 +12,9 @@ import {
   createActionHeaders,
   createPostResponse,
 } from "@solana/actions";
-import { getBlockById } from "../utils/supabase.js";
+import { getBlockById, insertEvent } from "../utils/supabase.js";
 import { createMemoTransaction } from "../utils/memo-tx.js";
+import { applyBlinkPoke } from "../utils/blink-poke.js";
 
 const router = Router();
 
@@ -146,6 +147,11 @@ router.post(
     try {
       const memo = `monolith:poke:${blockId}`;
       const tx = await createMemoTransaction(userPubkey, memo);
+
+      // Fire-and-forget: apply poke in-game (energy boost + event + push notif)
+      applyBlinkPoke(blockId, account).catch((err) =>
+        console.error("[Blinks] applyBlinkPoke error:", err),
+      );
 
       const response = await createPostResponse({
         fields: {
