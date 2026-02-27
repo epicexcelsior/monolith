@@ -51,12 +51,12 @@ async function main() {
   }
   console.log("Authority pubkey:", authority.publicKey.toBase58());
 
-  // Fund on devnet
+  // Check balance (don't auto-airdrop — rate limits are unreliable)
   const balance = await connection.getBalance(authority.publicKey);
-  if (balance < 0.5 * LAMPORTS_PER_SOL) {
-    await airdrop(connection, authority.publicKey, 2);
-  } else {
-    console.log(`Authority balance: ${balance / LAMPORTS_PER_SOL} SOL (sufficient)`);
+  console.log(`Authority balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+  if (balance < 0.1 * LAMPORTS_PER_SOL) {
+    console.error("Insufficient SOL. Fund with: solana transfer --url devnet", authority.publicKey.toBase58(), "2 --allow-unfunded-recipient");
+    process.exit(1);
   }
 
   // --- 2. Set up SOAR provider ---
@@ -172,7 +172,7 @@ async function main() {
   console.log(JSON.stringify(config, null, 2));
 
   // Write to file
-  const outPath = path.join(__dirname, "..", "soar-config.json");
+  const outPath = path.resolve(process.cwd(), "soar-config.json");
   fs.writeFileSync(outPath, JSON.stringify(config, null, 2));
   console.log("\nWritten to", outPath);
   console.log("\nNext: paste addresses into services/soar-constants.ts");
