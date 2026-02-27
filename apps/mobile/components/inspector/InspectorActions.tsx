@@ -36,6 +36,9 @@ interface InspectorActionsProps {
   isFollowing?: boolean;
   hasLiked?: boolean;
   likeCount?: number;
+  commentCount?: number;
+  showComments?: boolean;
+  onCommentsToggle?: () => void;
   onFollow?: () => void;
   onUnfollow?: () => void;
   onLike?: () => void;
@@ -67,6 +70,9 @@ export default function InspectorActions({
   isFollowing,
   hasLiked,
   likeCount,
+  commentCount,
+  showComments,
+  onCommentsToggle,
   onFollow,
   onUnfollow,
   onLike,
@@ -136,6 +142,16 @@ export default function InspectorActions({
                 {showCustomize ? "Done" : "Customize"}
               </Text>
             </TouchableOpacity>
+            {blockContentId != null && (
+              <TouchableOpacity
+                style={[styles.actionChip, showComments && styles.actionChipActive]}
+                onPress={() => { onCommentsToggle?.(); }}
+              >
+                <Text style={styles.actionChipText}>
+                  💬 {commentCount ?? 0}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.actionChip}
               onPress={() => { hapticButtonPress(); playButtonTap(); onShare(); }}
@@ -177,22 +193,32 @@ export default function InspectorActions({
               )}
             </View>
           )}
-          {/* Tapestry social row — Follow + Like */}
+          {/* Tapestry social row — Follow + Like + Comments */}
           {tapestryProfileId && (
             <View style={styles.actionRow}>
               {blockContentId != null && (
-                <TouchableOpacity
-                  style={[styles.actionChip, hasLiked && styles.actionChipActive]}
-                  onPress={() => {
-                    hapticButtonPress();
-                    playButtonTap();
-                    hasLiked ? onUnlike?.() : onLike?.();
-                  }}
-                >
-                  <Text style={styles.actionChipText}>
-                    {hasLiked ? "\u2764\uFE0F" : "\uD83E\uDD0D"} {likeCount ?? 0}
-                  </Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={[styles.actionChip, hasLiked && styles.actionChipActive]}
+                    onPress={() => {
+                      hapticButtonPress();
+                      playButtonTap();
+                      hasLiked ? onUnlike?.() : onLike?.();
+                    }}
+                  >
+                    <Text style={styles.actionChipText}>
+                      {hasLiked ? "\u2764\uFE0F" : "\uD83E\uDD0D"} {likeCount ?? 0}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionChip, showComments && styles.actionChipActive]}
+                    onPress={() => { onCommentsToggle?.(); }}
+                  >
+                    <Text style={styles.actionChipText}>
+                      💬 {commentCount ?? 0}
+                    </Text>
+                  </TouchableOpacity>
+                </>
               )}
               <TouchableOpacity
                 style={[styles.actionChip, isFollowing && styles.actionChipActive]}

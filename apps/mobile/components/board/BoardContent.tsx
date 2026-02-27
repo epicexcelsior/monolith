@@ -10,13 +10,13 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useWalletStore } from "@/stores/wallet-store";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { usePlayerStore } from "@/stores/player-store";
-import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE, TEXT } from "@/constants/theme";
+import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playTabSwitch } from "@/utils/audio";
 import { isBotOwner } from "@/utils/seed-tower";
 import { GAME_SERVER_URL } from "@/constants/network";
 import { useTapestryStore } from "@/stores/tapestry-store";
-import { getFollowing, getContentByProfile, type TapestryContent } from "@/utils/tapestry";
+import { getActivityFeed, type TapestryActivityItem } from "@/utils/tapestry";
 
 // ─── Types ─────────────────────────────────────────────
 type LeaderboardTab = "skyline" | "brightest" | "streak" | "social" | "xp";
@@ -48,6 +48,17 @@ function displayName(owner: string): string {
 
 function getApiBaseUrl(): string {
   return GAME_SERVER_URL.replace(/^ws/, "http").replace(/\/$/, "");
+}
+
+function relativeTimeMs(epochMs: number): string {
+  const diff = Date.now() - epochMs;
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 function relativeTime(iso: string): string {
@@ -179,23 +190,19 @@ function generateActivityFeed(blocks: DemoBlock[], userAddress: string | null): 
   return items.slice(0, 6);
 }
 
-// ─── Social feed (Tapestry) ──────────────────────────────
-async function fetchSocialFeed(myProfileId: string): Promise<TapestryContent[]> {
-  const following = await getFollowing(myProfileId, 10);
-  const results = await Promise.allSettled(
-    following.following.map((f) =>
-      getContentByProfile(f.profile.id, 5),
-    ),
-  );
-  const allContent: TapestryContent[] = [];
-  for (const result of results) {
-    if (result.status === "fulfilled" && result.value?.contents) {
-      allContent.push(...result.value.contents);
-    }
-  }
-  return allContent.sort(
-    (a, b) => new Date(b.content.createdAt).getTime() - new Date(a.content.createdAt).getTime(),
-  );
+// ─── Social feed helpers ────────────────────────────────
+const ACTIVITY_ICONS: Record<string, string> = {
+  following: "👥",
+  new_content: "📝",
+  like: "❤️",
+  comment: "💬",
+  new_follower: "🔔",
+};
+
+function formatActivity(item: TapestryActivityItem): { icon: string; text: string; time: string } {
+  const icon = ACTIVITY_ICONS[item.activity_type] ?? "📡";
+  const text = item.description || `${item.actor_username} — ${item.activity_type}`;
+  return { icon, text, time: relativeTimeMs(item.created_at) };
 }
 
 // ─── Component ─────────────────────────────────────────
@@ -216,8 +223,9 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
 
   // Tapestry social
   const tapestryProfileId = useTapestryStore((s) => s.profileId);
+  const tapestryProfile = useTapestryStore((s) => s.profile);
   const socialCounts = useTapestryStore((s) => s.socialCounts);
-  const [socialFeed, setSocialFeed] = useState<TapestryContent[]>([]);
+  const [socialFeed, setSocialFeed] = useState<TapestryActivityItem[]>([]);
   const [socialLoading, setSocialLoading] = useState(false);
 
   const userAddress = publicKey?.toBase58() ?? null;
@@ -240,15 +248,15 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
     });
   }, []);
 
-  // Fetch social feed when Social tab is active
+  // Fetch social feed when Social tab is active (single API call)
   useEffect(() => {
-    if (activeTab !== "social" || !tapestryProfileId) return;
+    if (activeTab !== "social" || !tapestryProfile?.username) return;
     setSocialLoading(true);
-    fetchSocialFeed(tapestryProfileId)
-      .then(setSocialFeed)
+    getActivityFeed(tapestryProfile.username, 1, 20)
+      .then((result) => setSocialFeed(result.activities ?? []))
       .catch(console.warn)
       .finally(() => setSocialLoading(false));
-  }, [activeTab, tapestryProfileId]);
+  }, [activeTab, tapestryProfile?.username]);
 
   const activityFeed = liveActivity ?? generateActivityFeed(demoBlocks, userAddress);
 
@@ -286,7 +294,7 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
         ))}
       </View>
 
-      {/* Social tab — Tapestry feed */}
+      {/* Social tab — Tapestry activity feed */}
       {activeTab === "social" && (
         <View style={styles.socialSection}>
           {socialCounts && (
@@ -299,28 +307,34 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
           {socialLoading ? (
             <ActivityIndicator color={COLORS.gold} style={{ marginTop: SPACING.xl }} />
           ) : !tapestryProfileId ? (
-            <Text style={styles.emptyListText}>
-              Connect wallet to see social activity
-            </Text>
+            <View style={styles.socialEmptyState}>
+              <Text style={styles.emptyListText}>
+                Setting up social profile...
+              </Text>
+            </View>
           ) : socialFeed.length === 0 ? (
-            <Text style={styles.emptyListText}>
-              Follow block owners to see their activity here
-            </Text>
+            <View style={styles.socialEmptyState}>
+              <Text style={styles.socialEmptyIcon}>👥</Text>
+              <Text style={styles.emptyListText}>
+                {socialCounts && socialCounts.following > 0
+                  ? "No activity yet — check back soon!"
+                  : "Follow block owners to see their activity here.\nTap any block to get started!"}
+              </Text>
+            </View>
           ) : (
             socialFeed.map((item) => {
-              const blockId = item.content.customProperties?.blockId;
+              const { icon, text, time } = formatActivity(item);
               return (
-                <TouchableOpacity
-                  key={item.content.id}
+                <View
+                  key={item.id}
                   style={styles.socialFeedItem}
-                  activeOpacity={0.7}
-                  onPress={() => blockId && handleBlockTap(blockId)}
                 >
-                  <Text style={styles.socialFeedText}>{item.content.content}</Text>
-                  <Text style={styles.socialFeedTime}>
-                    {relativeTime(item.content.createdAt)}
-                  </Text>
-                </TouchableOpacity>
+                  <Text style={styles.socialFeedIcon}>{icon}</Text>
+                  <View style={styles.socialFeedContent}>
+                    <Text style={styles.socialFeedText}>{text}</Text>
+                    <Text style={styles.socialFeedTime}>{time}</Text>
+                  </View>
+                </View>
               );
             })
           )}
@@ -457,11 +471,22 @@ const styles = StyleSheet.create({
   },
   socialStatText: { ...TEXT.caption, color: COLORS.textSecondary },
   socialStatDivider: { ...TEXT.caption, color: COLORS.textMuted },
+  socialEmptyState: {
+    alignItems: "center",
+    paddingVertical: SPACING.xl,
+    gap: SPACING.sm,
+  },
+  socialEmptyIcon: { fontSize: 32 },
   socialFeedItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACING.sm,
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.06)",
   },
+  socialFeedIcon: { fontSize: 14, marginTop: 2 },
+  socialFeedContent: { flex: 1 },
   socialFeedText: { ...TEXT.bodySm, color: COLORS.textOnDark },
   socialFeedTime: { ...TEXT.caption, marginTop: 2 },
 });

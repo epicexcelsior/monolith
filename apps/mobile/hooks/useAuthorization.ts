@@ -31,7 +31,7 @@ import {
 import { useWalletStore } from "@/stores/wallet-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { useTapestryStore } from "@/stores/tapestry-store";
-import { findOrCreateProfile, searchProfiles } from "@/utils/tapestry";
+import { findOrCreateProfile, searchProfiles, getSocialCounts } from "@/utils/tapestry";
 
 // ---------------------------------------------------------------------------
 // Error messages — user-friendly strings for known MWA failure modes
@@ -109,8 +109,12 @@ function bootstrapTapestryProfile(walletAddress: string): void {
       useTapestryStore.getState().setProfile(
         result.profile.id,
         result.profile,
-        result.socialCounts,
       );
+
+      // Social counts are a separate endpoint
+      getSocialCounts(walletAddress)
+        .then((counts) => useTapestryStore.getState().setSocialCounts(counts))
+        .catch(console.warn);
     } catch (e) {
       console.warn("Tapestry profile creation failed:", e);
     }

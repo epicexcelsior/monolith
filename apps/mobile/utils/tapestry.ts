@@ -2,12 +2,14 @@
  * Tapestry API wrapper — all calls use fetch(), typed responses.
  * Every write operation is fire-and-forget safe (caller uses .catch(console.warn)).
  *
- * API Reference: docs/graveyard-hack/TAPESTRY-API.md
+ * Base URL: https://api.usetapestry.dev/api/v1
+ * Docs: https://docs.usetapestry.dev/
+ * Namespace: themonolith
  */
 
 // ─── Config ────────────────────────────────────────────
 const TAPESTRY_API_URL =
-  process.env.EXPO_PUBLIC_TAPESTRY_API_URL || "https://api.usetapestry.dev/v1";
+  process.env.EXPO_PUBLIC_TAPESTRY_API_URL || "https://api.usetapestry.dev/api/v1";
 const TAPESTRY_API_KEY =
   process.env.EXPO_PUBLIC_TAPESTRY_API_KEY || "";
 
@@ -16,64 +18,74 @@ const TAPESTRY_API_KEY =
 export interface TapestryProfileData {
   id: string;
   username: string;
-  bio: string;
-  walletAddress: string;
-  blockchain: string;
+  bio: string | null;
+  image: string | null;
   namespace: string;
-  customProperties: Record<string, string>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: number;
+  walletAddress?: string;
+  blockchain?: string;
 }
 
 export interface TapestrySocialCounts {
   followers: number;
   following: number;
-  posts: number;
-  likes: number;
+  globalFollowers?: number;
+  globalFollowing?: number;
 }
 
-export interface TapestryProfile {
+export interface TapestryFindOrCreateResult {
   profile: TapestryProfileData;
-  socialCounts: TapestrySocialCounts;
+  operation: "CREATED" | "FOUND";
+  walletAddress: string;
 }
 
 export interface TapestryContentData {
   id: string;
-  profileId: string;
-  content: string;
-  contentType: string;
-  customProperties: Record<string, string>;
-  createdAt: string;
+  profileId?: string;
+  content?: string;
+  contentType?: string;
+  created_at: number;
+  namespace?: string;
+  // Properties are flattened into the top-level object
+  [key: string]: unknown;
 }
 
-export interface TapestryContent {
+// Content list items have nested structure from the API
+export interface TapestryContentItem {
+  authorProfile?: TapestryProfileData;
   content: TapestryContentData;
-  engagement: { likes: number; comments: number; shares: number };
+  socialCounts?: { likeCount: number; commentCount: number };
 }
+
+// Alias for backward compat — used in store + social feed
+export type TapestryContent = TapestryContentItem;
 
 export interface TapestryContentList {
-  contents: TapestryContent[];
-  pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+  contents: TapestryContentItem[];
+  page?: number;
+  pageSize?: number;
+  totalCount?: number;
 }
 
-export interface TapestryFollowItem {
-  profile: TapestryProfileData;
-  socialCounts: { followers: number; following: number };
+// findOrCreate returns flat content data (NOT wrapped)
+export type TapestryContentCreateResult = TapestryContentData;
+
+export interface TapestryFollowingList {
+  profiles: TapestryProfileData[];
+  page?: number;
+  pageSize?: number;
+  totalCount?: number;
 }
 
 export interface TapestryFollowersList {
-  followers: TapestryFollowItem[];
-  pagination: { total: number; limit: number; offset: number; hasMore: boolean };
-}
-
-export interface TapestryFollowingList {
-  following: TapestryFollowItem[];
-  pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+  profiles: TapestryProfileData[];
+  page?: number;
+  pageSize?: number;
+  totalCount?: number;
 }
 
 export interface TapestrySearchResult {
   profiles: TapestryProfileData[];
-  pagination?: { total: number; limit: number; offset: number; hasMore: boolean };
 }
 
 // ─── Helpers ───────────────────────────────────────────
@@ -102,23 +114,22 @@ export async function findOrCreateProfile(
   walletAddress: string,
   username: string,
   bio?: string,
-  customProps?: { key: string; value: string }[],
-): Promise<TapestryProfile> {
-  return tapestryFetch<TapestryProfile>("/profiles/findOrCreate", {
+): Promise<TapestryFindOrCreateResult> {
+  return tapestryFetch<TapestryFindOrCreateResult>("/profiles/findOrCreate", {
     method: "POST",
     body: JSON.stringify({
       walletAddress,
       username,
+      namespace: "themonolith",
       bio: bio || "Keeper on The Monolith",
       blockchain: "SOLANA",
       execution: "FAST_UNCONFIRMED",
-      ...(customProps ? { customProperties: customProps } : {}),
     }),
   });
 }
 
-export async function getProfile(profileId: string): Promise<TapestryProfile> {
-  return tapestryFetch<TapestryProfile>(`/profiles/${encodeURIComponent(profileId)}`);
+export async function getProfile(profileId: string): Promise<{ profile: TapestryProfileData }> {
+  return tapestryFetch<{ profile: TapestryProfileData }>(`/profiles/${encodeURIComponent(profileId)}`);
 }
 
 export async function searchProfiles(
@@ -127,24 +138,31 @@ export async function searchProfiles(
 ): Promise<TapestrySearchResult> {
   const params = new URLSearchParams({ walletAddress });
   if (includeExternal) params.set("shouldIncludeExternalProfiles", "true");
-  return tapestryFetch<TapestrySearchResult>(`/profiles/search?${params.toString()}`);
+  return tapestryFetch<TapestrySearchResult>(`/search/profiles?${params.toString()}`);
+}
+
+// ─── Social Counts ─────────────────────────────────────
+// Separate endpoint — NOT part of profile response
+
+export async function getSocialCounts(walletAddress: string): Promise<TapestrySocialCounts> {
+  return tapestryFetch<TapestrySocialCounts>(
+    `/wallets/${encodeURIComponent(walletAddress)}/socialCounts`,
+  );
 }
 
 // ─── Follows ───────────────────────────────────────────
-// Path is /followers (NOT /follows)
+// POST /followers/add and POST /followers/remove
 // startId = follower (me), endId = followee (them)
 
 export async function followProfile(
   myProfileId: string,
   theirProfileId: string,
 ): Promise<void> {
-  await tapestryFetch("/followers", {
+  await tapestryFetch("/followers/add", {
     method: "POST",
     body: JSON.stringify({
       startId: myProfileId,
       endId: theirProfileId,
-      blockchain: "SOLANA",
-      execution: "FAST_UNCONFIRMED",
     }),
   });
 }
@@ -153,13 +171,11 @@ export async function unfollowProfile(
   myProfileId: string,
   theirProfileId: string,
 ): Promise<void> {
-  await tapestryFetch("/followers", {
-    method: "DELETE",
+  await tapestryFetch("/followers/remove", {
+    method: "POST",
     body: JSON.stringify({
       startId: myProfileId,
       endId: theirProfileId,
-      blockchain: "SOLANA",
-      execution: "FAST_UNCONFIRMED",
     }),
   });
 }
@@ -169,7 +185,7 @@ export async function checkFollowing(
   followeeId: string,
 ): Promise<{ isFollowing: boolean }> {
   return tapestryFetch<{ isFollowing: boolean }>(
-    `/followers/check?followerId=${encodeURIComponent(followerId)}&followeeId=${encodeURIComponent(followeeId)}`,
+    `/followers/state?startId=${encodeURIComponent(followerId)}&endId=${encodeURIComponent(followeeId)}`,
   );
 }
 
@@ -178,7 +194,7 @@ export async function getFollowing(
   limit = 20,
 ): Promise<TapestryFollowingList> {
   return tapestryFetch<TapestryFollowingList>(
-    `/profiles/following/${encodeURIComponent(profileId)}?limit=${limit}&offset=0`,
+    `/profiles/${encodeURIComponent(profileId)}/following?limit=${limit}&offset=0`,
   );
 }
 
@@ -187,42 +203,57 @@ export async function getFollowers(
   limit = 20,
 ): Promise<TapestryFollowersList> {
   return tapestryFetch<TapestryFollowersList>(
-    `/profiles/followers/${encodeURIComponent(profileId)}?limit=${limit}&offset=0`,
+    `/profiles/${encodeURIComponent(profileId)}/followers?limit=${limit}&offset=0`,
   );
-}
-
-export async function getFollowerCount(profileId: string): Promise<number> {
-  const result = await tapestryFetch<{ count: number }>(
-    `/profiles/followers/${encodeURIComponent(profileId)}/count`,
-  );
-  return result.count;
-}
-
-export async function getFollowingCount(profileId: string): Promise<number> {
-  const result = await tapestryFetch<{ count: number }>(
-    `/profiles/following/${encodeURIComponent(profileId)}/count`,
-  );
-  return result.count;
 }
 
 // ─── Content ───────────────────────────────────────────
-// Path is /contents/create (NOT /contents/findOrCreate)
-// blockchain + execution are REQUIRED here
+// POST /contents/findOrCreate — requires `id` field
+// Uses `properties` not `customProperties`
+
+/** Deterministic content ID for a block — always the same for a given blockId. */
+export function getBlockContentId(blockId: string): string {
+  return `monolith-block-${blockId}`;
+}
+
+/**
+ * Ensure canonical block content exists (findOrCreate with deterministic ID).
+ * Used for claims so likes/comments always have a stable target.
+ */
+export async function ensureBlockContent(
+  profileId: string,
+  blockId: string,
+  text: string,
+  properties?: { key: string; value: string }[],
+): Promise<TapestryContentCreateResult> {
+  const contentId = getBlockContentId(blockId);
+  return tapestryFetch<TapestryContentCreateResult>("/contents/findOrCreate", {
+    method: "POST",
+    body: JSON.stringify({
+      id: contentId,
+      profileId,
+      content: text,
+      contentType: "text",
+      ...(properties && properties.length > 0 ? { properties } : {}),
+    }),
+  });
+}
 
 export async function createContent(
   profileId: string,
   text: string,
-  customProps?: { key: string; value: string }[],
-): Promise<TapestryContent> {
-  return tapestryFetch<TapestryContent>("/contents/create", {
+  properties?: { key: string; value: string }[],
+): Promise<TapestryContentCreateResult> {
+  // Generate deterministic ID from profileId + timestamp for findOrCreate
+  const contentId = `monolith-${profileId}-${Date.now()}`;
+  return tapestryFetch<TapestryContentCreateResult>("/contents/findOrCreate", {
     method: "POST",
     body: JSON.stringify({
+      id: contentId,
       profileId,
       content: text,
       contentType: "text",
-      blockchain: "SOLANA",
-      execution: "FAST_UNCONFIRMED",
-      ...(customProps ? { customProperties: customProps } : {}),
+      ...(properties && properties.length > 0 ? { properties } : {}),
     }),
   });
 }
@@ -233,7 +264,7 @@ export async function getContentByProfile(
   offset = 0,
 ): Promise<TapestryContentList> {
   return tapestryFetch<TapestryContentList>(
-    `/contents/profile/${encodeURIComponent(profileId)}?limit=${limit}&offset=${offset}`,
+    `/contents?profileId=${encodeURIComponent(profileId)}&limit=${limit}&offset=${offset}`,
   );
 }
 
@@ -242,19 +273,15 @@ export async function getContent(contentId: string): Promise<TapestryContent> {
 }
 
 // ─── Likes ─────────────────────────────────────────────
+// POST/DELETE /likes/{nodeId} with profileId in body
 
 export async function likeContent(
   profileId: string,
   contentId: string,
 ): Promise<void> {
-  await tapestryFetch("/likes", {
+  await tapestryFetch(`/likes/${encodeURIComponent(contentId)}`, {
     method: "POST",
-    body: JSON.stringify({
-      profileId,
-      contentId,
-      blockchain: "SOLANA",
-      execution: "FAST_UNCONFIRMED",
-    }),
+    body: JSON.stringify({ startId: profileId }),
   });
 }
 
@@ -262,14 +289,9 @@ export async function unlikeContent(
   profileId: string,
   contentId: string,
 ): Promise<void> {
-  await tapestryFetch("/likes", {
+  await tapestryFetch(`/likes/${encodeURIComponent(contentId)}`, {
     method: "DELETE",
-    body: JSON.stringify({
-      profileId,
-      contentId,
-      blockchain: "SOLANA",
-      execution: "FAST_UNCONFIRMED",
-    }),
+    body: JSON.stringify({ startId: profileId }),
   });
 }
 
@@ -277,14 +299,87 @@ export async function checkLiked(
   profileId: string,
   contentId: string,
 ): Promise<{ hasLiked: boolean }> {
-  return tapestryFetch<{ hasLiked: boolean }>(
-    `/likes/check?profileId=${encodeURIComponent(profileId)}&contentId=${encodeURIComponent(contentId)}`,
-  );
+  try {
+    const result = await tapestryFetch<{ profiles: Array<{ id: string }>, total: number }>(
+      `/likes/${encodeURIComponent(contentId)}`,
+    );
+    const hasLiked = result.profiles?.some((p) => p.id === profileId) ?? false;
+    return { hasLiked };
+  } catch {
+    return { hasLiked: false };
+  }
 }
 
 export async function getLikeCount(contentId: string): Promise<number> {
-  const result = await tapestryFetch<{ count: number }>(
-    `/likes/count/${encodeURIComponent(contentId)}`,
+  try {
+    const result = await tapestryFetch<{ profiles: unknown[], total: number }>(
+      `/likes/${encodeURIComponent(contentId)}`,
+    );
+    return result.total ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+// ─── Comments ───────────────────────────────────────────
+
+export interface TapestryCommentItem {
+  comment: { id: string; created_at: number; text: string };
+  author?: TapestryProfileData;
+  socialCounts?: { likeCount: number };
+}
+
+export async function createComment(
+  profileId: string,
+  contentId: string,
+  text: string,
+): Promise<{ id: string; created_at: number; text: string }> {
+  return tapestryFetch<{ id: string; created_at: number; text: string }>("/comments", {
+    method: "POST",
+    body: JSON.stringify({ profileId, text, contentId }),
+  });
+}
+
+export async function getComments(
+  contentId: string,
+  requestingProfileId?: string,
+  page = 1,
+  pageSize = 20,
+): Promise<{ comments: TapestryCommentItem[]; page: number; pageSize: number }> {
+  const params = new URLSearchParams({
+    contentId,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (requestingProfileId) params.set("requestingProfileId", requestingProfileId);
+  return tapestryFetch<{ comments: TapestryCommentItem[]; page: number; pageSize: number }>(
+    `/comments?${params.toString()}`,
   );
-  return result.count;
+}
+
+// ─── Activity Feed ──────────────────────────────────────
+
+export interface TapestryActivityItem {
+  id: string;
+  activity_type: string;
+  actor_username: string;
+  target_username?: string;
+  content_id?: string;
+  created_at: number;
+  description?: string;
+}
+
+export async function getActivityFeed(
+  username: string,
+  page = 1,
+  pageSize = 20,
+): Promise<{ activities: TapestryActivityItem[]; page: number; pageSize: number }> {
+  const params = new URLSearchParams({
+    username,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  return tapestryFetch<{ activities: TapestryActivityItem[]; page: number; pageSize: number }>(
+    `/activity/feed?${params.toString()}`,
+  );
 }

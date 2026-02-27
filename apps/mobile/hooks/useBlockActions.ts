@@ -31,24 +31,28 @@ import {
   playPokeSend,
   playPokeReceive,
 } from "@/utils/audio";
-import { createContent } from "@/utils/tapestry";
+import { createContent, ensureBlockContent } from "@/utils/tapestry";
 import { useTapestryStore } from "@/stores/tapestry-store";
 
 /** Fire-and-forget Tapestry content creation. Never blocks gameplay. */
 function postTapestryContent(
   text: string,
   customProps: { key: string; value: string }[],
-  blockId?: string,
 ): void {
   const profileId = useTapestryStore.getState().profileId;
   if (!profileId) return;
-  createContent(profileId, text, customProps)
-    .then((result) => {
-      if (blockId) {
-        useTapestryStore.getState().setBlockContent(blockId, result.content.id);
-      }
-    })
-    .catch(console.warn);
+  createContent(profileId, text, customProps).catch(console.warn);
+}
+
+/** Fire-and-forget ensure canonical block content (deterministic ID for likes/comments). */
+function postBlockContent(
+  blockId: string,
+  text: string,
+  properties: { key: string; value: string }[],
+): void {
+  const profileId = useTapestryStore.getState().profileId;
+  if (!profileId) return;
+  ensureBlockContent(profileId, blockId, text, properties).catch(console.warn);
 }
 
 export function getBlockState(energy: number): BlockState {
@@ -148,16 +152,16 @@ export function useBlockActions() {
       const pStore = usePlayerStore.getState();
       pStore.addPoints({ pointsEarned: pts, totalXp: pStore.xp + pts, level: pStore.level });
 
-      // Tapestry: post claim content (offline)
+      // Tapestry: ensure canonical block content (offline)
       const ob = useTowerStore.getState().demoBlocks.find((b) => b.id === selectedBlockId);
-      postTapestryContent(
+      postBlockContent(
+        selectedBlockId,
         `Claimed Block #${selectedBlockId} on Layer ${ob?.layer ?? "?"}!`,
         [
           { key: "type", value: "block_claim" },
           { key: "blockId", value: selectedBlockId },
           { key: "layer", value: String(ob?.layer ?? 0) },
         ],
-        selectedBlockId,
       );
     }
     const { demoBlocks } = getStoreState();
@@ -241,17 +245,6 @@ export function useBlockActions() {
     hapticButtonPress();
     playPokeSend();
     sendPoke({ blockId: selectedBlockId, wallet: publicKey.toBase58() });
-
-    // Tapestry: post poke content (fire-and-forget, before result)
-    const pokedBlock = useTowerStore.getState().demoBlocks.find((b) => b.id === selectedBlockId);
-    const ownerDisplay = pokedBlock?.owner ? truncateAddress(pokedBlock.owner) : "someone";
-    postTapestryContent(
-      `Poked ${ownerDisplay}'s Block #${selectedBlockId}!`,
-      [
-        { key: "type", value: "poke" },
-        { key: "blockId", value: selectedBlockId },
-      ],
-    );
   }, [selectedBlockId, publicKey, mpConnected, canPoke, sendPoke]);
 
   // Handle dismiss
@@ -346,17 +339,17 @@ export function useBlockActions() {
           levelUp: result.levelUp,
         });
       }
-      // Tapestry: post claim content (multiplayer)
+      // Tapestry: ensure canonical block content (multiplayer)
       if (result.success && result.blockId) {
         const b = useTowerStore.getState().demoBlocks.find((d) => d.id === result.blockId);
-        postTapestryContent(
+        postBlockContent(
+          result.blockId,
           `Claimed Block #${result.blockId} on Layer ${b?.layer ?? "?"}!`,
           [
             { key: "type", value: "block_claim" },
             { key: "blockId", value: result.blockId },
             { key: "layer", value: String(b?.layer ?? 0) },
           ],
-          result.blockId,
         );
       }
     });
@@ -370,6 +363,18 @@ export function useBlockActions() {
         if (result.blockId) recordPoke(result.blockId);
         setPokeStatus(`Poked! +${result.energyAdded ?? 10}% energy sent`);
         playPokeReceive();
+        // Tapestry: post poke content only on confirmed success
+        if (result.blockId) {
+          const pokedBlock = useTowerStore.getState().demoBlocks.find((b) => b.id === result.blockId);
+          const ownerDisplay = pokedBlock?.owner ? truncateAddress(pokedBlock.owner) : "someone";
+          postTapestryContent(
+            `Poked ${ownerDisplay}'s Block #${result.blockId}!`,
+            [
+              { key: "type", value: "poke" },
+              { key: "blockId", value: result.blockId },
+            ],
+          );
+        }
         if (result.pointsEarned) {
           usePlayerStore.getState().addPoints({
             pointsEarned: result.pointsEarned,

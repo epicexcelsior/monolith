@@ -17,6 +17,7 @@ import InspectorHeader from "@/components/inspector/InspectorHeader";
 import InspectorStats from "@/components/inspector/InspectorStats";
 import InspectorActions from "@/components/inspector/InspectorActions";
 import InspectorCustomize from "@/components/inspector/InspectorCustomize";
+import InspectorComments from "@/components/inspector/InspectorComments";
 import { useBlockActions } from "@/hooks/useBlockActions";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING } from "@/constants/theme";
 import { hapticButtonPress } from "@/utils/haptics";
@@ -24,7 +25,8 @@ import { playButtonTap } from "@/utils/audio";
 import { useTowerStore } from "@/stores/tower-store";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import {
-  findOrCreateProfile,
+  getProfile,
+  getBlockContentId,
   followProfile,
   unfollowProfile,
   checkFollowing,
@@ -32,6 +34,7 @@ import {
   getLikeCount,
   likeContent,
   unlikeContent,
+  getComments,
 } from "@/utils/tapestry";
 import { isBotOwner } from "@/utils/seed-tower";
 
@@ -82,13 +85,16 @@ export default function BlockInspector() {
 
   // ─── Tapestry social state ─────────────────────────────
   const tapestryProfileId = useTapestryStore((s) => s.profileId);
-  const blockContentMap = useTapestryStore((s) => s.blockContentMap);
   const [isFollowingOwner, setIsFollowingOwner] = useState(false);
   const [hasLikedBlock, setHasLikedBlock] = useState(false);
   const [blockLikeCount, setBlockLikeCount] = useState(0);
+  const [blockCommentCount, setBlockCommentCount] = useState(0);
   const [ownerTapestryId, setOwnerTapestryId] = useState<string | null>(null);
+  const [showComments, setShowComments] = useState(false);
 
-  const currentBlockContentId = block?.id ? blockContentMap[block.id] : undefined;
+  // Deterministic content ID — always available for any non-unclaimed block
+  const currentBlockContentId = block?.id && !isUnclaimed ? getBlockContentId(block.id) : undefined;
+
   const showSocial =
     !!tapestryProfileId &&
     !isOwner &&
@@ -96,44 +102,54 @@ export default function BlockInspector() {
     !!block?.owner &&
     !isBotOwner(block.owner);
 
-  // Check follow/like status when viewing another player's block
+  // Check follow/like/comment status when viewing another player's block
   useEffect(() => {
-    if (!showSocial || !block?.owner) {
+    if (!block?.id || isUnclaimed) {
       setIsFollowingOwner(false);
       setHasLikedBlock(false);
       setBlockLikeCount(0);
+      setBlockCommentCount(0);
       setOwnerTapestryId(null);
       return;
     }
 
-    const ownerAddr = block.owner;
-    const ownerName = block.name || ownerAddr.slice(0, 8);
+    const contentId = getBlockContentId(block.id);
 
-    findOrCreateProfile(ownerAddr, ownerName)
-      .then((result) => {
-        const ownerId = result.profile.id;
-        setOwnerTapestryId(ownerId);
-        return checkFollowing(tapestryProfileId!, ownerId);
-      })
-      .then((result) => setIsFollowingOwner(result.isFollowing))
-      .catch(console.warn);
-
-    if (currentBlockContentId) {
-      checkLiked(tapestryProfileId!, currentBlockContentId)
+    // Fetch like/comment counts for any non-unclaimed block (owned or not)
+    if (tapestryProfileId) {
+      checkLiked(tapestryProfileId, contentId)
         .then((result) => setHasLikedBlock(result.hasLiked))
         .catch(console.warn);
-      getLikeCount(currentBlockContentId)
-        .then((count) => setBlockLikeCount(count))
-        .catch(console.warn);
+    }
+    getLikeCount(contentId)
+      .then((count) => setBlockLikeCount(count))
+      .catch(console.warn);
+    getComments(contentId, tapestryProfileId ?? undefined, 1, 1)
+      .then((result) => setBlockCommentCount(result.comments?.length ?? 0))
+      .catch(console.warn);
+
+    // Follow state — only for other people's blocks
+    if (showSocial && block.owner) {
+      const ownerName = block.name || block.owner.slice(0, 8);
+      getProfile(ownerName)
+        .then((result) => {
+          const ownerId = result.profile.id;
+          setOwnerTapestryId(ownerId);
+          return checkFollowing(tapestryProfileId!, ownerId);
+        })
+        .then((result) => setIsFollowingOwner(result.isFollowing))
+        .catch(() => {
+          // Owner has no Tapestry profile — hide follow button
+          setOwnerTapestryId(null);
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [block?.id, tapestryProfileId, showSocial, currentBlockContentId]);
+  }, [block?.id, tapestryProfileId, showSocial, isUnclaimed]);
 
   const handleTapestryFollow = useCallback(() => {
     if (!tapestryProfileId || !ownerTapestryId) return;
     setIsFollowingOwner(true);
     followProfile(tapestryProfileId, ownerTapestryId)
-      .then(() => useTapestryStore.getState().addFollowing(ownerTapestryId))
       .catch(() => setIsFollowingOwner(false));
   }, [tapestryProfileId, ownerTapestryId]);
 
@@ -141,7 +157,6 @@ export default function BlockInspector() {
     if (!tapestryProfileId || !ownerTapestryId) return;
     setIsFollowingOwner(false);
     unfollowProfile(tapestryProfileId, ownerTapestryId)
-      .then(() => useTapestryStore.getState().removeFollowing(ownerTapestryId))
       .catch(() => setIsFollowingOwner(true));
   }, [tapestryProfileId, ownerTapestryId]);
 
@@ -211,6 +226,7 @@ export default function BlockInspector() {
 
     if (!isVisible) {
       setShowCustomize(false);
+      setShowComments(false);
       resetPanelState();
       dragOffset.setValue(0);
     }
@@ -288,7 +304,7 @@ export default function BlockInspector() {
                 onClaim={isOnboardingClaim ? handleOnboardingClaim : () => setShowClaimModal(true)}
                 onCharge={handleCharge}
                 onPoke={handlePoke}
-                onCustomizeToggle={() => { setShowCustomize(!showCustomize); hapticButtonPress(); playButtonTap(); }}
+                onCustomizeToggle={() => { setShowCustomize(!showCustomize); setShowComments(false); hapticButtonPress(); playButtonTap(); }}
                 onShare={() => handleShare(block, shareCardRef)}
                 onTweet={() => handleTweet(block)}
                 showCustomize={showCustomize}
@@ -297,6 +313,9 @@ export default function BlockInspector() {
                 isFollowing={isFollowingOwner}
                 hasLiked={hasLikedBlock}
                 likeCount={blockLikeCount}
+                commentCount={blockCommentCount}
+                showComments={showComments}
+                onCommentsToggle={() => { setShowComments(!showComments); setShowCustomize(false); hapticButtonPress(); playButtonTap(); }}
                 onFollow={handleTapestryFollow}
                 onUnfollow={handleTapestryUnfollow}
                 onLike={handleTapestryLike}
@@ -313,6 +332,14 @@ export default function BlockInspector() {
                 onTextureChange={handleTextureChange}
                 onNameSubmit={handleNameSubmit}
                 isPostClaim={recentlyClaimedId === selectedBlockId}
+              />
+            )}
+
+            {showComments && currentBlockContentId && (
+              <InspectorComments
+                blockId={block.id}
+                contentId={currentBlockContentId}
+                profileId={tapestryProfileId}
               />
             )}
           </ScrollView>

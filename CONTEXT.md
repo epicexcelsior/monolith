@@ -58,7 +58,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Ownership enforcement** (can't charge/customize another player's block)
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
 - **Server hardening** (try/catch all handlers, error messages to client)
-- **Tapestry social layer** (on-chain profiles, follow/like, content creation on claim/charge/poke, social feed tab, social stats — client-side only, fire-and-forget)
+- **Tapestry social layer** (on-chain profiles, follow/like/comment, deterministic block content IDs, activity feed tab, comments in inspector, namespace isolation — client-side only, fire-and-forget)
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
@@ -90,6 +90,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/inspector/InspectorHeader.tsx` | Block emoji + name + state badge |
 | `apps/mobile/components/inspector/InspectorActions.tsx` | CTA buttons (Claim/Charge/Poke/Reclaim) |
 | `apps/mobile/components/inspector/InspectorCustomize.tsx` | Color/emoji/style/name editor |
+| `apps/mobile/components/inspector/InspectorComments.tsx` | Block comments (Tapestry API, optimistic add) |
 | `apps/mobile/components/inspector/InspectorStats.tsx` | Energy bar + streak stats |
 | `apps/mobile/components/ui/FloatingNav.tsx` | Bottom pill nav (Tower/Board/Me) — replaces tab bar |
 | `apps/mobile/components/ui/TopHUD.tsx` | Minimal top bar (MONOLITH + wallet pill) |
@@ -132,8 +133,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/stores/poke-store.ts` | Poke cooldown tracking |
 | `apps/mobile/stores/achievement-store.ts` | Achievement unlocks (7 types, SecureStore persistence) |
 | `apps/mobile/stores/activity-store.ts` | Real-time activity events (wired to multiplayer) |
-| `apps/mobile/stores/tapestry-store.ts` | Tapestry social state (profile, following, content cache, feed) |
-| `apps/mobile/utils/tapestry.ts` | Tapestry API wrapper (profiles, follows, content, likes) |
+| `apps/mobile/stores/tapestry-store.ts` | Tapestry social state (profile, social counts) |
+| `apps/mobile/utils/tapestry.ts` | Tapestry API wrapper (profiles, follows, content, likes, comments, activity feed) |
 
 ### Screens (Expo Router)
 | File | Purpose |
@@ -235,7 +236,7 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 22. **Deselect handler fights celebration camera** — `selectBlock(null)` triggers deselect handler that sets `cs.targetZoom = ZOOM_OVERVIEW`, fighting celebration camera targets. Guard with `if (!isCelActive)` check before applying deselect camera transition.
 23. **Customization must not award XP** — free, instant, repeatable actions must never award points. XP removed from both client (`useBlockActions.ts`) and server (`TowerRoom.ts`).
 24. **Onboarding replay requires tower reset** — `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`, otherwise the HUD wrapper (`{revealComplete && ...}`) stays mounted and `useTowerReveal` refs won't re-run. The hook detects `revealComplete` going `true→false` and resets its internal animation refs.
-25. **Tapestry: both profiles must exist before follow** — `findOrCreateProfile()` must be called for the block owner before `followProfile()`. BlockInspector does this automatically in its useEffect.
+25. **Tapestry: block content uses deterministic IDs** — `getBlockContentId(blockId)` → `monolith-block-{blockId}`. Likes/comments always have a target. Claims use `ensureBlockContent()` (findOrCreate). BlockInspector uses `getProfile()` (not `findOrCreateProfile()`) for block owners — if they have no profile, social buttons hide gracefully.
 26. **Tapestry: `startId` = follower, `endId` = followee** — naming feels backwards but is correct per API docs.
 27. **Tapestry: ChargeResult has no blockId** — use `useTowerStore.getState().selectedBlockId` in the charge result handler instead.
 
@@ -340,6 +341,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-26**: Tapestry full integration fix — deterministic block content IDs (`monolith-block-{id}`), namespace isolation (`themonolith`), comments on blocks (InspectorComments with optimistic add), activity feed replaces N+1 social feed (single API call), stop creating ghost profiles (getProfile instead of findOrCreate for owners), poke content only on confirmed success, dead store cleanup (removed followingIds/feedItems/blockContentMap), improved Social tab empty states. 222 mobile tests passing.
 - **2026-02-26**: Tapestry social integration (Graveyard Hack) — on-chain profiles via findOrCreate on wallet connect, cross-app profile import, game events (claim/charge/poke) as Tapestry content, follow/like buttons on block inspector (bot-aware, optimistic UI), Social sub-tab on Board (replaces Territory, fetches feed from followed users), social stats in Settings. Client-side only, all fire-and-forget. 222 mobile tests passing.
 - **2026-02-26**: Post-polish bug fixes — claim celebration camera rewrite (phase state machine: buildup→impact→orbit→return), fixed double claim VFX (skip during cinematic), removed XP from customization (farmable exploit), removed LiveActivityTicker, HotBlockTicker less intrusive (2 cards, 5s scan, 36px), MyBlockFAB moved left + enlarged (56px), charge explainer text in InspectorActions, boosted shake/zoom params. 222 mobile + 84 server tests passing.
 - **2026-02-25**: Polish Plan Phases 7-10 — layer-based pricing (getLayerMinPrice quadratic curve, tier badges in ClaimModal + InspectorActions), MyBlockFAB (bottom-right FAB for owned blocks, urgency dot), MyBlocksPanel polish (urgency sorting, Charge All with stagger, bigger rows), HotBlockTicker redesign (44px mini-cards, per-type colors/borders, priority sorting, FadeInLeft animation, mounted bottom-right), final polish (LayerIndicator → TIMING.springSnappy, ClaimModal stale-state fix, HotBlockTicker mounted). 222 mobile + 84 server tests passing.
