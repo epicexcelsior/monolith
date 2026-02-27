@@ -7,6 +7,8 @@ import { useActivityStore } from "@/stores/activity-store";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ActivityEvent } from "@monolith/common";
 import { registerForPushNotifications } from "@/utils/notifications";
 import { useWalletStore } from "@/stores/wallet-store";
+import { hapticButtonPress } from "@/utils/haptics";
+import { playPokeReceive } from "@/utils/audio";
 import {
   DEFAULT_TOWER_CONFIG,
   MONOLITH_HALF_W,
@@ -323,6 +325,12 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
     towerStore.setRecentlyChargedId(serverBlock.id);
   } else if (serverBlock.eventType === "poke") {
     towerStore.setRecentlyPokedId(serverBlock.id);
+    // SFX + haptic if this is our block
+    const myWallet = useWalletStore.getState().publicKey?.toBase58();
+    if (myWallet && serverBlock.owner === myWallet) {
+      hapticButtonPress();
+      playPokeReceive();
+    }
   }
 
   // Push to recent events + activity feed

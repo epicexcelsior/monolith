@@ -21,9 +21,12 @@ export default function PokeReceivedToast() {
     dataRef.current = data;
     setVisible(true);
 
-    // Trigger 3D shake animation on the poked block
-    useTowerStore.getState().setRecentlyPokedId(data.blockId);
-
+    // 3D shake + SFX already triggered by block_update handler in multiplayer-store
+    // Only re-trigger if somehow missed (belt-and-suspenders)
+    const towerState = useTowerStore.getState();
+    if (towerState.recentlyPokedId !== data.blockId) {
+      towerState.setRecentlyPokedId(data.blockId);
+    }
     hapticButtonPress();
     playPokeReceive();
 

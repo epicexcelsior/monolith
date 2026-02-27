@@ -753,20 +753,24 @@ export default function TowerGrid() {
       const colorAttr = geo.getAttribute("aOwnerColor") as THREE.InstancedBufferAttribute | null;
 
       if (energyAttr && colorAttr) {
-        const POKE_DURATION = 1.0;
+        const POKE_DURATION = 1.4;
         if (pokeFlash.time < POKE_DURATION) {
           const t = pokeFlash.time;
           const block = blockData[pokeFlash.blockIndex];
           if (block) {
-            // Intensity: quick flash then fade
+            // Intensity: quick flash, hold, then fade with bounce
             let intensity: number;
-            if (t < 0.15) {
-              intensity = t / 0.15; // ramp up
-            } else if (t < 0.4) {
-              intensity = 1.0 - (t - 0.15) * 2.0; // fast fade
-              intensity = Math.max(0.3, intensity);
+            if (t < 0.1) {
+              intensity = t / 0.1; // fast ramp up
+            } else if (t < 0.35) {
+              intensity = 1.0; // hold at peak
+            } else if (t < 0.7) {
+              intensity = 1.0 - (t - 0.35) * 1.5; // fade
+              intensity = Math.max(0.4, intensity);
             } else {
-              intensity = 0.3 * (1.0 - (t - 0.4) / 0.6); // gentle settle
+              // Secondary gentle pulse then settle
+              const tail = (t - 0.7) / 0.7;
+              intensity = 0.4 * (1 - tail) * (1 + 0.3 * Math.sin(tail * Math.PI * 3));
               intensity = Math.max(0, intensity);
             }
 
@@ -785,15 +789,18 @@ export default function TowerGrid() {
             // Shake: offset the block's matrix with oscillating displacement
             const layoutItem = layoutData[pokeFlash.blockIndex];
             if (layoutItem) {
-              const shakeAmp = 0.08 * (1 - t / POKE_DURATION);
-              const shakeX = Math.sin(t * 40) * shakeAmp;
-              const shakeZ = Math.cos(t * 35) * shakeAmp;
+              const shakeAmp = 0.18 * (1 - t / POKE_DURATION);
+              const shakeX = Math.sin(t * 45) * shakeAmp;
+              const shakeZ = Math.cos(t * 40) * shakeAmp;
+              // Pop-up bounce: quick rise then settle
+              const bounceT = Math.min(t / 0.3, 1);
+              const bounceY = 0.12 * Math.sin(bounceT * Math.PI) * (1 - t / POKE_DURATION);
               const layerScale = getLayerScale(block.layer, config.layerCount);
               const ts = layoutItem.tileScale;
               const tempObj = tempObjRef.current;
               tempObj.position.set(
                 block.position.x + shakeX,
-                block.position.y,
+                block.position.y + bounceY,
                 block.position.z + shakeZ,
               );
               tempObj.scale.set(layerScale * ts, layerScale, layerScale);
