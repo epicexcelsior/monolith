@@ -81,37 +81,38 @@ export function ClaimVFX() {
     // ── Keep charge group at block position ───────────────────────────────
     chargeGroupRef.current?.position.copy(blockPos.current);
 
-    // ── Phase 1: start charge-up immediately ──────────────────────────────
-    if (!buildupFired.current) {
-      buildupFired.current = true;
-      chargeRef.current?.startEmitting(true);
-      glowRef.current?.startEmitting(true);
-    }
-
     const elapsed = performance.now() / 1000 - cel.startTime;
     const pos = blockPos.current;
 
-    // ── Wave 1: explosion at impact ───────────────────────────────────────
+    // ── All VFX fires at IMPACT (synced with audio climax + camera zoom-out) ──
+    // No particles during buildup — the block jitter is the only visual tension cue.
     if (!wave1Fired.current && elapsed >= CLAIM_IMPACT_OFFSET_SECS) {
       wave1Fired.current = true;
-      sparksRef.current?.emitAtPos(pos.clone(), true);
-      starsRef.current?.emitAtPos(pos.clone(), true);
-      raysRef.current?.emitAtPos(pos.clone(), true);
-      ringRef.current?.emitAtPos(pos.clone(), true);
+      // Charge convergence + glow orbs (originally buildup, now part of explosion)
+      if (!buildupFired.current) {
+        buildupFired.current = true;
+        chargeRef.current?.startEmitting(true);
+        glowRef.current?.startEmitting(true);
+      }
+      // Core explosion: sparks, stars, rays, ring shockwave
+      sparksRef.current?.emitAtPos(pos, true);
+      starsRef.current?.emitAtPos(pos, true);
+      raysRef.current?.emitAtPos(pos, true);
+      ringRef.current?.emitAtPos(pos, true);
     }
 
     // ── Wave 2: staggered confetti + embers ──────────────────────────────
     if (!wave2Fired.current && elapsed >= CLAIM_IMPACT_OFFSET_SECS + WAVE2_DELAY) {
       wave2Fired.current = true;
-      confettiRef.current?.emitAtPos(pos.clone(), true);
-      embersRef.current?.emitAtPos(pos.clone(), true);
+      confettiRef.current?.emitAtPos(pos, true);
+      embersRef.current?.emitAtPos(pos, true);
     }
 
     // ── Wave 3: aurora drift + lingering trails ─────────────────────────
     if (!wave3Fired.current && elapsed >= CLAIM_IMPACT_OFFSET_SECS + WAVE3_DELAY) {
       wave3Fired.current = true;
-      auroraRef.current?.emitAtPos(pos.clone(), true);
-      trailRef.current?.emitAtPos(pos.clone(), true);
+      auroraRef.current?.emitAtPos(pos, true);
+      trailRef.current?.emitAtPos(pos, true);
     }
   });
 
@@ -213,6 +214,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={sparksRef}
         emitter="boom-sparks"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 280,
@@ -247,6 +249,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={starsRef}
         emitter="boom-stars"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 80,
@@ -281,6 +284,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={raysRef}
         emitter="boom-rays"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 50,
@@ -313,6 +317,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={ringRef}
         emitter="boom-ring"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 60,
@@ -349,6 +354,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={confettiRef}
         emitter="boom-confetti"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 180,
@@ -387,6 +393,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={embersRef}
         emitter="boom-embers"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 120,
@@ -423,6 +430,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={auroraRef}
         emitter="boom-aurora"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 40,
@@ -457,6 +465,7 @@ export function ClaimVFX() {
       <VFXEmitter
         ref={trailRef}
         emitter="boom-trails"
+        autoStart={false}
         settings={{
           spawnMode: "burst",
           nbParticles: 30,

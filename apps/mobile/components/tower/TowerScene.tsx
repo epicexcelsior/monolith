@@ -196,7 +196,7 @@ function CameraRig({
     preElevation: number;
     preLookAt: { x: number; y: number; z: number };
     preAzimuth: number;
-    phase: "idle" | "buildup" | "impact" | "orbit" | "return";
+    phase: "idle" | "buildup" | "impact" | "return";
     triggeredForStartTime: number;
     glowUpTriggered: boolean;
   }>({
@@ -296,14 +296,20 @@ function CameraRig({
     }
 
     // ─── Pick lerp rate (delta-corrected) ────────
-    // During claim celebration, use faster lerp for dramatic zoom changes
+    // During claim celebration, use phase-specific lerp for cinematic pacing
     const isCelebrating = claimCelebrationRef?.current?.active ?? false;
-    const celebLerpBase = 0.08; // ~2x normal transition speed for cinematic punch
+    let celebLerp: number = TRANSITION_LERP;
+    if (isCelebrating) {
+      const phase = celebCameraRef.current.phase;
+      if (phase === "buildup") celebLerp = CLAIM_CAMERA.lerpBuildup;
+      else if (phase === "impact") celebLerp = CLAIM_CAMERA.lerpImpact;
+      else if (phase === "return") celebLerp = CLAIM_CAMERA.lerpReturn;
+    }
     const rawOrbitLerp = cs.isTransitioning
-      ? (isCelebrating ? celebLerpBase : TRANSITION_LERP)
+      ? (isCelebrating ? celebLerp : TRANSITION_LERP)
       : ORBIT_LERP;
     const rawZoomLerp = cs.isTransitioning
-      ? (isCelebrating ? celebLerpBase : TRANSITION_LERP)
+      ? (isCelebrating ? celebLerp : TRANSITION_LERP)
       : ZOOM_LERP;
 
     // Blend smoothly between transition and orbit lerp rates
@@ -404,14 +410,19 @@ function CameraRig({
     camera.lookAt(cs.lookAt);
 
     // ─── Claim celebration camera sequence ──────────────────────
-    // Flow: buildup shake → IMPACT (zoom OUT + big shake) → orbit → zoom BACK → glow-up
+    // Flow:
+    //   BUILDUP (0→2.5s): pull back from block so it's visible, escalating jitter shake
+    //   IMPACT  (at 2.5s): zoom OUT to full tower overview + big shake + VFX
+    //   RETURN  (at 4.5s): zoom back to block for intimate reveal + glow-up
     if (claimCelebrationRef?.current) {
       const cel = claimCelebrationRef.current;
       if (cel.active) {
         const elapsed = now - cel.startTime;
         const cc = celebCameraRef.current;
 
-        // ── PHASE 1: BUILDUP (0 → 1.5s) — escalating shake builds tension ──
+        // ── PHASE 1: BUILDUP (0 → 2.5s) — camera holds still, block jitters ──
+        // Block jitter is handled by TowerGrid (per-block matrix offset).
+        // Camera stays perfectly locked on the block with a gentle zoom pull-back.
         if (elapsed > 0 && elapsed < CLAIM_IMPACT_OFFSET_SECS) {
           if (cc.phase === "idle") {
             // Capture pre-celebration camera state
@@ -421,24 +432,28 @@ function CameraRig({
             cc.preAzimuth = cs.azimuth;
             cc.phase = "buildup";
             cc.glowUpTriggered = false;
+            // Pull back slightly so block is clearly visible during buildup
+            cs.targetZoom = CLAIM_CAMERA.buildupZoom;
+            // Keep looking exactly where the camera was (popped-out block position)
+            cs.targetLookAt.set(cc.preLookAt.x, cc.preLookAt.y, cc.preLookAt.z);
+            // Lock elevation — don't let it drift during buildup
+            cs.targetElevation = cc.preElevation;
+            // Kill any residual momentum so camera doesn't drift
+            cs.velocityAzimuth = 0;
+            cs.velocityElevation = 0;
+            cs.velocityLookAtY = 0;
+            cs.isTransitioning = true;
+            transitionBlendRef.current = 1;
           }
-          const buildupT = elapsed / CLAIM_IMPACT_OFFSET_SECS;
-          const buildupMag = 0.15 + buildupT * 0.40; // escalate 0.15 → 0.55
-          // Mutate in-place to avoid allocation every frame
-          const sr = shakeRef.current;
-          sr.startTime = now - 0.01;
-          sr.active = true;
-          sr.magnitude = buildupMag;
-          sr.duration = 0.1;
-          sr.decay = 0;
+          // No camera shake during buildup — only the block jitters (TowerGrid)
         }
 
-        // ── PHASE 2: IMPACT (at 1.5s) — BIG shake + zoom OUT to see full tower ──
+        // ── PHASE 2: IMPACT (at 2.5s) — zoom OUT to full tower + big shake ──
         if (elapsed >= CLAIM_IMPACT_OFFSET_SECS && cc.phase === "buildup") {
           cc.phase = "impact";
-          // Zoom out dramatically to show the full tower + VFX
-          cs.targetZoom = Math.min(ZOOM_MAX, cc.preZoom * CLAIM_CAMERA.zoomOutFactor);
-          // Look at tower center (not block) so we see the full tower
+          // Zoom out to full tower overview so VFX fills the screen
+          cs.targetZoom = CLAIM_CAMERA.impactZoom;
+          // Look at tower center to see the full tower
           cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y, 0);
           cs.targetElevation = OVERVIEW_ELEVATION;
           cs.isTransitioning = true;
@@ -453,20 +468,11 @@ function CameraRig({
           shakeTriggeredForRef.current = cel.startTime;
         }
 
-        // ── PHASE 3: ORBIT (1.5s → 3.5s) — slow cinematic drift around tower ──
-        if (cc.phase === "impact" && elapsed > CLAIM_IMPACT_OFFSET_SECS) {
-          cc.phase = "orbit";
-        }
-        if (cc.phase === "orbit" && elapsed < CLAIM_CAMERA.zoomReturnDelay) {
-          // Delta-corrected orbit speed (orbitSpeed is per-frame at 60fps)
-          cs.targetAzimuth += CLAIM_CAMERA.orbitSpeed * dt * 60;
-        }
-
-        // ── PHASE 4: RETURN (at 3.5s) — zoom back to block ──
-        if (elapsed >= CLAIM_CAMERA.zoomReturnDelay && cc.phase === "orbit") {
+        // ── PHASE 3: RETURN (at 4.5s) — zoom back to block ──
+        if (elapsed >= CLAIM_CAMERA.zoomReturnDelay && cc.phase === "impact") {
           cc.phase = "return";
-          // Zoom back to slightly closer than original (intimate reveal)
-          cs.targetZoom = Math.max(ZOOM_MIN, cc.preZoom * CLAIM_CAMERA.zoomInFactor);
+          // Zoom in closer than original for intimate reveal
+          cs.targetZoom = Math.max(ZOOM_MIN, cc.preZoom * CLAIM_CAMERA.returnZoomFactor);
           // Look back at the block position
           cs.targetLookAt.set(
             cel.blockPosition.x,
