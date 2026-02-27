@@ -140,6 +140,11 @@ PanResponder.create({
 
 ## Shaders & 3D Rendering
 
+### Cylindrical UV Seams — Use Triplanar Mapping for Multi-Face Geometry (2026-02-27)
+**Problem**: Cylindrical UV mapping with `atan(pos.x, pos.z)` in the vertex shader creates a visible seam where vertices straddle the -π/+π wrap point — the GPU linearly interpolates, smearing the texture across the entire polygon. On top/bottom faces, cylindrical UVs create radial line artifacts from the center.
+**Solution**: Use triplanar mapping — blend 3 planar projections (XZ, XY, YZ) weighted by `abs(normal)`. No atan, no seams, no radial artifacts. Works perfectly for cylinders, pedestals, any multi-face geometry. If cylindrical UVs are needed, compute `atan()` per-pixel in the fragment shader (not vertex) to avoid interpolation across the wrap.
+**Key Insight**: Triplanar mapping is the cleanest UV solution for procedural geometry with mixed face orientations — avoids all atan seam/radial issues at the cost of 3 texture lookups (or 1 with blended UVs).
+
 ### wawa-vfx Burst Emitters Auto-Fire on Mount — Always Set autoStart={false} (2026-02-27)
 **Problem**: 8 VFXEmitter components with `spawnMode: "burst"` fired immediately when `ConditionalClaimVFX` mounted (at `cinematicMode = true`, T+0). All particles exploded at the start of the celebration, then fired AGAIN when `emitAtPos()` was called at impact. Double-fire.
 **Solution**: Add `autoStart={false}` to every VFXEmitter. Only trigger via `emitAtPos()` / `startEmitting()` in the useFrame callback at the correct elapsed time.

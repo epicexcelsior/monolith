@@ -81,7 +81,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/tower/TowerGrid.tsx` | InstancedMesh block rendering + claim/charge flash animations |
 | `apps/mobile/components/tower/BlockShader.ts` | Custom GLSL shader (AO, SSS, specular, windows) |
 | `apps/mobile/components/tower/TowerCore.tsx` | Top-level R3F Canvas wrapper |
-| `apps/mobile/components/tower/Foundation.tsx` | Ground plane / base geometry |
+| `apps/mobile/components/tower/Foundation.tsx` | Classical marble pedestal + abyss column (triplanar UV, normal mapping) |
+| `apps/mobile/components/tower/AuroraWisps.tsx` | Ephemeral squiggly light wisps (35 instances, lifecycle fade in/out) |
 | `apps/mobile/components/tower/Particles.tsx` | Ambient particle effects |
 
 ### UI Components
@@ -347,6 +348,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-27**: Marble pedestal + aurora wisps + dark sky — Foundation rewritten with real marble textures (triplanar UV, normal mapping, classical molding details), GroundPlane/AtmosphericHaze removed (pedestal descends into abyss), AuroraWisps added (35 ephemeral squiggly light streams with lifecycle), sky gradient darkened with brighter stars, canvas bg #0a0812. Perf audit passed (13 idle draw calls, 15K tris). 222 mobile tests passing.
 - **2026-02-27**: Fix block selection (LayerIndicator stealing taps via onStartShouldSetPanResponder, AchievementToast missing pointerEvents="none"), fix pop animation perf degradation (celebration-end detection + 3s safety timeout), fix audio silence (isolate setAudioModeAsync + add interruptionMode:"mixWithOthers" for Android, console.warn on failures), fix unmute toggle ordering. 222 mobile tests passing.
 - **2026-02-27**: Claim celebration choreography overhaul — audio-synced cinematic camera (sound delay=0, 2.5s buildup matches audio), block jitter via per-block matrix offset in TowerGrid (no camera shake during buildup), all VFX delayed to impact (autoStart={false} on 8 burst emitters), block stays popped out during celebration, phase-specific camera lerp (buildup 0.020/impact 0.055/return 0.025), removed orbit phase, longer tower hold (5.3s). 222 mobile tests passing.
 - **2026-02-26**: Solana Blinks integration — shareable poke URLs via memo transactions. `routes/blinks.ts` (actions.json, GET block metadata, POST poke tx), `utils/memo-tx.ts` (RPC + memo builder), static icon, mobile share/tweet URLs use dial.to Blink wrapper, `getBlockById` in supabase.ts. Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var. 222 mobile + 84 server tests passing.

@@ -23,6 +23,7 @@ function ConditionalClaimVFX() {
   return cinematicMode ? <ClaimVFX /> : null;
 }
 import Foundation from "./Foundation";
+import AuroraWisps from "./AuroraWisps";
 import { useTowerStore } from "@/stores/tower-store";
 import { LAYER_HEIGHT, DEFAULT_TOWER_CONFIG, getTowerHeight, getLayerY } from "@monolith/common";
 import { CAMERA_CONFIG, getZoomMode } from "@/constants/CameraConfig";
@@ -548,13 +549,6 @@ function CameraRig({
   return null;
 }
 
-// ─── GroundGrid ───────────────────────────────────────────
-
-/**
- * GroundPlane — Polished stone ground with concentric rings.
- * Creates a visible surface the foundation sits on, plus a warm light pool.
- * Positioned at foundation bottom so the tower doesn't float.
- */
 /**
  * TowerRevealController — Hosts the useTowerReveal hook inside Canvas context.
  * Drives reveal progress and camera sweep. Disables during later use.
@@ -568,178 +562,6 @@ function TowerRevealController({
 }) {
   useTowerReveal(cameraState, lastTouchTime);
   return null;
-}
-
-function GroundPlane() {
-  // Foundation: 4 tiers (1.0 + 1.4 + 1.8 + 1.2 = 5.4) starting at y=-0.5
-  const FOUNDATION_BOTTOM = -5.9;
-
-  // Solid ground with carved concentric rings — matches circular foundation
-  const groundMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      side: THREE.DoubleSide,
-      vertexShader: /* glsl */ `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        precision highp float;
-        varying vec2 vUv;
-
-        float hash21(vec2 p) {
-          p = fract(p * vec2(233.34, 851.73));
-          p += dot(p, p + 23.45);
-          return fract(p.x * p.y);
-        }
-
-        void main() {
-          vec2 center = vUv - 0.5;
-          float dist = length(center);
-          float ang = atan(center.y, center.x);
-
-          // ─── Base stone color with subtle noise ──
-          vec2 noiseUV = vUv * 8.0;
-          float noise = hash21(floor(noiseUV)) * 0.08;
-          vec3 stoneColor = vec3(0.14, 0.11, 0.08) + noise;
-
-          // ─── Concentric ring grooves (carved stone circles) ──
-          float ringFreq = dist * 35.0; // ring density
-          float ring = smoothstep(0.40, 0.50, abs(fract(ringFreq) - 0.5));
-          stoneColor = mix(stoneColor, vec3(0.10, 0.08, 0.06), ring * 0.5);
-
-          // ─── Radial spoke lines (pie-slice divisions) ──
-          float spokes = 24.0;
-          float spoke = smoothstep(0.47, 0.50, abs(fract(ang * spokes / 6.2832) - 0.5));
-          stoneColor = mix(stoneColor, vec3(0.10, 0.08, 0.06), spoke * 0.3 * step(dist, 0.25));
-
-          // ─── Warm tower light pool — bright center ──
-          float warmth = smoothstep(0.30, 0.0, dist);
-          stoneColor += vec3(0.45, 0.28, 0.10) * warmth * warmth;
-
-          // Mid-range warm glow
-          float midWarmth = smoothstep(0.40, 0.08, dist);
-          stoneColor += vec3(0.18, 0.10, 0.04) * midWarmth;
-
-          // ─── Outer ambient — visible but dark (not void) ──
-          stoneColor += vec3(0.04, 0.03, 0.02) * smoothstep(0.45, 0.25, dist);
-
-          // ─── Ring highlight near foundation base ──
-          // Bright concentric ring right where foundation meets ground
-          float foundationRing = smoothstep(0.02, 0.0, abs(dist - 0.10));
-          stoneColor += vec3(0.40, 0.25, 0.08) * foundationRing * 0.6;
-
-          // ─── Circular fade — far edges go transparent ──
-          float edgeFade = smoothstep(0.50, 0.38, dist);
-
-          gl_FragColor = vec4(stoneColor, edgeFade);
-        }
-      `,
-      transparent: true,
-      depthWrite: true,
-    });
-  }, []);
-
-  // Warm additive light pool overlay
-  const lightPoolMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      side: THREE.DoubleSide,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      vertexShader: /* glsl */ `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        precision highp float;
-        varying vec2 vUv;
-
-        void main() {
-          vec2 center = vUv - 0.5;
-          float dist = length(center);
-
-          vec3 warmColor = vec3(0.50, 0.30, 0.10);
-          float alpha = smoothstep(0.25, 0.0, dist) * 0.45;
-
-          gl_FragColor = vec4(warmColor, alpha);
-        }
-      `,
-    });
-  }, []);
-
-  return (
-    <group>
-      {/* Solid stone ground — concentric ring pattern */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, FOUNDATION_BOTTOM - 0.05, 0]}
-        material={groundMaterial}
-      >
-        <circleGeometry args={[100, 64]} />
-      </mesh>
-      {/* Additive warm light pool on top */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, FOUNDATION_BOTTOM, 0]}
-        material={lightPoolMaterial}
-      >
-        <circleGeometry args={[60, 48]} />
-      </mesh>
-    </group>
-  );
-}
-
-/**
- * AtmosphericHaze — Warm volumetric-like glow around tower base.
- * Additive-blended plane that creates atmospheric depth.
- * 1 extra draw call, trivial shader.
- */
-function AtmosphericHaze() {
-  const hazeMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      vertexShader: /* glsl */ `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        precision highp float;
-        varying vec2 vUv;
-
-        void main() {
-          vec2 center = vUv - 0.5;
-          float dist = length(center);
-
-          vec3 hazeColor = vec3(0.35, 0.22, 0.08);
-          float alpha = smoothstep(0.45, 0.0, dist) * 0.28;
-
-          gl_FragColor = vec4(hazeColor, alpha);
-        }
-      `,
-    });
-  }, []);
-
-  return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -3.5, 0]}
-      material={hazeMaterial}
-    >
-      <planeGeometry args={[160, 160]} />
-    </mesh>
-  );
 }
 
 // ─── Pinch helpers ────────────────────────────────────────
@@ -832,13 +654,13 @@ function NightSkybox() {
 
           // ─── Night sky gradient (Solana-inspired: deep purple → teal horizon) ──
           // nadirColor matches canvas bg (#120e18) for seamless bottom edge
-          vec3 zenithColor   = vec3(0.06, 0.04, 0.18);    // deep indigo
-          vec3 upperSky      = vec3(0.10, 0.06, 0.22);    // purple-blue
-          vec3 midSky        = vec3(0.14, 0.08, 0.25);    // clear purple
-          vec3 lowerMidSky   = vec3(0.10, 0.12, 0.24);    // purple-teal transition
-          vec3 horizonGlow   = vec3(0.06, 0.18, 0.20);    // muted teal-green
-          vec3 belowHorizon  = vec3(0.10, 0.10, 0.14);    // dark purple-grey
-          vec3 nadirColor    = vec3(0.07, 0.055, 0.094);   // matches canvas #120e18
+          vec3 zenithColor   = vec3(0.05, 0.03, 0.14);    // deep indigo
+          vec3 upperSky      = vec3(0.07, 0.05, 0.18);    // purple-blue
+          vec3 midSky        = vec3(0.10, 0.06, 0.20);    // muted purple
+          vec3 lowerMidSky   = vec3(0.08, 0.09, 0.19);    // purple-teal transition
+          vec3 horizonGlow   = vec3(0.05, 0.14, 0.16);    // teal identity, tower lit
+          vec3 belowHorizon  = vec3(0.06, 0.06, 0.10);    // dark purple-grey
+          vec3 nadirColor    = vec3(0.04, 0.03, 0.07);    // matches canvas #0a0812
 
           // Smooth gradient — wide overlapping bands, no hard edges
           vec3 skyColor;
@@ -910,9 +732,9 @@ function NightSkybox() {
             // Two densities of stars for depth
             vec3 starPos1 = dir * 100.0;
             float sv1 = hash3D(floor(starPos1));
-            if (sv1 > 0.994) {
+            if (sv1 > 0.993) {
               float twinkle = 0.6 + 0.4 * sin(uTime * 2.0 + sv1 * 100.0);
-              float brightness = (sv1 - 0.994) * 166.0 * twinkle * 1.5;
+              float brightness = (sv1 - 0.993) * 140.0 * twinkle * 2.0;
               float fade = smoothstep(0.48, 0.15, lat);
               vec3 starColor = mix(vec3(0.8, 0.85, 1.0), vec3(1.0, 0.9, 0.7), sv1 * 3.0);
               starContrib = starColor * brightness * fade;
@@ -920,8 +742,8 @@ function NightSkybox() {
             // Dimmer background stars
             vec3 starPos2 = dir * 200.0;
             float sv2 = hash3D(floor(starPos2));
-            if (sv2 > 0.993) {
-              float brightness = (sv2 - 0.993) * 60.0;
+            if (sv2 > 0.992) {
+              float brightness = (sv2 - 0.992) * 80.0;
               float fade = smoothstep(0.48, 0.10, lat);
               starContrib += vec3(0.7, 0.75, 0.9) * brightness * fade;
             }
@@ -1267,10 +1089,9 @@ export default function TowerScene() {
         <BackgroundPlane />
         <TowerGrid />
         <Particles />
+        <AuroraWisps />
         <ConditionalClaimVFX />
         <Foundation />
-        <GroundPlane />
-        <AtmosphericHaze />
       </Canvas>
     </View>
   );
@@ -1279,6 +1100,6 @@ export default function TowerScene() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#120e18", // matches sky nadirColor for seamless edge
+    backgroundColor: "#0a0812", // matches darker sky nadir
   },
 });
