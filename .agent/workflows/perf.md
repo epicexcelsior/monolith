@@ -97,6 +97,19 @@ grep "PARTICLE_COUNT" apps/mobile/components/tower/Particles.tsx
 
 **Budget**: 60-80 particles max. Over 100 causes visible frame drops on mid-range devices.
 
+### 4a. wawa-vfx Emitter Defaults (CRITICAL)
+
+> ⚠️ **Burst emitters fire on mount by default.** If a VFXEmitter parent component mounts
+> before the intended fire time (e.g., `ConditionalClaimVFX` mounts at cinematicMode=true),
+> all burst particles explode immediately — then fire AGAIN when `emitAtPos()` is called.
+
+```bash
+# Find VFXEmitter components missing autoStart={false}
+grep -B1 -A3 "VFXEmitter" apps/mobile/components/tower/ClaimVFX.tsx | grep -v "autoStart={false}" | grep "spawnMode.*burst"
+```
+
+**Rule**: Every VFXEmitter controlled by imperative timing (useFrame elapsed checks, `emitAtPos()`, `startEmitting()`) MUST have `autoStart={false}`. Only omit it for emitters that should genuinely fire on mount.
+
 ## 5. Skybox Cost
 
 The skybox shader runs for every visible sky pixel — often 30-50% of the screen.
@@ -202,3 +215,4 @@ After reviewing, confirm:
 - [ ] `performance.now()` cached once per frame (not called multiple times)
 - [ ] useFrame loops gated by dirty flags (near-zero cost at idle)
 - [ ] No `transparent: true` on additive-blended materials with `discard`
+- [ ] All imperative VFXEmitters have `autoStart={false}` (burst emitters fire on mount otherwise)

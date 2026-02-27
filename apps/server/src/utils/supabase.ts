@@ -110,6 +110,26 @@ export function bulkUpsertBlocks(blocks: BlockRow[]): void {
     });
 }
 
+/** Fetch a single block by composite ID (e.g. "block-5-3" → layer=5, index=3). */
+export async function getBlockById(blockId: string): Promise<BlockRow | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  const match = blockId.match(/^block-(\d+)-(\d+)$/);
+  if (!match) return null;
+
+  const [, layer, index] = match;
+  const { data, error } = await client
+    .from("blocks")
+    .select(BLOCK_COLUMNS)
+    .eq("layer", Number(layer))
+    .eq("index", Number(index))
+    .single();
+
+  if (error || !data) return null;
+  return data as BlockRow;
+}
+
 // ─── Player Persistence ───────────────────────────────────
 
 interface PlayerRow {

@@ -19,6 +19,16 @@
 
 ## Camera & Gestures
 
+### Pop-Out Restore Fights Celebration — Guard TowerGrid Deselect Too (2026-02-27)
+**Problem**: `selectBlock(null)` during celebration triggered TowerGrid's deselect handler which set `popOutTarget[i] = 0` for ALL blocks — the claimed block animated back flush with the tower. Camera lookAt pointed at the now-invisible block position. The block "receded into the tower" during buildup.
+**Solution**: In TowerGrid's deselect handler, check `isCelActive && celBlockId` — keep the claimed block's pop-out at 1.0 and highlight at 1.0 during celebration. When celebration ends and `selectBlock(blockId)` fires, the block re-enters the normal pop-out state.
+**Key Insight**: `selectBlock(null)` affects MULTIPLE systems (camera deselect, pop-out restore, fade/highlight). When adding a celebration guard, audit ALL downstream effects of the deselect, not just the camera.
+
+### Audio-Visual Sync Requires Measuring the Actual Audio File (2026-02-27)
+**Problem**: Config comment said "~1.5s internal buildup" but the audio file (`generate-claim-sound.js: IMPACT = 2.50`) actually has a 2.5s buildup. With `CLAIM_SOUND_DELAY = 1.0`, the audio 808 slam hit at T+3.5s while visual impact fired at T+2.5s — 1 full second of desync.
+**Solution**: Verified with `ffprobe` + RMS analysis + reading the generator script. Set `CLAIM_SOUND_DELAY = 0.0` — audio plays immediately, its internal 2.5s buildup matches `CLAIM_IMPACT_OFFSET_SECS = 2.5` exactly.
+**Key Insight**: Never trust comments about audio timing — measure the actual file. `ffprobe` for duration, `ffmpeg astats` for RMS envelope, and READ THE GENERATOR SCRIPT for the source of truth.
+
 ### Deselect Handler Fights Celebration Camera — Guard with Active Check (2026-02-26)
 **Problem**: `selectBlock(null)` during claim celebration triggered the deselect handler which set `cs.targetZoom = ZOOM_OVERVIEW` + `cs.targetLookAt` to overview — directly fighting the celebration camera's zoom/lookAt targets on the same frame. Result: camera froze or jittered instead of doing the cinematic zoom-out.
 **Solution**: Guard the deselect camera transition: `const isCelActive = claimCelebrationRef?.current?.active ?? false; if (!isCelActive) { /* set overview targets */ }`. The celebration camera phase state machine handles all zoom/lookAt during the sequence.
@@ -129,6 +139,11 @@ PanResponder.create({
 ---
 
 ## Shaders & 3D Rendering
+
+### wawa-vfx Burst Emitters Auto-Fire on Mount — Always Set autoStart={false} (2026-02-27)
+**Problem**: 8 VFXEmitter components with `spawnMode: "burst"` fired immediately when `ConditionalClaimVFX` mounted (at `cinematicMode = true`, T+0). All particles exploded at the start of the celebration, then fired AGAIN when `emitAtPos()` was called at impact. Double-fire.
+**Solution**: Add `autoStart={false}` to every VFXEmitter. Only trigger via `emitAtPos()` / `startEmitting()` in the useFrame callback at the correct elapsed time.
+**Key Insight**: wawa-vfx burst emitters default to firing on mount. Any emitter controlled by imperative timing MUST have `autoStart={false}`, especially when the parent component mounts before the intended fire time.
 
 ### GLSL Voronoi: hash21() Returns float, Not vec2 (2026-02-21)
 **Problem**: Crystal style used a Voronoi cell loop with `vec2 point = hash21(nc) * vec2(0.8, 0.8)` — `hash21()` returns `float`, so multiplying by `vec2` caused a GLSL type error and compiled to black blocks at runtime.

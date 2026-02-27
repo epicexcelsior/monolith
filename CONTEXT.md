@@ -1,7 +1,7 @@
 # Monolith — Project Context
 
 > **Living state document.** Auto-updated by `/wrapup` workflow.
-> **Last updated:** 2026-02-26
+> **Last updated:** 2026-02-27
 
 ## What Is This?
 
@@ -59,6 +59,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **REST endpoints** (GET /api/events, GET /api/leaderboard)
 - **Server hardening** (try/catch all handlers, error messages to client)
 - **Tapestry social layer** (on-chain profiles, follow/like/comment, deterministic block content IDs, activity feed tab, comments in inspector, namespace isolation — client-side only, fire-and-forget)
+- **Solana Blinks** (shareable poke URLs via memo transactions — dial.to cards, actions.json discovery, Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var)
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
@@ -167,6 +168,9 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/server/src/utils/supabase.ts` | Supabase client + CRUD helpers (fire-and-forget writes) |
 | `apps/server/src/utils/xp.ts` | XP computation, level thresholds, combo tracking |
 | `apps/server/src/utils/notifications.ts` | Push notification helpers (Expo push API) |
+| `apps/server/src/routes/blinks.ts` | Solana Blinks routes (actions.json, GET metadata, POST poke tx) |
+| `apps/server/src/utils/memo-tx.ts` | RPC connection + unsigned memo transaction builder |
+| `apps/server/static/blink-icon.png` | Tower icon for Blink action cards |
 
 ### Shared Package
 | File | Purpose |
@@ -233,7 +237,7 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 19. **FloatingNav visibility** — derived from `anyOverlayOpen` in index.tsx. When adding a new sheet/overlay, add it to `anyOverlayOpen` (one place) — don't thread individual booleans into the visible prop.
 20. **One SFX per action chain** — gesture → state change → UI reaction should play exactly ONE sound at the gesture origin. Don't add sounds to downstream effects (e.g. BottomPanel open, BlockInspector visibility change). Audit with: `grep -rn "play[A-Z]" apps/mobile/components/ apps/mobile/app/ --include="*.tsx"` and trace each call's trigger chain.
 21. **BottomPanel dismiss pattern** — always animate off-screen FIRST (`Animated.timing` to totalHeight), THEN call `onClose()` in `.start()` callback. Never reset `dragOffset` before unmount. Never put slide-out in useEffect else branch when component has `if (!visible) return null`.
-22. **Deselect handler fights celebration camera** — `selectBlock(null)` triggers deselect handler that sets `cs.targetZoom = ZOOM_OVERVIEW`, fighting celebration camera targets. Guard with `if (!isCelActive)` check before applying deselect camera transition.
+22. **Deselect + pop-out fight celebration camera** — `selectBlock(null)` triggers both the deselect handler (wants `ZOOM_OVERVIEW`) AND the pop-out restore (wants `popTarget=0`). Both fight the celebration camera. Guard deselect with `if (!isCelActive)` in TowerScene.tsx. Guard pop-out with `isCelActive && celBlockId` check in TowerGrid.tsx deselect handler — keep the claimed block popped out + highlighted during celebration.
 23. **Customization must not award XP** — free, instant, repeatable actions must never award points. XP removed from both client (`useBlockActions.ts`) and server (`TowerRoom.ts`).
 24. **Onboarding replay requires tower reset** — `resetOnboardingFlag()` must also set `revealComplete: false` and `revealProgress: 0`, otherwise the HUD wrapper (`{revealComplete && ...}`) stays mounted and `useTowerReveal` refs won't re-run. The hook detects `revealComplete` going `true→false` and resets its internal animation refs.
 25. **Tapestry: block content uses deterministic IDs** — `getBlockContentId(blockId)` → `monolith-block-{blockId}`. Likes/comments always have a target. `ensureBlockContent()` lazily creates on inspector open. BlockInspector uses `getProfile()` for block owners (bot name = profile ID). **Content `properties` is REQUIRED** — always include at least `[{key:"blockId",value:blockId}]`.
@@ -341,6 +345,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-02-27**: Claim celebration choreography overhaul — audio-synced cinematic camera (sound delay=0, 2.5s buildup matches audio), block jitter via per-block matrix offset in TowerGrid (no camera shake during buildup), all VFX delayed to impact (autoStart={false} on 8 burst emitters), block stays popped out during celebration, phase-specific camera lerp (buildup 0.020/impact 0.055/return 0.025), removed orbit phase, longer tower hold (5.3s). 222 mobile tests passing.
+- **2026-02-26**: Solana Blinks integration — shareable poke URLs via memo transactions. `routes/blinks.ts` (actions.json, GET block metadata, POST poke tx), `utils/memo-tx.ts` (RPC + memo builder), static icon, mobile share/tweet URLs use dial.to Blink wrapper, `getBlockById` in supabase.ts. Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var. 222 mobile + 84 server tests passing.
 - **2026-02-26**: Tapestry demo-ready fixes — `ensureBlockContent` requires `properties` (was silently 404ing all likes/comments), lazy content creation on inspector open (contentReadyRef gate), bot profile bootstrap on first connect (21 Tapestry profiles, auto-follow 3), removed isBotOwner gate on social UI (bots are social too), Social tab replaced broken /activity/feed with server events, fixed duplicate/split imports silently crashing BlockInspector, dead code cleanup (getActivityFeed, TapestryActivityItem, socialEmptyIcon). 222 mobile tests passing.
 - **2026-02-26**: Tapestry full integration fix — deterministic block content IDs (`monolith-block-{id}`), namespace isolation (`themonolith`), comments on blocks (InspectorComments with optimistic add), activity feed replaces N+1 social feed (single API call), stop creating ghost profiles (getProfile instead of findOrCreate for owners), poke content only on confirmed success, dead store cleanup (removed followingIds/feedItems/blockContentMap), improved Social tab empty states. 222 mobile tests passing.
 - **2026-02-26**: Tapestry social integration (Graveyard Hack) — on-chain profiles via findOrCreate on wallet connect, cross-app profile import, game events (claim/charge/poke) as Tapestry content, follow/like buttons on block inspector (bot-aware, optimistic UI), Social sub-tab on Board (replaces Territory, fetches feed from followed users), social stats in Settings. Client-side only, all fire-and-forget. 222 mobile tests passing.

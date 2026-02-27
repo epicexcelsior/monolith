@@ -18,7 +18,7 @@ import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
-import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA } from "@/constants/ClaimEffectConfig";
+import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
 
 export interface BlockMeta {
   id: string;
@@ -845,10 +845,20 @@ export default function TowerGrid() {
           lastPoppedIndexRef.current = selectedIdx;
         } else {
           // No selection — restore all blocks to normal
+          // BUT during claim celebration, keep the claimed block popped out + highlighted
+          const isCelActive = claimCelebrationRef?.current?.active ?? false;
+          const celBlockId = claimCelebrationRef?.current?.blockId;
           for (let i = 0; i < count; i++) {
-            fadeTargetsRef.current[i] = 1.0;
-            highlightTargetsRef.current[i] = 0.0;
-            popOutTargetRef.current[i] = 0.0;
+            if (isCelActive && celBlockId && blockData[i]?.id === celBlockId) {
+              // Keep claimed block popped out and highlighted during celebration
+              fadeTargetsRef.current[i] = 1.0;
+              highlightTargetsRef.current[i] = 1.0;
+              popOutTargetRef.current[i] = 1.0;
+            } else {
+              fadeTargetsRef.current[i] = 1.0;
+              highlightTargetsRef.current[i] = 0.0;
+              popOutTargetRef.current[i] = 0.0;
+            }
           }
         }
         // New targets set — enable animation loops
@@ -1038,6 +1048,73 @@ export default function TowerGrid() {
 
         // Animation complete — skip loop next frame
         popAnimatingRef.current = false;
+      }
+    }
+
+    // ─── Celebration block jitter: vibrate the claimed block during buildup ──
+    // Only 1 block matrix update per frame — essentially free.
+    if (claimCelebrationRef?.current?.active && meshRef.current) {
+      const cel = claimCelebrationRef.current;
+      const elapsed = performance.now() / 1000 - cel.startTime;
+
+      if (elapsed > 0 && elapsed < CLAIM_IMPACT_OFFSET_SECS && cel.blockId) {
+        const celIdx = blockData.findIndex((b) => b.id === cel.blockId);
+        if (celIdx >= 0) {
+          const block = blockData[celIdx];
+          const layoutItem = layoutData[celIdx];
+          if (block && layoutItem) {
+            const t = elapsed / CLAIM_IMPACT_OFFSET_SECS; // 0→1
+            // Cubic escalation: barely perceptible → violent shake in last 0.5s
+            const mag = 0.02 + t * t * t * 0.15;
+            // High-frequency oscillation with prime multipliers for organic feel
+            const jx = Math.sin(elapsed * 47.0) * mag;
+            const jy = Math.sin(elapsed * 53.0) * mag * 0.5;
+            const jz = Math.sin(elapsed * 59.0) * mag;
+
+            const layerScale = getLayerScale(block.layer, config.layerCount);
+            const ts = layoutItem.tileScale;
+            const POP_DISTANCE = CAMERA_CONFIG.inspect.popDistance;
+            const popVal = popOutCurrentRef.current?.[celIdx] ?? 0;
+
+            // Compute pop-out offset (same as pop-out loop)
+            const px = block.position.x;
+            const pz = block.position.z;
+            const len = Math.sqrt(px * px + pz * pz);
+            const nx = Math.sin(layoutItem.rotY);
+            const nz = Math.cos(layoutItem.rotY);
+            const dot = nx * px + nz * pz;
+            let offX = 0, offY = 0, offZ = 0;
+            if (len < 0.01) { offY = popVal * POP_DISTANCE; }
+            else if (dot > 0.01) { offX = nx * popVal * POP_DISTANCE; offZ = nz * popVal * POP_DISTANCE; }
+            else { offX = (px / len) * popVal * POP_DISTANCE; offZ = (pz / len) * popVal * POP_DISTANCE; }
+
+            const tempObj = tempObjRef.current;
+            tempObj.position.set(
+              block.position.x + offX + jx,
+              block.position.y + offY + jy,
+              block.position.z + offZ + jz,
+            );
+            tempObj.scale.set(layerScale * ts, layerScale, layerScale);
+            tempObj.rotation.set(0, layoutItem.rotY, 0);
+            tempObj.updateMatrix();
+            meshRef.current.setMatrixAt(celIdx, tempObj.matrix);
+            meshRef.current.instanceMatrix.needsUpdate = true;
+
+            if (glowMeshRef.current) {
+              const GLOW_SCALE = 1.08;
+              tempObj.position.set(
+                block.position.x + offX + jx,
+                block.position.y + offY + jy,
+                block.position.z + offZ + jz,
+              );
+              tempObj.scale.set(GLOW_SCALE * layerScale * ts, GLOW_SCALE * layerScale, GLOW_SCALE * layerScale);
+              tempObj.rotation.set(0, layoutItem.rotY, 0);
+              tempObj.updateMatrix();
+              glowMeshRef.current.setMatrixAt(celIdx, tempObj.matrix);
+              glowMeshRef.current.instanceMatrix.needsUpdate = true;
+            }
+          }
+        }
       }
     }
   });

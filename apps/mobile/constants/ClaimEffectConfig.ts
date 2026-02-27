@@ -1,10 +1,20 @@
 /**
  * ClaimEffectConfig — Single source of truth for the block claim celebration.
  *
- * ARC: Long low-bass hum builds (0 → IMPACT_OFFSET) → angelic explosion
+ * ARC: Camera holds close with building tension → sound climaxes →
+ *      camera pulls back revealing tower as VFX explodes → block pulses with light.
  *
- * IMPACT_OFFSET_SECS = 1.5s — the moment everything fires.
- * Used by VFX (ClaimVFX), sound (generate-claim-sound), and haptics.
+ * AUDIO: claim-celebration.wav is 5.5s with a 2.5s internal buildup → explosion at 2.5s.
+ *        Sound plays immediately (no delay) so audio climax lands on visual IMPACT.
+ *
+ * TIMELINE (all synced to audio):
+ *   T+0.0  Sound + camera: sub-bass hum begins, camera holds close, gentle pull-back starts
+ *   T+0.0–2.5  BUILDUP: audio crescendo + camera slowly drifts back + escalating jitter
+ *   T+2.5  IMPACT: audio 808 slam + camera snaps to full tower + big shake + VFX explodes
+ *   T+2.5–4.5  HOLD: synth pad sustains, camera holds at overview, particles fill sky
+ *   T+5.3  RETURN: audio faded, camera slowly zooms back to block
+ *   T+6.3  Glow-up + exit cinematic, re-select block
+ *   T+6.8  Safety cleanup
  *
  * Phase timing (fractions of total duration):
  *   buildup     (0–42%)    — converging particles, bass hum swells
@@ -15,12 +25,18 @@
 
 // ─── Absolute impact time (seconds from celebration start) ────
 // Used by: ClaimVFX.tsx (VFX phase 2), generate-claim-sound.js, haptics
-export const CLAIM_IMPACT_OFFSET_SECS = 1.5;
+// Matches the audio's internal buildup → explosion at exactly 2.5s.
+export const CLAIM_IMPACT_OFFSET_SECS = 2.5;
+
+// ─── Sound Delay ─────────────────────────────────────────────
+// claim-celebration.wav has a 2.5s internal buildup to climax (IMPACT = 2.50 in generator).
+// No delay needed — audio buildup matches CLAIM_IMPACT_OFFSET_SECS exactly.
+export const CLAIM_SOUND_DELAY = 0.0;
 
 // ─── Duration Presets ──────────────────────────────────────────
 export const CLAIM_DURATIONS = {
-  normal:     5.5,
-  firstClaim: 7.0,
+  normal:     6.8,
+  firstClaim: 8.3,
 } as const;
 
 // ─── Phase Timing (fractions of total duration) ────────────────
@@ -75,56 +91,67 @@ export const CLAIM_SHAKE = {
   axes:       3,
 } as const;
 
-// ─── Cinematic Camera Orbit ────────────────────────────────
-// Sequence: buildup (camera still) → BOOM → zoom OUT (see full tower ripple) → zoom IN (see block)
+// ─── Cinematic Camera ──────────────────────────────────────
+// Sequence:
+//   BUILDUP (0–2.5s): slow pull-back from block inspect so block is clearly visible + jitter
+//   IMPACT  (at 2.5s): zoom OUT to full tower overview, VFX fills screen
+//   HOLD    (2.5–5.3s): camera stays at overview watching particles + tower pulse
+//   RETURN  (at 5.3s): gentle zoom back to block for intimate reveal + glow-up
 export const CLAIM_CAMERA = {
-  orbitSpeed:     0.004,  // radians/frame at 60fps — applied with delta (dt * 60)
-  zoomOutFactor:  1.80,   // pull back 80% at impact so shockwave ring fits the screen
-  zoomInFactor:   0.70,   // zoom in 30% after shockwave (closer inspection)
-  zoomInDelay:    1.20,   // seconds after impact to start zoom in (faster transition)
-  zoomRestoreMs:  1200,   // ms after celebration end to restore zoom
-  buildupHoldSecs: 0.8,   // camera holds close before impact — buildup tension
-  zoomReturnDelay: 3.5,   // seconds after start to stop orbit + begin zoom-back
-  glowUpDuration:  1.2,   // gold→owner color lerp after zoom-back
+  buildupZoom:     13,     // gentle pull-back from ZOOM_BLOCK(10) — block stays prominent
+  impactZoom:      42,     // full tower overview (slightly beyond ZOOM_OVERVIEW=40)
+  returnZoomFactor: 0.70,  // zoom in 30% closer than original for intimate reveal
+  zoomReturnDelay: 5.3,    // seconds after start to begin zoom-back (longer hold for pulse)
+  glowUpDuration:  1.2,    // gold→owner color lerp after zoom-back
+  // Phase-specific camera lerp rates (delta-corrected, 0–1, lower = slower/more cinematic)
+  lerpBuildup:     0.020,  // very slow pull-back over 2.5s — block stays centered
+  lerpImpact:      0.055,  // punchy zoom-out (~0.7s to 90%) — dramatic reveal
+  lerpReturn:      0.025,  // gentle settle (~1.5s to 90%) — matches audio fade-out
 } as const;
 
 // ─── Haptic Timing ────────────────────────────────────────────
 // All times in ms, relative to celebration start.
-// Buildup taps escalate over 1.3s → heavy impact at 1500ms.
+// Buildup taps escalate over 2.3s → heavy impact at 2500ms.
 export const CLAIM_HAPTICS = {
   normal: {
     buildup: [
       { delay: 0,    style: "Light"  as const },
-      { delay: 200,  style: "Light"  as const },
-      { delay: 400,  style: "Medium" as const },
-      { delay: 700,  style: "Medium" as const },
-      { delay: 1000, style: "Heavy"  as const },
-      { delay: 1300, style: "Heavy"  as const },
+      { delay: 300,  style: "Light"  as const },
+      { delay: 600,  style: "Light"  as const },
+      { delay: 900,  style: "Medium" as const },
+      { delay: 1200, style: "Medium" as const },
+      { delay: 1500, style: "Medium" as const },
+      { delay: 1800, style: "Heavy"  as const },
+      { delay: 2100, style: "Heavy"  as const },
+      { delay: 2300, style: "Heavy"  as const },
     ],
-    impactDelay:  1500,   // matches CLAIM_IMPACT_OFFSET_SECS × 1000
-    successDelay: 1580,
+    impactDelay:  2500,   // matches CLAIM_IMPACT_OFFSET_SECS × 1000
+    successDelay: 2580,
     settle: [
-      { delay: 2400, style: "Light" as const },
-      { delay: 2600, style: "Light" as const },
-      { delay: 2800, style: "Light" as const },
+      { delay: 3400, style: "Light" as const },
+      { delay: 3600, style: "Light" as const },
+      { delay: 3800, style: "Light" as const },
     ],
   },
   firstClaim: {
     buildup: [
       { delay: 0,    style: "Light"  as const },
-      { delay: 200,  style: "Light"  as const },
-      { delay: 400,  style: "Medium" as const },
-      { delay: 700,  style: "Medium" as const },
-      { delay: 1000, style: "Heavy"  as const },
-      { delay: 1300, style: "Heavy"  as const },
+      { delay: 300,  style: "Light"  as const },
+      { delay: 600,  style: "Light"  as const },
+      { delay: 900,  style: "Medium" as const },
+      { delay: 1200, style: "Medium" as const },
+      { delay: 1500, style: "Medium" as const },
+      { delay: 1800, style: "Heavy"  as const },
+      { delay: 2100, style: "Heavy"  as const },
+      { delay: 2300, style: "Heavy"  as const },
     ],
-    impactDelay:  1500,
-    successDelay: 1580,
+    impactDelay:  2500,
+    successDelay: 2580,
     settle: [
-      { delay: 3500, style: "Light" as const },
-      { delay: 3800, style: "Light" as const },
-      { delay: 4100, style: "Light" as const },
-      { delay: 4400, style: "Light" as const },
+      { delay: 4500, style: "Light" as const },
+      { delay: 4800, style: "Light" as const },
+      { delay: 5100, style: "Light" as const },
+      { delay: 5400, style: "Light" as const },
     ],
   },
 } as const;

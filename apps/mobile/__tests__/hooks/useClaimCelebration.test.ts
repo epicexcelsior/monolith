@@ -59,8 +59,8 @@ describe("useClaimCelebration", () => {
   });
 
   it("CLAIM_DURATIONS should have correct values", () => {
-    expect(CLAIM_DURATIONS.normal).toBe(5.5);
-    expect(CLAIM_DURATIONS.firstClaim).toBe(7.0);
+    expect(CLAIM_DURATIONS.normal).toBe(6.8);
+    expect(CLAIM_DURATIONS.firstClaim).toBe(8.3);
   });
 
   it("hapticClaimCelebration should be callable with boolean", () => {
@@ -78,8 +78,8 @@ describe("useClaimCelebration", () => {
   });
 
   it("cinematicMode resets after zoom-back completes via module-level timer", () => {
-    // Cinematic end timing: ZOOM_RETURN_DELAY + zoomRestoreMs/1000 + 0.3s buffer
-    const cinematicEndSecs = CLAIM_CAMERA.zoomReturnDelay + CLAIM_CAMERA.zoomRestoreMs / 1000 + 0.3;
+    // Cinematic end timing: zoomReturnDelay + 1.5s lerp settle + 0.2s buffer
+    const cinematicEndSecs = CLAIM_CAMERA.zoomReturnDelay + 1.5 + 0.2;
     const cinematicEndMs = cinematicEndSecs * 1000;
 
     // Should be well under the 10s safety timeout

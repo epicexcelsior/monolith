@@ -50,7 +50,7 @@ const ShareCard = forwardRef<View, ShareCardProps>(({ block }, ref) => {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.brandText}>THE MONOLITH</Text>
-        <Text style={styles.linkText}>monolith.gg/block/{block.layer}/{block.index}</Text>
+        <Text style={styles.linkText}>monolith-server-production.up.railway.app</Text>
       </View>
     </View>
   );
