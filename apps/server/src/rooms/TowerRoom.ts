@@ -673,6 +673,11 @@ export class TowerRoom extends Room<TowerRoomState> {
   }
 
   async onJoin(client: Client, options?: { wallet?: string }) {
+    // Store wallet on client for poke_received targeting
+    if (options?.wallet) {
+      (client as any)._wallet = options.wallet;
+    }
+
     // Send full tower state
     client.send("tower_state", this.buildFullState());
     this.recomputeStats();

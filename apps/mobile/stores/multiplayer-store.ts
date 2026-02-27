@@ -318,6 +318,8 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
     }
   } else if (serverBlock.eventType === "charge") {
     towerStore.setRecentlyChargedId(serverBlock.id);
+  } else if (serverBlock.eventType === "poke") {
+    towerStore.setRecentlyPokedId(serverBlock.id);
   }
 
   // Push to recent events + activity feed
@@ -336,6 +338,9 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
         break;
       case "customize":
         message = `${truncatedOwner} customized their block on Layer ${layerNum}`;
+        break;
+      case "poke":
+        message = `Someone poked ${truncatedOwner}'s block on Layer ${layerNum}! ⚡`;
         break;
       default:
         message = `${truncatedOwner} updated a block on Layer ${layerNum}`;
