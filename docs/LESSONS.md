@@ -263,6 +263,16 @@ const positionCache = new Map<string, {x,y,z}>();
 
 ## Solana & Anchor
 
+### SOAR SDK: Dual SoarProgram Pattern for Authority-Signed Submissions (2026-02-27)
+**Problem**: `submitScoreToLeaderBoard` and `unlockPlayerAchievement` require TWO signers: `payer` (from the SDK provider's wallet) and `authority`. Creating `SoarProgram.getFromConnection(conn, playerWallet)` made the player the payer — but we only signed with the authority keypair. Result: "Signature verification failed. Missing signature for public key [player]".
+**Solution**: Use two SoarProgram instances: `getSoarForAuthority()` (authority = provider wallet = payer = signer, for score/achievement submission with no MWA popup) and `getSoarForPlayer()` (player = provider wallet, for init txs that go through MWA signing).
+**Key Insight**: The SOAR SDK sets `payer = provider.wallet`. When you need authority-only signing, make the authority the provider wallet so it's both payer and authority signer. The player pubkey is only used for PDA derivation (not a signer) in score submissions.
+
+### JavaScript Truthy Check on Numeric Fields Skips Zero (2026-02-27)
+**Problem**: `if (result.totalXp)` was used to guard SOAR score submission in 3 multiplayer result handlers. When a player's XP was 0 (new player, or edge case), the guard evaluated to `false` and silently skipped all SOAR calls. No logs, no errors — just silent no-ops.
+**Solution**: Changed to `if (result.totalXp != null)` which correctly passes for `0` while still guarding against `undefined`/`null`.
+**Key Insight**: Never use truthy checks on numeric fields that can legitimately be 0. Use `!= null` (catches both null and undefined) or `!== undefined` for proper null guards.
+
 ### Solana Blinks: SPL Memo v2 Requires All Keys to Be Signers (2026-02-27)
 **Problem**: Added `MONOLITH_PROGRAM_ID` as a read-only non-signer key in the memo instruction (as a marker for future tx detection). Phantom wallet threw "WalletSendTransactionError: Unexpected error" on sign.
 **Solution**: Remove non-signer accounts from memo instruction keys. SPL Memo v2 program validates that ALL accounts in the keys array are signers — no exceptions.

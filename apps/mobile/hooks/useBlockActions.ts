@@ -33,6 +33,8 @@ import {
 } from "@/utils/audio";
 import { createContent, ensureBlockContent } from "@/utils/tapestry";
 import { useTapestryStore } from "@/stores/tapestry-store";
+import { submitScore, unlockAchievement } from "@/utils/soar";
+import { PublicKey } from "@solana/web3.js";
 
 /** Fire-and-forget Tapestry content creation. Never blocks gameplay. */
 function postTapestryContent(
@@ -53,6 +55,23 @@ function postBlockContent(
   const profileId = useTapestryStore.getState().profileId;
   if (!profileId) return;
   ensureBlockContent(profileId, blockId, text, properties).catch(console.warn);
+}
+
+/** Fire-and-forget SOAR score submission. Never blocks gameplay. */
+function recordSoarScore(wallet: string, totalXp: number): void {
+  try {
+    if (__DEV__) console.log("[SOAR] recordSoarScore called:", totalXp, "XP for", wallet.slice(0, 8));
+    const pk = new PublicKey(wallet);
+    submitScore(pk, totalXp).catch(console.warn);
+  } catch { /* invalid pubkey in demo mode */ }
+}
+
+/** Fire-and-forget SOAR achievement unlock. Never blocks gameplay. */
+function recordSoarAchievement(wallet: string, achievementId: string): void {
+  try {
+    const pk = new PublicKey(wallet);
+    unlockAchievement(pk, achievementId).catch(console.warn);
+  } catch { /* invalid pubkey in demo mode */ }
 }
 
 export function getBlockState(energy: number): BlockState {
@@ -152,6 +171,10 @@ export function useBlockActions() {
       const pStore = usePlayerStore.getState();
       pStore.addPoints({ pointsEarned: pts, totalXp: pStore.xp + pts, level: pStore.level });
 
+      // SOAR: submit score + first claim achievement (offline)
+      recordSoarScore(wallet, pStore.xp + pts);
+      if (isFirst) recordSoarAchievement(wallet, "first_claim");
+
       // Tapestry: ensure canonical block content (offline)
       const ob = useTowerStore.getState().demoBlocks.find((b) => b.id === selectedBlockId);
       postBlockContent(
@@ -219,6 +242,15 @@ export function useBlockActions() {
           store.markChargeToday();
           hapticStreakMilestone();
         }
+        // SOAR: submit score + streak achievement (offline)
+        const walletAddr = publicKey?.toBase58();
+        if (walletAddr) {
+          recordSoarScore(walletAddr, store.xp + pts);
+          if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
+            recordSoarAchievement(walletAddr, `streak_${result.streak}`);
+          }
+        }
+
         // Tapestry: post charge content (offline)
         postTapestryContent(
           `Charged Block #${selectedBlockId} — Day ${result.streak ?? 1} streak!`,
@@ -230,7 +262,7 @@ export function useBlockActions() {
         );
       }
     }
-  }, [selectedBlockId, chargeBlock, mpConnected, sendCharge, setRecentlyChargedId]);
+  }, [selectedBlockId, chargeBlock, mpConnected, sendCharge, setRecentlyChargedId, publicKey]);
 
   // Handle poke
   const handlePoke = useCallback(() => {
@@ -314,6 +346,15 @@ export function useBlockActions() {
             levelUp: result.levelUp,
           });
         }
+        // SOAR: submit score + streak achievement (multiplayer)
+        const wallet = useWalletStore.getState().publicKey?.toBase58();
+        if (wallet && result.totalXp != null) {
+          recordSoarScore(wallet, result.totalXp);
+          if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
+            recordSoarAchievement(wallet, `streak_${result.streak}`);
+          }
+        }
+
         // Tapestry: post charge content (multiplayer)
         const chargedBlockId = useTowerStore.getState().selectedBlockId;
         if (chargedBlockId) {
@@ -339,6 +380,18 @@ export function useBlockActions() {
           levelUp: result.levelUp,
         });
       }
+      // SOAR: submit score + first claim achievement (multiplayer)
+      if (result.success && result.totalXp != null) {
+        const wallet = useWalletStore.getState().publicKey?.toBase58();
+        if (wallet) {
+          recordSoarScore(wallet, result.totalXp);
+          // Check first block: no other blocks owned by this wallet
+          const blocks = useTowerStore.getState().demoBlocks;
+          const isFirstBlock = !blocks.some((b) => b.owner === wallet && b.id !== result.blockId);
+          if (isFirstBlock) recordSoarAchievement(wallet, "first_claim");
+        }
+      }
+
       // Tapestry: ensure canonical block content (multiplayer)
       if (result.success && result.blockId) {
         const b = useTowerStore.getState().demoBlocks.find((d) => d.id === result.blockId);
@@ -383,6 +436,11 @@ export function useBlockActions() {
             level: result.level,
             levelUp: result.levelUp,
           });
+        }
+        // SOAR: submit score (multiplayer poke)
+        if (result.totalXp != null) {
+          const pokeWallet = useWalletStore.getState().publicKey?.toBase58();
+          if (pokeWallet) recordSoarScore(pokeWallet, result.totalXp);
         }
       } else {
         setPokeStatus("Already poked today");

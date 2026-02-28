@@ -19,6 +19,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/outfit": "^0.4.3",
+    "@magicblock-labs/soar-sdk": "^0.1.23",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^9.1.0",
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.2.5",
@@ -27,6 +28,7 @@
     "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.49.0",
     "babel-plugin-module-resolver": "^5.0.2",
+    "bn.js": "^5.2.3",
     "buffer": "^6.0.3",
     "colyseus.js": "^0.15.0",
     "expo": "~54.0.33",
@@ -69,6 +71,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.3",
     "@expo/ngrok": "^4.1.3",
+    "@types/bn.js": "^5.2.0",
     "@types/react": "~19.1.0",
     "@types/three": "~0.170.0",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
@@ -91,7 +94,7 @@
       "^.+\\.(ts|tsx|js|jsx)$": "babel-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@solana/web3.js|@solana/spl-token|@solana-mobile/.*|@coral-xyz/.*|@react-three/.*|three|zustand|wonka|@noble/.*|buffer|readable-stream|colyseus\\.js|@colyseus/.*)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@solana/web3.js|@solana/spl-token|@solana-mobile/.*|@coral-xyz/.*|@magicblock-labs/.*|@metaplex-foundation/.*|@react-three/.*|three|zustand|wonka|@noble/.*|bn\\.js|buffer|readable-stream|colyseus\\.js|@colyseus/.*)"
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1",
@@ -99,5 +102,10 @@
       "^expo-notifications$": "<rootDir>/__mocks__/expo-notifications.ts"
     }
   },
-  "private": true
+  "private": true,
+  "pnpm": {
+    "overrides": {
+      "@magicblock-labs/soar-sdk>@coral-xyz/anchor": "0.31.1"
+    }
+  }
 }

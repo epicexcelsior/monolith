@@ -4,6 +4,8 @@ import { SpiralReveal } from "./Scenes/SpiralReveal";
 import { OrbitPunch } from "./Scenes/OrbitPunch";
 import { DollyParallax } from "./Scenes/DollyParallax";
 import { ShowcaseDemo } from "./Scenes/ShowcaseDemo";
+import { ArtPiece } from "./Scenes/ArtPiece";
+import { BonkTower } from "./Scenes/BonkTower";
 
 const FPS = 30;
 const WIDTH = 1080;
@@ -43,6 +45,22 @@ export const RemotionRoot: React.FC = () => {
         id="DollyParallax"
         component={DollyParallax}
         durationInFrames={12 * FPS}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+      />
+      <Composition
+        id="ArtPiece"
+        component={ArtPiece}
+        durationInFrames={18 * FPS}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+      />
+      <Composition
+        id="BonkTower"
+        component={BonkTower}
+        durationInFrames={18 * FPS}
         fps={FPS}
         width={WIDTH}
         height={HEIGHT}
