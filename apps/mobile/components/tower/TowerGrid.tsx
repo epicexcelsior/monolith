@@ -1162,7 +1162,7 @@ export default function TowerGrid() {
     event.stopPropagation();
     const gestureActive = useTowerStore.getState().isGestureActive;
     if (gestureActive) {
-      console.log("[TowerGrid] Click blocked by gesture active");
+      if (__DEV__) console.log("[TowerGrid] Click blocked by gesture active");
       return;
     }
 
@@ -1170,7 +1170,7 @@ export default function TowerGrid() {
     const meta = blockMetaRef.current[event.instanceId];
     if (!meta) return;
 
-    console.log("[TowerGrid] Block tapped:", meta.id, "layer:", meta.layer, "index:", meta.index);
+    if (__DEV__) console.log("[TowerGrid] Block tapped:", meta.id, "layer:", meta.layer, "index:", meta.index);
     selectBlock(meta.id);
   }, [selectBlock]);
 

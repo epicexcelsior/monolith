@@ -65,15 +65,15 @@ export default function DepositScreen() {
         if (!isValidAmount) return;
         hapticButtonPress();
         playButtonTap();
-        console.log("[DepositScreen] Starting deposit of", parsedAmount, "USDC");
+        if (__DEV__) console.log("[DepositScreen] Starting deposit of", parsedAmount, "USDC");
         const sig = await deposit(parsedAmount);
         if (sig) {
-            console.log("[DepositScreen] Deposit success:", sig);
+            if (__DEV__) console.log("[DepositScreen] Deposit success:", sig);
             hapticBlockClaimed();
             playBlockClaim();
             refreshBalance();
         } else {
-            console.log("[DepositScreen] Deposit returned null (failed)");
+            if (__DEV__) console.log("[DepositScreen] Deposit returned null (failed)");
             hapticError();
             playError();
         }

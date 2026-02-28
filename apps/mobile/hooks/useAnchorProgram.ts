@@ -124,23 +124,23 @@ export function useAnchorProgram() {
             throw new Error("Wallet not connected");
         }
 
-        console.log(TAG, "Starting MWA transact session...");
-        console.log(TAG, "Wallet pubkey:", publicKey.toBase58());
-        console.log(TAG, "Tx instructions:", transaction.instructions.length);
-
-        // Log each instruction's program and keys for debugging
-        transaction.instructions.forEach((ix, i) => {
-            console.log(TAG, `  IX[${i}] program: ${ix.programId.toBase58()}`);
-            console.log(TAG, `  IX[${i}] keys: ${ix.keys.map(k =>
-                `${k.pubkey.toBase58().slice(0, 8)}...(${k.isSigner ? 'S' : ''}${k.isWritable ? 'W' : ''})`
-            ).join(', ')}`);
-            console.log(TAG, `  IX[${i}] data (${ix.data.length} bytes): ${ix.data.slice(0, 16).toString('hex')}...`);
-        });
+        if (__DEV__) {
+            console.log(TAG, "Starting MWA transact session...");
+            console.log(TAG, "Wallet pubkey:", publicKey.toBase58());
+            console.log(TAG, "Tx instructions:", transaction.instructions.length);
+            transaction.instructions.forEach((ix, i) => {
+                console.log(TAG, `  IX[${i}] program: ${ix.programId.toBase58()}`);
+                console.log(TAG, `  IX[${i}] keys: ${ix.keys.map(k =>
+                    `${k.pubkey.toBase58().slice(0, 8)}...(${k.isSigner ? 'S' : ''}${k.isWritable ? 'W' : ''})`
+                ).join(', ')}`);
+                console.log(TAG, `  IX[${i}] data (${ix.data.length} bytes): ${ix.data.slice(0, 16).toString('hex')}...`);
+            });
+        }
 
         const transactOptions = walletUriBase ? { baseUri: walletUriBase } : undefined;
 
         const signTransaction = async (wallet: Web3MobileWallet, useAuthToken: string | null) => {
-            console.log(TAG, "MWA session opened, authorizing...", useAuthToken ? "(reauthorize)" : "(fresh authorize)");
+            if (__DEV__) console.log(TAG, "MWA session opened, authorizing...", useAuthToken ? "(reauthorize)" : "(fresh authorize)");
 
             const authResult = useAuthToken
                 ? await wallet.reauthorize({
@@ -165,7 +165,7 @@ export function useAnchorProgram() {
             const walletPubkey = new PublicKey(
                 Buffer.from(authResult.accounts[0].address, "base64"),
             );
-            console.log(TAG, "Authorized. Wallet:", walletPubkey.toBase58());
+            if (__DEV__) console.log(TAG, "Authorized. Wallet:", walletPubkey.toBase58());
 
             // Set the fee payer
             transaction.feePayer = walletPubkey;
@@ -174,14 +174,14 @@ export function useAnchorProgram() {
             const { blockhash } = await withRetry("getLatestBlockhash",
                 () => connection.getLatestBlockhash("confirmed"));
             transaction.recentBlockhash = blockhash;
-            console.log(TAG, "Blockhash:", blockhash.slice(0, 12) + "...");
+            if (__DEV__) console.log(TAG, "Blockhash:", blockhash.slice(0, 12) + "...");
 
             // Sign via MWA
-            console.log(TAG, "Requesting MWA signature...");
+            if (__DEV__) console.log(TAG, "Requesting MWA signature...");
             const signedTransactions = await wallet.signTransactions({
                 transactions: [transaction],
             });
-            console.log(TAG, "MWA signature received ✓");
+            if (__DEV__) console.log(TAG, "MWA signature received ✓");
 
             return signedTransactions[0];
         };
@@ -224,17 +224,17 @@ export function useAnchorProgram() {
         }
 
         // Send the signed transaction (retry on transient RPC failures)
-        console.log(TAG, "Sending raw transaction...");
+        if (__DEV__) console.log(TAG, "Sending raw transaction...");
         const rawTransaction = signedTx.serialize();
         const signature = await withRetry("sendRawTransaction",
             () => connection.sendRawTransaction(rawTransaction, {
                 skipPreflight: false,
                 preflightCommitment: "confirmed",
             }));
-        console.log(TAG, "Sent! Signature:", signature);
+        if (__DEV__) console.log(TAG, "Sent! Signature:", signature);
 
         // Confirm with error checking (retry on transient RPC failures)
-        console.log(TAG, "Confirming transaction...");
+        if (__DEV__) console.log(TAG, "Confirming transaction...");
         const { blockhash, lastValidBlockHeight } = await withRetry("getLatestBlockhash",
             () => connection.getLatestBlockhash("confirmed"));
         const confirmResult = await withRetry("confirmTransaction",
@@ -255,7 +255,7 @@ export function useAnchorProgram() {
             );
         }
 
-        console.log(TAG, "✅ Transaction confirmed successfully:", signature);
+        if (__DEV__) console.log(TAG, "✅ Transaction confirmed successfully:", signature);
         return signature;
     };
 
