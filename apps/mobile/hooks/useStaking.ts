@@ -185,9 +185,11 @@ export function useStaking() {
                     publicKey,
                 );
 
-                console.log(TAG, "=== DEPOSIT ===");
-                console.log(TAG, "Amount:", amountUsdc, "USDC (", amountUnits, "units)");
-                console.log(TAG, "User:", publicKey.toBase58());
+                if (__DEV__) {
+                    console.log(TAG, "=== DEPOSIT ===");
+                    console.log(TAG, "Amount:", amountUsdc, "USDC (", amountUnits, "units)");
+                    console.log(TAG, "User:", publicKey.toBase58());
+                }
 
                 const ix = await program.methods
                     .deposit(new anchor.BN(amountUnits))
@@ -206,7 +208,7 @@ export function useStaking() {
                 const transaction = new Transaction().add(ix);
                 const signature = await signAndSendTransaction(transaction);
 
-                console.log(TAG, "✅ DEPOSIT SUCCESS:", signature);
+                if (__DEV__) console.log(TAG, "✅ DEPOSIT SUCCESS:", signature);
                 setSuccess(signature);
                 return signature;
             } catch (err: any) {
@@ -246,8 +248,10 @@ export function useStaking() {
                     publicKey,
                 );
 
-                console.log(TAG, "=== WITHDRAW ===");
-                console.log(TAG, "Amount:", amountUsdc, "USDC (", amountUnits, "units)");
+                if (__DEV__) {
+                    console.log(TAG, "=== WITHDRAW ===");
+                    console.log(TAG, "Amount:", amountUsdc, "USDC (", amountUnits, "units)");
+                }
 
                 const ix = await program.methods
                     .withdraw(new anchor.BN(amountUnits))
@@ -265,7 +269,7 @@ export function useStaking() {
                 const transaction = new Transaction().add(ix);
                 const signature = await signAndSendTransaction(transaction);
 
-                console.log(TAG, "✅ WITHDRAW SUCCESS:", signature);
+                if (__DEV__) console.log(TAG, "✅ WITHDRAW SUCCESS:", signature);
                 setSuccess(signature);
                 return signature;
             } catch (err: any) {

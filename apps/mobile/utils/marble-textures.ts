@@ -41,11 +41,11 @@ let cached: { baseColor: THREE.DataTexture; normal: THREE.DataTexture } | null =
 
 export function getMarbleTextures() {
   if (cached) return cached;
-  console.log("[MarbleTextures] Decoding marble textures...");
+  if (__DEV__) console.log("[MarbleTextures] Decoding marble textures...");
   cached = {
     baseColor: makeDataTexture(MARBLE_BASECOLOR_BASE64),
     normal: makeDataTexture(MARBLE_NORMAL_BASE64),
   };
-  console.log("[MarbleTextures] Done");
+  if (__DEV__) console.log("[MarbleTextures] Done");
   return cached;
 }

@@ -309,7 +309,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       }
 
       // First launch or version bump: seed the tower with enhanced bots
-      console.log(`[TowerStore] Seeding tower (version ${CURRENT_TOWER_VERSION})`);
+      if (typeof __DEV__ !== "undefined" && __DEV__) console.log(`[TowerStore] Seeding tower (version ${CURRENT_TOWER_VERSION})`);
       const seeded = generateSeedTower();
       set({
         demoBlocks: seeded,

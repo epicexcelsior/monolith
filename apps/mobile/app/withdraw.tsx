@@ -54,14 +54,14 @@ export default function WithdrawScreen() {
         if (!isValidAmount) return;
         hapticButtonPress();
         playButtonTap();
-        console.log("[WithdrawScreen] Starting withdraw of", parsedAmount, "USDC");
+        if (__DEV__) console.log("[WithdrawScreen] Starting withdraw of", parsedAmount, "USDC");
         const sig = await withdraw(parsedAmount);
         if (sig) {
-            console.log("[WithdrawScreen] Withdraw success:", sig);
+            if (__DEV__) console.log("[WithdrawScreen] Withdraw success:", sig);
             hapticBlockClaimed();
             playBlockClaim();
         } else {
-            console.log("[WithdrawScreen] Withdraw returned null (failed)");
+            if (__DEV__) console.log("[WithdrawScreen] Withdraw returned null (failed)");
             hapticError();
             playError();
         }

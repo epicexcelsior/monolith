@@ -29,7 +29,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     }
 
     if (finalStatus !== "granted") {
-      console.log("[Notifications] Permission not granted");
+      if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[Notifications] Permission not granted");
       return null;
     }
 
@@ -38,13 +38,13 @@ export async function registerForPushNotifications(): Promise<string | null> {
       projectId: "d8909ef0-36b3-4c65-aa05-467a3fba6444",
     });
 
-    console.log("[Notifications] Token:", tokenData.data);
+    if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[Notifications] Token:", tokenData.data);
     return tokenData.data;
   } catch (err) {
     // FCM not initialized is expected in dev builds without google-services.json
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("FirebaseApp") || msg.includes("FCM")) {
-      console.log("[Notifications] Skipped — FCM not configured (expected in dev)");
+      if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[Notifications] Skipped — FCM not configured (expected in dev)");
     } else {
       console.warn("[Notifications] Registration failed:", msg);
     }

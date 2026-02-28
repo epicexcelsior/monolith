@@ -95,7 +95,7 @@ export function getImageAtlasTexture(): THREE.DataTexture {
 
   try {
     const expectedBytes = ATLAS_WIDTH * ATLAS_HEIGHT * 4;
-    console.log(`[ImageAtlas] Decoding atlas: ${ATLAS_WIDTH}x${ATLAS_HEIGHT}, base64 length=${ATLAS_DATA_BASE64.length}`);
+    if (__DEV__) console.log(`[ImageAtlas] Decoding atlas: ${ATLAS_WIDTH}x${ATLAS_HEIGHT}, base64 length=${ATLAS_DATA_BASE64.length}`);
 
     texData = base64ToUint8Array(ATLAS_DATA_BASE64);
     texW = ATLAS_WIDTH;
@@ -108,7 +108,7 @@ export function getImageAtlasTexture(): THREE.DataTexture {
       texW = fb.width;
       texH = fb.height;
     } else {
-      console.log(`[ImageAtlas] Decoded ${texData.length} bytes OK`);
+      if (__DEV__) console.log(`[ImageAtlas] Decoded ${texData.length} bytes OK`);
     }
   } catch (e) {
     console.warn("[ImageAtlas] Decode failed, using fallback test atlas:", e);
@@ -131,7 +131,7 @@ export function getImageAtlasTexture(): THREE.DataTexture {
   texture.wrapT = THREE.ClampToEdgeWrapping;
 
   cachedTexture = texture;
-  console.log(`[ImageAtlas] Texture created: ${texW}x${texH}`);
+  if (__DEV__) console.log(`[ImageAtlas] Texture created: ${texW}x${texH}`);
   return texture;
 }
 

@@ -79,7 +79,7 @@ export default function TowerScreen() {
       setMultiplayerMode(true);
       const ok = await mpConnect();
       if (!ok) {
-        console.log("[Tower] Multiplayer unavailable, using local mode");
+        if (__DEV__) console.log("[Tower] Multiplayer unavailable, using local mode");
         setMultiplayerMode(false);
       }
       await initTower();
