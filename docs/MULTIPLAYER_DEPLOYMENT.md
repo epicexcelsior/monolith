@@ -180,13 +180,13 @@ eas build --profile production --platform ios
 
 ---
 
-## Recommended Stack for Hackathon
+## Recommended Stack
 
 **Server**: Railway (free tier, auto-deploy)
 **Client**: EAS Build (production profile)
 **Why**: Zero config, deploys in <5 min, stable URLs
 
-**Post-hackathon**: Migrate to Fly.io for better performance and closer proximity to Solana nodes.
+**Future**: Migrate to Fly.io for better performance and closer proximity to Solana nodes.
 
 ---
 

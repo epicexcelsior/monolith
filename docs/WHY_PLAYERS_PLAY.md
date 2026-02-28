@@ -205,7 +205,7 @@ This creates:
 
 **This single feature could be the difference between "cool demo" and "addictive game."**
 
-It doesn't need to ship for the hackathon. But it should be in the pitch deck as "what's next."
+It should be in the pitch deck as a key part of the roadmap.
 
 ---
 

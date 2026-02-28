@@ -1,7 +1,6 @@
 # The Monolith — MVP Roadmap
 
-> **Last updated:** 2026-02-16
-> **Hackathon deadline:** March 9, 2026
+> **Last updated:** 2026-02-28
 > **Solo developer** | Solana Seeker native | Expo 54 + R3F + Anchor
 
 ---
@@ -88,7 +87,7 @@
 | 22 | Gravity Tax | ❌ | Anti-monopoly mechanic |
 | 23 | Tower growth — new floors at TVL milestones | ❌ | Collective goal |
 
-### 🔵 TIER 4: Post-Hackathon
+### 🔵 TIER 4: Post-MVP
 
 | # | Feature | Notes |
 |---|---------|-------|
@@ -178,14 +177,14 @@ the skyline, and eventually earn real DeFi yield on your stake."
 
 ---
 
-## Build Order: Weeks 1-4 to Hackathon
+## Build Order
 
-| Week | Dates | Focus | Checkpoint |
-|------|-------|-------|------------|
-| **Week 1** | Feb 14-21 | Core polish | Tower alive with bots, claim flow feels amazing, charge loop tight |
-| **Week 2** | Feb 22-28 | Retention hooks | Streaks + real leaderboard + lighthouse + sounds + haptics wired |
-| **Week 3** | Mar 1-7 | Social + multiplayer | Neighbor boost, poke (if time), Blink sharing, bot diversity |
-| **Week 4** | Mar 8-9 | Ship it | Demo video, pitch deck, final testing, APK submission |
+| Phase | Focus | Checkpoint |
+|-------|-------|------------|
+| **Foundation** | Core polish | Tower alive with bots, claim flow feels amazing, charge loop tight |
+| **Retention** | Retention hooks | Streaks + real leaderboard + lighthouse + sounds + haptics wired |
+| **Social** | Social + multiplayer | Neighbor boost, poke, Blink sharing, bot diversity |
+| **Ship** | Final polish | Demo video, pitch deck, final testing, APK build |
 
 ---
 

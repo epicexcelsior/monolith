@@ -608,7 +608,7 @@ These are real issues but out of scope for devnet testing:
 
 | Issue | Why deferred |
 |---|---|
-| `UserDeposit` not closed on zero balance (wastes ~0.002 SOL rent) | Trivial on devnet; add `close = user` constraint post-hackathon |
+| `UserDeposit` not closed on zero balance (wastes ~0.002 SOL rent) | Trivial on devnet; add `close = user` constraint post-MVP |
 | u64 precision loss in JS decoder | Only matters above $9M USDC in one account |
 | Wallet address spoofing in server messages (`msg.wallet` trusted from client) | Requires per-message signing — significant scope, out of budget |
 | `total_deposited` can drift from real vault balance | Only possible via direct token transfers to vault, not exploitable by players |

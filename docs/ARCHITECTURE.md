@@ -2,7 +2,7 @@
 
 > **Living document. Single source of truth.** Update as project evolves.
 
-**Last Updated:** 2026-02-12 | **Solo Developer** | **Deadline: March 9, 2026** | **Target: Working demo in ~1 week**
+**Last Updated:** 2026-02-28 | **Solo Developer**
 
 ---
 
@@ -20,12 +20,12 @@
 | Decision           | Choice                                   | Why                                          |
 | ------------------ | ---------------------------------------- | -------------------------------------------- |
 | **Structure**      | **Monorepo** (pnpm workspaces)           | Single repo: app + server + program + shared |
-| **Platform**       | Android only (Seeker)                    | Hackathon requirement                        |
+| **Platform**       | Android only (Seeker)                    | Solana Seeker native target                  |
 | **Framework**      | Expo SDK 54, React 19, RN 0.81           | Latest stable                                |
 | **3D Engine**      | R3F v9 + Three.js + expo-gl              | React 19 compatible, mobile-proven           |
 | **Wallet**         | MWA → Seed Vault                         | Seeker-native                                |
 | **Smart Contract** | Anchor (Rust)                            | On-chain ownership + staking                 |
-| **Yield**          | **Mocked for MVP**                       | Real Drift integration post-hackathon        |
+| **Yield**          | **Mocked for MVP**                       | Real Drift integration post-MVP              |
 | **Network**        | **Devnet**                               | Safe, free                                   |
 | **Backend/DB**     | Supabase                                 | Real-time subscriptions, storage, auth       |
 | **Real-time Sync** | Colyseus or raw WebSockets               | Multiplayer tower state                      |
@@ -189,7 +189,7 @@ Three-tier InstancedMesh system:
 - Image upload to block face (accept NSFW risk for now)
 - NFT display (pull from user's Solana wallet)
 
-### Phase 3 (Post-hackathon)
+### Phase 3 (Post-MVP)
 
 - **AI-generated textures** via Meshy API (free tier: 100 credits/mo)
   - User types prompt → generates texture → applied to block
@@ -262,19 +262,16 @@ Solo dev on Devnet = need bots to make tower alive.
 
 ---
 
-## 11. Accelerated Timeline (1 week to demo)
+## 11. Development Phases
 
-| Day               | Focus                                       | Deliverable            |
-| ----------------- | ------------------------------------------- | ---------------------- |
-| **Day 1** (Today) | Scaffold monorepo, all deps, basic R3F cube | Project runs, shows 3D |
-| **Day 2**         | Tower renderer + InstancedMesh + LOD        | 1000 blocks visible    |
-| **Day 3**         | MWA wallet + Anchor program skeleton        | Stake → block appears  |
-| **Day 4**         | Supabase + energy system + visual states    | Blocks glow/fade       |
-| **Day 5**         | Game server + simulated bots                | Tower feels alive      |
-| **Day 6**         | Block customization + Action Button         | Personalization        |
-| **Day 7**         | Polish, demo flow, APK build                | Submit-ready           |
-
-**Remaining time (Week 2-4):** AI textures, multiplayer polish, pitch deck, demo video.
+| Phase | Focus | Deliverable |
+| ----- | ----- | ----------- |
+| **Foundation** | Monorepo scaffold, R3F, InstancedMesh, MWA + Anchor | 3D tower with on-chain staking |
+| **Core Loop** | Charge system, decay, streaks, visual states, Supabase | Playable game loop |
+| **Multiplayer** | Colyseus server, bot simulation, real-time sync | Living tower with 650+ blocks |
+| **Social** | Poke mechanic, Tapestry profiles, Blinks, SOAR | Social engagement layer |
+| **Polish** | Design system, onboarding, SFX, haptics, customization | Polished user experience |
+| **Next** | AI textures, real yield integration, token economy | Platform expansion |
 
 ---
 

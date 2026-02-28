@@ -50,7 +50,7 @@ These differentiate a good submission from a winning one.
 | 22 | **Tower Growth** | New floors unlock as total stake increases |
 | 23 | **SKR Integration** | Accept SKR as stakeable token alongside USDC |
 
-### 🔵 Post-Hackathon
+### 🔵 Post-MVP
 
 | Feature | Description |
 |---|---|
@@ -103,7 +103,7 @@ These differentiate a good submission from a winning one.
 - [ ] Day 22: Demo video recording + editing
 - [ ] Day 23: Pitch deck creation
 - [ ] Day 24: APK build, final testing on Seeker
-- [ ] Day 25: Submit to hackathon
+- [ ] Day 25: Submit final build
 
 ---
 

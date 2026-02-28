@@ -51,7 +51,7 @@
 
 ### Phase 1: Free Libraries (Now)
 
-Get functional fast with stock SFX. These are good enough for hackathon:
+Get functional fast with stock SFX. These are good enough for MVP:
 
 | Source | License | URL |
 |---|---|---|
@@ -76,7 +76,7 @@ For custom, unique sounds that match the aesthetic:
 | **Soundraw** | Generate background music/ambient | Free tier for 1 track |
 | **Suno** | Generate full music tracks | Free credits daily |
 
-### Phase 3: Custom Composition (Post-Hackathon)
+### Phase 3: Custom Composition (Post-MVP)
 
 Commission a composer for:
 - Custom ambient soundtrack per floor zone

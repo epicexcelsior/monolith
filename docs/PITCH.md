@@ -1,6 +1,6 @@
 # The Monolith — Pitch & Marketing Guide
 
-> **Purpose:** Talking points, positioning, and narrative for pitching The Monolith to investors, hackathon judges, friends, and potential users.
+> **Purpose:** Talking points, positioning, and narrative for pitching The Monolith to investors, judges, partners, and potential users.
 >
 > **Last updated:** 2026-02-14
 
@@ -14,7 +14,7 @@
 | **Crypto friends** | "What if your DeFi position was a glowing block on a tower that fades if you stop playing?" |
 | **Investors** | "We turn passive DeFi deposits into an addictive daily game with 50%+ D1 retention." |
 | **Gamers** | "Stake a dollar, own a block on a massive 3D tower. Keep it charged. Compete for the skyline." |
-| **Hackathon judges** | "A gamified staking protocol on Solana Seeker where Charge decay drives daily retention — the Snapchat streak of DeFi." |
+| **Judges / evaluators** | "A gamified staking protocol on Solana Seeker where Charge decay drives daily retention -- the Snapchat streak of DeFi." |
 
 ---
 
@@ -172,7 +172,7 @@ Game + Finance + Social
 
 | Revenue stream | How | When |
 |---------------|-----|------|
-| **Yield spread** | Route vault USDC into Drift/Kamino, keep small % of yield | Post-hackathon |
+| **Yield spread** | Route vault USDC into Drift/Kamino, keep small % of yield | Post-MVP |
 | **Boost purchases** | Pay USDC to instant-fill Charge to 100 | Could ship in MVP |
 | **Premium customization** | AI-generated 3D textures, animated blocks | Phase 2 |
 | **Name reservations** | Vanity block names (premium) | Phase 2 |
@@ -192,8 +192,8 @@ Game + Finance + Social
 
 ## 9. Go-To-Market Thoughts
 
-### Phase 1: Hackathon + Crypto Twitter (Mar 2026)
-- Submit to Solana hackathon
+### Phase 1: Launch + Crypto Twitter (Mar 2026)
+- Submit to Solana ecosystem competitions
 - Post demo video to X/Twitter with #Solana #Seeker tags
 - Share in Solana Discord communities
 - Target: 100-500 initial users

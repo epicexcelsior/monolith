@@ -137,14 +137,14 @@ Several patterns exist in the ecosystem:
 
 ---
 
-## 5. Why Agents Matter for the Hackathon
+## 5. Why Agents Matter
 
-Even if agent integration is not fully built for the demo, the **design** should be visible:
+The agent-first architecture is a core differentiator:
 
 1. **Pitch deck:** "Agents are first-class citizens. Here's the API spec."
-2. **Architecture:** The game server already has REST endpoints — agents use the same ones.
-3. **Simulation bots** (already planned) are effectively proto-agents — they demonstrate the concept.
-4. **Innovation scoring:** This is a massive differentiator. No other hackathon project will have agent-native architecture.
+2. **Architecture:** The game server already has REST endpoints -- agents use the same ones.
+3. **Simulation bots** (already built) are effectively proto-agents -- they demonstrate the concept.
+4. **Innovation:** No comparable project has agent-native architecture built in from day one.
 
 ### What to Build for MVP
 

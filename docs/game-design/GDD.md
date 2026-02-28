@@ -2,7 +2,7 @@
 
 > **Canonical reference for all game mechanics.** Every agent, developer, and contributor starts here.
 >
-> **Version:** 1.0 — Hackathon MVP | **Deadline:** March 9, 2026 | **Identity:** Game first. Finance is the engine.
+> **Version:** 1.0 — MVP | **Identity:** Game first. Finance is the engine.
 
 ---
 
@@ -112,7 +112,7 @@ The base decay rate is a server-side config, allowing tuning:
 |---|---|---|
 | **Production** | 1 Charge/hour | ~4 days from 100→0 without any taps |
 | **Demo/Testing** | 1 Charge/minute | Visible decay during a 5-minute demo |
-| **Hackathon Showcase** | 1 Charge/30 sec | Dramatic for live presentations |
+| **Live Demo** | 1 Charge/30 sec | Dramatic for live presentations |
 
 ---
 
@@ -342,7 +342,7 @@ No yield in MVP. The "yield" narrative is part of the pitch for the long-term vi
 
 | Stream | How | When |
 |---|---|---|
-| **Yield Spread** | Small % of DeFi yield (Drift, Kamino, Jupiter, Orca LP) | Post-hackathon |
+| **Yield Spread** | Small % of DeFi yield (Drift, Kamino, Jupiter, Orca LP) | Post-MVP |
 | **Boost Purchases** | Pay USDC to instant-fill Charge to 100 | MVP-possible |
 | **Premium Customization** | AI-generated 3D models, animated textures | Phase 2+ |
 | **Name Reservations** | Vanity block names | Phase 2 |
@@ -392,34 +392,34 @@ This is the same psychology as Snapchat streaks or Wordle chains — mild, frien
 
 ---
 
-## 12. Hackathon Judging Strategy
+## 12. Evaluation Criteria & Demo Strategy
 
-| Criterion (25%) | How We Win |
+| Criterion | How We Deliver |
 |---|---|
-| **Stickiness & PMF** | Charge decay + daily tap ritual + streak system + push notifications. The "Snapchat streak" of DeFi. Articulate the retention loop clearly in the pitch. |
+| **Stickiness & PMF** | Charge decay + daily tap ritual + streak system + push notifications. The "Snapchat streak" of DeFi. Clear retention loop in the pitch. |
 | **UX** | Gorgeous 3D tower, satisfying haptics, one-tap Charge, guided onboarding, < 60 sec to first claim. Polish the FEEL above all. |
-| **Innovation / X-Factor** | 3D r/Place + DeFi. Emergent neighborhoods. Lighthouse effect. Agent-ready API. Nobody has done this before. |
-| **Presentation & Demo** | Living tower with 100+ blocks (bots), real on-chain staking, real-time visual feedback. 2-minute narrated demo video. |
+| **Innovation / X-Factor** | 3D r/Place + DeFi. Emergent neighborhoods. Lighthouse effect. Agent-ready API. First of its kind. |
+| **Presentation & Demo** | Living tower with 650+ blocks (bots), real on-chain staking, real-time visual feedback. 2-minute narrated demo video. |
 
 ### Demo Script (2 minutes)
 
 ```
-0:00 – Tower appears, spinning slowly, particles, ambient hum
-0:10 – "This is The Monolith. A living tower powered by Solana."
-0:15 – Camera dives into the tower, showing neighborhoods at different Charge levels
-0:25 – "Every block is owned by a real person. They stake USDC to claim it."
-0:30 – User opens app on Seeker, taps "Find My Spot"
-0:35 – Camera flies to available block near a Lighthouse
-0:40 – Stakes $1 USDC via MWA → Seed Vault signs
-0:45 – BOOM — block ignites, haptic double-pulse, celebration SFX
-0:55 – User picks color and emoji
-1:05 – Camera pulls back: block glows in context of the tower
-1:15 – "The tower is alive. Blocks need Charge to stay bright."
-1:20 – Time-lapse: blocks fading and being re-Charged
-1:30 – "Tap daily to keep your Charge alive. Build streaks. Climb the Skyline."
-1:40 – Leaderboard flash, streak badges
-1:50 – "Share your block. Bring your friends. Build your neighborhood."
-2:00 – Blink posted to X, tower overview, end card with logo
+0:00 - Tower appears, spinning slowly, particles, ambient hum
+0:10 - "This is The Monolith. A living tower powered by Solana."
+0:15 - Camera dives into the tower, showing neighborhoods at different Charge levels
+0:25 - "Every block is owned by a real person. They stake USDC to claim it."
+0:30 - User opens app on Seeker, taps "Find My Spot"
+0:35 - Camera flies to available block near a Lighthouse
+0:40 - Stakes $1 USDC via MWA -> Seed Vault signs
+0:45 - BOOM - block ignites, haptic double-pulse, celebration SFX
+0:55 - User picks color and emoji
+1:05 - Camera pulls back: block glows in context of the tower
+1:15 - "The tower is alive. Blocks need Charge to stay bright."
+1:20 - Time-lapse: blocks fading and being re-Charged
+1:30 - "Tap daily to keep your Charge alive. Build streaks. Climb the Skyline."
+1:40 - Leaderboard flash, streak badges
+1:50 - "Share your block. Bring your friends. Build your neighborhood."
+2:00 - Blink posted to X, tower overview, end card with logo
 ```
 
 ---
@@ -439,7 +439,7 @@ This is the same psychology as Snapchat streaks or Wordle chains — mild, frien
 
 ### 13.3 Content Moderation
 - User-uploaded images on blocks: any filtering needed?
-- **Recommendation:** For MVP/hackathon, allow anything. Post-hackathon, add basic image classification or community reporting.
+- **Recommendation:** For MVP, allow anything. Post-launch, add basic image classification or community reporting.
 
 ### 13.4 Tower Growth Thresholds
 - At what total staked amounts do new floors unlock?

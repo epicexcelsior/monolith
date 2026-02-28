@@ -384,7 +384,7 @@ Phase 3's original camera celebration work (2026-02-25) was functionally broken 
 ### Deviations from original plan
 - **Skipped pulse animation on FAB**: The red urgency dot is sufficient visual indicator. A pulsing FAB would be distracting during normal gameplay and causes unnecessary re-renders.
 - **Kept charge handler in MyBlocksPanel** rather than routing through `useBlockActions`: Panel's handler works differently (batch "Charge All" with stagger, no selectedBlockId dependency). The daily bonus logic (`isFirstToday ? 50 : 25`) is duplicated from useBlockActions but consistent — extracting to a shared constant would add indirection for two call sites.
-- **Did not extract `pts = 25/50` to constants**: Plan suggested importing from constants. Values are duplicated in MyBlocksPanel and useBlockActions, but they're identical and intentional (50 for daily bonus, 25 for regular). A constant adds import overhead for a 2-site duplication. Acceptable trade-off for a hackathon codebase.
+- **Did not extract `pts = 25/50` to constants**: Plan suggested importing from constants. Values are duplicated in MyBlocksPanel and useBlockActions, but they're identical and intentional (50 for daily bonus, 25 for regular). A constant adds import overhead for a 2-site duplication. Acceptable trade-off for this codebase.
 
 ### Verified
 - `npx tsc --noEmit` — 0 errors

@@ -5,7 +5,7 @@
 
 ## What Is This?
 
-The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block on a shared tower, customize it, compete for status. Solana Seeker native, hackathon deadline March 9, 2026.
+The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block on a shared tower, customize it, compete for status. Solana Seeker native.
 
 **Solo dev** | Expo 54 + React Native + R3F + Anchor | Colyseus multiplayer on Railway
 

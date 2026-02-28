@@ -348,7 +348,7 @@ At scale, sinks should outpace faucets because:
 
 ### Token Launch Strategy
 
-**Phase 1: Earn only (Hackathon → Month 3)**
+**Phase 1: Earn only (Launch → Month 3)**
 - No token trading. CHG is earned and displayed as a balance.
 - Users accumulate CHG through gameplay.
 - This builds a base of holders who earned tokens through effort (not money).
@@ -412,11 +412,12 @@ Don't pay for shilling. Instead:
 
 ## Part 6: The Roadmap Investors Want to See
 
-### Phase 1: Foundation (Now → Hackathon)
-- Working 3D tower with real on-chain staking ✅
-- Bot simulation for lively demo ✅
-- Streak + charge core loop ✅
-- Pitch deck + demo video
+### Phase 1: Foundation (Complete)
+- Working 3D tower with real on-chain staking
+- Bot simulation (21 personas, 6 archetypes, 650+ blocks)
+- Streak + charge core loop with full polish
+- Multiplayer, social layer, on-chain leaderboard
+- Immersive onboarding, SFX, haptics, XP system
 
 ### Phase 2: Growth (Month 1-3)
 - Multiplayer state sync (Supabase real-time)

@@ -1,6 +1,6 @@
 # Platform Vision — From Game to Engagement Infrastructure
 
-> These are **future directions** to pursue post-hackathon. None are required for MVP.
+> These are **future directions** to pursue post-MVP. None are required for the initial launch.
 > They exist to shape the investor narrative and long-term product strategy.
 >
 > **Status:** Ideation — not scoped, not committed, not started.
