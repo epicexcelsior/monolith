@@ -689,9 +689,9 @@ const fragmentShader = /* glsl */ `
     float evoRimBoost = evoTier * 0.15;        // extra rim per tier
     float evoShimmer = 0.0;
     if (evoTier >= 2.0 && energy > 0.1) {
-      // Particle shimmer effect — gentle sparkle at Flame+
-      float shimmerNoise = noise2D(vWorldPos.xz * 12.0 + uTime * 2.0);
-      float shimmerPing = pow(max(shimmerNoise, 0.0), 8.0);
+      // Particle shimmer — cheap hash21 instead of noise2D (4x fewer ops on mobile GPU)
+      float shimmerNoise = hash21(floor(vWorldPos.xz * 12.0 + uTime * 2.0));
+      float shimmerPing = pow(shimmerNoise, 8.0);
       evoShimmer = shimmerPing * (evoTier - 1.0) * 0.15 * energy;
     }
 

@@ -57,11 +57,12 @@ interface BlockRow {
   streak: number;
   last_streak_date: string;
   total_charges?: number;
+  best_streak?: number;
   evolution_tier?: number;
   appearance: Record<string, any>;
 }
 
-const BLOCK_COLUMNS = "id, layer, index, energy, owner, owner_color, staked_amount, last_charge_time, streak, last_streak_date, total_charges, evolution_tier, appearance";
+const BLOCK_COLUMNS = "id, layer, index, energy, owner, owner_color, staked_amount, last_charge_time, streak, last_streak_date, total_charges, best_streak, evolution_tier, appearance";
 
 export async function loadPlayerBlocks(): Promise<BlockRow[]> {
   const client = getClient();

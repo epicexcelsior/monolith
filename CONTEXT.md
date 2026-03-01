@@ -21,13 +21,15 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - Camera system (orbit + vertical pan + scrubber + block inspect)
 - MWA wallet connect (Seed Vault / Phantom)
 - On-chain USDC vault (deposit / withdraw, devnet)
-- Charge system (decay + daily tap + streaks 1x-3x)
+- Charge system (variable 15-35 energy, weighted brackets, streak 1x-3x multiplier, quality-based visual feedback)
 - Block customization (color, emoji, name, style, textureId) — fully networked + persisted, streak-gated unlock tiers
 - Bot simulation (21 personas, 6 archetypes, ~450 blocks, denser energy distribution)
 - Colyseus multiplayer (server-authoritative, JSON messages, Railway)
 - **Immersive onboarding revamp** (9-phase: cinematic orbit → title → claim → celebration → customize → charge → poke → wallet → done)
 - 4 new animated block styles (Lava, Aurora, Crystal, Nature — GLSL, styles 7-10)
 - Demo mode XP feedback (claim 100/300xp, charge 25/50xp — offline-first, customization XP removed)
+- **Block evolution** (5 tiers: Spark→Ember→Flame→Blaze→Beacon — permanent progression via cumulative charges + best streak, GLSL glow/rim/shimmer boost, progress bar in inspector)
+- **Variable charge rewards** (weighted random 15-35 base energy, quality brackets: normal/good/great, "Lucky!" label on great rolls, quality-aware 3D flash colors)
 - Liquid glass UI design system (solarpunk palette)
 - **Supabase persistence** (blocks, players, events — hosted, migration applied)
 - **XP / level system** (claim=100xp, charge=25xp, combo up to 3x, 10 levels)
@@ -183,7 +185,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | File | Purpose |
 |------|---------|
 | `packages/common/src/layout.ts` | Tower geometry / block position math |
-| `packages/common/src/constants.ts` | Shared tower dimensions, limits, layer pricing, customization tiers |
+| `packages/common/src/constants.ts` | Shared tower dimensions, limits, layer pricing, customization tiers, streak system, variable charge brackets, evolution tiers |
 | `packages/common/src/types.ts` | Shared TypeScript types (ClaimMessage, ChargeMessage, ActivityEvent) |
 
 ### Database
@@ -192,6 +194,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `supabase/migrations/001_initial.sql` | Schema: blocks, players, events + RLS policies |
 | `supabase/migrations/002_push_tokens.sql` | Push notification token storage |
 | `supabase/migrations/003_player_username.sql` | Username column on players table |
+| `supabase/migrations/004_block_evolution.sql` | Evolution columns (total_charges, best_streak, evolution_tier) |
 | `supabase/config.toml` | Supabase CLI config (linked to project pscgsbdznfitscxflxrm) |
 
 ### Anchor Program
@@ -213,7 +216,7 @@ Claim/Charge → multiplayer-store.ts → Colyseus room.send() → TowerRoom.ts 
   → upsertBlock() → Supabase blocks table
   → charge_result/claim_result → BlockInspector → player-store → FloatingPoints/LevelUp
 Server mutation → room.broadcast("block_update", { eventType }) → multiplayer-store.ts
-  → tower-store.ts → TowerGrid re-render (claim flash gold / charge flash blue-white / poke shake orange)
+  → tower-store.ts → TowerGrid re-render (claim flash gold / charge flash quality-colored / poke shake orange)
   → recentEvents → activity-store → HotBlockTicker / Board tab
 Blink poke → routes/blinks.ts POST → blink-poke.ts → getActiveRoom().broadcast("block_update", eventType:"poke")
   + poke_received to owner client → PokeReceivedToast + SFX + haptic
@@ -333,6 +336,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `TowerRoom.ts` message format | Client handlers in `multiplayer-store.ts` |
 | `supabase/migrations/` | Run `npx supabase db push` to apply to hosted DB |
 | Supabase table schema | Update `BlockRow` / `PlayerRow` interfaces in `supabase.ts` |
+| `CHARGE_BRACKETS` or `EVOLUTION_TIERS` in `constants.ts` | Both client and server use these — redeploy server too. Evolution tier is denormalized in DB — existing blocks keep old tier until next charge. |
+| `getStreakMultiplier` / `isNextDay` | Shared in `@monolith/common/constants.ts` — used by both `tower-store.ts` (re-export) and `TowerRoom.ts` |
 | Tapestry API wrapper (`tapestry.ts`) | `tapestry-store.ts`, `useAuthorization.ts`, `useBlockActions.ts`, `BlockInspector.tsx` |
 | SOAR constants (`soar-constants.ts`) | `soar.ts`, `BoardContent.tsx` (badge visibility) |
 
@@ -356,6 +361,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-01**: Core loop redesign Phase 1 — Variable charge system (weighted random 15-35 base, quality brackets normal/good/great, "Lucky!" on great rolls, quality-aware 3D flash colors + FloatingPoints scale), block evolution (5 permanent tiers Spark→Beacon via cumulative charges + best streak, GLSL glow/rim/shimmer boost, progress bar in inspector), breathing pulse on charge button, bestStreak tracking (evolution never regresses). Code quality: moved getStreakMultiplier/isNextDay to @monolith/common (DRY), embedded quality in CHARGE_BRACKETS, ChargeQuality type shared, shader shimmer uses hash21 instead of noise2D, charge quality passed via tower store (not player store). DB migration: 004_block_evolution.sql (total_charges, best_streak, evolution_tier).
 
 - **2026-02-27**: MagicBlock SOAR integration (Graveyard Hack bounty) — `@magicblock-labs/soar-sdk` installed, fire-and-forget score submission on claim/charge/poke (5 call sites in useBlockActions.ts), auto-register on wallet connect via MWA, authority-signed score/achievement txs (dual SoarProgram pattern — authority as payer for submissions, player as payer for init), fixed totalXp truthy check bug (0 is falsy), feature-flagged `SOAR_ENABLED`, on-chain leaderboard + 7 achievements active on devnet, "Verified on Solana via SOAR" badge on XP leaderboard, one-shot setup script (`setup-soar.ts`), pnpm overrides for Anchor version conflict, demo guide for judges. 222 mobile + 84 server tests passing.
 

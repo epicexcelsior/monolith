@@ -16,7 +16,6 @@ import {
 } from "@monolith/common";
 import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
-import { usePlayerStore } from "@/stores/player-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
 import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
@@ -419,20 +418,20 @@ export default function TowerGrid() {
     }
   }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
 
-  // Handle charge flash trigger — quality from player store determines flash intensity
+  // Handle charge flash trigger — quality from tower store determines flash intensity
+  const recentlyChargedQuality = useTowerStore((s) => s.recentlyChargedQuality);
   useEffect(() => {
     if (recentlyChargedId) {
       const idx = blockData.findIndex((b) => b.id === recentlyChargedId);
       if (idx >= 0) {
-        // Read charge quality: 0=normal, 1=good, 2=great
-        const q = usePlayerStore.getState().lastChargeQuality;
-        const quality = q === "great" ? 2 : q === "good" ? 1 : 0;
+        // Map quality string to numeric: 0=normal, 1=good, 2=great
+        const quality = recentlyChargedQuality === "great" ? 2 : recentlyChargedQuality === "good" ? 1 : 0;
         chargeFlashQueueRef.current.push({ blockIndex: idx, time: 0, quality });
       }
       const timer = setTimeout(() => clearRecentlyCharged(), 100);
       return () => clearTimeout(timer);
     }
-  }, [recentlyChargedId, blockData, clearRecentlyCharged]);
+  }, [recentlyChargedId, recentlyChargedQuality, blockData, clearRecentlyCharged]);
 
   // Handle glow-up trigger (gold→owner color after zoom-back)
   useEffect(() => {

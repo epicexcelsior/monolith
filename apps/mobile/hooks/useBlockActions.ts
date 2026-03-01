@@ -226,8 +226,8 @@ export function useBlockActions() {
         playError();
       } else if (result.success) {
         playChargeTap();
-        // Trigger 3D charge flash
-        setRecentlyChargedId(selectedBlockId);
+        // Trigger 3D charge flash (pass quality for visual intensity)
+        setRecentlyChargedId(selectedBlockId, result.chargeQuality);
         if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
           hapticStreakMilestone();
           playStreakMilestone();

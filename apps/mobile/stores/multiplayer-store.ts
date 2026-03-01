@@ -4,7 +4,7 @@ import { GAME_SERVER_URL } from "@/constants/network";
 import { useTowerStore } from "@/stores/tower-store";
 import type { DemoBlock } from "@/stores/tower-store";
 import { useActivityStore } from "@/stores/activity-store";
-import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ActivityEvent } from "@monolith/common";
+import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ActivityEvent, ChargeQuality } from "@monolith/common";
 import { registerForPushNotifications } from "@/utils/notifications";
 import { useWalletStore } from "@/stores/wallet-store";
 import { hapticButtonPress } from "@/utils/haptics";
@@ -38,6 +38,7 @@ interface ServerBlock {
   lastStreakDate: string;
   imageIndex: number;
   totalCharges: number;
+  bestStreak: number;
   evolutionTier: number;
   appearance: {
     color: string;
@@ -68,7 +69,7 @@ export interface ChargeResult {
   streak?: number;
   multiplier?: number;
   chargeAmount?: number;
-  chargeQuality?: "normal" | "good" | "great";
+  chargeQuality?: ChargeQuality;
   totalCharges?: number;
   evolutionTier?: number;
   pointsEarned?: number;
@@ -221,8 +222,9 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     lastChargeTime: block.lastChargeTime || undefined,
     streak: block.streak || 0,
     lastStreakDate: block.lastStreakDate || undefined,
-    totalCharges: block.totalCharges || 0,
-    evolutionTier: block.evolutionTier || 0,
+    totalCharges: block.totalCharges ?? 0,
+    bestStreak: block.bestStreak ?? 0,
+    evolutionTier: block.evolutionTier ?? 0,
   };
 }
 

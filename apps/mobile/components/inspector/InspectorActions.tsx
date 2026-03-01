@@ -79,6 +79,12 @@ export default function InspectorActions({
   onUnlike,
 }: InspectorActionsProps) {
 
+  // Evolution progress (computed once, used in owner section)
+  const totalCharges = block.totalCharges ?? 0;
+  const evolutionTier = getEvolutionTier(totalCharges, block.bestStreak ?? 0);
+  const evolutionTierInfo = getEvolutionTierInfo(evolutionTier);
+  const nextEvolutionTier = chargesToNextTier(totalCharges, block.bestStreak ?? 0);
+
   return (
     <View style={styles.ctaSection}>
       {isUnclaimed && (
@@ -132,31 +138,23 @@ export default function InspectorActions({
             pulsing={!cooldownText}
           />
           {/* Evolution progress */}
-          {(() => {
-            const totalCharges = block.totalCharges ?? 0;
-            const tier = getEvolutionTier(totalCharges, streak);
-            const tierInfo = getEvolutionTierInfo(tier);
-            const nextTier = chargesToNextTier(totalCharges, streak);
-            return (
-              <View style={styles.evolutionSection}>
-                <View style={styles.evolutionHeader}>
-                  <Text style={styles.evolutionTierText}>{tierInfo.name}</Text>
-                  {nextTier ? (
-                    <Text style={styles.evolutionProgressText}>
-                      {totalCharges}/{EVOLUTION_TIERS[tier + 1].charges} to {nextTier.nextTierName}
-                    </Text>
-                  ) : (
-                    <Text style={styles.evolutionMaxText}>Max Tier</Text>
-                  )}
-                </View>
-                {nextTier && (
-                  <View style={styles.evolutionBar}>
-                    <View style={[styles.evolutionBarFill, { width: `${Math.round(nextTier.progress * 100)}%` }]} />
-                  </View>
-                )}
+          <View style={styles.evolutionSection}>
+            <View style={styles.evolutionHeader}>
+              <Text style={styles.evolutionTierText}>{evolutionTierInfo.name}</Text>
+              {nextEvolutionTier ? (
+                <Text style={styles.evolutionProgressText}>
+                  {totalCharges}/{EVOLUTION_TIERS[evolutionTier + 1].charges} to {nextEvolutionTier.nextTierName}
+                </Text>
+              ) : (
+                <Text style={styles.evolutionMaxText}>Max Tier</Text>
+              )}
+            </View>
+            {nextEvolutionTier && (
+              <View style={styles.evolutionBar}>
+                <View style={[styles.evolutionBarFill, { width: `${Math.round(nextEvolutionTier.progress * 100)}%` }]} />
               </View>
-            );
-          })()}
+            )}
+          </View>
           <Text style={styles.chargeExplainer}>
             Energy decays daily. 0% for 3 days = anyone can reclaim it.
           </Text>
@@ -404,7 +402,7 @@ const styles = StyleSheet.create({
     overflow: "hidden" as const,
   },
   evolutionBarFill: {
-    height: "100%" as any,
+    height: "100%",
     borderRadius: 2,
     backgroundColor: COLORS.gold,
   },

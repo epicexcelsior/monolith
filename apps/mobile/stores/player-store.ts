@@ -6,6 +6,7 @@
  */
 
 import { create } from "zustand";
+import type { ChargeQuality } from "@monolith/common";
 
 interface PlayerStore {
   // ─── State ────────────────────────────────
@@ -16,7 +17,7 @@ interface PlayerStore {
   lastCombo: number | null;
   lastPointsLabel: string | null; // Custom label for FloatingPoints (e.g. "Daily Charge ✓")
   lastChargeAmount: number | null; // Energy added on last charge (e.g. 27)
-  lastChargeQuality: "normal" | "good" | "great" | null; // Roll quality for visual feedback
+  lastChargeQuality: ChargeQuality | null; // Roll quality for visual feedback
   levelUp: number | null; // the new level, or null
   totalClaims: number;
   totalCharges: number;
@@ -33,7 +34,7 @@ interface PlayerStore {
     levelUp?: boolean;
     label?: string;
     chargeAmount?: number;
-    chargeQuality?: "normal" | "good" | "great";
+    chargeQuality?: ChargeQuality;
   }) => void;
   /** Check if today's first charge has been done */
   isFirstChargeToday: () => boolean;

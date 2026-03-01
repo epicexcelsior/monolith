@@ -62,7 +62,7 @@ export default function FloatingPoints() {
   const bottom = hasInspector ? 340 : 200;
 
   // Quality-based text color
-  const qualityColor = lastChargeQuality === "great" ? "#FFD700"
+  const qualityColor = lastChargeQuality === "great" ? COLORS.blazingLight
     : lastChargeQuality === "good" ? COLORS.goldLight
     : COLORS.gold;
 
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   luckyLabel: {
     fontFamily: FONT_FAMILY.headingBlack,
     fontSize: 14,
-    color: "#FFD700",
+    color: COLORS.blazingLight,
     textShadowColor: "rgba(255,180,0,0.6)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,

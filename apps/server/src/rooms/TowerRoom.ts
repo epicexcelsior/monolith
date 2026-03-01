@@ -1,7 +1,7 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, CHARGE_QUALITY } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay } from "@monolith/common";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality } from "@monolith/common";
 import {
   loadPlayerBlocks,
@@ -34,24 +34,6 @@ const STATE_BROADCAST_INTERVAL_MS = 15_000;
 const PERSISTENCE_INTERVAL_MS = 60_000;
 const DORMANT_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
-/** Streak multiplier tiers (identical to client) */
-function getStreakMultiplier(streak: number): number {
-  if (streak >= 30) return 3.0;
-  if (streak >= 7) return 2.0;
-  if (streak >= 5) return 1.75;
-  if (streak >= 3) return 1.5;
-  return 1.0;
-}
-
-/** Check if ts2 is exactly the next calendar day after ts1 */
-function isNextDay(ts1: number, ts2: number): boolean {
-  const d1 = new Date(ts1);
-  const d2 = new Date(ts2);
-  d1.setHours(0, 0, 0, 0);
-  d2.setHours(0, 0, 0, 0);
-  return d2.getTime() - d1.getTime() === 86400000;
-}
-
 /** Check if a block is dormant (0 energy, non-bot, 3+ days since last charge) */
 function isDormant(block: BlockSchema): boolean {
   if (!block.owner || isBotOwner(block.owner)) return false;
@@ -75,6 +57,7 @@ function serializeBlock(block: BlockSchema) {
     lastStreakDate: block.lastStreakDate,
     imageIndex: block.imageIndex,
     totalCharges: block.totalCharges,
+    bestStreak: block.bestStreak,
     evolutionTier: block.evolutionTier,
     appearance: {
       color: block.appearance.color,
@@ -100,6 +83,7 @@ function blockToRow(block: BlockSchema) {
     streak: block.streak,
     last_streak_date: block.lastStreakDate,
     total_charges: block.totalCharges,
+    best_streak: block.bestStreak,
     evolution_tier: block.evolutionTier,
     appearance: {
       color: block.appearance.color,
@@ -159,6 +143,7 @@ export class TowerRoom extends Room<TowerRoomState> {
           block.streak = row.streak;
           block.lastStreakDate = row.last_streak_date;
           block.totalCharges = row.total_charges ?? 0;
+          block.bestStreak = row.best_streak ?? 0;
           block.evolutionTier = row.evolution_tier ?? 0;
           if (row.appearance) {
             const a = row.appearance as any;
@@ -395,17 +380,17 @@ export class TowerRoom extends Room<TowerRoomState> {
 
         const multiplier = getStreakMultiplier(newStreak);
         // Variable charge: random 15-35 base, then multiplied by streak
-        const { amount: baseAmount, bracketIndex } = rollChargeAmount();
+        const { amount: baseAmount, quality: chargeQuality } = rollChargeAmount();
         const chargeAmount = Math.round(baseAmount * multiplier);
-        const chargeQuality = CHARGE_QUALITY[bracketIndex];
 
         block.energy = Math.min(MAX_ENERGY, block.energy + chargeAmount);
         block.lastChargeTime = now;
         block.streak = newStreak;
         block.lastStreakDate = today;
         block.totalCharges++;
-        // Recompute evolution tier
-        block.evolutionTier = getEvolutionTier(block.totalCharges, block.streak);
+        block.bestStreak = Math.max(block.bestStreak, newStreak);
+        // Evolution tier never regresses (ratchet)
+        block.evolutionTier = Math.max(block.evolutionTier, getEvolutionTier(block.totalCharges, block.bestStreak));
         this.chargesToday++;
 
         // XP computation
