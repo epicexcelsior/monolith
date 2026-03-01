@@ -18,6 +18,7 @@ import { createBlockMaterial, createGlowMaterial, createHologramMaterial } from 
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
+import { getCachedTexture } from "@/utils/texture-cache";
 import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
 
 export interface BlockMeta {
@@ -897,34 +898,27 @@ export default function TowerGrid() {
           ? blockData.find((b) => b.id === selectedBlockId)
           : null;
         const imageUrl = (selectedBlock as any)?.imageUrl;
-        if (imageUrl && inspectImageRef.current?.url !== imageUrl) {
-          // Load the user's image as a texture (async, non-blocking)
-          const loader = new THREE.TextureLoader();
-          loader.load(
-            imageUrl,
-            (tex) => {
-              tex.minFilter = THREE.LinearFilter;
-              tex.magFilter = THREE.LinearFilter;
-              tex.wrapS = THREE.ClampToEdgeWrapping;
-              tex.wrapT = THREE.ClampToEdgeWrapping;
-              inspectImageRef.current = { url: imageUrl, texture: tex };
-              if (materialRef.current) {
-                materialRef.current.uniforms.uInspectImage.value = tex;
-                materialRef.current.uniforms.uInspectImageActive.value = 1.0;
-              }
-            },
-            undefined,
-            () => {
-              // Load failed — clear the inspect image
-              if (materialRef.current) {
-                materialRef.current.uniforms.uInspectImageActive.value = 0.0;
-              }
-            },
-          );
-        } else if (imageUrl && inspectImageRef.current?.url === imageUrl) {
-          // Already loaded — ensure uniform is active
-          mat.uniforms.uInspectImageActive.value = 1.0;
-        } else if (!imageUrl) {
+        if (imageUrl) {
+          // Try LRU cache first — returns immediately if cached, null if loading
+          const cached = getCachedTexture(imageUrl, (tex) => {
+            // Async callback: texture just finished loading
+            inspectImageRef.current = { url: imageUrl, texture: tex };
+            if (materialRef.current) {
+              materialRef.current.uniforms.uInspectImage.value = tex;
+              materialRef.current.uniforms.uInspectImageActive.value = 1.0;
+            }
+          });
+
+          if (cached) {
+            // Cache hit — activate immediately
+            if (inspectImageRef.current?.url !== imageUrl) {
+              inspectImageRef.current = { url: imageUrl, texture: cached };
+            }
+            mat.uniforms.uInspectImage.value = cached;
+            mat.uniforms.uInspectImageActive.value = 1.0;
+          }
+          // If null, texture is loading — uniform stays at previous state
+        } else {
           // No user image — deactivate
           mat.uniforms.uInspectImageActive.value = 0.0;
         }

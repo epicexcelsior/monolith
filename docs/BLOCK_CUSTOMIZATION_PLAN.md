@@ -1,7 +1,7 @@
 # Block Customization Enhancement Plan
 
 > **Living decision document.** Reference for all block customization improvements.
-> **Created:** 2026-03-01 | **Status:** Phase 1 complete (1A-1E shipped), Phase 2A shipped
+> **Created:** 2026-03-01 | **Status:** Phase 1 complete (1A-1E), Phase 2 complete (2A-2C)
 
 ---
 
@@ -128,8 +128,8 @@ Give players maximum freedom and delight when customizing their blocks. Make the
 
 **Phase 2 (Polish — Target: March 5-7)**
 - [x] 2A: Holographic pop-out effect during block inspection
-- [ ] 2B: Image optimization pipeline (server-side resize/WebP)
-- [ ] 2C: Texture cache with LRU eviction
+- [x] 2B: Image optimization pipeline (server-side resize/WebP)
+- [x] 2C: Texture cache with LRU eviction
 
 **Phase 3 (Post-Hackathon)**
 - [ ] Full 3D block configuration system
@@ -358,3 +358,28 @@ void main() {
 - **Deviation from plan sketch:** Final shader is richer than the plan's sketch —
   added second scan line frequency, corner fade, owner color tint, flicker.
   Aberration uses `dist²` instead of linear `dist` for more natural falloff.
+
+### 2026-03-01 — Phase 2B: Image Optimization Pipeline (SHIPPED)
+- Added `sharp` dependency to `@monolith/server`
+- Created `optimizeImage()` helper in supabase.ts:
+  - Resizes to max 512×512 (cover fit, no enlargement)
+  - Converts to WebP at quality 80
+  - Logs size reduction (e.g., "2.1MB → 48KB")
+- Updated `uploadBlockImage()` to process images through sharp before Supabase upload
+- Removed `contentType` parameter (always WebP after optimization)
+- **Decision:** Server-side optimization is the safety net — client already resizes via
+  expo-image-manipulator, but server ensures consistent 512×512 WebP regardless of client.
+
+### 2026-03-01 — Phase 2C: Texture Cache with LRU Eviction (SHIPPED)
+- Created `apps/mobile/utils/texture-cache.ts`:
+  - Module-level `Map<string, CacheEntry>` with `{ texture, lastAccess }` entries
+  - `getCachedTexture(url, onLoaded?)` — returns cached texture or starts async load
+  - Deduplicates in-flight loads via `loading` Set
+  - LRU eviction when cache exceeds 50 entries (disposes evicted THREE.Texture)
+  - `clearTextureCache()` for full cleanup
+- Updated TowerGrid.tsx to use `getCachedTexture` instead of inline THREE.TextureLoader:
+  - Cache hits return immediately — no re-download when switching between blocks
+  - Cache misses trigger async load with callback to set uniforms
+  - Simpler code: 15 lines instead of 25
+- **Deviation:** `inspectImageRef` kept as a "currently active" pointer for fast access
+  in the hologram animation loop. The LRU cache handles persistence across selections.
