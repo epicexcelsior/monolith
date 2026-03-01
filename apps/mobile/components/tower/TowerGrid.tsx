@@ -14,7 +14,7 @@ import {
   computeBodyLayerPositions,
   computeSpireLayerPositions,
 } from "@monolith/common";
-import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
+import { createBlockMaterial, createGlowMaterial, createHologramMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
@@ -73,6 +73,9 @@ export default function TowerGrid() {
   const glowUpRef = useRef<{ blockIndex: number; time: number; ownerColor: string } | null>(null);
   // Track user-uploaded image texture for inspected block
   const inspectImageRef = useRef<{ url: string; texture: THREE.Texture } | null>(null);
+  // Holographic pop-out mesh for inspected blocks with user images
+  const holoMeshRef = useRef<THREE.Mesh>(null);
+  const holoOpacityRef = useRef(0); // current animated opacity
   // Reusable Color objects to avoid per-frame GC pressure
   const tmpColorRef = useRef(new THREE.Color());
   const goldColorRef = useRef(new THREE.Color(1.0, 0.85, 0.2));
@@ -125,6 +128,8 @@ export default function TowerGrid() {
     glowMaterialRef.current = mat;
     return mat;
   }, []);
+
+  const holoMaterial = useMemo(() => createHologramMaterial(), []);
 
   const hitMaterial = useMemo(
     () => new THREE.MeshBasicMaterial({ visible: false }),
@@ -926,6 +931,49 @@ export default function TowerGrid() {
       }
     }
 
+    // ─── Holographic pop-out animation ──
+    {
+      const holo = holoMeshRef.current;
+      if (holo) {
+        const selectedBlock = selectedBlockId
+          ? blockData.find((b) => b.id === selectedBlockId)
+          : null;
+        const hasUserImage = !!(selectedBlock as any)?.imageUrl && inspectImageRef.current?.texture;
+        const targetOpacity = hasUserImage ? 0.88 : 0.0;
+
+        // Smooth opacity lerp
+        holoOpacityRef.current += (targetOpacity - holoOpacityRef.current) * 0.12;
+        if (holoOpacityRef.current < 0.01) holoOpacityRef.current = 0;
+
+        holoMaterial.uniforms.uOpacity.value = holoOpacityRef.current;
+        holoMaterial.uniforms.uTime.value = state.clock.elapsedTime;
+        holo.visible = holoOpacityRef.current > 0.01;
+
+        if (holo.visible && selectedBlock && inspectImageRef.current?.texture) {
+          // Set texture + tint color (reuse tmpColorRef to avoid GC pressure)
+          holoMaterial.uniforms.uImage.value = inspectImageRef.current.texture;
+          tmpColorRef.current.set(selectedBlock.ownerColor);
+          holoMaterial.uniforms.uTintColor.value.copy(tmpColorRef.current);
+
+          // Position: in front of block, offset toward camera
+          const blockPos = selectedBlock.position;
+          const camPos = state.camera.position;
+          const dirX = camPos.x - blockPos.x;
+          const dirZ = camPos.z - blockPos.z;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const offset = BLOCK_SIZE * 0.8;
+          holo.position.set(
+            blockPos.x + (dirX / len) * offset,
+            blockPos.y + BLOCK_SIZE * 0.1, // slight upward offset
+            blockPos.z + (dirZ / len) * offset,
+          );
+
+          // Billboard: face the camera
+          holo.lookAt(camPos);
+        }
+      }
+    }
+
     // Detect celebration END — targets must be re-set even if selectedBlockId didn't change
     const isCelActiveNow = claimCelebrationRef?.current?.active ?? false;
     if (prevCelActiveRef.current && !isCelActiveNow) {
@@ -1254,6 +1302,11 @@ export default function TowerGrid() {
       >
         <boxGeometry args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]} />
       </instancedMesh>
+
+      {/* Holographic pop-out plane — shown when inspecting a block with a user image */}
+      <mesh ref={holoMeshRef} visible={false} material={holoMaterial}>
+        <planeGeometry args={[BLOCK_SIZE * 1.4, BLOCK_SIZE * 1.4]} />
+      </mesh>
     </group>
   );
 }

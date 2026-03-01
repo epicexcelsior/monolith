@@ -1,7 +1,7 @@
 # Block Customization Enhancement Plan
 
 > **Living decision document.** Reference for all block customization improvements.
-> **Created:** 2026-03-01 | **Status:** Phase 1 complete (1A-1E shipped), Phase 2 pending
+> **Created:** 2026-03-01 | **Status:** Phase 1 complete (1A-1E shipped), Phase 2A shipped
 
 ---
 
@@ -127,7 +127,7 @@ Give players maximum freedom and delight when customizing their blocks. Make the
 - [x] 1E: Dynamic texture loading for user images in interior windows
 
 **Phase 2 (Polish — Target: March 5-7)**
-- [ ] 2A: Holographic pop-out effect during block inspection
+- [x] 2A: Holographic pop-out effect during block inspection
 - [ ] 2B: Image optimization pipeline (server-side resize/WebP)
 - [ ] 2C: Texture cache with LRU eviction
 
@@ -335,3 +335,26 @@ void main() {
 - **Deviation from plan:** Did NOT implement dynamic atlas expansion (too complex for hackathon).
   Instead: user images only visible during inspection via dedicated uniform.
   Tower-view still shows default atlas images. This is Phase 2 scope.
+
+### 2026-03-01 — Phase 2A: Holographic Pop-Out Effect (SHIPPED)
+- Created holographic GLSL shader in BlockShader.ts (`createHologramMaterial()`):
+  - Scan lines (two frequencies: fast thin + slow wide bands)
+  - Chromatic aberration (distance-based, stronger at edges)
+  - Holographic rainbow shimmer via sin-shifted RGB at edges
+  - Edge glow with circular + corner fade masking
+  - Owner color tinting at edges (25% blend)
+  - Subtle flicker effect (5% opacity variation)
+  - Brightness boost (1.15x) so image reads clearly
+- Added hologram mesh to TowerGrid.tsx:
+  - `<mesh>` with `<planeGeometry>` at BLOCK_SIZE × 1.4 (40% larger than block)
+  - Billboard orientation (lookAt camera each frame)
+  - Position offset 0.8 × BLOCK_SIZE toward camera from selected block
+  - Smooth opacity lerp (0.12 rate) for fade in/out
+  - Automatically visible when inspecting a block with user-uploaded imageUrl
+- Performance considerations:
+  - Reused `tmpColorRef` for owner color to avoid per-frame GC allocations
+  - Single mesh, only visible during inspection — negligible draw cost
+  - `depthWrite: false`, `DoubleSide`, `toneMapped: false` for proper transparency
+- **Deviation from plan sketch:** Final shader is richer than the plan's sketch —
+  added second scan line frequency, corner fade, owner color tint, flicker.
+  Aberration uses `dist²` instead of linear `dist` for more natural falloff.

@@ -995,3 +995,93 @@ export function createGlowMaterial(): THREE.ShaderMaterial {
     toneMapped: false,
   });
 }
+
+// ═══════════════════════════════════════════════════════════
+// HOLOGRAPHIC POP-OUT — floating image plane during inspection
+// ═══════════════════════════════════════════════════════════
+
+const holoVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const holoFragmentShader = /* glsl */ `
+  precision mediump float;
+
+  uniform sampler2D uImage;
+  uniform float uTime;
+  uniform float uOpacity;
+  uniform vec3 uTintColor;
+
+  varying vec2 vUv;
+
+  void main() {
+    vec2 uv = vUv;
+
+    // Scan lines — subtle horizontal interference
+    float scanLine = sin(uv.y * 180.0 + uTime * 2.5) * 0.025;
+    float scanLine2 = sin(uv.y * 40.0 - uTime * 0.8) * 0.015; // slower wide bands
+
+    // Chromatic aberration — stronger at edges
+    float dist = length(uv - 0.5);
+    float aberration = dist * dist * 0.015;
+    float r = texture2D(uImage, uv + vec2(aberration, 0.0)).r;
+    float g = texture2D(uImage, uv).g;
+    float b = texture2D(uImage, uv - vec2(aberration, 0.0)).b;
+
+    vec3 color = vec3(r, g, b);
+    color += scanLine + scanLine2;
+
+    // Holographic shimmer — rainbow shift at edges
+    float shimmer = sin(uv.y * 12.0 + uTime * 1.5) * 0.5 + 0.5;
+    vec3 holoShift = vec3(
+      sin(shimmer * 6.28) * 0.08,
+      sin(shimmer * 6.28 + 2.09) * 0.08,
+      sin(shimmer * 6.28 + 4.19) * 0.08
+    );
+    color += holoShift * (1.0 - smoothstep(0.2, 0.45, dist));
+
+    // Edge glow — soft circular fade
+    float edgeFade = smoothstep(0.5, 0.28, dist);
+    float cornerFade = smoothstep(0.52, 0.35, max(abs(uv.x - 0.5), abs(uv.y - 0.5)));
+    float mask = min(edgeFade, cornerFade);
+
+    // Tint with owner color at edges
+    color += uTintColor * (1.0 - edgeFade) * 0.25;
+
+    // Brightness boost so image reads clearly
+    color *= 1.15;
+
+    // Flicker — subtle opacity variation
+    float flicker = 0.95 + 0.05 * sin(uTime * 8.0 + dist * 3.0);
+
+    float alpha = mask * uOpacity * flicker;
+
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+/**
+ * Creates the holographic pop-out material for inspected blocks with user images.
+ * Semi-transparent plane with scan lines, chromatic aberration, and holographic shimmer.
+ */
+export function createHologramMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: holoVertexShader,
+    fragmentShader: holoFragmentShader,
+    uniforms: {
+      uImage: { value: null },
+      uTime: { value: 0 },
+      uOpacity: { value: 0 },
+      uTintColor: { value: new THREE.Color(0xd4a847) }, // gold default
+    },
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    fog: false,
+    toneMapped: false,
+  });
+}
