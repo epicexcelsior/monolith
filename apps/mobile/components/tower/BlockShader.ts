@@ -676,14 +676,18 @@ const fragmentShader = /* glsl */ `
     vec3 color = baseColor * faceBrightness;
     color += heightTint;
 
-    // Energy-driven overlays (additive)
-    color *= (0.8 + pulse * pulseIntensity * 0.4);
-    color += rimContrib;
-    color += specColor;
-    color += glowColor * scanLine * energy;
-    color += glowColor * spireGlow * 0.5;
-    color += glowColor * radiate;
-    color += glowColor * innerGlow;
+    // Inspect mode: soften energy overlays on selected block
+    // so the player's customization (color, style, texture) shows through
+    float inspectAtten = mix(1.0, 0.45, vHighlight);
+
+    // Energy-driven overlays (additive), attenuated during inspection
+    color *= (0.8 + pulse * pulseIntensity * 0.4 * inspectAtten);
+    color += rimContrib * inspectAtten;
+    color += specColor * inspectAtten;
+    color += glowColor * scanLine * energy * inspectAtten;
+    color += glowColor * spireGlow * 0.5 * inspectAtten;
+    color += glowColor * radiate * inspectAtten;
+    color += glowColor * innerGlow * inspectAtten;
 
     // ─── Dead blocks: dark glass with glowing amber edges ──
     float deadMask = smoothstep(0.0, 0.06, energy);
@@ -773,24 +777,24 @@ const fragmentShader = /* glsl */ `
     float dimFloor = mix(0.30, 0.45, hasImg); // dark scene needs stronger dim
     color *= mix(dimFloor, 1.0, vFade);
 
-    // Highlight selected block — punchy for dark scene
+    // Highlight selected block — subtle rim so customization stays visible
     if (vHighlight > 0.01) {
       float hlHasImage = step(0.5, vImageIndex);
-      float hlRim = pow(1.0 - NdotV, 2.0); // wider rim (was 2.5)
-      vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.92, 0.7), 0.3);
+      float hlRim = pow(1.0 - NdotV, 2.0);
+      // Rim uses owner color with slight warm bias — frames the block
+      vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.95, 0.85), 0.2);
 
       if (hlHasImage > 0.5) {
-        // IMAGE BLOCKS: bright rim glow + moderate face lift
-        color += rimColor * hlRim * vHighlight * 1.8;
-        color *= 1.0 + vHighlight * 0.2;
-        // Warm edge emission so the block pops from the darkness
-        color += vOwnerColor * vHighlight * 0.15;
+        // IMAGE BLOCKS: gentle rim so interior images stay clear
+        color += rimColor * hlRim * vHighlight * 1.0;
+        color *= 1.0 + vHighlight * 0.1;
+        color += vOwnerColor * vHighlight * 0.08;
       } else {
-        // NON-IMAGE BLOCKS: strong emissive highlight
-        vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.9, 0.6), 0.3);
-        color += emissive * vHighlight * 0.7;
-        color *= 1.0 + vHighlight * 0.4;
-        color += rimColor * hlRim * vHighlight * 1.2;
+        // NON-IMAGE BLOCKS: moderate emissive, owner-color-dominant
+        vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.95, 0.85), 0.15);
+        color += emissive * vHighlight * 0.35;
+        color *= 1.0 + vHighlight * 0.15;
+        color += rimColor * hlRim * vHighlight * 0.8;
       }
     }
 
@@ -939,13 +943,13 @@ const glowFragmentShader = /* glsl */ `
 
     float alpha = fresnel * max(glowStrength, dormantGlow) * pulse * 0.35;
 
-    // Inspect mode: fade glow on non-selected, boost on selected
+    // Inspect mode: fade glow on non-selected, reduce on selected
     alpha *= mix(0.15, 1.0, vFade); // stronger fade in night scene
     if (vHighlight > 0.01) {
-      // Force glow visible on highlighted block even at moderate energy
-      float hlGlow = max(glowStrength, 0.4);
-      alpha += vHighlight * hlGlow * 0.8;
-      glowColor *= 1.0 + vHighlight * 0.8;
+      // Moderate glow boost — enough to see the block, not enough to wash out customization
+      float hlGlow = max(glowStrength, 0.25);
+      alpha += vHighlight * hlGlow * 0.35;
+      glowColor *= 1.0 + vHighlight * 0.3;
     }
 
     gl_FragColor = vec4(glowColor * max(glowStrength, dormantGlow), alpha);
