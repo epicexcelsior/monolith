@@ -140,6 +140,16 @@ PanResponder.create({
 
 ## Shaders & 3D Rendering
 
+### All New Shaders Must Use `highp` for `uTime` (2026-03-01)
+**Problem**: The holographic pop-out shader used `precision mediump float;` with `uniform float uTime;`. On mobile GPUs with float16 mediump, `sin(uTime * N)` returns garbage after ~10 minutes of play because float16 precision degrades for large values.
+**Solution**: Always declare `uniform highp float uTime;` in every shader that receives an unbounded time value. The main block shader and glow shader already had this — the new holographic shader was missing it.
+**Key Insight**: Every new shader added to the project MUST override `uTime` to `highp`. This is the #1 mobile shader gotcha. Add a search for `uniform float uTime` (without highp) to any shader review checklist.
+
+### BlockMeta Must Include All Fields Used in useFrame (2026-03-01)
+**Problem**: Added `imageUrl` to `DemoBlock` in the store but forgot to include it in the `BlockMeta` interface and `blockData` useMemo in TowerGrid. The `blockData.find()` returned objects without `imageUrl`, making the entire holographic image display feature silently broken — no runtime error, just always `undefined`.
+**Solution**: When adding a new field to `DemoBlock` that will be consumed by TowerGrid's useFrame, also add it to the `BlockMeta` interface AND the `blockData` push in the useMemo. The "Change Block data shape" entry in CONTEXT.md's dependency table should be updated to include `TowerGrid.tsx BlockMeta`.
+**Key Insight**: `blockData` is a separate projection of `demoBlocks` — it is NOT the same array. Any field not explicitly copied is lost. Always check both the interface AND the useMemo when adding block fields.
+
 ### Cylindrical UV Seams — Use Triplanar Mapping for Multi-Face Geometry (2026-02-27)
 **Problem**: Cylindrical UV mapping with `atan(pos.x, pos.z)` in the vertex shader creates a visible seam where vertices straddle the -π/+π wrap point — the GPU linearly interpolates, smearing the texture across the entire polygon. On top/bottom faces, cylindrical UVs create radial line artifacts from the center.
 **Solution**: Use triplanar mapping — blend 3 planar projections (XZ, XY, YZ) weighted by `abs(normal)`. No atan, no seams, no radial artifacts. Works perfectly for cylinders, pedestals, any multi-face geometry. If cylindrical UVs are needed, compute `atan()` per-pixel in the fragment shader (not vertex) to avoid interpolation across the wrap.
@@ -213,6 +223,11 @@ side: THREE.BackSide, blending: THREE.AdditiveBlending,
 ---
 
 ## Multiplayer & Networking
+
+### Always Reuse serializeBlock for block_update Broadcasts (2026-03-01)
+**Problem**: The image upload REST endpoint in `index.ts` hand-rolled a block serialization object for `room.broadcast("block_update", ...)` instead of reusing the existing `serializeBlock()` from TowerRoom. This caused a subtle divergence: `serializeBlock` normalizes empty `imageUrl` to `undefined`, but the inline version passed it raw. The `blink-poke.ts` handler had a similar copy that omitted `imageUrl` entirely, causing image data loss on pokes.
+**Solution**: Export `serializeBlock()` and `blockToRow()` from TowerRoom. All `block_update` broadcasts use `{ ...serializeBlock(block), eventType: "..." }`. All persistence uses `upsertBlock(blockToRow(block))`.
+**Key Insight**: Block serialization is a central concern with ~6 call sites. Any new endpoint that touches blocks MUST use the shared helpers, not inline copies. The diff check in `multiplayer-store.ts` must also include every field in the serialized shape.
 
 ### Colyseus matchMaker.getRoomById() Returns a Proxy, Not the Room (2026-02-27)
 **Problem**: Tried to call `broadcast()` and iterate `clients` on the object returned by `matchMaker.getRoomById()` — it returns a proxy/wrapper, not the actual `Room` instance. Broadcasts silently did nothing.
@@ -439,6 +454,11 @@ const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0);
 ---
 
 ## Deployment & DevOps
+
+### REST Endpoints Need Room-Available Guards (2026-03-01)
+**Problem**: The `POST /api/blocks/:blockId/image` endpoint only checked block ownership when `getActiveRoom()` returned non-null. If the room wasn't ready yet, the upload proceeded without any ownership verification — anyone could upload images to any block.
+**Solution**: Treat `!room` as 503 Service Unavailable, rejecting the request. Also sanitize the `blockId` URL parameter with `/^[\w-]+$/` since it becomes a Supabase Storage file path.
+**Key Insight**: Any REST endpoint that interacts with Colyseus room state MUST guard `getActiveRoom()` as a hard prerequisite, not an optional enhancement. The room is the authority for ownership/permissions.
 
 ### Shell Scripts in Monorepos: Use SCRIPT_DIR for All Paths (2026-02-24)
 **Problem**: `dev.sh` used relative paths (`cd apps/server && pnpm dev &`). The `&` background operator combined with `&&` chained `cd` caused the main shell to lose its working directory — later `cd apps/mobile` failed with "No such file or directory".
