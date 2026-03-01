@@ -21,9 +21,10 @@ let connection: Connection | null = null;
 function getConnection(): Connection {
   if (connection) return connection;
 
-  const rpcUrl =
-    process.env.BLINKS_RPC_URL ||
-    "https://solana-devnet.g.alchemy.com/v2/iZggasNITBS_glMXEkk8u";
+  const rpcUrl = process.env.BLINKS_RPC_URL;
+  if (!rpcUrl) {
+    throw new Error("BLINKS_RPC_URL environment variable is required");
+  }
   connection = new Connection(rpcUrl, "confirmed");
   console.log(`[Blinks] RPC connected → ${rpcUrl.split("?")[0]}`);
   return connection;
