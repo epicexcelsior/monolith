@@ -128,3 +128,51 @@ The daily Charge tap is the "Snapchat streak" of DeFi — a tiny, habitual actio
 * **Project HQs:** NFT communities rent entire floor sections as "headquarters."
 * **AI-Generated Content:** Users type a prompt → AI generates a 3D texture/model for their block.
 * **Blinks as Transport:** Every block is a shareable Blink. "Check out my spot on the tower" becomes a viral loop.
+
+---
+
+## 9. PvP Vision (Post-MVP)
+
+> Competitive mechanics that create urgency and rivalry without being pay-to-win. All PvP advantages come from TIME invested (evolution tier, streak), not money staked.
+
+### 9.1 Energy Raids
+
+Players can raid a rival's block to siphon energy. Risk/reward mechanic — you spend energy to attempt it.
+
+**Rules:**
+* Target: any block that's NOT adjacent to yours (neighbors are allies, not enemies)
+* Cost: 5 energy from YOUR block (risk)
+* Reward on success: +10 energy to you, -10 from target
+* Success chance: based on evolution tier differential
+  * Lower tier attacking higher: 10-30% success
+  * Equal tier: 50%
+  * Higher attacking lower: 70-90%
+* **Cooldown:** 1 raid per target per 24 hours
+* **Shield:** Blocks charged in the last 2 hours are immune to raids — creates another reason to stay charged
+
+**Why it's not pay-to-win:** Evolution tier comes from cumulative charges (time), not stake amount. A $1 block with 150 charges (Beacon tier) is better defended than a $100 block with 5 charges (Spark tier). Shield comes from being active, which is free.
+
+### 9.2 Charge Duels
+
+Voluntary 24-hour competitions between nearby players:
+* Both blocks start at current energy
+* Natural decay + charges determine the winner
+* Winner: +20 bonus energy
+* Loser: -10 energy
+* Creates micro-competitions and "who's more dedicated" moments
+
+### 9.3 Territory Control (Guilds-lite)
+
+Groups of adjacent blocks owned by allies form a **District**:
+* Districts have a collective energy score
+* Weekly: highest-energy district gets a visual crown effect on the tower
+* Creates guild-like coordination without formal guild infrastructure
+* Encourages friends to claim blocks near each other
+
+### 9.4 Design Principles for PvP
+
+1. **Time > Money** — Every competitive advantage comes from activity (charges, streaks, evolution), not capital
+2. **Opt-in conflict** — Raids have risk, duels are voluntary. Casual players can ignore PvP entirely
+3. **Social not toxic** — Poking helps neighbors. Raids have shields. Losses are recoverable (energy, not blocks)
+4. **Visible consequences** — Successful raids show a flash on the tower. Duels have a live scoreboard. Territory wins get a visual crown.
+5. **Low floor, high ceiling** — A new player can poke and be social immediately. PvP depth emerges over weeks.
