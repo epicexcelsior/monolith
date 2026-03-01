@@ -30,6 +30,8 @@ export class BlockSchema extends Schema {
   streak: number = 0;
   lastStreakDate: string = "";
   imageIndex: number = 0;   // 0=none, 1-5=atlas slot
+  totalCharges: number = 0;   // cumulative charges (drives evolution)
+  evolutionTier: number = 0;  // 0-4 (Spark, Ember, Flame, Blaze, Beacon)
   appearance: BlockAppearanceSchema = new BlockAppearanceSchema();
 }
 
@@ -45,6 +47,8 @@ defineTypes(BlockSchema, {
   streak: "uint16",
   lastStreakDate: "string",
   imageIndex: "uint8",
+  totalCharges: "uint16",
+  evolutionTier: "uint8",
   appearance: BlockAppearanceSchema,
 });
 

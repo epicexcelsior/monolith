@@ -1,8 +1,8 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY } from "@monolith/common";
-import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, CHARGE_QUALITY } from "@monolith/common";
+import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality } from "@monolith/common";
 import {
   loadPlayerBlocks,
   upsertBlock,
@@ -30,7 +30,6 @@ import {
 const DECAY_AMOUNT = 1;
 const DECAY_INTERVAL_MS = 60_000;
 const CHARGE_COOLDOWN_MS = 30_000;
-const BASE_CHARGE_AMOUNT = 20;
 const STATE_BROADCAST_INTERVAL_MS = 15_000;
 const PERSISTENCE_INTERVAL_MS = 60_000;
 const DORMANT_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
@@ -75,6 +74,8 @@ function serializeBlock(block: BlockSchema) {
     streak: block.streak,
     lastStreakDate: block.lastStreakDate,
     imageIndex: block.imageIndex,
+    totalCharges: block.totalCharges,
+    evolutionTier: block.evolutionTier,
     appearance: {
       color: block.appearance.color,
       emoji: block.appearance.emoji,
@@ -98,6 +99,8 @@ function blockToRow(block: BlockSchema) {
     last_charge_time: block.lastChargeTime,
     streak: block.streak,
     last_streak_date: block.lastStreakDate,
+    total_charges: block.totalCharges,
+    evolution_tier: block.evolutionTier,
     appearance: {
       color: block.appearance.color,
       emoji: block.appearance.emoji,
@@ -155,6 +158,8 @@ export class TowerRoom extends Room<TowerRoomState> {
           block.lastChargeTime = row.last_charge_time;
           block.streak = row.streak;
           block.lastStreakDate = row.last_streak_date;
+          block.totalCharges = row.total_charges ?? 0;
+          block.evolutionTier = row.evolution_tier ?? 0;
           if (row.appearance) {
             const a = row.appearance as any;
             if (a.color) block.appearance.color = a.color;
@@ -389,12 +394,18 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         const multiplier = getStreakMultiplier(newStreak);
-        const chargeAmount = Math.round(BASE_CHARGE_AMOUNT * multiplier);
+        // Variable charge: random 15-35 base, then multiplied by streak
+        const { amount: baseAmount, bracketIndex } = rollChargeAmount();
+        const chargeAmount = Math.round(baseAmount * multiplier);
+        const chargeQuality = CHARGE_QUALITY[bracketIndex];
 
         block.energy = Math.min(MAX_ENERGY, block.energy + chargeAmount);
         block.lastChargeTime = now;
         block.streak = newStreak;
         block.lastStreakDate = today;
+        block.totalCharges++;
+        // Recompute evolution tier
+        block.evolutionTier = getEvolutionTier(block.totalCharges, block.streak);
         this.chargesToday++;
 
         // XP computation
@@ -434,6 +445,9 @@ export class TowerRoom extends Room<TowerRoomState> {
           streak: newStreak,
           multiplier,
           chargeAmount,
+          chargeQuality,
+          totalCharges: block.totalCharges,
+          evolutionTier: block.evolutionTier,
           pointsEarned,
           combo: comboCount,
           totalXp: player.xp,

@@ -22,6 +22,8 @@ export default function FloatingPoints() {
   const lastPointsEarned = usePlayerStore((s) => s.lastPointsEarned);
   const lastCombo = usePlayerStore((s) => s.lastCombo);
   const lastPointsLabel = usePlayerStore((s) => s.lastPointsLabel);
+  const lastChargeAmount = usePlayerStore((s) => s.lastChargeAmount);
+  const lastChargeQuality = usePlayerStore((s) => s.lastChargeQuality);
   const hasInspector = useTowerStore((s) => s.selectedBlockId) !== null;
 
   const translateY = useSharedValue(0);
@@ -34,7 +36,8 @@ export default function FloatingPoints() {
     // Reset
     translateY.value = 0;
     opacity.value = 1;
-    scale.value = 1.2;
+    // "Great" rolls get a bigger pop
+    scale.value = lastChargeQuality === "great" ? 1.5 : lastChargeQuality === "good" ? 1.3 : 1.2;
 
     // Animate
     translateY.value = withTiming(-100, { duration: 1500 });
@@ -43,7 +46,7 @@ export default function FloatingPoints() {
       withTiming(0, { duration: 1400 }),
     );
     scale.value = withTiming(1, { duration: 300 });
-  }, [lastPointsEarned, translateY, opacity, scale]);
+  }, [lastPointsEarned, lastChargeQuality, translateY, opacity, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -58,18 +61,33 @@ export default function FloatingPoints() {
   // Position above BlockInspector when it's visible, otherwise lower
   const bottom = hasInspector ? 340 : 200;
 
+  // Quality-based text color
+  const qualityColor = lastChargeQuality === "great" ? "#FFD700"
+    : lastChargeQuality === "good" ? COLORS.goldLight
+    : COLORS.gold;
+
   return (
     <View style={[styles.container, { bottom }]} pointerEvents="none">
       <Animated.View style={[styles.contentColumn, animatedStyle]}>
         {lastPointsLabel && (
           <Text style={styles.label}>{lastPointsLabel}</Text>
         )}
+        {lastChargeQuality === "great" && (
+          <Text style={styles.luckyLabel}>Lucky!</Text>
+        )}
         <View style={styles.content}>
-          <Text style={styles.points}>+{lastPointsEarned} XP</Text>
+          {lastChargeAmount != null ? (
+            <Text style={[styles.points, { color: qualityColor }]}>+{lastChargeAmount} {"\u26A1"}</Text>
+          ) : (
+            <Text style={styles.points}>+{lastPointsEarned} XP</Text>
+          )}
           {lastCombo != null && lastCombo > 1 && (
             <Text style={styles.combo}>{"\u00D7"}{lastCombo}</Text>
           )}
         </View>
+        {lastChargeAmount != null && (
+          <Text style={styles.xpSubtext}>+{lastPointsEarned} XP</Text>
+        )}
       </Animated.View>
     </View>
   );
@@ -115,5 +133,24 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
+  },
+  luckyLabel: {
+    fontFamily: FONT_FAMILY.headingBlack,
+    fontSize: 14,
+    color: "#FFD700",
+    textShadowColor: "rgba(255,180,0,0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  xpSubtext: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    marginTop: 2,
   },
 });

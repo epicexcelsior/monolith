@@ -7,7 +7,8 @@ import type {
   TowerConfig,
   Player,
 } from "@monolith/common";
-import { DEFAULT_TOWER_CONFIG, MAX_ENERGY } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, CHARGE_QUALITY } from "@monolith/common";
+import type { ChargeQuality } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
 import { useAchievementStore } from "@/stores/achievement-store";
 import { SECURE_STORE_KEYS } from "@/services/mwa";
@@ -62,7 +63,6 @@ async function setOnboardingFlag(): Promise<void> {
 // ─── Demo Mode Constants ──────────────────────────────────
 const DEMO_DECAY_AMOUNT = 1;
 const DEMO_DECAY_INTERVAL_MS = 60_000;
-const BASE_CHARGE_AMOUNT = 20;
 const DEMO_CHARGE_COOLDOWN_MS = 30_000;
 
 /** Streak multiplier tiers */
@@ -111,6 +111,8 @@ export interface DemoBlock {
   lastChargeTime?: number;
   streak?: number;
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
+  totalCharges?: number;     // cumulative charges (drives evolution)
+  evolutionTier?: number;    // 0-4 (Spark, Ember, Flame, Blaze, Beacon)
 }
 
 /** Mutable ref state for claim celebration, readable by useFrame loops */
@@ -174,7 +176,7 @@ interface TowerStore {
   initTower: () => Promise<void>;
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
-  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number };
+  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number };
   customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
@@ -389,7 +391,12 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     }
 
     const multiplier = getStreakMultiplier(newStreak);
-    const chargeAmount = Math.round(BASE_CHARGE_AMOUNT * multiplier);
+    // Variable charge: random 15-35 base, then multiplied by streak
+    const { amount: baseAmount, bracketIndex } = rollChargeAmount();
+    const chargeAmount = Math.round(baseAmount * multiplier);
+    const chargeQuality = CHARGE_QUALITY[bracketIndex];
+    const newTotalCharges = (block.totalCharges ?? 0) + 1;
+    const newEvolutionTier = getEvolutionTier(newTotalCharges, newStreak);
 
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
@@ -400,6 +407,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             lastChargeTime: now,
             streak: newStreak,
             lastStreakDate: today,
+            totalCharges: newTotalCharges,
+            evolutionTier: newEvolutionTier,
           }
           : b,
       ),
@@ -410,7 +419,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     if (newStreak >= 7)  useAchievementStore.getState().checkAndUnlock("streak_7");
     if (newStreak >= 14) useAchievementStore.getState().checkAndUnlock("streak_14");
     if (newStreak >= 30) useAchievementStore.getState().checkAndUnlock("streak_30");
-    return { success: true, streak: newStreak, multiplier, chargeAmount };
+    return { success: true, streak: newStreak, multiplier, chargeAmount, chargeQuality, totalCharges: newTotalCharges, evolutionTier: newEvolutionTier };
   },
 
   customizeBlock: (blockId, changes) => {
@@ -520,7 +529,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     const block = get().demoBlocks.find((b) => b.id === blockId);
     if (!block) return { success: false };
 
-    const chargeAmount = BASE_CHARGE_AMOUNT;
+    const chargeAmount = 25; // Fixed amount for onboarding tutorial
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
         b.id === blockId

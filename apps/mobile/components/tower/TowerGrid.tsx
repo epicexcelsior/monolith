@@ -16,6 +16,7 @@ import {
 } from "@monolith/common";
 import { createBlockMaterial, createGlowMaterial } from "./BlockShader";
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
+import { usePlayerStore } from "@/stores/player-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
 import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
@@ -67,8 +68,8 @@ export default function TowerGrid() {
 
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
-  // Track charge flash animation (multiple can be active)
-  const chargeFlashQueueRef = useRef<Array<{ blockIndex: number; time: number }>>([]);
+  // Track charge flash animation (multiple can be active) — quality affects intensity
+  const chargeFlashQueueRef = useRef<Array<{ blockIndex: number; time: number; quality: number }>>([]);
   // Track glow-up animation (gold→owner color after zoom-back)
   const glowUpRef = useRef<{ blockIndex: number; time: number; ownerColor: string } | null>(null);
   // Reusable Color objects to avoid per-frame GC pressure
@@ -301,6 +302,11 @@ export default function TowerGrid() {
       imageAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
       geo.setAttribute("aImageIndex", imageAttr);
     }
+    let evoAttr = geo.getAttribute("aEvolutionTier") as THREE.InstancedBufferAttribute | null;
+    if (!evoAttr || evoAttr.count !== count) {
+      evoAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aEvolutionTier", evoAttr);
+    }
 
     // ─── Write values directly into existing arrays ──
     const eArr = energyAttr.array as Float32Array;
@@ -309,6 +315,7 @@ export default function TowerGrid() {
     const sArr = styleAttr.array as Float32Array;
     const tArr = textureAttr.array as Float32Array;
     const iArr = imageAttr.array as Float32Array;
+    const evArr = evoAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
       const block = blockData[i];
@@ -331,6 +338,9 @@ export default function TowerGrid() {
         if (hash % 4 < 3) { imgIdx = (hash % 5) + 1; }
       }
       iArr[i] = imgIdx;
+
+      // Evolution tier
+      evArr[i] = storeBlock?.evolutionTier ?? 0;
     }
 
     energyAttr.needsUpdate = true;
@@ -339,6 +349,7 @@ export default function TowerGrid() {
     styleAttr.needsUpdate = true;
     textureAttr.needsUpdate = true;
     imageAttr.needsUpdate = true;
+    evoAttr.needsUpdate = true;
 
     // ─── Inspect mode attributes (fade + highlight + pop-out) ──
     if (!fadeCurrentRef.current || fadeCurrentRef.current.length !== count) {
@@ -408,12 +419,15 @@ export default function TowerGrid() {
     }
   }, [recentlyClaimedId, blockData, clearRecentlyClaimed]);
 
-  // Handle charge flash trigger
+  // Handle charge flash trigger — quality from player store determines flash intensity
   useEffect(() => {
     if (recentlyChargedId) {
       const idx = blockData.findIndex((b) => b.id === recentlyChargedId);
       if (idx >= 0) {
-        chargeFlashQueueRef.current.push({ blockIndex: idx, time: 0 });
+        // Read charge quality: 0=normal, 1=good, 2=great
+        const q = usePlayerStore.getState().lastChargeQuality;
+        const quality = q === "great" ? 2 : q === "good" ? 1 : 0;
+        chargeFlashQueueRef.current.push({ blockIndex: idx, time: 0, quality });
       }
       const timer = setTimeout(() => clearRecentlyCharged(), 100);
       return () => clearTimeout(timer);
@@ -636,7 +650,8 @@ export default function TowerGrid() {
       }
     }
 
-    // Charge flash: quick blue-white pulse for 1.2 seconds
+    // Charge flash: quick pulse — intensity & color vary with roll quality
+    // quality 0 = normal (blue-white), 1 = good (gold), 2 = great (bright gold + longer)
     if (chargeFlashQueueRef.current.length > 0 && meshRef.current) {
       const geo = meshRef.current.geometry;
       const energyAttr = geo.getAttribute("aEnergy") as THREE.InstancedBufferAttribute | null;
@@ -648,30 +663,37 @@ export default function TowerGrid() {
           const cf = chargeFlashQueueRef.current[fi];
           cf.time += delta;
           const t = cf.time;
+          const q = cf.quality; // 0=normal, 1=good, 2=great
+          const flashDuration = q === 2 ? 1.6 : q === 1 ? 1.4 : 1.2;
 
-          if (t < 1.2) {
+          if (t < flashDuration) {
             const block = blockData[cf.blockIndex];
             if (block) {
               let intensity: number;
-              if (t < 0.3) {
-                // White-blue flash
+              const flashPhase = 0.3;
+              const pulseEnd = flashDuration * 0.65;
+              if (t < flashPhase) {
                 intensity = 1.0;
                 energyAttr.array[cf.blockIndex] = 1.0;
-              } else if (t < 0.8) {
-                // Pulse back to owner color
-                intensity = 0.6 * (1 - (t - 0.3) / 0.5);
+              } else if (t < pulseEnd) {
+                intensity = 0.6 * (1 - (t - flashPhase) / (pulseEnd - flashPhase));
                 energyAttr.array[cf.blockIndex] = block.energy / 100 + (1 - block.energy / 100) * intensity;
               } else {
-                // Settle
-                intensity = Math.max(0, 0.2 * (1 - (t - 0.8) / 0.4));
+                intensity = Math.max(0, 0.2 * (1 - (t - pulseEnd) / (flashDuration - pulseEnd)));
                 energyAttr.array[cf.blockIndex] = block.energy / 100;
               }
               energyAttr.needsUpdate = true;
 
-              // Blend white-blue with owner color
+              // Flash color by quality: normal=white-blue, good=warm gold, great=bright gold
               const tempColor = tmpColorRef.current.set(block.ownerColor);
-              const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0); // white-blue (reuse ref)
-              const blended = flashColor.lerp(tempColor, 1 - intensity);
+              if (q >= 2) {
+                chargeFlashColorRef.current.set(1.0, 0.85, 0.2); // bright gold
+              } else if (q === 1) {
+                chargeFlashColorRef.current.set(1.0, 0.9, 0.5); // warm gold
+              } else {
+                chargeFlashColorRef.current.set(0.8, 0.9, 1.0); // white-blue
+              }
+              const blended = chargeFlashColorRef.current.lerp(tempColor, 1 - intensity);
               colorAttr.array[cf.blockIndex * 3] = blended.r;
               colorAttr.array[cf.blockIndex * 3 + 1] = blended.g;
               colorAttr.array[cf.blockIndex * 3 + 2] = blended.b;

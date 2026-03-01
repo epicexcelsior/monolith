@@ -37,6 +37,8 @@ interface ServerBlock {
   streak: number;
   lastStreakDate: string;
   imageIndex: number;
+  totalCharges: number;
+  evolutionTier: number;
   appearance: {
     color: string;
     emoji: string;
@@ -66,6 +68,9 @@ export interface ChargeResult {
   streak?: number;
   multiplier?: number;
   chargeAmount?: number;
+  chargeQuality?: "normal" | "good" | "great";
+  totalCharges?: number;
+  evolutionTier?: number;
   pointsEarned?: number;
   combo?: number;
   totalXp?: number;
@@ -216,6 +221,8 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     lastChargeTime: block.lastChargeTime || undefined,
     streak: block.streak || 0,
     lastStreakDate: block.lastStreakDate || undefined,
+    totalCharges: block.totalCharges || 0,
+    evolutionTier: block.evolutionTier || 0,
   };
 }
 

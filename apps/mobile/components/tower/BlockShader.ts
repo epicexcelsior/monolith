@@ -36,6 +36,7 @@ const vertexShader = /* glsl */ `
   attribute float aFade;
   attribute float aHighlight;
   attribute float aImageIndex;
+  attribute float aEvolutionTier; // 0-4 (Spark, Ember, Flame, Blaze, Beacon)
 
   // Passed to fragment
   varying float vEnergy;
@@ -52,6 +53,7 @@ const vertexShader = /* glsl */ `
   varying float vFade;
   varying float vHighlight;
   varying float vImageIndex;
+  varying float vEvolutionTier;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;       // raw local-space position (for interior mapping)
@@ -89,6 +91,7 @@ const vertexShader = /* glsl */ `
     vFade = aFade;
     vHighlight = aHighlight;
     vImageIndex = aImageIndex;
+    vEvolutionTier = aEvolutionTier;
     vLocalPos = position; // raw local-space vertex position
     // Block center from instance matrix translation column
     vBlockCenter = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
@@ -165,6 +168,7 @@ const fragmentShader = /* glsl */ `
   varying float vFade;
   varying float vHighlight;
   varying float vImageIndex;
+  varying float vEvolutionTier;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;
@@ -670,20 +674,46 @@ const fragmentShader = /* glsl */ `
     vec3 heightTint = mix(baseTint, topTint, vLayerNorm) * 0.15;
 
     // ═══════════════════════════════════════════════════════
+    // LAYER 4.1: EVOLUTION TIER BOOST
+    // ═══════════════════════════════════════════════════════
+    // Higher evolution tiers get progressively brighter glow,
+    // wider rim, and a subtle persistent particle aura.
+    // Tier 0 (Spark): 1.0x — no boost
+    // Tier 1 (Ember): 1.15x glow + warmer rim
+    // Tier 2 (Flame): 1.3x glow + particle shimmer
+    // Tier 3 (Blaze): 1.5x glow + strong shimmer + slight size glow
+    // Tier 4 (Beacon): 1.8x glow + intense aura + radiant emission
+
+    float evoTier = clamp(vEvolutionTier, 0.0, 4.0);
+    float evoGlowMult = 1.0 + evoTier * 0.2; // 1.0, 1.2, 1.4, 1.6, 1.8
+    float evoRimBoost = evoTier * 0.15;        // extra rim per tier
+    float evoShimmer = 0.0;
+    if (evoTier >= 2.0 && energy > 0.1) {
+      // Particle shimmer effect — gentle sparkle at Flame+
+      float shimmerNoise = noise2D(vWorldPos.xz * 12.0 + uTime * 2.0);
+      float shimmerPing = pow(max(shimmerNoise, 0.0), 8.0);
+      evoShimmer = shimmerPing * (evoTier - 1.0) * 0.15 * energy;
+    }
+
+    // ═══════════════════════════════════════════════════════
     // COMBINE: Base × Shading + Energy Overlays
     // ═══════════════════════════════════════════════════════
 
     vec3 color = baseColor * faceBrightness;
     color += heightTint;
 
-    // Energy-driven overlays (additive)
+    // Energy-driven overlays (additive), scaled by evolution tier
     color *= (0.8 + pulse * pulseIntensity * 0.4);
-    color += rimContrib;
-    color += specColor;
+    color += rimContrib * evoGlowMult;
+    color += specColor * evoGlowMult;
     color += glowColor * scanLine * energy;
     color += glowColor * spireGlow * 0.5;
-    color += glowColor * radiate;
-    color += glowColor * innerGlow;
+    color += glowColor * radiate * evoGlowMult;
+    color += glowColor * innerGlow * evoGlowMult;
+    // Evolution rim boost
+    color += glowColor * fresnel * evoRimBoost * energy;
+    // Evolution shimmer particles
+    color += vec3(1.0, 0.95, 0.8) * evoShimmer;
 
     // ─── Dead blocks: dark glass with glowing amber edges ──
     float deadMask = smoothstep(0.0, 0.06, energy);

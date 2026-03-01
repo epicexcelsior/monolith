@@ -38,6 +38,74 @@ export const ENERGY_THRESHOLDS = {
   dead: 0, // 0:      Black/cracked, claimable
 } as const;
 
+// ─── Variable Charge System ──────────────────────────────
+/** Weighted random charge: each bracket has a probability weight */
+export const CHARGE_BRACKETS = [
+  { min: 15, max: 19, weight: 25 }, // Below average — 25%
+  { min: 20, max: 25, weight: 40 }, // Normal — 40%
+  { min: 26, max: 30, weight: 25 }, // Good — 25%
+  { min: 31, max: 35, weight: 10 }, // Great ("Lucky!") — 10%
+] as const;
+
+/** Roll a variable charge amount using weighted random brackets */
+export function rollChargeAmount(): { amount: number; bracketIndex: number } {
+  const totalWeight = CHARGE_BRACKETS.reduce((s, b) => s + b.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (let i = 0; i < CHARGE_BRACKETS.length; i++) {
+    roll -= CHARGE_BRACKETS[i].weight;
+    if (roll <= 0) {
+      const bracket = CHARGE_BRACKETS[i];
+      const amount = bracket.min + Math.floor(Math.random() * (bracket.max - bracket.min + 1));
+      return { amount, bracketIndex: i };
+    }
+  }
+  // Fallback (shouldn't happen)
+  return { amount: 20, bracketIndex: 1 };
+}
+
+/** Charge quality labels based on bracket index */
+export const CHARGE_QUALITY = ["normal", "normal", "good", "great"] as const;
+export type ChargeQuality = (typeof CHARGE_QUALITY)[number];
+
+// ─── Block Evolution System ──────────────────────────────
+/** Evolution tiers — permanent visual progression based on cumulative charges */
+export const EVOLUTION_TIERS = [
+  { name: "Spark",  charges: 0,   streakReq: 0,  glowMultiplier: 1.0 },
+  { name: "Ember",  charges: 10,  streakReq: 0,  glowMultiplier: 1.2 },
+  { name: "Flame",  charges: 30,  streakReq: 7,  glowMultiplier: 1.4 },
+  { name: "Blaze",  charges: 75,  streakReq: 14, glowMultiplier: 1.6 },
+  { name: "Beacon", charges: 150, streakReq: 30, glowMultiplier: 1.8 },
+] as const;
+
+/** Compute evolution tier index (0-4) from totalCharges and best streak */
+export function getEvolutionTier(totalCharges: number, bestStreak: number = 0): number {
+  let tier = 0;
+  for (let i = EVOLUTION_TIERS.length - 1; i >= 0; i--) {
+    if (totalCharges >= EVOLUTION_TIERS[i].charges && bestStreak >= EVOLUTION_TIERS[i].streakReq) {
+      tier = i;
+      break;
+    }
+  }
+  return tier;
+}
+
+/** Get evolution tier info by index */
+export function getEvolutionTierInfo(tier: number) {
+  return EVOLUTION_TIERS[Math.min(tier, EVOLUTION_TIERS.length - 1)];
+}
+
+/** Charges needed to reach the next evolution tier (or 0 if max) */
+export function chargesToNextTier(totalCharges: number, bestStreak: number = 0): { needed: number; nextTierName: string; progress: number } | null {
+  const currentTier = getEvolutionTier(totalCharges, bestStreak);
+  if (currentTier >= EVOLUTION_TIERS.length - 1) return null;
+  const next = EVOLUTION_TIERS[currentTier + 1];
+  const prev = EVOLUTION_TIERS[currentTier];
+  const needed = next.charges - totalCharges;
+  const range = next.charges - prev.charges;
+  const progress = range > 0 ? (totalCharges - prev.charges) / range : 0;
+  return { needed: Math.max(0, needed), nextTierName: next.name, progress: Math.min(1, Math.max(0, progress)) };
+}
+
 // ─── Monolith Tower Configuration ─────────────────────────
 /**
  * Monolith tower: a rectangular skyscraper with 4 block-covered faces

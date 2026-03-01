@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import { truncateAddress, formatUsdc } from "@/hooks/useBlockActions";
-import { getLayerMinPrice, getLayerTierLabel } from "@monolith/common";
+import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, EVOLUTION_TIERS } from "@monolith/common";
 import type { DemoBlock } from "@/stores/tower-store";
 
 interface InspectorActionsProps {
@@ -129,7 +129,34 @@ export default function InspectorActions({
             size="lg"
             onPress={onCharge}
             disabled={!!cooldownText}
+            pulsing={!cooldownText}
           />
+          {/* Evolution progress */}
+          {(() => {
+            const totalCharges = block.totalCharges ?? 0;
+            const tier = getEvolutionTier(totalCharges, streak);
+            const tierInfo = getEvolutionTierInfo(tier);
+            const nextTier = chargesToNextTier(totalCharges, streak);
+            return (
+              <View style={styles.evolutionSection}>
+                <View style={styles.evolutionHeader}>
+                  <Text style={styles.evolutionTierText}>{tierInfo.name}</Text>
+                  {nextTier ? (
+                    <Text style={styles.evolutionProgressText}>
+                      {totalCharges}/{EVOLUTION_TIERS[tier + 1].charges} to {nextTier.nextTierName}
+                    </Text>
+                  ) : (
+                    <Text style={styles.evolutionMaxText}>Max Tier</Text>
+                  )}
+                </View>
+                {nextTier && (
+                  <View style={styles.evolutionBar}>
+                    <View style={[styles.evolutionBarFill, { width: `${Math.round(nextTier.progress * 100)}%` }]} />
+                  </View>
+                )}
+              </View>
+            );
+          })()}
           <Text style={styles.chargeExplainer}>
             Energy decays daily. 0% for 3 days = anyone can reclaim it.
           </Text>
@@ -345,6 +372,41 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.mono,
     fontSize: 12,
     color: COLORS.textMuted,
+  },
+  evolutionSection: {
+    gap: 4,
+  },
+  evolutionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  evolutionTierText: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 12,
+    color: COLORS.gold,
+    letterSpacing: 0.5,
+  },
+  evolutionProgressText: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  evolutionMaxText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 11,
+    color: COLORS.gold,
+  },
+  evolutionBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.bgMuted,
+    overflow: "hidden" as const,
+  },
+  evolutionBarFill: {
+    height: "100%" as any,
+    borderRadius: 2,
+    backgroundColor: COLORS.gold,
   },
   chargeExplainer: {
     ...TEXT.caption,
