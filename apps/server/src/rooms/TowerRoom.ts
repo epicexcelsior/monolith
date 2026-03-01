@@ -164,6 +164,7 @@ export class TowerRoom extends Room<TowerRoomState> {
             if (a.name) block.appearance.name = a.name;
             if (a.style != null) block.appearance.style = a.style;
             if (a.textureId != null) block.appearance.textureId = a.textureId;
+            if (a.imageUrl) block.appearance.imageUrl = a.imageUrl;
           }
         }
       }
