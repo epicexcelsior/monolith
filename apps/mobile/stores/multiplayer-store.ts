@@ -43,6 +43,7 @@ interface ServerBlock {
     name: string;
     style: number;
     textureId: number;
+    imageUrl?: string;
   };
   eventType?: "claim" | "charge" | "customize" | "poke";
 }
@@ -213,6 +214,7 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     style: block.appearance?.style || 0,
     textureId: block.appearance?.textureId || 0,
     imageIndex: block.imageIndex || 0,
+    imageUrl: block.appearance?.imageUrl || undefined,
     lastChargeTime: block.lastChargeTime || undefined,
     streak: block.streak || 0,
     lastStreakDate: block.lastStreakDate || undefined,

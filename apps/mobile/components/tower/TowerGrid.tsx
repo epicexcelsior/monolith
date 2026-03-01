@@ -71,6 +71,8 @@ export default function TowerGrid() {
   const chargeFlashQueueRef = useRef<Array<{ blockIndex: number; time: number }>>([]);
   // Track glow-up animation (gold→owner color after zoom-back)
   const glowUpRef = useRef<{ blockIndex: number; time: number; ownerColor: string } | null>(null);
+  // Track user-uploaded image texture for inspected block
+  const inspectImageRef = useRef<{ url: string; texture: THREE.Texture } | null>(null);
   // Reusable Color objects to avoid per-frame GC pressure
   const tmpColorRef = useRef(new THREE.Color());
   const goldColorRef = useRef(new THREE.Color(1.0, 0.85, 0.2));
@@ -855,7 +857,10 @@ export default function TowerGrid() {
           }
           lastPoppedIndexRef.current = selectedIdx;
         } else {
-          // No selection — restore all blocks to normal
+          // No selection — deactivate inspect image + restore all blocks
+          if (materialRef.current) {
+            materialRef.current.uniforms.uInspectImageActive.value = 0.0;
+          }
           // BUT during claim celebration, keep the claimed block popped out + highlighted
           const isCelActive = claimCelebrationRef?.current?.active ?? false;
           const celBlockId = claimCelebrationRef?.current?.blockId;
@@ -876,6 +881,48 @@ export default function TowerGrid() {
         fadeAnimatingRef.current = true;
         popAnimatingRef.current = true;
         popAnimStartRef.current = performance.now();
+      }
+    }
+
+    // ─── User image loading for inspected block ──
+    if (selectedBlockId !== prevSelectedIdRef.current || selectedBlockId) {
+      const mat = materialRef.current;
+      if (mat) {
+        const selectedBlock = selectedBlockId
+          ? blockData.find((b) => b.id === selectedBlockId)
+          : null;
+        const imageUrl = (selectedBlock as any)?.imageUrl;
+        if (imageUrl && inspectImageRef.current?.url !== imageUrl) {
+          // Load the user's image as a texture (async, non-blocking)
+          const loader = new THREE.TextureLoader();
+          loader.load(
+            imageUrl,
+            (tex) => {
+              tex.minFilter = THREE.LinearFilter;
+              tex.magFilter = THREE.LinearFilter;
+              tex.wrapS = THREE.ClampToEdgeWrapping;
+              tex.wrapT = THREE.ClampToEdgeWrapping;
+              inspectImageRef.current = { url: imageUrl, texture: tex };
+              if (materialRef.current) {
+                materialRef.current.uniforms.uInspectImage.value = tex;
+                materialRef.current.uniforms.uInspectImageActive.value = 1.0;
+              }
+            },
+            undefined,
+            () => {
+              // Load failed — clear the inspect image
+              if (materialRef.current) {
+                materialRef.current.uniforms.uInspectImageActive.value = 0.0;
+              }
+            },
+          );
+        } else if (imageUrl && inspectImageRef.current?.url === imageUrl) {
+          // Already loaded — ensure uniform is active
+          mat.uniforms.uInspectImageActive.value = 1.0;
+        } else if (!imageUrl) {
+          // No user image — deactivate
+          mat.uniforms.uInspectImageActive.value = 0.0;
+        }
       }
     }
 

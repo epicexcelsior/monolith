@@ -81,6 +81,7 @@ function serializeBlock(block: BlockSchema) {
       name: block.appearance.name,
       style: block.appearance.style,
       textureId: block.appearance.textureId,
+      imageUrl: block.appearance.imageUrl || undefined,
     },
   };
 }
@@ -104,6 +105,7 @@ function blockToRow(block: BlockSchema) {
       name: block.appearance.name,
       style: block.appearance.style,
       textureId: block.appearance.textureId,
+      imageUrl: block.appearance.imageUrl || undefined,
     },
   };
 }

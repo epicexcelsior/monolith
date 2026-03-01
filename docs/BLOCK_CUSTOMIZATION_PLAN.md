@@ -1,7 +1,7 @@
 # Block Customization Enhancement Plan
 
 > **Living decision document.** Reference for all block customization improvements.
-> **Created:** 2026-03-01 | **Status:** Phase 1A shipped, rest planned
+> **Created:** 2026-03-01 | **Status:** Phase 1 complete (1A-1E shipped), Phase 2 pending
 
 ---
 
@@ -121,10 +121,10 @@ Give players maximum freedom and delight when customizing their blocks. Make the
 
 **Phase 1 (Quick Wins — Target: March 3-5)**
 - [x] 1A: Glow reduction during inspection (shader changes)
-- [ ] 1B: Improved onboarding customize UX
-- [ ] 1C: Image upload UI in InspectorCustomize
-- [ ] 1D: Supabase Storage bucket + server upload endpoint
-- [ ] 1E: Dynamic texture loading for user images in interior windows
+- [x] 1B: Improved onboarding customize UX
+- [x] 1C: Image upload UI in InspectorCustomize
+- [x] 1D: Supabase Storage bucket + server upload endpoint
+- [x] 1E: Dynamic texture loading for user images in interior windows
 
 **Phase 2 (Polish — Target: March 5-7)**
 - [ ] 2A: Holographic pop-out effect during block inspection
@@ -279,3 +279,59 @@ void main() {
 | Inappropriate image content | Server-side moderation (future: AI content filter); flag/report system |
 | Supabase Storage costs | 2MB max per image; 512x512 WebP ≈ 50-100KB each |
 | Shader uniform limits | Use dynamic atlas (single texture) instead of uniform array |
+
+---
+
+## Implementation Log
+
+> Append-only log of what was done, deviations, and decisions made during implementation.
+
+### 2026-03-01 — Phase 1A: Glow Reduction (SHIPPED)
+- Implemented `inspectAtten` factor in BlockShader.ts
+- All energy overlays attenuated 55% on highlighted blocks
+- Highlight emissive reduced ~50%, glow pass boost reduced ~56%
+- No deviations from plan
+- Committed: `73fe8f1`
+
+### 2026-03-01 — Phase 1B+1C: Customize UX + Image Upload UI (SHIPPED)
+- Key insight: OnboardingFlow.tsx has its OWN customize UI (separate from InspectorCustomize)
+- **Deviation:** Merged 1B and 1C since they both modify InspectorCustomize.tsx
+- Changes implemented:
+  - Bigger color cells (38→44px) with cleaner grid
+  - Emoji grid (wrapping) instead of horizontal scroll for all emojis
+  - Progressive disclosure: unlocked items first, "+N" hint cell at end instead of per-item locks
+  - Bolder "Make it yours!" heading + subtext for post-claim experience
+  - Styles section: unlocked shown first, locked collapsed into "+N" hint
+  - New IMAGE section with upload button (dashed border, camera icon)
+  - "Keep your streak going" footer replaces all individual lock messages
+- Added `onImageUpload` prop flowing through: InspectorCustomize → BlockInspector → useBlockActions
+- `handleImageUpload` in useBlockActions.ts: expo-image-picker → resize → base64 → server upload
+- Added `imageUrl` field to DemoBlock interface and customizeBlock changes type
+- Updated multiplayer-store ServerBlock to include imageUrl in appearance
+
+### 2026-03-01 — Phase 1D: Supabase Storage + Server Endpoint (SHIPPED)
+- Created `supabase/migrations/004_block_images.sql`:
+  - Public `block-images` Storage bucket (2MB limit, webp/png/jpg)
+  - RLS policies for public read + service role write
+  - `update_block_image_url()` helper function for JSONB merge
+- Added `uploadBlockImage()` to `apps/server/src/utils/supabase.ts`
+- Added `POST /api/blocks/:blockId/image` endpoint to `apps/server/src/index.ts`:
+  - Validates ownership via active TowerRoom
+  - Accepts base64-encoded image in JSON body (no multer needed)
+  - Uploads to Supabase Storage, returns public URL
+  - Updates in-memory block + broadcasts block_update
+- Increased JSON body limit to 2MB for base64 images
+- Added `imageUrl` to BlockAppearanceSchema (Colyseus schema)
+- Updated `serializeBlock()` and `blockToRow()` to include imageUrl
+- **Decision:** Used base64 JSON instead of FormData to avoid multer dependency
+
+### 2026-03-01 — Phase 1E: Dynamic Texture Loading (SHIPPED)
+- Added `uInspectImage` and `uInspectImageActive` uniforms to BlockShader.ts
+- Interior mapping code now checks: if highlighted block + user image active, sample from uInspectImage
+- Chromatic aberration also uses correct texture source (atlas vs user image)
+- TowerGrid.tsx: Added `inspectImageRef` for caching loaded textures
+- On block selection: if block has imageUrl, async-load via THREE.TextureLoader
+- On deselection: deactivate uInspectImageActive
+- **Deviation from plan:** Did NOT implement dynamic atlas expansion (too complex for hackathon).
+  Instead: user images only visible during inspection via dedicated uniform.
+  Tower-view still shows default atlas images. This is Phase 2 scope.

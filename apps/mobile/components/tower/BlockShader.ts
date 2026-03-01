@@ -144,6 +144,10 @@ const fragmentShader = /* glsl */ `
   uniform float uAtlasRows;
   uniform vec3 uCameraPos;
 
+  // User-uploaded image for inspected block
+  uniform sampler2D uInspectImage;
+  uniform float uInspectImageActive; // 1.0 when a user image is loaded for the inspected block
+
   // Claim celebration uniforms
   uniform vec3 uClaimWaveOrigin;
   uniform float uClaimWaveTime;
@@ -357,7 +361,12 @@ const fragmentShader = /* glsl */ `
           (interiorV + atlasRow) / uAtlasRows
         );
 
-        vec4 imgColor = texture2D(uImageAtlas, atlasUV);
+        // User-uploaded image override for inspected block
+        vec2 userUV = vec2(interiorU, interiorV);
+        float useUserImage = vHighlight * uInspectImageActive;
+        vec4 atlasColor = texture2D(uImageAtlas, atlasUV);
+        vec4 userColor = texture2D(uInspectImage, userUV);
+        vec4 imgColor = mix(atlasColor, userColor, step(0.5, useUserImage));
 
         // ── Window frame ──
         float frameW = 0.08;
@@ -380,8 +389,17 @@ const fragmentShader = /* glsl */ `
         float edgeGlow = smoothstep(0.12, 0.0, edgeDist) * energy * 0.6;
         float chromaStr = max((1.0 - edgeDist * 8.0) * 0.005, 0.0);
         vec2 chromaOff = vec2(chromaStr, 0.0);
-        float rCh = texture2D(uImageAtlas, atlasUV + chromaOff).r;
-        float bCh = texture2D(uImageAtlas, atlasUV - chromaOff).b;
+        // Use appropriate texture source for chromatic aberration
+        float rCh = mix(
+          texture2D(uImageAtlas, atlasUV + chromaOff).r,
+          texture2D(uInspectImage, userUV + chromaOff).r,
+          step(0.5, useUserImage)
+        );
+        float bCh = mix(
+          texture2D(uImageAtlas, atlasUV - chromaOff).b,
+          texture2D(uInspectImage, userUV - chromaOff).b,
+          step(0.5, useUserImage)
+        );
         vec3 chromaImg = vec3(rCh, imgColor.g, bCh);
 
         // Compose with depth + effects
@@ -837,6 +855,9 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
       uAtlasCols: { value: 3.0 },
       uAtlasRows: { value: 2.0 },
       uCameraPos: { value: new THREE.Vector3() },
+      // User-uploaded image for inspected block
+      uInspectImage: { value: null },
+      uInspectImageActive: { value: 0.0 },
       // Claim celebration
       uClaimWaveOrigin: { value: new THREE.Vector3() },
       uClaimWaveTime: { value: -1 },

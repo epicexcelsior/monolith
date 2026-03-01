@@ -289,5 +289,42 @@ export async function getTopPlayers(limit: number = 10): Promise<any[]> {
   return data ?? [];
 }
 
+// ─── Image Storage ────────────────────────────────────────
+
+const BLOCK_IMAGES_BUCKET = "block-images";
+
+/**
+ * Upload a block image to Supabase Storage.
+ * Returns the public URL or null on failure.
+ */
+export async function uploadBlockImage(
+  blockId: string,
+  imageBuffer: Buffer,
+  contentType: string = "image/webp",
+): Promise<string | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  const filePath = `${blockId}.webp`;
+
+  const { error } = await client.storage
+    .from(BLOCK_IMAGES_BUCKET)
+    .upload(filePath, imageBuffer, {
+      contentType,
+      upsert: true,
+    });
+
+  if (error) {
+    console.error("[Supabase] uploadBlockImage error:", error.message);
+    return null;
+  }
+
+  const { data: urlData } = client.storage
+    .from(BLOCK_IMAGES_BUCKET)
+    .getPublicUrl(filePath);
+
+  return urlData?.publicUrl ?? null;
+}
+
 // ─── Exports for testing ──────────────────────────────────
 export { getClient };
