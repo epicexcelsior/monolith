@@ -28,6 +28,7 @@ let muted = false;
 let audioAvailable = false;
 
 const players: Record<string, any> = {};
+const hasPlayed: Record<string, boolean> = {}; // track first-play per key
 let AudioModule: any = null;
 
 // ─── Init ────────────────────────────────────────────────────────────────────
@@ -57,13 +58,15 @@ export async function initAudio(): Promise<void> {
             });
             await expoAudio.setIsAudioActiveAsync(true);
         } catch (e) {
-            console.warn("Audio mode setup failed (non-fatal):", e);
+            console.warn("[audio] Audio mode setup failed (non-fatal):", e);
         }
 
         audioAvailable = true;
 
         // ─── Load all sounds ───────────────────────────────────────────────
         // Metro requires static require() — can't use dynamic paths.
+        // downloadFirst: true ensures asset is extracted to local file before
+        // handing to native player — without it, isLoaded stays false on Android.
 
         // UI tier  (~-14dB)
         await loadPlayer("blockSelect",   require("../assets/sfx/block-select.wav"));
@@ -95,21 +98,25 @@ export async function initAudio(): Promise<void> {
 
         initialized = true;
     } catch (e) {
-        console.warn("initAudio failed:", e);
+        console.warn("[audio] initAudio failed:", e);
         initialized = true;
         audioAvailable = false;
     }
 }
 
-/** Create an AudioPlayer for one sound. */
+/**
+ * Create an AudioPlayer for one sound, downloading the asset first.
+ * downloadFirst ensures the asset is extracted to a local file before the
+ * native MediaPlayer receives it — required on Android for bundled assets.
+ */
 async function loadPlayer(key: string, source: any): Promise<void> {
     if (!AudioModule) return;
     try {
-        const player = AudioModule.createAudioPlayer(source);
+        const player = AudioModule.createAudioPlayer(source, { downloadFirst: true });
         player.volume = 1.0; // WAV files carry the volume hierarchy
         players[key] = player;
     } catch (e) {
-        console.warn(`loadPlayer("${key}") failed:`, e);
+        console.warn(`[audio] loadPlayer("${key}") failed:`, e);
     }
 }
 
@@ -118,10 +125,13 @@ async function loadPlayer(key: string, source: any): Promise<void> {
 function play(key: string): void {
     if (muted || !audioAvailable || !players[key]) return;
     try {
-        // seekTo(0) and play() are queued to the same native player in order —
-        // they execute sequentially without needing await. No loop risk.
-        players[key].seekTo(0).catch(() => {});
-        players[key].play();
+        const player = players[key];
+        if (hasPlayed[key]) {
+            // Only seekTo(0) on replay — avoids Android MediaPlayer issues on first play
+            player.seekTo(0).catch(() => {});
+        }
+        player.play();
+        hasPlayed[key] = true;
     } catch {
         // Playback error — no-op
     }

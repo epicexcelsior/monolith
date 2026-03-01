@@ -228,6 +228,34 @@ export const ctaLowAngle: CameraPath = (progress) => {
   };
 };
 
+// ─── Art Piece: Slow Full Orbit ──────────────────────────────────────────────
+/**
+ * artOrbit — One slow 360° revolution at mid-height.
+ * Speed curve: slow → 1.5x faster → slow (sine easing on angle).
+ * Cosine bob starts/ends with zero velocity (no jitter).
+ * progress 0–1 covers the orbit portion only; caller handles end card timing.
+ */
+export const artOrbit: CameraPath = (progress) => {
+  const p = Math.max(0, Math.min(1, progress));
+
+  // Sine-based speed curve: slow at edges, ~1.5x faster in the middle
+  // Integral of (1 - 0.35*cos(2πt)) from 0 to p, normalized to [0,1] at p=1
+  // Raw integral = p - 0.35/(2π)*sin(2πp). At p=1 this equals 1, so it's self-normalizing.
+  const easedP = p - (0.35 / (2 * Math.PI)) * Math.sin(2 * Math.PI * p);
+
+  const angle = Math.PI * 0.5 + easedP * Math.PI * 2; // full 360°
+  const radius = 44;
+
+  // Cosine bob: starts at 0 with zero derivative, smooth loop
+  const bob = (1 - Math.cos(p * Math.PI * 2)) * 0.75;
+  const y = TOWER_HEIGHT * 0.38 + bob;
+
+  return {
+    position: [Math.cos(angle) * radius, y, Math.sin(angle) * radius],
+    lookAt: [0, TOWER_HEIGHT * 0.36, 0],
+  };
+};
+
 // ─── Legacy paths (used by SpiralReveal / OrbitPunch / DollyParallax) ────────
 
 export const spiralAscend: CameraPath = (progress) => {

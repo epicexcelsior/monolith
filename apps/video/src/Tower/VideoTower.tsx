@@ -20,6 +20,16 @@ interface VideoTowerProps {
   blocks?: ReturnType<typeof generateBlocks>;
   /** Whether this path returns InspectCameraTarget (with inspectProgress) */
   isInspectPath?: boolean;
+  /** Custom image atlas texture (overrides default procedural atlas) */
+  atlasTexture?: THREE.Texture;
+  /** Atlas grid layout (default: { cols: 3, rows: 2 }) */
+  atlasLayout?: { cols: number; rows: number };
+  /** Fog density override (default: 0.022, set 0 to disable) */
+  fogDensity?: number;
+  /** Custom skybox component (replaces default NightSkybox) */
+  SkyboxComponent?: React.FC<{ frame: number; fps: number }>;
+  /** Background fog color override */
+  fogColor?: string;
 }
 
 /**
@@ -31,6 +41,11 @@ export const VideoTower: React.FC<VideoTowerProps> = ({
   cameraPath,
   blocks: externalBlocks,
   isInspectPath = false,
+  atlasTexture,
+  atlasLayout,
+  fogDensity,
+  SkyboxComponent,
+  fogColor,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
@@ -124,7 +139,11 @@ export const VideoTower: React.FC<VideoTowerProps> = ({
       />
 
       {/* ─── Environment ── */}
-      <NightSkybox frame={frame} fps={fps} />
+      {SkyboxComponent ? (
+        <SkyboxComponent frame={frame} fps={fps} />
+      ) : (
+        <NightSkybox frame={frame} fps={fps} />
+      )}
       <TowerCore frame={frame} fps={fps} />
       <GroundPlane />
       <AtmosphericHaze />
@@ -137,6 +156,10 @@ export const VideoTower: React.FC<VideoTowerProps> = ({
         inspectProgress={inspectProgress}
         inspectY={inspectY}
         cameraPosition={target.position}
+        atlasTexture={atlasTexture}
+        atlasLayout={atlasLayout}
+        fogDensity={fogDensity}
+        fogColor={fogColor}
       />
       <VideoFoundation />
       <VideoParticles frame={frame} fps={fps} />

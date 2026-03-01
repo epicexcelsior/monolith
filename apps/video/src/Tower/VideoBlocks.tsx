@@ -15,6 +15,14 @@ interface VideoBlocksProps {
   inspectY?: number;
   /** Camera position for interior mapping */
   cameraPosition?: [number, number, number];
+  /** Custom image atlas texture (overrides default procedural atlas) */
+  atlasTexture?: THREE.Texture;
+  /** Atlas grid layout (default: { cols: 3, rows: 2 }) */
+  atlasLayout?: { cols: number; rows: number };
+  /** Fog density override (default: 0.022, set 0 to disable) */
+  fogDensity?: number;
+  /** Background fog color override */
+  fogColor?: string;
 }
 
 /**
@@ -28,6 +36,10 @@ export const VideoBlocks: React.FC<VideoBlocksProps> = ({
   inspectProgress = 0,
   inspectY = 0,
   cameraPosition,
+  atlasTexture,
+  atlasLayout,
+  fogDensity,
+  fogColor,
 }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const glowRef = useRef<THREE.InstancedMesh>(null);
@@ -35,13 +47,24 @@ export const VideoBlocks: React.FC<VideoBlocksProps> = ({
 
   const blockMaterial = useMemo(() => {
     const mat = createBlockMaterial();
-    const atlas = generateAtlasTexture();
-    mat.uniforms.uImageAtlas.value = atlas;
-    // Fog for mystery — blocks dissolve into darkness at distance
-    mat.uniforms.uFogDensity.value = 0.022;
-    mat.uniforms.uFogColor.value = new THREE.Color(0x080510);
+    if (!atlasTexture) {
+      const atlas = generateAtlasTexture();
+      mat.uniforms.uImageAtlas.value = atlas;
+    }
+    mat.uniforms.uFogDensity.value = fogDensity ?? 0.022;
+    mat.uniforms.uFogColor.value = new THREE.Color(fogColor ?? "#080510");
     return mat;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Update atlas when custom texture is provided/changes
+  if (atlasTexture) {
+    blockMaterial.uniforms.uImageAtlas.value = atlasTexture;
+  }
+  if (atlasLayout) {
+    blockMaterial.uniforms.uAtlasCols.value = atlasLayout.cols;
+    blockMaterial.uniforms.uAtlasRows.value = atlasLayout.rows;
+  }
 
   const glowMaterial = useMemo(() => createGlowMaterial(), []);
 

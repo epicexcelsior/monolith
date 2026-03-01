@@ -16,6 +16,7 @@ import { playTabSwitch } from "@/utils/audio";
 import { isBotOwner } from "@/utils/seed-tower";
 import { GAME_SERVER_URL } from "@/constants/network";
 import { useTapestryStore } from "@/stores/tapestry-store";
+import { SOAR_ENABLED } from "@/services/soar-constants";
 
 // ─── Types ─────────────────────────────────────────────
 type LeaderboardTab = "skyline" | "brightest" | "streak" | "social" | "xp";
@@ -253,6 +254,13 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
         ))}
       </View>
 
+      {/* SOAR on-chain verification badge */}
+      {activeTab === "xp" && SOAR_ENABLED && (
+        <View style={styles.soarBadge}>
+          <Text style={styles.soarBadgeText}>Verified on Solana via SOAR</Text>
+        </View>
+      )}
+
       {/* Social tab — social stats + tower activity */}
       {activeTab === "social" && (
         <View style={styles.socialSection}>
@@ -433,5 +441,23 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     textAlign: "center",
     marginBottom: SPACING.sm,
+  },
+
+  // SOAR badge
+  soarBadge: {
+    alignSelf: "center",
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: "rgba(148, 90, 248, 0.3)",
+    backgroundColor: "rgba(148, 90, 248, 0.08)",
+    marginBottom: SPACING.sm,
+  },
+  soarBadgeText: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 10,
+    color: "rgba(178, 130, 255, 0.9)",
+    letterSpacing: 1,
   },
 });
