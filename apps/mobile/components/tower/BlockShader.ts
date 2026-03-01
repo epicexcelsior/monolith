@@ -1012,7 +1012,7 @@ const holoFragmentShader = /* glsl */ `
   precision mediump float;
 
   uniform sampler2D uImage;
-  uniform float uTime;
+  uniform highp float uTime; // PERF: highp — mediump degrades after ~10 min on mobile
   uniform float uOpacity;
   uniform vec3 uTintColor;
 

@@ -18,7 +18,7 @@ import { createBlockMaterial, createGlowMaterial, createHologramMaterial } from 
 import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
-import { getCachedTexture } from "@/utils/texture-cache";
+import { getCachedTexture, clearTextureCache } from "@/utils/texture-cache";
 import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
 
 export interface BlockMeta {
@@ -31,6 +31,7 @@ export interface BlockMeta {
   ownerColor: string;
   owner: string | null;
   stakedAmount: number;
+  imageUrl?: string;
 }
 
 // ─── TowerGrid ──────────────────────────────────────────────
@@ -142,6 +143,14 @@ export default function TowerGrid() {
     return new RoundedBoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 1, BLOCK_SIZE * 0.04);
   }, []);
 
+  // Dispose GPU resources on unmount
+  useEffect(() => {
+    return () => {
+      holoMaterial.dispose();
+      clearTextureCache();
+    };
+  }, [holoMaterial]);
+
   const HIT_SCALE = 1.15; // Modest enlargement for easier tapping without wrong-block selection
 
   // Build position layout (stable, config-based) — uses shared layout functions
@@ -192,6 +201,7 @@ export default function TowerGrid() {
         ownerColor: storeBlock?.ownerColor ?? BLOCK_COLORS[0],
         owner: storeBlock?.owner ?? null,
         stakedAmount: storeBlock?.stakedAmount ?? 0,
+        imageUrl: storeBlock?.imageUrl,
       });
     }
 
@@ -890,14 +900,16 @@ export default function TowerGrid() {
       }
     }
 
+    // ─── Look up selected block once for image + hologram sections ──
+    const selectedBlock = selectedBlockId
+      ? blockData.find((b) => b.id === selectedBlockId)
+      : null;
+
     // ─── User image loading for inspected block ──
     if (selectedBlockId !== prevSelectedIdRef.current || selectedBlockId) {
       const mat = materialRef.current;
       if (mat) {
-        const selectedBlock = selectedBlockId
-          ? blockData.find((b) => b.id === selectedBlockId)
-          : null;
-        const imageUrl = (selectedBlock as any)?.imageUrl;
+        const imageUrl = selectedBlock?.imageUrl;
         if (imageUrl) {
           // Try LRU cache first — returns immediately if cached, null if loading
           const cached = getCachedTexture(imageUrl, (tex) => {
@@ -929,10 +941,7 @@ export default function TowerGrid() {
     {
       const holo = holoMeshRef.current;
       if (holo) {
-        const selectedBlock = selectedBlockId
-          ? blockData.find((b) => b.id === selectedBlockId)
-          : null;
-        const hasUserImage = !!(selectedBlock as any)?.imageUrl && inspectImageRef.current?.texture;
+        const hasUserImage = !!selectedBlock?.imageUrl && inspectImageRef.current?.texture;
         const targetOpacity = hasUserImage ? 0.88 : 0.0;
 
         // Smooth opacity lerp

@@ -17,6 +17,7 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const loading = new Set<string>();
+const loader = new THREE.TextureLoader();
 
 /**
  * Get a cached texture or start loading it.
@@ -39,7 +40,6 @@ export function getCachedTexture(
 
   // Start async load
   loading.add(url);
-  const loader = new THREE.TextureLoader();
   loader.load(
     url,
     (tex) => {
@@ -66,11 +66,6 @@ export function getCachedTexture(
   );
 
   return null;
-}
-
-/** Returns true if the URL is currently being loaded. */
-export function isTextureLoading(url: string): boolean {
-  return loading.has(url);
 }
 
 /** Evict the least-recently-used cache entry. */

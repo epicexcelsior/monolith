@@ -6,9 +6,8 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { GAME_SERVER_PORT } from "@monolith/common";
-import { TowerRoom } from "./rooms/TowerRoom.js";
-import { getRecentEvents, getTopPlayers, initSupabase, uploadBlockImage } from "./utils/supabase.js";
-import { getActiveRoom } from "./rooms/TowerRoom.js";
+import { TowerRoom, getActiveRoom, serializeBlock, blockToRow } from "./rooms/TowerRoom.js";
+import { getRecentEvents, getTopPlayers, initSupabase, upsertBlock, uploadBlockImage } from "./utils/supabase.js";
 import blinksRouter from "./routes/blinks.js";
 
 /**
@@ -87,7 +86,7 @@ app.post("/api/blocks/:blockId/image", async (req, res) => {
     const { blockId } = req.params;
     const { wallet, image } = req.body;
 
-    if (!blockId || !wallet || !image) {
+    if (!blockId || !wallet || !image || typeof image !== "string") {
       res.status(400).json({ error: "Missing blockId, wallet, or image" });
       return;
     }
@@ -98,18 +97,26 @@ app.post("/api/blocks/:blockId/image", async (req, res) => {
       return;
     }
 
+    // Sanitize blockId — only allow alphanumeric, dashes, underscores
+    if (!/^[\w-]+$/.test(blockId)) {
+      res.status(400).json({ error: "Invalid blockId format" });
+      return;
+    }
+
     // Verify ownership via active room
     const room = getActiveRoom();
-    if (room) {
-      const block = room.state.blocks.get(blockId);
-      if (!block) {
-        res.status(404).json({ error: "Block not found" });
-        return;
-      }
-      if (block.owner !== wallet) {
-        res.status(403).json({ error: "Not your block" });
-        return;
-      }
+    if (!room) {
+      res.status(503).json({ error: "Game room not ready" });
+      return;
+    }
+    const block = room.state.blocks.get(blockId);
+    if (!block) {
+      res.status(404).json({ error: "Block not found" });
+      return;
+    }
+    if (block.owner !== wallet) {
+      res.status(403).json({ error: "Not your block" });
+      return;
     }
 
     // Decode base64 and upload to Supabase Storage
@@ -121,35 +128,13 @@ app.post("/api/blocks/:blockId/image", async (req, res) => {
       return;
     }
 
-    // Update in-memory block state and broadcast
-    if (room) {
-      const block = room.state.blocks.get(blockId);
-      if (block) {
-        block.appearance.imageUrl = imageUrl;
-        room.broadcast("block_update", {
-          id: block.id,
-          layer: block.layer,
-          index: block.index,
-          energy: block.energy,
-          owner: block.owner,
-          ownerColor: block.ownerColor,
-          stakedAmount: block.stakedAmount,
-          lastChargeTime: block.lastChargeTime,
-          streak: block.streak,
-          lastStreakDate: block.lastStreakDate,
-          imageIndex: block.imageIndex,
-          appearance: {
-            color: block.appearance.color,
-            emoji: block.appearance.emoji,
-            name: block.appearance.name,
-            style: block.appearance.style,
-            textureId: block.appearance.textureId,
-            imageUrl: block.appearance.imageUrl,
-          },
-          eventType: "customize",
-        });
-      }
-    }
+    // Update in-memory block state, persist, and broadcast
+    block.appearance.imageUrl = imageUrl;
+    upsertBlock(blockToRow(block)); // fire-and-forget persistence
+    room.broadcast("block_update", {
+      ...serializeBlock(block),
+      eventType: "customize",
+    });
 
     console.log(`[API] Image uploaded for ${blockId}: ${imageUrl.slice(0, 60)}...`);
     res.json({ success: true, imageUrl });

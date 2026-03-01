@@ -62,7 +62,7 @@ function isDormant(block: BlockSchema): boolean {
 }
 
 /** Serialize a BlockSchema to a plain JSON object */
-function serializeBlock(block: BlockSchema) {
+export function serializeBlock(block: BlockSchema) {
   return {
     id: block.id,
     layer: block.layer,
@@ -87,7 +87,7 @@ function serializeBlock(block: BlockSchema) {
 }
 
 /** Convert BlockSchema to persistence format */
-function blockToRow(block: BlockSchema) {
+export function blockToRow(block: BlockSchema) {
   return {
     id: block.id,
     layer: block.layer,

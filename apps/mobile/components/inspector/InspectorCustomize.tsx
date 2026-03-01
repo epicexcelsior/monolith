@@ -182,9 +182,9 @@ export default function InspectorCustomize({
         style={styles.imageUploadButton}
         onPress={() => {
           if (onImageUpload) {
+            hapticButtonPress();
             onImageUpload();
           }
-          hapticButtonPress();
         }}
         activeOpacity={0.7}
       >
@@ -238,11 +238,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   encourageHeading: {
-    fontFamily: FONT_FAMILY.heading,
-    fontSize: 20,
+    ...TEXT.headingLg,
     color: COLORS.gold,
     textAlign: "center",
-    letterSpacing: 0.5,
   },
   encourageSubtext: {
     ...TEXT.bodySm,
@@ -371,8 +369,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   imageUploadText: {
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 14,
+    ...TEXT.buttonSm,
     color: COLORS.gold,
   },
   nameRow: {

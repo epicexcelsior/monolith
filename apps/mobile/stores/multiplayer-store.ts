@@ -303,7 +303,8 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
       cur.style === updated.style &&
       cur.textureId === updated.textureId &&
       cur.emoji === updated.emoji &&
-      cur.name === updated.name
+      cur.name === updated.name &&
+      cur.imageUrl === updated.imageUrl
     );
 
     if (dataChanged) {
