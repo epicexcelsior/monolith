@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://expo.dev/accounts/exce1/projects/monolith/builds/470951b3-80e5-427e-832c-84dc5219bbe4">
+  <a href="https://expo.dev/artifacts/eas/a7biu9Mn2D9og3nh7fWjS4.apk">
     Download APK from Expo
   </a>
 </p>
