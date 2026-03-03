@@ -1,6 +1,6 @@
 # Test The Monolith
 
-> A 3D tower you own blocks on, powered by Solana. Android only.
+> Stake your spot on the tower, customize it, and compete to take it over. Solana Mobile Seeker or Android phone required for testing.
 
 ---
 
@@ -75,7 +75,7 @@ If something breaks, please note:
 2. What happened vs. what you expected
 3. Screenshot if possible
 
-Send to [GitHub Issues](https://github.com/epicexcelsior/monolith/issues) or message the dev directly.
+Send to [GitHub Issues](https://github.com/epicexcelsior/monolith/issues) or message [@exce1s](https://t.me/exce1s) on TG directly.
 
 ---
 
@@ -85,7 +85,7 @@ Send to [GitHub Issues](https://github.com/epicexcelsior/monolith/issues) or mes
 No. Everything runs on Solana devnet. Tokens are free and have no value.
 
 **Q: What phones work?**
-Any Android phone or Solana Seeker. No iOS support yet.
+Any Android phone or Solana Seeker. No iOS or web support yet.
 
 **Q: The app crashed / won't open.**
 Make sure you have Android 10+ and enough storage. Try reinstalling.
