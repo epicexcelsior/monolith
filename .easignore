@@ -19,9 +19,11 @@ apps/mobile/ios/
 # Git
 .git/
 
-# Anchor (not needed for mobile build)
+# Anchor / Rust build artifacts (not needed for mobile build)
 programs/
 .anchor/
+target/
+android/
 
 # Server (not needed for mobile build)
 apps/server/
@@ -31,6 +33,17 @@ apps/video/
 
 # Dependencies — EAS installs these on the build server
 node_modules/
+
+# Docs and archives (not needed for build)
+docs/
+archive_docs/
+*.md
+!apps/mobile/**/*.md
+
+# Misc
+.antigravity/
+scripts/
+supabase/
 
 # OS files
 .DS_Store
