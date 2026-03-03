@@ -12,6 +12,7 @@
 - [Performance](#performance)
 - [Deployment & DevOps](#deployment--devops)
 - [UI/UX & Design System](#uiux--design-system)
+- [Game Design & Core Loop](#game-design--core-loop)
 - [Development Workflow](#development-workflow)
 - [Tapestry & Social](#tapestry--social)
 
@@ -139,6 +140,11 @@ PanResponder.create({
 ---
 
 ## Shaders & 3D Rendering
+
+### Per-Instance Attributes for Evolution Tiers — Buffer Lifecycle (2026-03-01)
+**Problem**: Adding `aEvolutionTier` as a new instanced buffer attribute to the existing InstancedMesh required coordinating: (1) vertex shader declaration, (2) varying to pass to fragment, (3) Float32Array creation sized to instance count, (4) per-block write in the attribute update loop, (5) `needsUpdate = true` on each frame's attribute cycle.
+**Solution**: Follow the exact pattern of existing instanced attributes (aEnergy, aOwnerColor, etc.): declare in vertex, pass via varying, create typed array in the geometry setup useMemo, write in the blockData update loop, mark needsUpdate alongside siblings. The marginal cost of one additional float per instance (~2.6KB for 650 blocks) is negligible.
+**Key Insight**: When adding a new per-instance attribute to an existing InstancedMesh, grep for an existing attribute name (e.g., `aEnergy`) and replicate its lifecycle in all 5 locations. Missing any one location results in all-zero data or stale values with no error.
 
 ### Cylindrical UV Seams — Use Triplanar Mapping for Multi-Face Geometry (2026-02-27)
 **Problem**: Cylindrical UV mapping with `atan(pos.x, pos.z)` in the vertex shader creates a visible seam where vertices straddle the -π/+π wrap point — the GPU linearly interpolates, smearing the texture across the entire polygon. On top/bottom faces, cylindrical UVs create radial line artifacts from the center.
@@ -661,3 +667,27 @@ timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 **Problem**: BlockInspector had two separate import statements from `@/utils/tapestry` plus an unused import (`BOT_PERSONAS` from seed-tower). Metro bundler silently failed to evaluate the module, causing the entire component tree below it to not mount — block taps did nothing with zero error logs.
 **Solution**: Consolidate all imports from the same module into a single import statement. Remove unused imports immediately.
 **Key Insight**: In React Native with Metro, split imports from the same module or unused imports can cause silent component failures with no error boundary or log output. Always consolidate imports.
+
+---
+
+## Game Design & Core Loop
+
+### Evolution Tier Must Ratchet (Never Regress) — Track bestStreak Separately (2026-03-01)
+**Problem**: `getEvolutionTier(totalCharges, streak)` used the current streak value. When a player missed a day and their streak reset to 1, blocks visually downgraded from e.g. Flame (streakReq=7) back to Ember — contradicting "permanent progression" design intent. Players who invested 30+ charges lost their visual achievement.
+**Solution**: Track `bestStreak` as a separate field (all-time maximum, never decreases). Use `Math.max(currentTier, getEvolutionTier(totalCharges, bestStreak))` to ensure evolution tier never regresses. Added `bestStreak` to BlockSchema, DemoBlock, ServerBlock, BlockRow, and DB migration.
+**Key Insight**: Any "permanent progression" system needs a ratchet mechanism. If the underlying inputs can regress (streak resets), the derived output must be protected with `Math.max(current, computed)`. Always ask: "Can this go backwards? Should it?"
+
+### Duplicated Game Logic Across Client/Server Is a Desync Timebomb (2026-03-01)
+**Problem**: `getStreakMultiplier()`, `isNextDay()`, and `rollChargeAmount()` were implemented separately in `tower-store.ts` (client) and `TowerRoom.ts` (server) with identical logic. When updating charge brackets, you'd need to change both files and hope they stay in sync. In multiplayer mode, both independently rolled charge amounts (different `Math.random()` results).
+**Solution**: Moved all shared game logic to `@monolith/common/constants.ts`. Client re-exports via `tower-store.ts` for existing importers. In multiplayer, only the server rolls — client shows the server's authoritative result.
+**Key Insight**: Game logic that must be identical client/server belongs in a shared package. The pattern: define in `@monolith/common`, import on both sides. Use re-exports (`export { fn } from "@monolith/common"`) to avoid breaking existing import paths.
+
+### Variable Rewards Need Quality Embedded in the Source Data (2026-03-01)
+**Problem**: `CHARGE_BRACKETS` defined `{min, max, weight}` but quality was a separate `CHARGE_QUALITY` array mapped by bracket index (`CHARGE_QUALITY[bracketIndex]`). This was fragile — reordering brackets or adding a new one would silently break quality mapping.
+**Solution**: Embed quality directly in each bracket: `{ min: 15, max: 19, weight: 25, quality: "normal" }`. `rollChargeAmount()` returns `{ amount, quality }` directly. Removed the separate `CHARGE_QUALITY` array.
+**Key Insight**: When data has a 1:1 relationship (bracket → quality), co-locate it in the same object. Index-based mapping between parallel arrays is a fragile coupling that breaks silently on reorder.
+
+### noise2D Is Expensive Per-Fragment on Mobile — Use hash21 for Sparkle (2026-03-01)
+**Problem**: Evolution shimmer effect used `noise2D()` in the fragment shader (4 `hash21` calls + bilinear interpolation per pixel). On mobile GPUs, both branches of an `if` are evaluated regardless, so this ran for ALL 650 blocks' fragments every frame, not just tier 2+ blocks.
+**Solution**: Replaced with single `hash21(floor(...))` call — produces visually similar sparkle for shimmer effects at ~4x fewer GPU ops. `floor()` makes it cell-based (discrete sparkles) which is actually more visually appropriate for a "particle" effect than smooth noise.
+**Key Insight**: For sparkle/shimmer effects, smooth noise is overkill — a simple hash produces the same visual at a fraction of the cost. On mobile GPUs, assume both branches always execute and optimize the expensive branch accordingly.

@@ -107,12 +107,12 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
         playError();
       } else if (result.success) {
         playChargeTap();
-        setRecentlyChargedId(blockId);
+        setRecentlyChargedId(blockId, result.chargeQuality);
         const store = usePlayerStore.getState();
         const isFirstToday = store.isFirstChargeToday();
         const pts = isFirstToday ? 50 : 25;
         const label = isFirstToday ? "Daily Charge \u2713" : undefined;
-        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level, label });
+        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level, label, chargeAmount: result.chargeAmount, chargeQuality: result.chargeQuality });
         if (isFirstToday) store.markChargeToday();
       }
     }
@@ -129,7 +129,7 @@ export default function MyBlocksPanel({ visible, onClose }: MyBlocksPanelProps) 
       } else {
         const result = chargeBlock(block.id);
         if (result.success) {
-          setRecentlyChargedId(block.id);
+          setRecentlyChargedId(block.id, result.chargeQuality);
           const store = usePlayerStore.getState();
           const isFirstToday = store.isFirstChargeToday();
           const pts = isFirstToday ? 50 : 25;

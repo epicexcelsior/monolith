@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
     Text,
     ActivityIndicator,
@@ -11,6 +11,10 @@ import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withSpring,
+    withRepeat,
+    withSequence,
+    withTiming,
+    cancelAnimation,
 } from "react-native-reanimated";
 import { COLORS, GLASS_STYLE, RADIUS, SPACING, TEXT, SHADOW, TIMING } from "@/constants/theme";
 
@@ -30,6 +34,8 @@ interface ButtonProps {
     disabled?: boolean;
     /** Optional icon element (rendered left of title) */
     icon?: React.ReactNode;
+    /** Enable breathing pulse animation (e.g. charge button when ready) */
+    pulsing?: boolean;
     /** Press handler */
     onPress?: () => void;
 }
@@ -53,17 +59,37 @@ export default function Button({
     loading = false,
     disabled = false,
     icon,
+    pulsing = false,
     onPress,
 }: ButtonProps) {
     const isDisabled = disabled || loading;
     const scale = useSharedValue(1);
+    const pulseScale = useSharedValue(1);
+
+    // Breathing pulse: 1.0 → 1.04 → 1.0 (subtle, continuous)
+    useEffect(() => {
+        if (pulsing && !isDisabled) {
+            pulseScale.value = withRepeat(
+                withSequence(
+                    withTiming(1.04, { duration: 800 }),
+                    withTiming(1.0, { duration: 800 }),
+                ),
+                -1, // infinite
+                false,
+            );
+        } else {
+            cancelAnimation(pulseScale);
+            pulseScale.value = withTiming(1, { duration: 200 });
+        }
+    }, [pulsing, isDisabled, pulseScale]);
 
     const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
+        transform: [{ scale: scale.value * pulseScale.value }],
     }));
 
     const handlePressIn = () => {
-        scale.value = withSpring(0.97, TIMING.microSpring);
+        // Deeper press for pulsing buttons — feels more "punchy"
+        scale.value = withSpring(pulsing ? 0.94 : 0.97, TIMING.microSpring);
     };
 
     const handlePressOut = () => {

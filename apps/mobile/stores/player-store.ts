@@ -6,6 +6,7 @@
  */
 
 import { create } from "zustand";
+import type { ChargeQuality } from "@monolith/common";
 
 interface PlayerStore {
   // ─── State ────────────────────────────────
@@ -15,6 +16,8 @@ interface PlayerStore {
   lastPointsEarned: number | null;
   lastCombo: number | null;
   lastPointsLabel: string | null; // Custom label for FloatingPoints (e.g. "Daily Charge ✓")
+  lastChargeAmount: number | null; // Energy added on last charge (e.g. 27)
+  lastChargeQuality: ChargeQuality | null; // Roll quality for visual feedback
   levelUp: number | null; // the new level, or null
   totalClaims: number;
   totalCharges: number;
@@ -30,6 +33,8 @@ interface PlayerStore {
     level?: number;
     levelUp?: boolean;
     label?: string;
+    chargeAmount?: number;
+    chargeQuality?: ChargeQuality;
   }) => void;
   /** Check if today's first charge has been done */
   isFirstChargeToday: () => boolean;
@@ -58,6 +63,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   lastPointsEarned: null,
   lastCombo: null,
   lastPointsLabel: null,
+  lastChargeAmount: null,
+  lastChargeQuality: null,
   levelUp: null,
   totalClaims: 0,
   totalCharges: 0,
@@ -74,6 +81,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       lastPointsEarned: data.pointsEarned,
       lastCombo: data.combo ?? null,
       lastPointsLabel: data.label ?? null,
+      lastChargeAmount: data.chargeAmount ?? null,
+      lastChargeQuality: data.chargeQuality ?? null,
       combo: data.combo ?? get().combo,
       ...(data.totalXp != null ? { xp: data.totalXp } : {}),
       ...(data.level != null ? { level: data.level } : {}),
@@ -82,7 +91,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     // Auto-clear floating points after 2s
     pointsClearTimer = setTimeout(() => {
-      set({ lastPointsEarned: null, lastCombo: null, lastPointsLabel: null });
+      set({ lastPointsEarned: null, lastCombo: null, lastPointsLabel: null, lastChargeAmount: null, lastChargeQuality: null });
     }, 2000);
 
     // Auto-clear level-up after 3s
@@ -116,6 +125,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   setUsername: (username) => set({ username }),
 
-  clearPoints: () => set({ lastPointsEarned: null, lastCombo: null, lastPointsLabel: null }),
+  clearPoints: () => set({ lastPointsEarned: null, lastCombo: null, lastPointsLabel: null, lastChargeAmount: null, lastChargeQuality: null }),
   clearLevelUp: () => set({ levelUp: null }),
 }));

@@ -7,7 +7,8 @@ import type {
   TowerConfig,
   Player,
 } from "@monolith/common";
-import { DEFAULT_TOWER_CONFIG, MAX_ENERGY } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay } from "@monolith/common";
+import type { ChargeQuality } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
 import { useAchievementStore } from "@/stores/achievement-store";
 import { SECURE_STORE_KEYS } from "@/services/mwa";
@@ -62,36 +63,10 @@ async function setOnboardingFlag(): Promise<void> {
 // ─── Demo Mode Constants ──────────────────────────────────
 const DEMO_DECAY_AMOUNT = 1;
 const DEMO_DECAY_INTERVAL_MS = 60_000;
-const BASE_CHARGE_AMOUNT = 20;
 const DEMO_CHARGE_COOLDOWN_MS = 30_000;
 
-/** Streak multiplier tiers */
-export function getStreakMultiplier(streak: number): number {
-  if (streak >= 30) return 3.0;
-  if (streak >= 7) return 2.0;
-  if (streak >= 5) return 1.75;
-  if (streak >= 3) return 1.5;
-  return 1.0;
-}
-
-/** Returns the next milestone day for streak display */
-export function getNextStreakMilestone(streak: number): number {
-  if (streak < 3) return 3;
-  if (streak < 7) return 7;
-  if (streak < 14) return 14;
-  if (streak < 30) return 30;
-  return streak + 1;
-}
-
-/** Check if ts2 is exactly the next calendar day after ts1 */
-function isNextDay(ts1: number, ts2: number): boolean {
-  const d1 = new Date(ts1);
-  const d2 = new Date(ts2);
-  d1.setHours(0, 0, 0, 0);
-  d2.setHours(0, 0, 0, 0);
-  const diff = d2.getTime() - d1.getTime();
-  return diff === 86400000; // exactly 1 day in ms
-}
+// Re-export for consumers that import from tower-store
+export { getStreakMultiplier, getNextStreakMilestone } from "@monolith/common";
 
 /** Lightweight block info for demo mode (no server needed) */
 export interface DemoBlock {
@@ -111,6 +86,9 @@ export interface DemoBlock {
   lastChargeTime?: number;
   streak?: number;
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
+  totalCharges?: number;     // cumulative charges (drives evolution)
+  bestStreak?: number;       // all-time best streak (never decreases)
+  evolutionTier?: number;    // 0-4 (Spark, Ember, Flame, Blaze, Beacon) — denormalized from getEvolutionTier()
 }
 
 /** Mutable ref state for claim celebration, readable by useFrame loops */
@@ -139,6 +117,7 @@ interface TowerStore {
   isGestureActive: boolean;
   recentlyClaimedId: string | null;
   recentlyChargedId: string | null;
+  recentlyChargedQuality: ChargeQuality | null;
   recentlyPokedId: string | null;
   glowUpBlockId: string | null;
   onboardingDone: boolean;
@@ -174,7 +153,7 @@ interface TowerStore {
   initTower: () => Promise<void>;
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
-  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number };
+  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number };
   customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
@@ -182,7 +161,7 @@ interface TowerStore {
   resetTower: () => Promise<void>;
   clearRecentlyClaimed: () => void;
   setRecentlyClaimedId: (id: string | null) => void;
-  setRecentlyChargedId: (id: string | null) => void;
+  setRecentlyChargedId: (id: string | null, quality?: ChargeQuality) => void;
   clearRecentlyCharged: () => void;
   setRecentlyPokedId: (id: string | null) => void;
   clearRecentlyPoked: () => void;
@@ -227,6 +206,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   isGestureActive: false,
   recentlyClaimedId: null,
   recentlyChargedId: null,
+  recentlyChargedQuality: null,
   recentlyPokedId: null,
   glowUpBlockId: null,
   onboardingDone: false,
@@ -389,7 +369,13 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     }
 
     const multiplier = getStreakMultiplier(newStreak);
-    const chargeAmount = Math.round(BASE_CHARGE_AMOUNT * multiplier);
+    // Variable charge: random 15-35 base, then multiplied by streak
+    const { amount: baseAmount, quality: chargeQuality } = rollChargeAmount();
+    const chargeAmount = Math.round(baseAmount * multiplier);
+    const newTotalCharges = (block.totalCharges ?? 0) + 1;
+    const newBestStreak = Math.max(block.bestStreak ?? 0, newStreak);
+    // Evolution tier never regresses (ratchet)
+    const newEvolutionTier = Math.max(block.evolutionTier ?? 0, getEvolutionTier(newTotalCharges, newBestStreak));
 
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
@@ -400,6 +386,9 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             lastChargeTime: now,
             streak: newStreak,
             lastStreakDate: today,
+            totalCharges: newTotalCharges,
+            bestStreak: newBestStreak,
+            evolutionTier: newEvolutionTier,
           }
           : b,
       ),
@@ -410,7 +399,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     if (newStreak >= 7)  useAchievementStore.getState().checkAndUnlock("streak_7");
     if (newStreak >= 14) useAchievementStore.getState().checkAndUnlock("streak_14");
     if (newStreak >= 30) useAchievementStore.getState().checkAndUnlock("streak_30");
-    return { success: true, streak: newStreak, multiplier, chargeAmount };
+    return { success: true, streak: newStreak, multiplier, chargeAmount, chargeQuality, totalCharges: newTotalCharges, evolutionTier: newEvolutionTier };
   },
 
   customizeBlock: (blockId, changes) => {
@@ -477,8 +466,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
 
   clearRecentlyClaimed: () => set({ recentlyClaimedId: null }),
   setRecentlyClaimedId: (id) => set({ recentlyClaimedId: id }),
-  setRecentlyChargedId: (id) => set({ recentlyChargedId: id }),
-  clearRecentlyCharged: () => set({ recentlyChargedId: null }),
+  setRecentlyChargedId: (id, quality) => set({ recentlyChargedId: id, recentlyChargedQuality: quality ?? null }),
+  clearRecentlyCharged: () => set({ recentlyChargedId: null, recentlyChargedQuality: null }),
   setRecentlyPokedId: (id) => set({ recentlyPokedId: id }),
   clearRecentlyPoked: () => set({ recentlyPokedId: null }),
   setGlowUpBlockId: (id) => set({ glowUpBlockId: id }),
@@ -520,7 +509,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     const block = get().demoBlocks.find((b) => b.id === blockId);
     if (!block) return { success: false };
 
-    const chargeAmount = BASE_CHARGE_AMOUNT;
+    const chargeAmount = 25; // Fixed amount for onboarding tutorial
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
         b.id === blockId

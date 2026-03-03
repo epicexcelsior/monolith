@@ -38,6 +38,103 @@ export const ENERGY_THRESHOLDS = {
   dead: 0, // 0:      Black/cracked, claimable
 } as const;
 
+// ─── Streak System ───────────────────────────────────────
+/** Streak multiplier tiers — shared between client and server */
+export function getStreakMultiplier(streak: number): number {
+  if (streak >= 30) return 3.0;
+  if (streak >= 7) return 2.0;
+  if (streak >= 5) return 1.75;
+  if (streak >= 3) return 1.5;
+  return 1.0;
+}
+
+/** Returns the next milestone day for streak display */
+export function getNextStreakMilestone(streak: number): number {
+  if (streak < 3) return 3;
+  if (streak < 7) return 7;
+  if (streak < 14) return 14;
+  if (streak < 30) return 30;
+  return streak + 1;
+}
+
+/** Check if ts2 is exactly the next calendar day after ts1 */
+export function isNextDay(ts1: number, ts2: number): boolean {
+  const d1 = new Date(ts1);
+  const d2 = new Date(ts2);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  const diff = d2.getTime() - d1.getTime();
+  return diff === 86400000; // exactly 1 day in ms
+}
+
+// ─── Variable Charge System ──────────────────────────────
+/** Weighted random charge: each bracket has a probability weight and quality */
+export const CHARGE_BRACKETS = [
+  { min: 15, max: 19, weight: 25, quality: "normal" as const }, // Below average — 25%
+  { min: 20, max: 25, weight: 40, quality: "normal" as const }, // Normal — 40%
+  { min: 26, max: 30, weight: 25, quality: "good" as const },   // Good — 25%
+  { min: 31, max: 35, weight: 10, quality: "great" as const },  // Great ("Lucky!") — 10%
+] as const;
+
+export type ChargeQuality = "normal" | "good" | "great";
+
+/** Pre-computed total weight (CHARGE_BRACKETS is const) */
+const CHARGE_TOTAL_WEIGHT = CHARGE_BRACKETS.reduce((s, b) => s + b.weight, 0);
+
+/** Roll a variable charge amount using weighted random brackets */
+export function rollChargeAmount(): { amount: number; quality: ChargeQuality } {
+  let roll = Math.random() * CHARGE_TOTAL_WEIGHT;
+  for (let i = 0; i < CHARGE_BRACKETS.length; i++) {
+    roll -= CHARGE_BRACKETS[i].weight;
+    if (roll <= 0) {
+      const bracket = CHARGE_BRACKETS[i];
+      const amount = bracket.min + Math.floor(Math.random() * (bracket.max - bracket.min + 1));
+      return { amount, quality: bracket.quality };
+    }
+  }
+  // Fallback (shouldn't happen)
+  return { amount: 20, quality: "normal" };
+}
+
+// ─── Block Evolution System ──────────────────────────────
+/** Evolution tiers — permanent visual progression based on cumulative charges */
+export const EVOLUTION_TIERS = [
+  { name: "Spark",  charges: 0,   streakReq: 0,  glowMultiplier: 1.0 },
+  { name: "Ember",  charges: 10,  streakReq: 0,  glowMultiplier: 1.2 },
+  { name: "Flame",  charges: 30,  streakReq: 7,  glowMultiplier: 1.4 },
+  { name: "Blaze",  charges: 75,  streakReq: 14, glowMultiplier: 1.6 },
+  { name: "Beacon", charges: 150, streakReq: 30, glowMultiplier: 1.8 },
+] as const;
+
+/** Compute evolution tier index (0-4) from totalCharges and best streak */
+export function getEvolutionTier(totalCharges: number, bestStreak: number = 0): number {
+  let tier = 0;
+  for (let i = EVOLUTION_TIERS.length - 1; i >= 0; i--) {
+    if (totalCharges >= EVOLUTION_TIERS[i].charges && bestStreak >= EVOLUTION_TIERS[i].streakReq) {
+      tier = i;
+      break;
+    }
+  }
+  return tier;
+}
+
+/** Get evolution tier info by index */
+export function getEvolutionTierInfo(tier: number) {
+  return EVOLUTION_TIERS[Math.min(tier, EVOLUTION_TIERS.length - 1)];
+}
+
+/** Charges needed to reach the next evolution tier (or 0 if max) */
+export function chargesToNextTier(totalCharges: number, bestStreak: number = 0): { needed: number; nextTierName: string; progress: number } | null {
+  const currentTier = getEvolutionTier(totalCharges, bestStreak);
+  if (currentTier >= EVOLUTION_TIERS.length - 1) return null;
+  const next = EVOLUTION_TIERS[currentTier + 1];
+  const prev = EVOLUTION_TIERS[currentTier];
+  const needed = next.charges - totalCharges;
+  const range = next.charges - prev.charges;
+  const progress = range > 0 ? (totalCharges - prev.charges) / range : 0;
+  return { needed: Math.max(0, needed), nextTierName: next.name, progress: Math.min(1, Math.max(0, progress)) };
+}
+
 // ─── Monolith Tower Configuration ─────────────────────────
 /**
  * Monolith tower: a rectangular skyscraper with 4 block-covered faces

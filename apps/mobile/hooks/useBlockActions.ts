@@ -226,8 +226,8 @@ export function useBlockActions() {
         playError();
       } else if (result.success) {
         playChargeTap();
-        // Trigger 3D charge flash
-        setRecentlyChargedId(selectedBlockId);
+        // Trigger 3D charge flash (pass quality for visual intensity)
+        setRecentlyChargedId(selectedBlockId, result.chargeQuality);
         if (result.streak && [3, 7, 14, 30].includes(result.streak)) {
           hapticStreakMilestone();
           playStreakMilestone();
@@ -237,7 +237,14 @@ export function useBlockActions() {
         const isFirstToday = store.isFirstChargeToday();
         const pts = isFirstToday ? 50 : 25;
         const label = isFirstToday ? "Daily Charge \u2713" : undefined;
-        store.addPoints({ pointsEarned: pts, totalXp: store.xp + pts, level: store.level, label });
+        store.addPoints({
+          pointsEarned: pts,
+          totalXp: store.xp + pts,
+          level: store.level,
+          label,
+          chargeAmount: result.chargeAmount,
+          chargeQuality: result.chargeQuality,
+        });
         if (isFirstToday) {
           store.markChargeToday();
           hapticStreakMilestone();
@@ -344,6 +351,8 @@ export function useBlockActions() {
             totalXp: result.totalXp,
             level: result.level,
             levelUp: result.levelUp,
+            chargeAmount: result.chargeAmount,
+            chargeQuality: result.chargeQuality,
           });
         }
         // SOAR: submit score + streak achievement (multiplayer)
