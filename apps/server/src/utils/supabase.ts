@@ -9,6 +9,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 let supabase: SupabaseClient | null = null;
 
@@ -290,6 +291,67 @@ export async function getTopPlayers(limit: number = 10): Promise<any[]> {
     return [];
   }
   return data ?? [];
+}
+
+// ─── Image Storage ────────────────────────────────────────
+
+const BLOCK_IMAGES_BUCKET = "block-images";
+
+/**
+ * Optimize an image buffer: resize to max 512x512 and convert to WebP.
+ * Returns the optimized buffer.
+ */
+async function optimizeImage(imageBuffer: Buffer): Promise<Buffer> {
+  return sharp(imageBuffer)
+    .resize(512, 512, {
+      fit: "cover",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 80 })
+    .toBuffer();
+}
+
+/**
+ * Upload a block image to Supabase Storage.
+ * Automatically resizes to 512x512 and converts to WebP.
+ * Returns the public URL or null on failure.
+ */
+export async function uploadBlockImage(
+  blockId: string,
+  imageBuffer: Buffer,
+): Promise<string | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  // Optimize: resize + WebP conversion
+  let optimized: Buffer;
+  try {
+    optimized = await optimizeImage(imageBuffer);
+    console.log(`[Supabase] Image optimized: ${imageBuffer.length} → ${optimized.length} bytes`);
+  } catch (err) {
+    console.error("[Supabase] Image optimization failed:", err);
+    return null;
+  }
+
+  const filePath = `${blockId}.webp`;
+
+  const { error } = await client.storage
+    .from(BLOCK_IMAGES_BUCKET)
+    .upload(filePath, optimized, {
+      contentType: "image/webp",
+      upsert: true,
+    });
+
+  if (error) {
+    console.error("[Supabase] uploadBlockImage error:", error.message);
+    return null;
+  }
+
+  const { data: urlData } = client.storage
+    .from(BLOCK_IMAGES_BUCKET)
+    .getPublicUrl(filePath);
+
+  return urlData?.publicUrl ?? null;
 }
 
 // ─── Exports for testing ──────────────────────────────────

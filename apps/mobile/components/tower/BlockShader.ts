@@ -147,6 +147,10 @@ const fragmentShader = /* glsl */ `
   uniform float uAtlasRows;
   uniform vec3 uCameraPos;
 
+  // User-uploaded image for inspected block
+  uniform sampler2D uInspectImage;
+  uniform float uInspectImageActive; // 1.0 when a user image is loaded for the inspected block
+
   // Claim celebration uniforms
   uniform vec3 uClaimWaveOrigin;
   uniform float uClaimWaveTime;
@@ -361,7 +365,12 @@ const fragmentShader = /* glsl */ `
           (interiorV + atlasRow) / uAtlasRows
         );
 
-        vec4 imgColor = texture2D(uImageAtlas, atlasUV);
+        // User-uploaded image override for inspected block
+        vec2 userUV = vec2(interiorU, interiorV);
+        float useUserImage = vHighlight * uInspectImageActive;
+        vec4 atlasColor = texture2D(uImageAtlas, atlasUV);
+        vec4 userColor = texture2D(uInspectImage, userUV);
+        vec4 imgColor = mix(atlasColor, userColor, step(0.5, useUserImage));
 
         // ── Window frame ──
         float frameW = 0.08;
@@ -384,8 +393,17 @@ const fragmentShader = /* glsl */ `
         float edgeGlow = smoothstep(0.12, 0.0, edgeDist) * energy * 0.6;
         float chromaStr = max((1.0 - edgeDist * 8.0) * 0.005, 0.0);
         vec2 chromaOff = vec2(chromaStr, 0.0);
-        float rCh = texture2D(uImageAtlas, atlasUV + chromaOff).r;
-        float bCh = texture2D(uImageAtlas, atlasUV - chromaOff).b;
+        // Use appropriate texture source for chromatic aberration
+        float rCh = mix(
+          texture2D(uImageAtlas, atlasUV + chromaOff).r,
+          texture2D(uInspectImage, userUV + chromaOff).r,
+          step(0.5, useUserImage)
+        );
+        float bCh = mix(
+          texture2D(uImageAtlas, atlasUV - chromaOff).b,
+          texture2D(uInspectImage, userUV - chromaOff).b,
+          step(0.5, useUserImage)
+        );
         vec3 chromaImg = vec3(rCh, imgColor.g, bCh);
 
         // Compose with depth + effects
@@ -702,16 +720,20 @@ const fragmentShader = /* glsl */ `
     vec3 color = baseColor * faceBrightness;
     color += heightTint;
 
-    // Energy-driven overlays (additive), scaled by evolution tier
-    color *= (0.8 + pulse * pulseIntensity * 0.4);
-    color += rimContrib * evoGlowMult;
-    color += specColor * evoGlowMult;
-    color += glowColor * scanLine * energy;
-    color += glowColor * spireGlow * 0.5;
-    color += glowColor * radiate * evoGlowMult;
-    color += glowColor * innerGlow * evoGlowMult;
+    // Inspect mode: soften energy overlays on selected block
+    // so the player's customization (color, style, texture) shows through
+    float inspectAtten = mix(1.0, 0.45, vHighlight);
+
+    // Energy-driven overlays (additive), scaled by evolution tier + attenuated during inspection
+    color *= (0.8 + pulse * pulseIntensity * 0.4 * inspectAtten);
+    color += rimContrib * evoGlowMult * inspectAtten;
+    color += specColor * evoGlowMult * inspectAtten;
+    color += glowColor * scanLine * energy * inspectAtten;
+    color += glowColor * spireGlow * 0.5 * inspectAtten;
+    color += glowColor * radiate * evoGlowMult * inspectAtten;
+    color += glowColor * innerGlow * evoGlowMult * inspectAtten;
     // Evolution rim boost
-    color += glowColor * fresnel * evoRimBoost * energy;
+    color += glowColor * fresnel * evoRimBoost * energy * inspectAtten;
     // Evolution shimmer particles
     color += vec3(1.0, 0.95, 0.8) * evoShimmer;
 
@@ -803,24 +825,24 @@ const fragmentShader = /* glsl */ `
     float dimFloor = mix(0.30, 0.45, hasImg); // dark scene needs stronger dim
     color *= mix(dimFloor, 1.0, vFade);
 
-    // Highlight selected block — punchy for dark scene
+    // Highlight selected block — subtle rim so customization stays visible
     if (vHighlight > 0.01) {
       float hlHasImage = step(0.5, vImageIndex);
-      float hlRim = pow(1.0 - NdotV, 2.0); // wider rim (was 2.5)
-      vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.92, 0.7), 0.3);
+      float hlRim = pow(1.0 - NdotV, 2.0);
+      // Rim uses owner color with slight warm bias — frames the block
+      vec3 rimColor = mix(vOwnerColor, vec3(1.0, 0.95, 0.85), 0.2);
 
       if (hlHasImage > 0.5) {
-        // IMAGE BLOCKS: bright rim glow + moderate face lift
-        color += rimColor * hlRim * vHighlight * 1.8;
-        color *= 1.0 + vHighlight * 0.2;
-        // Warm edge emission so the block pops from the darkness
-        color += vOwnerColor * vHighlight * 0.15;
+        // IMAGE BLOCKS: gentle rim so interior images stay clear
+        color += rimColor * hlRim * vHighlight * 1.0;
+        color *= 1.0 + vHighlight * 0.1;
+        color += vOwnerColor * vHighlight * 0.08;
       } else {
-        // NON-IMAGE BLOCKS: strong emissive highlight
-        vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.9, 0.6), 0.3);
-        color += emissive * vHighlight * 0.7;
-        color *= 1.0 + vHighlight * 0.4;
-        color += rimColor * hlRim * vHighlight * 1.2;
+        // NON-IMAGE BLOCKS: moderate emissive, owner-color-dominant
+        vec3 emissive = mix(vOwnerColor, vec3(1.0, 0.95, 0.85), 0.15);
+        color += emissive * vHighlight * 0.35;
+        color *= 1.0 + vHighlight * 0.15;
+        color += rimColor * hlRim * vHighlight * 0.8;
       }
     }
 
@@ -863,6 +885,9 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
       uAtlasCols: { value: 3.0 },
       uAtlasRows: { value: 2.0 },
       uCameraPos: { value: new THREE.Vector3() },
+      // User-uploaded image for inspected block
+      uInspectImage: { value: null },
+      uInspectImageActive: { value: 0.0 },
       // Claim celebration
       uClaimWaveOrigin: { value: new THREE.Vector3() },
       uClaimWaveTime: { value: -1 },
@@ -969,13 +994,13 @@ const glowFragmentShader = /* glsl */ `
 
     float alpha = fresnel * max(glowStrength, dormantGlow) * pulse * 0.35;
 
-    // Inspect mode: fade glow on non-selected, boost on selected
+    // Inspect mode: fade glow on non-selected, reduce on selected
     alpha *= mix(0.15, 1.0, vFade); // stronger fade in night scene
     if (vHighlight > 0.01) {
-      // Force glow visible on highlighted block even at moderate energy
-      float hlGlow = max(glowStrength, 0.4);
-      alpha += vHighlight * hlGlow * 0.8;
-      glowColor *= 1.0 + vHighlight * 0.8;
+      // Moderate glow boost — enough to see the block, not enough to wash out customization
+      float hlGlow = max(glowStrength, 0.25);
+      alpha += vHighlight * hlGlow * 0.35;
+      glowColor *= 1.0 + vHighlight * 0.3;
     }
 
     gl_FragColor = vec4(glowColor * max(glowStrength, dormantGlow), alpha);
@@ -995,6 +1020,96 @@ export function createGlowMaterial(): THREE.ShaderMaterial {
       uTime: { value: 0 },
     },
     blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    fog: false,
+    toneMapped: false,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// HOLOGRAPHIC POP-OUT — floating image plane during inspection
+// ═══════════════════════════════════════════════════════════
+
+const holoVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const holoFragmentShader = /* glsl */ `
+  precision mediump float;
+
+  uniform sampler2D uImage;
+  uniform highp float uTime; // PERF: highp — mediump degrades after ~10 min on mobile
+  uniform float uOpacity;
+  uniform vec3 uTintColor;
+
+  varying vec2 vUv;
+
+  void main() {
+    vec2 uv = vUv;
+
+    // Scan lines — subtle horizontal interference
+    float scanLine = sin(uv.y * 180.0 + uTime * 2.5) * 0.025;
+    float scanLine2 = sin(uv.y * 40.0 - uTime * 0.8) * 0.015; // slower wide bands
+
+    // Chromatic aberration — stronger at edges
+    float dist = length(uv - 0.5);
+    float aberration = dist * dist * 0.015;
+    float r = texture2D(uImage, uv + vec2(aberration, 0.0)).r;
+    float g = texture2D(uImage, uv).g;
+    float b = texture2D(uImage, uv - vec2(aberration, 0.0)).b;
+
+    vec3 color = vec3(r, g, b);
+    color += scanLine + scanLine2;
+
+    // Holographic shimmer — rainbow shift at edges
+    float shimmer = sin(uv.y * 12.0 + uTime * 1.5) * 0.5 + 0.5;
+    vec3 holoShift = vec3(
+      sin(shimmer * 6.28) * 0.08,
+      sin(shimmer * 6.28 + 2.09) * 0.08,
+      sin(shimmer * 6.28 + 4.19) * 0.08
+    );
+    color += holoShift * (1.0 - smoothstep(0.2, 0.45, dist));
+
+    // Edge glow — soft circular fade
+    float edgeFade = smoothstep(0.5, 0.28, dist);
+    float cornerFade = smoothstep(0.52, 0.35, max(abs(uv.x - 0.5), abs(uv.y - 0.5)));
+    float mask = min(edgeFade, cornerFade);
+
+    // Tint with owner color at edges
+    color += uTintColor * (1.0 - edgeFade) * 0.25;
+
+    // Brightness boost so image reads clearly
+    color *= 1.15;
+
+    // Flicker — subtle opacity variation
+    float flicker = 0.95 + 0.05 * sin(uTime * 8.0 + dist * 3.0);
+
+    float alpha = mask * uOpacity * flicker;
+
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+/**
+ * Creates the holographic pop-out material for inspected blocks with user images.
+ * Semi-transparent plane with scan lines, chromatic aberration, and holographic shimmer.
+ */
+export function createHologramMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: holoVertexShader,
+    fragmentShader: holoFragmentShader,
+    uniforms: {
+      uImage: { value: null },
+      uTime: { value: 0 },
+      uOpacity: { value: 0 },
+      uTintColor: { value: new THREE.Color(0xd4a847) }, // gold default
+    },
+    transparent: true,
+    side: THREE.DoubleSide,
     depthWrite: false,
     fog: false,
     toneMapped: false,

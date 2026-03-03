@@ -329,6 +329,58 @@ export function useBlockActions() {
     playCustomize();
   }, [applyCustomize]);
 
+  const handleImageUpload = useCallback(async () => {
+    if (!selectedBlockId) return;
+    try {
+      const ImagePicker = await import("expo-image-picker");
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+
+      const imageUri = result.assets[0].uri;
+      hapticCustomize();
+      playCustomize();
+
+      // Resize to 512x512 before uploading
+      const ImageManipulator = await import("expo-image-manipulator");
+      const resized = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: 512, height: 512 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.WEBP },
+      );
+
+      // Read file as base64
+      const FileSystem = await import("expo-file-system");
+      const base64 = await FileSystem.readAsStringAsync(resized.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Upload to server as JSON (avoids need for multer on server)
+      const { GAME_SERVER_URL } = await import("@/constants/network");
+      const serverUrl = GAME_SERVER_URL.replace("wss://", "https://").replace("ws://", "http://");
+      const wallet = publicKey?.toBase58() || "";
+
+      const response = await fetch(`${serverUrl}/api/blocks/${selectedBlockId}/image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet, image: base64 }),
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      const data = await response.json();
+      if (data.imageUrl) {
+        customizeBlock(selectedBlockId, { imageUrl: data.imageUrl });
+      }
+    } catch (err) {
+      console.warn("[ImageUpload] Failed:", err);
+      hapticError();
+      playError();
+    }
+  }, [selectedBlockId, publicKey, customizeBlock]);
+
   // Listen for server results
   useEffect(() => {
     if (!mpConnected) return;
@@ -497,6 +549,7 @@ export function useBlockActions() {
     handleEmojiChange,
     handleNameSubmit,
     handleTextureChange,
+    handleImageUpload,
     resetPanelState,
     canPoke,
   };

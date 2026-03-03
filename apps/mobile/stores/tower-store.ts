@@ -83,6 +83,7 @@ export interface DemoBlock {
   style?: number; // 0=Default, 1=Holographic, 2=Neon, 3=Matte, 4=Glass, 5=Fire, 6=Ice
   textureId?: number; // 0=None, 1=Bricks, 2=Circuits, 3=Scales, 4=Camo, 5=Marble, 6=Carbon
   imageIndex?: number; // 0=None, 1-5=atlas slot (solana, dogecoin, quicknode, toly, mike)
+  imageUrl?: string; // User-uploaded image URL (Supabase Storage)
   lastChargeTime?: number;
   streak?: number;
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
@@ -154,7 +155,7 @@ interface TowerStore {
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
   chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number };
-  customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => void;
+  customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number; imageUrl?: string }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
   startBotSimulation: () => () => void;
@@ -413,6 +414,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             ...(changes.name !== undefined && { name: changes.name }),
             ...(changes.style !== undefined && { style: changes.style }),
             ...(changes.textureId !== undefined && { textureId: changes.textureId }),
+            ...(changes.imageUrl !== undefined && { imageUrl: changes.imageUrl }),
           }
           : b,
       ),

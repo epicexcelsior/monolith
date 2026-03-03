@@ -7,6 +7,7 @@ export class BlockAppearanceSchema extends Schema {
   name: string = "";
   style: number = 0;
   textureId: number = 0;
+  imageUrl: string = "";
 }
 
 defineTypes(BlockAppearanceSchema, {
@@ -15,6 +16,7 @@ defineTypes(BlockAppearanceSchema, {
   name: "string",
   style: "uint8",
   textureId: "uint8",
+  imageUrl: "string",
 });
 
 // ─── Block Schema ─────────────────────────────────────────

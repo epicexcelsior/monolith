@@ -27,6 +27,7 @@ interface InspectorCustomizeProps {
   onStyleChange: (style: number) => void;
   onTextureChange: (textureId: number) => void;
   onNameSubmit: (name: string) => void;
+  onImageUpload?: () => void;
   isPostClaim?: boolean;
 }
 
@@ -37,6 +38,7 @@ export default function InspectorCustomize({
   onStyleChange,
   onTextureChange,
   onNameSubmit,
+  onImageUpload,
   isPostClaim,
 }: InspectorCustomizeProps) {
   const [nameInput, setNameInput] = useState("");
@@ -45,6 +47,10 @@ export default function InspectorCustomize({
   const unlockedColors = getUnlockedColorCount(streak);
   const unlockedEmojis = getUnlockedEmojiCount(streak);
   const texturesUnlocked = areTexturesUnlocked(streak);
+
+  // Split styles into unlocked and locked for progressive disclosure
+  const unlockedStyles = BLOCK_STYLES.filter((s) => isStyleUnlocked(s.id, streak));
+  const lockedStyles = BLOCK_STYLES.filter((s) => !isStyleUnlocked(s.id, streak));
 
   return (
     <ScrollView
@@ -55,48 +61,46 @@ export default function InspectorCustomize({
       nestedScrollEnabled
     >
       {isPostClaim && (
-        <Text style={styles.encourageText}>Make it yours! Pick a color and emoji</Text>
+        <View style={styles.encourageContainer}>
+          <Text style={styles.encourageHeading}>Make it yours!</Text>
+          <Text style={styles.encourageSubtext}>Pick a color and emoji to personalize your block</Text>
+        </View>
       )}
 
-      {/* COLOR */}
+      {/* COLOR — larger cells, unlocked first */}
       <Text style={styles.sectionLabel}>COLOR</Text>
       <View style={styles.colorGrid}>
-        {BLOCK_COLORS.map((color, i) => {
-          const locked = i >= unlockedColors;
-          return (
-            <TouchableOpacity
-              key={color}
-              style={[
-                styles.colorCell,
-                { backgroundColor: color },
-                block.ownerColor === color && styles.colorCellSelected,
-                locked && styles.lockedCell,
-              ]}
-              onPress={() => {
-                if (locked) {
-                  // Could show toast — for now haptic feedback only
-                  hapticButtonPress();
-                  return;
-                }
-                onColorChange(color);
-                hapticButtonPress();
-              }}
-            >
-              {block.ownerColor === color && <Text style={styles.check}>✓</Text>}
-              {locked && (
-                <View style={styles.lockOverlay}>
-                  <Text style={styles.lockIcon}>🔒</Text>
-                  <Text style={styles.lockStreakText}>{CUSTOMIZATION_TIERS.PREMIUM_COLORS_STREAK}d</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+        {BLOCK_COLORS.slice(0, unlockedColors).map((color) => (
+          <TouchableOpacity
+            key={color}
+            style={[
+              styles.colorCell,
+              { backgroundColor: color },
+              block.ownerColor === color && styles.colorCellSelected,
+            ]}
+            onPress={() => {
+              onColorChange(color);
+              hapticButtonPress();
+            }}
+          >
+            {block.ownerColor === color && <Text style={styles.check}>✓</Text>}
+          </TouchableOpacity>
+        ))}
+        {/* Locked colors shown dimmed at the end */}
+        {unlockedColors < BLOCK_COLORS.length && (
+          <TouchableOpacity
+            style={[styles.colorCell, styles.lockedHintCell]}
+            onPress={() => hapticButtonPress()}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.lockIconSmall}>+{BLOCK_COLORS.length - unlockedColors}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* EMOJI */}
+      {/* EMOJI — wrapping grid instead of horizontal scroll */}
       <Text style={styles.sectionLabel}>EMOJI</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+      <View style={styles.emojiGrid}>
         {BLOCK_ICONS.slice(0, unlockedEmojis).map((icon) => (
           <TouchableOpacity
             key={icon}
@@ -107,50 +111,46 @@ export default function InspectorCustomize({
           </TouchableOpacity>
         ))}
         {streak < CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK && (
-          <View style={[styles.emojiCell, styles.lockedEmojiCell]}>
-            <Text style={styles.lockIcon}>🔒</Text>
-            <Text style={styles.lockStreakMini}>{CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK}d</Text>
+          <View style={[styles.emojiCell, styles.lockedHintCell]}>
+            <Text style={styles.lockIconSmall}>+{BLOCK_ICONS.length - unlockedEmojis}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* STYLE — unlocked shown first, locked collapsed */}
+      <Text style={styles.sectionLabel}>STYLE</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
+        {unlockedStyles.map((s) => (
+          <TouchableOpacity
+            key={s.id}
+            style={[
+              styles.cell,
+              (block.style ?? 0) === s.id && styles.cellSelected,
+            ]}
+            onPress={() => {
+              onStyleChange(s.id);
+              hapticButtonPress();
+              playButtonTap();
+            }}
+          >
+            <Text style={styles.cellIcon}>{s.icon}</Text>
+            <Text style={[
+              styles.cellLabel,
+              (block.style ?? 0) === s.id && styles.cellLabelSelected,
+            ]}>
+              {s.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        {lockedStyles.length > 0 && (
+          <View style={[styles.cell, styles.lockedHintCell]}>
+            <Text style={styles.lockIconSmall}>+{lockedStyles.length}</Text>
+            <Text style={styles.cellLabel}>{CUSTOMIZATION_TIERS.ANIMATED_STYLES_STREAK}d</Text>
           </View>
         )}
       </ScrollView>
 
-      {/* STYLE */}
-      <Text style={styles.sectionLabel}>STYLE</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-        {BLOCK_STYLES.map((s) => {
-          const locked = !isStyleUnlocked(s.id, streak);
-          return (
-            <TouchableOpacity
-              key={s.id}
-              style={[
-                styles.cell,
-                (block.style ?? 0) === s.id && styles.cellSelected,
-                locked && styles.lockedCell,
-              ]}
-              onPress={() => {
-                if (locked) {
-                  hapticButtonPress();
-                  return;
-                }
-                onStyleChange(s.id);
-                hapticButtonPress();
-                playButtonTap();
-              }}
-            >
-              <Text style={[styles.cellIcon, locked && styles.dimmedText]}>{s.icon}</Text>
-              <Text style={[
-                styles.cellLabel,
-                (block.style ?? 0) === s.id && styles.cellLabelSelected,
-                locked && styles.dimmedText,
-              ]}>
-                {locked ? `🔒 ${CUSTOMIZATION_TIERS.ANIMATED_STYLES_STREAK}d` : s.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* TEXTURE — only show section when unlocked or close to unlocking */}
+      {/* TEXTURE */}
       <Text style={styles.sectionLabel}>TEXTURE</Text>
       {texturesUnlocked ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
@@ -170,11 +170,29 @@ export default function InspectorCustomize({
       ) : (
         <View style={styles.lockedSection}>
           <Text style={styles.lockedSectionText}>
-            🔒 Streak {CUSTOMIZATION_TIERS.TEXTURES_STREAK} to unlock textures
+            Streak {CUSTOMIZATION_TIERS.TEXTURES_STREAK} to unlock
             {streak > 0 ? ` · ${CUSTOMIZATION_TIERS.TEXTURES_STREAK - streak} more days` : ""}
           </Text>
         </View>
       )}
+
+      {/* IMAGE — upload button (Phase 1C) */}
+      <Text style={styles.sectionLabel}>IMAGE</Text>
+      <TouchableOpacity
+        style={styles.imageUploadButton}
+        onPress={() => {
+          if (onImageUpload) {
+            hapticButtonPress();
+            onImageUpload();
+          }
+        }}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.imageUploadIcon}>{block.imageUrl ? "🖼️" : "📷"}</Text>
+        <Text style={styles.imageUploadText}>
+          {block.imageUrl ? "Change Image" : "Add Image"}
+        </Text>
+      </TouchableOpacity>
 
       {/* NAME */}
       <Text style={styles.sectionLabel}>NAME</Text>
@@ -193,6 +211,15 @@ export default function InspectorCustomize({
           <Text style={styles.nameButtonText}>Set</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Unlock footer — single progressive disclosure message */}
+      {streak < CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK && (
+        <View style={styles.unlockFooter}>
+          <Text style={styles.unlockFooterText}>
+            Keep your streak going to unlock more options
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -200,21 +227,32 @@ export default function InspectorCustomize({
 const styles = StyleSheet.create({
   contentScroll: {
     flexShrink: 1,
-    maxHeight: 340,
+    maxHeight: 380,
   },
   customizeContent: {
     paddingBottom: SPACING.md,
   },
-  encourageText: {
-    ...TEXT.bodyLg,
+  encourageContainer: {
+    alignItems: "center",
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  encourageHeading: {
+    ...TEXT.headingLg,
     color: COLORS.gold,
     textAlign: "center",
-    marginBottom: SPACING.sm,
+  },
+  encourageSubtext: {
+    ...TEXT.bodySm,
+    color: COLORS.textOnDark,
+    textAlign: "center",
+    marginTop: 2,
+    opacity: 0.8,
   },
   sectionLabel: {
     ...TEXT.overline,
     color: COLORS.gold,
-    marginTop: SPACING.xs,
+    marginTop: SPACING.sm,
   },
   colorGrid: {
     flexDirection: "row",
@@ -223,8 +261,8 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
   },
   colorCell: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: RADIUS.sm,
     borderWidth: 2,
     borderColor: "transparent",
@@ -242,6 +280,23 @@ const styles = StyleSheet.create({
     textShadowColor: COLORS.textShadowDark,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  emojiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  emojiCell: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.bgMuted,
+  },
+  emojiText: {
+    fontSize: 18,
   },
   hScroll: {
     flexDirection: "row",
@@ -274,49 +329,17 @@ const styles = StyleSheet.create({
   cellLabelSelected: {
     color: COLORS.gold,
   },
-  emojiCell: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.sm,
-    alignItems: "center",
-    justifyContent: "center",
+  lockedHintCell: {
     backgroundColor: COLORS.bgMuted,
-    marginRight: SPACING.xs,
+    opacity: 0.5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: "dashed",
   },
-  emojiText: {
-    fontSize: 18,
-  },
-  lockedCell: {
-    opacity: 0.45,
-  },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: RADIUS.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.hudPillBg,
-  },
-  lockIcon: {
-    fontSize: 12,
-  },
-  lockStreakText: {
-    fontFamily: FONT_FAMILY.monoBold,
-    fontSize: 12,
-    color: COLORS.gold,
-    marginTop: 1,
-  },
-  lockStreakMini: {
+  lockIconSmall: {
     fontFamily: FONT_FAMILY.monoBold,
     fontSize: 12,
     color: COLORS.textMuted,
-    marginTop: 1,
-  },
-  lockedEmojiCell: {
-    backgroundColor: COLORS.bgMuted,
-    opacity: 0.6,
-  },
-  dimmedText: {
-    opacity: 0.5,
   },
   lockedSection: {
     paddingVertical: SPACING.sm,
@@ -328,6 +351,26 @@ const styles = StyleSheet.create({
   lockedSectionText: {
     ...TEXT.bodySm,
     color: COLORS.textMuted,
+  },
+  imageUploadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.bgMuted,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: "dashed",
+    marginTop: SPACING.xs,
+  },
+  imageUploadIcon: {
+    fontSize: 20,
+  },
+  imageUploadText: {
+    ...TEXT.buttonSm,
+    color: COLORS.gold,
   },
   nameRow: {
     flexDirection: "row",
@@ -357,5 +400,15 @@ const styles = StyleSheet.create({
     color: COLORS.textOnGold,
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 13,
+  },
+  unlockFooter: {
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    alignItems: "center",
+  },
+  unlockFooterText: {
+    ...TEXT.caption,
+    color: COLORS.textMuted,
+    textAlign: "center",
   },
 });

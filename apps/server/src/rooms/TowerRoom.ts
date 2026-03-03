@@ -43,7 +43,7 @@ function isDormant(block: BlockSchema): boolean {
 }
 
 /** Serialize a BlockSchema to a plain JSON object */
-function serializeBlock(block: BlockSchema) {
+export function serializeBlock(block: BlockSchema) {
   return {
     id: block.id,
     layer: block.layer,
@@ -65,12 +65,13 @@ function serializeBlock(block: BlockSchema) {
       name: block.appearance.name,
       style: block.appearance.style,
       textureId: block.appearance.textureId,
+      imageUrl: block.appearance.imageUrl || undefined,
     },
   };
 }
 
 /** Convert BlockSchema to persistence format */
-function blockToRow(block: BlockSchema) {
+export function blockToRow(block: BlockSchema) {
   return {
     id: block.id,
     layer: block.layer,
@@ -91,6 +92,7 @@ function blockToRow(block: BlockSchema) {
       name: block.appearance.name,
       style: block.appearance.style,
       textureId: block.appearance.textureId,
+      imageUrl: block.appearance.imageUrl || undefined,
     },
   };
 }
@@ -152,6 +154,7 @@ export class TowerRoom extends Room<TowerRoomState> {
             if (a.name) block.appearance.name = a.name;
             if (a.style != null) block.appearance.style = a.style;
             if (a.textureId != null) block.appearance.textureId = a.textureId;
+            if (a.imageUrl) block.appearance.imageUrl = a.imageUrl;
           }
         }
       }

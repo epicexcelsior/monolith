@@ -6,8 +6,8 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { GAME_SERVER_PORT } from "@monolith/common";
-import { TowerRoom } from "./rooms/TowerRoom.js";
-import { getRecentEvents, getTopPlayers, initSupabase } from "./utils/supabase.js";
+import { TowerRoom, getActiveRoom, serializeBlock, blockToRow } from "./rooms/TowerRoom.js";
+import { getRecentEvents, getTopPlayers, initSupabase, upsertBlock, uploadBlockImage } from "./utils/supabase.js";
 import blinksRouter from "./routes/blinks.js";
 
 /**
@@ -24,7 +24,7 @@ import blinksRouter from "./routes/blinks.js";
  */
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "2mb" })); // Increased for base64 image uploads
 
 // Static files (Blink icons)
 app.use("/static", express.static(path.join(__dirname, "../static")));
@@ -77,6 +77,70 @@ app.get("/api/leaderboard", async (req, res) => {
   } catch (err) {
     console.error("[API] /api/leaderboard error:", err);
     res.json([]);
+  }
+});
+
+// Block image upload
+app.post("/api/blocks/:blockId/image", async (req, res) => {
+  try {
+    const { blockId } = req.params;
+    const { wallet, image } = req.body;
+
+    if (!blockId || !wallet || !image || typeof image !== "string") {
+      res.status(400).json({ error: "Missing blockId, wallet, or image" });
+      return;
+    }
+
+    // Validate base64 image size (max ~2MB decoded)
+    if (image.length > 2_800_000) {
+      res.status(400).json({ error: "Image too large (max 2MB)" });
+      return;
+    }
+
+    // Sanitize blockId — only allow alphanumeric, dashes, underscores
+    if (!/^[\w-]+$/.test(blockId)) {
+      res.status(400).json({ error: "Invalid blockId format" });
+      return;
+    }
+
+    // Verify ownership via active room
+    const room = getActiveRoom();
+    if (!room) {
+      res.status(503).json({ error: "Game room not ready" });
+      return;
+    }
+    const block = room.state.blocks.get(blockId);
+    if (!block) {
+      res.status(404).json({ error: "Block not found" });
+      return;
+    }
+    if (block.owner !== wallet) {
+      res.status(403).json({ error: "Not your block" });
+      return;
+    }
+
+    // Decode base64 and upload to Supabase Storage
+    const imageBuffer = Buffer.from(image, "base64");
+    const imageUrl = await uploadBlockImage(blockId, imageBuffer);
+
+    if (!imageUrl) {
+      res.status(500).json({ error: "Upload failed" });
+      return;
+    }
+
+    // Update in-memory block state, persist, and broadcast
+    block.appearance.imageUrl = imageUrl;
+    upsertBlock(blockToRow(block)); // fire-and-forget persistence
+    room.broadcast("block_update", {
+      ...serializeBlock(block),
+      eventType: "customize",
+    });
+
+    console.log(`[API] Image uploaded for ${blockId}: ${imageUrl.slice(0, 60)}...`);
+    res.json({ success: true, imageUrl });
+  } catch (err) {
+    console.error("[API] /api/blocks/:blockId/image error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
