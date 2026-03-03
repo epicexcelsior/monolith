@@ -53,7 +53,11 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Push notifications** (hourly decay check, poke alerts — server handler + expo-notifications)
 - **HotBlockTicker** (bottom-right mini-cards for dying/fading/claimable/streak blocks — per-type colors, tap to inspect, 2 cards max, 5s scan)
 - **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
-- **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast)
+- **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast, share button)
+- **Breathing blocks** (energy-tiered aura: blazing warm gold pulse, thriving amber, fading anxious flicker, dying cold sparks, dead dark)
+- **Enhanced share flow** (prominent gold Share button for owners, post-charge share nudge 8s pulse, achievement share, improved ShareCard with evo tier + streak badge)
+- **Bot-only demo images** (player blocks no longer show Doge/Solana logos — isBotOwner guard)
+- **multi_block achievement** ("Empire Builder" — fires when player owns 3+ blocks)
 - **Settings polish** (haptics toggle, username display, replay onboarding)
 - **UI overhaul** — tower reveal animation, FloatingNav pills (replaced tab bar), TopHUD, BoardSheet/SettingsSheet bottom panels, WalletConnectSheet card, BlockInspector split into sub-components, swipe-to-dismiss everywhere, dead code cleanup
 - **EAS Update / OTA** (expo-updates configured, channel: preview)
@@ -353,6 +357,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `docs/ARCHITECTURE.md` | System design, tech decisions, game mechanics |
 | `docs/game-design/GDD.md` | Game Design Document (canonical) |
 | `docs/design/UI_SYSTEM.md` | Solarpunk design system spec |
+| `docs/design/GACHA_VISION.md` | Loot drop / gacha design vision (post-testing) |
 | `docs/MULTIPLAYER_DEPLOYMENT.md` | Colyseus + Railway setup |
 | `docs/TESTER_GUIDE.md` | Tester onboarding: install, get tokens, how to play |
 | `docs/TESTING.md` | Developer testing guide: local setup, feature checklist |
@@ -361,6 +366,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-03**: Tester experience overhaul — breathing blocks (energy-tiered aura shader: blazing/thriving/fading/dying/dead with warm-to-cold tint), enhanced share flow (gold Share button + post-charge nudge + achievement share + improved ShareCard with evo tier/streak badge), bot-only demo images fix (isBotOwner guard), multi_block achievement wired, gacha/loot vision doc. 222 mobile tests passing.
 
 - **2026-03-01**: Core loop redesign Phase 1 — Variable charge system (weighted random 15-35 base, quality brackets normal/good/great, "Lucky!" on great rolls, quality-aware 3D flash colors + FloatingPoints scale), block evolution (5 permanent tiers Spark→Beacon via cumulative charges + best streak, GLSL glow/rim/shimmer boost, progress bar in inspector), breathing pulse on charge button, bestStreak tracking (evolution never regresses). Code quality: moved getStreakMultiplier/isNextDay to @monolith/common (DRY), embedded quality in CHARGE_BRACKETS, ChargeQuality type shared, shader shimmer uses hash21 instead of noise2D, charge quality passed via tower store (not player store). DB migration: 004_block_evolution.sql (total_charges, best_streak, evolution_tier).
 

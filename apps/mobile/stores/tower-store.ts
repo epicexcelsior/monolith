@@ -335,6 +335,9 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     }));
     get().persistBlocks();
     useAchievementStore.getState().checkAndUnlock("first_claim");
+    // Check multi_block achievement (3+ blocks owned)
+    const ownedCount = get().demoBlocks.filter((b) => b.owner === wallet).length;
+    if (ownedCount >= 3) useAchievementStore.getState().checkAndUnlock("multi_block");
   },
 
   chargeBlock: (blockId) => {

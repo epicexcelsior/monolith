@@ -20,6 +20,7 @@ import { getImageAtlasTexture } from "@/utils/image-atlas";
 import { CAMERA_CONFIG } from "@/constants/CameraConfig";
 import { getCachedTexture, clearTextureCache } from "@/utils/texture-cache";
 import { CLAIM_PHASES, CLAIM_LIGHT, CLAIM_CAMERA, CLAIM_IMPACT_OFFSET_SECS } from "@/constants/ClaimEffectConfig";
+import { isBotOwner } from "@/utils/seed-tower";
 
 export interface BlockMeta {
   id: string;
@@ -348,9 +349,9 @@ export default function TowerGrid() {
       cArr[i * 3 + 1] = tempColor.g;
       cArr[i * 3 + 2] = tempColor.b;
 
-      // Image index
+      // Image index — random demo images only for bot-owned blocks
       let imgIdx = storeBlock?.imageIndex ?? 0;
-      if (imgIdx === 0 && block.owner) {
+      if (imgIdx === 0 && block.owner && isBotOwner(block.owner)) {
         const hash = ((block.layer * 31 + block.index * 7 + 137) & 0xffff);
         if (hash % 4 < 3) { imgIdx = (hash % 5) + 1; }
       }

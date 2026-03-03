@@ -1,6 +1,7 @@
 import React, { forwardRef } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from "@/constants/theme";
+import { getEvolutionTier, getEvolutionTierInfo } from "@monolith/common";
 import type { DemoBlock } from "@/stores/tower-store";
 
 interface ShareCardProps {
@@ -10,18 +11,30 @@ interface ShareCardProps {
 const ShareCard = forwardRef<View, ShareCardProps>(({ block }, ref) => {
   const chargePct = Math.round(Math.min(100, Math.max(0, block.energy)));
   const label = block.name || `Layer ${block.layer} / Block ${block.index}`;
-  const streakText = (block.streak ?? 0) > 0 ? `Day ${block.streak} streak` : null;
+  const streak = block.streak ?? 0;
+  const totalCharges = block.totalCharges ?? 0;
+  const bestStreak = block.bestStreak ?? 0;
+  const evoTier = getEvolutionTier(totalCharges, bestStreak);
+  const evoInfo = getEvolutionTierInfo(evoTier);
 
   return (
     <View ref={ref} style={styles.card} collapsable={false}>
-      {/* Top accent bar */}
+      {/* Gradient accent bar — tinted to owner color */}
       <View style={[styles.accentBar, { backgroundColor: block.ownerColor }]} />
+      <View style={[styles.accentBarGlow, { backgroundColor: block.ownerColor, opacity: 0.15 }]} />
 
       {/* Emoji */}
-      <Text style={styles.emoji}>{block.emoji || "🧱"}</Text>
+      <Text style={styles.emoji}>{block.emoji || "\uD83E\uDDF1"}</Text>
 
       {/* Block name */}
       <Text style={styles.blockName}>{label}</Text>
+
+      {/* Evolution tier badge */}
+      {evoTier > 0 && (
+        <View style={styles.evoBadge}>
+          <Text style={styles.evoBadgeText}>{evoInfo.name}</Text>
+        </View>
+      )}
 
       {/* Position */}
       <Text style={styles.position}>
@@ -34,13 +47,28 @@ const ShareCard = forwardRef<View, ShareCardProps>(({ block }, ref) => {
           <Text style={styles.statValue}>{chargePct}%</Text>
           <Text style={styles.statLabel}>Charge</Text>
         </View>
-        {streakText && (
+        {streak > 0 && (
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{block.streak}</Text>
+            <Text style={styles.statValue}>{streak}</Text>
             <Text style={styles.statLabel}>Streak</Text>
           </View>
         )}
+        {totalCharges > 0 && (
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{totalCharges}</Text>
+            <Text style={styles.statLabel}>Charges</Text>
+          </View>
+        )}
       </View>
+
+      {/* Streak badge */}
+      {streak >= 3 && (
+        <View style={styles.streakBadge}>
+          <Text style={styles.streakBadgeText}>
+            {"\uD83D\uDD25"} {streak}-day streak
+          </Text>
+        </View>
+      )}
 
       {/* Charge bar */}
       <View style={styles.barBg}>
@@ -50,7 +78,7 @@ const ShareCard = forwardRef<View, ShareCardProps>(({ block }, ref) => {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.brandText}>THE MONOLITH</Text>
-        <Text style={styles.linkText}>monolith-server-production.up.railway.app</Text>
+        <Text style={styles.taglineText}>Stake. Charge. Compete.</Text>
       </View>
     </View>
   );
@@ -79,16 +107,37 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: RADIUS.lg,
     borderTopRightRadius: RADIUS.lg,
   },
+  accentBarGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
   emoji: {
     fontSize: 64,
     marginBottom: SPACING.md,
   },
   blockName: {
-    fontFamily: FONT_FAMILY.headingSemibold,
-    fontSize: 28,
+    fontFamily: FONT_FAMILY.heading,
+    fontSize: 32,
     color: "#FFFFFF",
     textAlign: "center",
     marginBottom: SPACING.xs,
+  },
+  evoBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.goldSubtle,
+    marginBottom: SPACING.xs,
+  },
+  evoBadgeText: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 12,
+    color: COLORS.gold,
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   position: {
     fontFamily: FONT_FAMILY.mono,
@@ -99,7 +148,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     gap: SPACING.xl,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   stat: {
     alignItems: "center",
@@ -115,6 +164,19 @@ const styles = StyleSheet.create({
     color: "#A89880",
     letterSpacing: 1,
     textTransform: "uppercase",
+  },
+  streakBadge: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    backgroundColor: "#3A2A10",
+    marginBottom: SPACING.md,
+  },
+  streakBadgeText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 13,
+    color: COLORS.gold,
+    letterSpacing: 0.5,
   },
   barBg: {
     width: "80%",
@@ -135,14 +197,15 @@ const styles = StyleSheet.create({
     bottom: SPACING.lg,
   },
   brandText: {
-    fontFamily: FONT_FAMILY.headingSemibold,
-    fontSize: 14,
+    fontFamily: FONT_FAMILY.heading,
+    fontSize: 16,
     color: COLORS.gold,
-    letterSpacing: 3,
+    letterSpacing: 4,
   },
-  linkText: {
-    fontFamily: FONT_FAMILY.mono,
-    fontSize: 11,
+  taglineText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 12,
     color: "#665C50",
+    letterSpacing: 1,
   },
 });

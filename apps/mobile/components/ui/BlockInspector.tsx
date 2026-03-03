@@ -76,6 +76,7 @@ export default function BlockInspector() {
     handleImageUpload,
     resetPanelState,
     canPoke,
+    showSharePrompt,
   } = useBlockActions();
 
   const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
@@ -344,6 +345,7 @@ export default function BlockInspector() {
                 onShare={() => handleShare(block, shareCardRef)}
                 onTweet={() => handleTweet(block)}
                 showCustomize={showCustomize}
+                showSharePrompt={showSharePrompt}
                 tapestryProfileId={showSocial ? tapestryProfileId : null}
                 blockContentId={currentBlockContentId ?? null}
                 isFollowing={isFollowingOwner}

@@ -34,6 +34,7 @@ import {
 import { createContent, ensureBlockContent } from "@/utils/tapestry";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import { submitScore, unlockAchievement } from "@/utils/soar";
+import { useAchievementStore } from "@/stores/achievement-store";
 import { PublicKey } from "@solana/web3.js";
 
 /** Fire-and-forget Tapestry content creation. Never blocks gameplay. */
@@ -136,6 +137,7 @@ export function useBlockActions() {
   const [cooldownText, setCooldownText] = useState<string | null>(null);
   const [pokeStatus, setPokeStatus] = useState<string | null>(null);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [showSharePrompt, setShowSharePrompt] = useState(false);
 
   const block = selectedBlockId ? getDemoBlockById(selectedBlockId) : null;
   const isOwner = block?.owner && publicKey
@@ -267,6 +269,10 @@ export function useBlockActions() {
             { key: "streak", value: String(result.streak ?? 1) },
           ],
         );
+
+        // Nudge share after successful charge (auto-dismiss 8s)
+        setShowSharePrompt(true);
+        setTimeout(() => setShowSharePrompt(false), 8000);
       }
     }
   }, [selectedBlockId, chargeBlock, mpConnected, sendCharge, setRecentlyChargedId, publicKey]);
@@ -428,6 +434,10 @@ export function useBlockActions() {
             ],
           );
         }
+
+        // Nudge share after successful charge (auto-dismiss 8s)
+        setShowSharePrompt(true);
+        setTimeout(() => setShowSharePrompt(false), 8000);
       }
     });
 
@@ -450,6 +460,11 @@ export function useBlockActions() {
           const blocks = useTowerStore.getState().demoBlocks;
           const isFirstBlock = !blocks.some((b) => b.owner === wallet && b.id !== result.blockId);
           if (isFirstBlock) recordSoarAchievement(wallet, "first_claim");
+          // Check multi_block achievement (3+ blocks owned)
+          const ownedCount = blocks.filter((b) => b.owner === wallet).length;
+          if (ownedCount >= 3) {
+            useAchievementStore.getState().checkAndUnlock("multi_block");
+          }
         }
       }
 
@@ -536,6 +551,7 @@ export function useBlockActions() {
     pokeStatus,
     showClaimModal,
     setShowClaimModal,
+    showSharePrompt,
     // Onboarding
     isOnboardingClaim,
     handleOnboardingClaim,

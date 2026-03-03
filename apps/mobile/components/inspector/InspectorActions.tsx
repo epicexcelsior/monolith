@@ -30,6 +30,7 @@ interface InspectorActionsProps {
   onTweet: () => void;
   showCustomize: boolean;
   isOnboarding?: boolean;
+  showSharePrompt?: boolean;
   // Tapestry social
   tapestryProfileId?: string | null;
   blockContentId?: string | null;
@@ -65,6 +66,7 @@ export default function InspectorActions({
   onTweet,
   showCustomize,
   isOnboarding,
+  showSharePrompt,
   tapestryProfileId,
   blockContentId,
   isFollowing,
@@ -158,6 +160,14 @@ export default function InspectorActions({
           <Text style={styles.chargeExplainer}>
             Energy decays daily. 0% for 3 days = anyone can reclaim it.
           </Text>
+          {/* Prominent share CTA — highlighted after charge */}
+          <Button
+            title={showSharePrompt ? "Share Your Block!" : "Share Your Block"}
+            variant="gold"
+            size="md"
+            onPress={() => { hapticButtonPress(); playButtonTap(); onShare(); }}
+            pulsing={!!showSharePrompt}
+          />
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.actionChip}
@@ -177,12 +187,6 @@ export default function InspectorActions({
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.actionChip}
-              onPress={() => { hapticButtonPress(); playButtonTap(); onShare(); }}
-            >
-              <Text style={styles.actionChipText}>Share</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionChip}
               onPress={() => { hapticButtonPress(); playButtonTap(); onTweet(); }}

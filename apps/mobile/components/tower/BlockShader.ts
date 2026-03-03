@@ -670,10 +670,43 @@ const fragmentShader = /* glsl */ `
       innerGlow = coreFactor * energy * 0.15;
     }
 
-    // Pulse animation (energy-driven)
-    float pulseSpeed = 1.0 + energy * 3.0;
-    float pulse = 0.5 + 0.5 * sin(uTime * pulseSpeed + vInstanceOffset);
-    float pulseIntensity = 0.1 + energy * 0.5;
+    // ═══════════════════════════════════════════════════════
+    // BREATHING AURA — energy-tiered tamagotchi feel
+    // ═══════════════════════════════════════════════════════
+    // Blazing (80-100%): slow confident breath, warm gold tint
+    // Thriving (50-79%): gentle steady pulse, amber
+    // Fading (20-49%): anxious flicker with jitter
+    // Dying (1-19%): cold sparks, blue-cold tint
+    // Dead (0%): no pulse
+    float breathe = 0.0;
+    float breatheIntensity = 0.0;
+    vec3 auraTint = vec3(0.0);
+
+    if (energy > 0.8) {
+      // Blazing: slow 0.8Hz sine, warm gold
+      breathe = 0.5 + 0.5 * sin(uTime * 5.03 + vInstanceOffset);
+      breatheIntensity = 0.35 + energy * 0.35;
+      auraTint = vec3(0.25, 0.18, 0.0);
+    } else if (energy > 0.5) {
+      // Thriving: 1.2Hz gentle sine, amber
+      breathe = 0.5 + 0.5 * sin(uTime * 7.54 + vInstanceOffset);
+      breatheIntensity = 0.2 + energy * 0.3;
+      auraTint = vec3(0.15, 0.08, 0.0);
+    } else if (energy > 0.2) {
+      // Fading: 2.5Hz anxious with jitter noise
+      float base = sin(uTime * 15.7 + vInstanceOffset);
+      float jitter = hash21(vec2(floor(uTime * 8.0), vInstanceOffset)) * 0.4 - 0.2;
+      breathe = 0.5 + 0.5 * base + jitter;
+      breatheIntensity = 0.15 + energy * 0.2;
+      auraTint = vec3(0.12, 0.04, 0.0);
+    } else if (energy > 0.01) {
+      // Dying: random hash sparks (15% chance), blue-cold
+      float spark = hash21(vec2(floor(uTime * 12.0), vInstanceOffset + 7.3));
+      breathe = spark > 0.85 ? spark * 2.0 : 0.1;
+      breatheIntensity = 0.1 + energy * 0.15;
+      auraTint = vec3(-0.06, -0.02, 0.08);
+    }
+    // Dead blocks: breathe and breatheIntensity stay 0
 
     // Vertical scanline
     float scanY = mod(uTime * 0.8, uTowerHeight + 8.0) - 4.0;
@@ -725,7 +758,8 @@ const fragmentShader = /* glsl */ `
     float inspectAtten = mix(1.0, 0.45, vHighlight);
 
     // Energy-driven overlays (additive), scaled by evolution tier + attenuated during inspection
-    color *= (0.8 + pulse * pulseIntensity * 0.4 * inspectAtten);
+    color *= (0.8 + breathe * breatheIntensity * 0.4 * inspectAtten);
+    color += auraTint * breathe * breatheIntensity * inspectAtten;
     color += rimContrib * evoGlowMult * inspectAtten;
     color += specColor * evoGlowMult * inspectAtten;
     color += glowColor * scanLine * energy * inspectAtten;

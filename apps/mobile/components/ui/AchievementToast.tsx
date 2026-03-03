@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet, Animated, TouchableOpacity, Share } from "react-native";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, GLASS_STYLE } from "@/constants/theme";
 import { useAchievementStore } from "@/stores/achievement-store";
 import { hapticButtonPress } from "@/utils/haptics";
+import { playButtonTap } from "@/utils/audio";
 
 const TOAST_DURATION = 4000;
 
@@ -51,11 +52,20 @@ export default function AchievementToast() {
     return () => clearTimeout(timer);
   }, [pendingToast, slideAnim, opacityAnim, dismissToast]);
 
+  const handleShareAchievement = () => {
+    if (!pendingToast) return;
+    hapticButtonPress();
+    playButtonTap();
+    Share.share({
+      message: `${pendingToast.icon} ${pendingToast.title} — ${pendingToast.description}\n\nPlaying The Monolith!`,
+    }).catch(() => {});
+  };
+
   if (!pendingToast) return null;
 
   return (
     <Animated.View
-      pointerEvents="none"
+      pointerEvents="box-none"
       style={[
         styles.container,
         {
@@ -69,6 +79,9 @@ export default function AchievementToast() {
         <Text style={styles.title}>{pendingToast.title}</Text>
         <Text style={styles.description}>{pendingToast.description}</Text>
       </View>
+      <TouchableOpacity style={styles.shareBtn} onPress={handleShareAchievement}>
+        <Text style={styles.shareBtnText}>Share</Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -106,5 +119,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textOnDark,
     marginTop: 2,
+  },
+  shareBtn: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.goldSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.goldMid,
+  },
+  shareBtnText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 11,
+    color: COLORS.gold,
+    letterSpacing: 0.3,
   },
 });
