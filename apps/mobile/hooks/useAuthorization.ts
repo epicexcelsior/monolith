@@ -91,7 +91,7 @@ function bootstrapTapestryProfile(walletAddress: string): void {
   (async () => {
     try {
       const username =
-        usePlayerStore.getState().username || walletAddress.slice(0, 8);
+        usePlayerStore.getState().username || `player-${walletAddress.slice(0, 8)}`;
 
       // Check for cross-app Tapestry profiles (pre-fill username)
       let externalUsername: string | undefined;
@@ -102,11 +102,21 @@ function bootstrapTapestryProfile(walletAddress: string): void {
         /* cross-app search is optional */
       }
 
-      const result = await findOrCreateProfile(
-        walletAddress,
-        externalUsername || username,
-        "Keeper on The Monolith",
-      );
+      let result;
+      try {
+        result = await findOrCreateProfile(
+          walletAddress,
+          externalUsername || username,
+          "Keeper on The Monolith",
+        );
+      } catch {
+        // External username may collide with existing profile — retry with wallet-derived name
+        result = await findOrCreateProfile(
+          walletAddress,
+          username,
+          "Keeper on The Monolith",
+        );
+      }
 
       useTapestryStore.getState().setProfile(
         result.profile.id,
