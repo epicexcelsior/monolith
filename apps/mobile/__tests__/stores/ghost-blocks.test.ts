@@ -112,12 +112,12 @@ describe("tower-store ghost block actions", () => {
 
             const result = useTowerStore.getState().ghostChargeBlock("block-5-3");
             expect(result.success).toBe(true);
-            expect(result.chargeAmount).toBe(20);
+            expect(result.chargeAmount).toBe(25);
 
             const block = useTowerStore
                 .getState()
                 .demoBlocks.find((b) => b.id === "block-5-3");
-            expect(block!.energy).toBe(60); // 100 - 60 + 20
+            expect(block!.energy).toBe(65); // 100 - 60 + 25
         });
 
         it("should not exceed max energy", () => {

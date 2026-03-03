@@ -145,10 +145,10 @@ describe("onboarding integration", () => {
 
         const result = useTowerStore.getState().ghostChargeBlock(blockId);
         expect(result.success).toBe(true);
-        expect(result.chargeAmount).toBe(20);
+        expect(result.chargeAmount).toBe(25);
 
         const block = useTowerStore.getState().demoBlocks.find((b) => b.id === blockId);
-        expect(block!.energy).toBe(60); // 40 + 20
+        expect(block!.energy).toBe(65); // 40 + 25
     });
 
     it("should complete onboarding — both stores mark done", async () => {
