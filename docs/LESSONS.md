@@ -141,6 +141,11 @@ PanResponder.create({
 
 ## Shaders & 3D Rendering
 
+### Energy-Tiered Shader Branching — Use `if/else` Not Smoothstep Blending (2026-03-03)
+**Problem**: The original pulse was a single `sin(uTime * pulseSpeed)` with pulseSpeed linearly interpolated from energy. This gave all blocks the same "feel" just faster/slower. Wanted distinct emotional states (warm confident vs cold sparking) but blending between tints with smoothstep would create mushy transitions and cost extra ALU ops.
+**Solution**: Use discrete `if/else if` branches on energy thresholds (0.8/0.5/0.2/0.01). Each branch has its own frequency, amplitude, and tint. On InstancedMesh, all instances in the same draw call hit GPU branching, but since energy values cluster (most blocks are 50-80%), branch coherence is high. The hash21-based dying sparks (15% chance per frame) are cheaper than a sine wave.
+**Key Insight**: For per-instance visual variety in shaders, discrete emotional tiers with hard thresholds read better than smooth interpolation. Players see "my block is dying" not "my block is 23% alive."
+
 ### Per-Instance Attributes for Evolution Tiers — Buffer Lifecycle (2026-03-01)
 **Problem**: Adding `aEvolutionTier` as a new instanced buffer attribute to the existing InstancedMesh required coordinating: (1) vertex shader declaration, (2) varying to pass to fragment, (3) Float32Array creation sized to instance count, (4) per-block write in the attribute update loop, (5) `needsUpdate = true` on each frame's attribute cycle.
 **Solution**: Follow the exact pattern of existing instanced attributes (aEnergy, aOwnerColor, etc.): declare in vertex, pass via varying, create typed array in the geometry setup useMemo, write in the blockData update loop, mark needsUpdate alongside siblings. The marginal cost of one additional float per instance (~2.6KB for 650 blocks) is negligible.
@@ -535,6 +540,11 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 
 ## UI/UX & Design System
 
+### AchievementToast pointerEvents Must Change for Interactive Buttons (2026-03-03)
+**Problem**: AchievementToast had `pointerEvents="none"` (set in a previous fix to prevent blocking tower taps). Adding a "Share" button inside the toast meant the button was untappable — `pointerEvents="none"` on the parent prevents ALL descendant touch events.
+**Solution**: Changed to `pointerEvents="box-none"` — the container itself doesn't consume touches (tower taps pass through), but child views (the Share button) can receive them. This is the standard RN pattern for overlay containers with interactive children.
+**Key Insight**: `pointerEvents="none"` = nothing in the subtree is touchable. `pointerEvents="box-none"` = container transparent to touches, children still interactive. Always use `box-none` when overlays have buttons.
+
 ### Absolute Overlays Block R3F Canvas Touches by Default (2026-02-27)
 **Problem**: Tapping blocks did nothing — inspector never opened. LayerIndicator's PanResponder had `onStartShouldSetPanResponder: () => true`, stealing ALL taps in its 52px-wide zone. AchievementToast (zIndex 999, spanning center) had no `pointerEvents` prop, intercepting touches even when invisible (opacity=0).
 **Solution**: LayerIndicator → `onStartShouldSetPanResponder: () => false` (only captures on drag via `onMoveShouldSetPanResponder`). AchievementToast → `pointerEvents="none"`. Verified FloatingPoints and LevelUpCelebration already had `pointerEvents="none"`.
@@ -691,6 +701,11 @@ timeout 60 npx tsc --noEmit --skipLibCheck 2>&1; echo "EXIT=$?"
 ---
 
 ## Game Design & Core Loop
+
+### Bot-Only Content Leaks to Players Without Owner Type Guards (2026-03-03)
+**Problem**: TowerGrid assigned random demo images (Doge, Solana logos) to ALL owned blocks with `if (imgIdx === 0 && block.owner)`. Players saw bot-themed content on their own blocks — confusing and breaks the "this block is MINE" feeling.
+**Solution**: Guard with `isBotOwner(block.owner)` — the function already existed in seed-tower.ts but wasn't used in the image assignment path. One-line fix: `if (imgIdx === 0 && block.owner && isBotOwner(block.owner))`.
+**Key Insight**: When adding demo/bot content, always gate it with an explicit owner-type check. The "is this a real player?" question should be asked everywhere content diverges, not just in obvious places like UI labels.
 
 ### Evolution Tier Must Ratchet (Never Regress) — Track bestStreak Separately (2026-03-01)
 **Problem**: `getEvolutionTier(totalCharges, streak)` used the current streak value. When a player missed a day and their streak reset to 1, blocks visually downgraded from e.g. Flame (streakReq=7) back to Ember — contradicting "permanent progression" design intent. Players who invested 30+ charges lost their visual achievement.
