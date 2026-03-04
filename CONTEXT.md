@@ -55,8 +55,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
 - **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast, share button)
 - **Breathing blocks** (energy-tiered aura: blazing warm gold pulse, thriving amber, fading anxious flicker, dying cold sparks, dead dark)
-- **Spark faces** (kawaii SDF faces on block vertical faces — energy-driven expressions: happy squint/smile at blazing, worried frown at fading, drowsy at dying; idle blink with per-block random period; LOD fade at distance; skipped on image blocks; proportional mouth width)
-- **Spark Tester** (Settings panel: 5 energy preset buttons to instantly set block energy for testing face expressions)
+- **Spark faces** (kawaii SDF faces on all vertical faces — energy-driven expressions, adaptive contrast (bioluminescent on dark blocks), sleeping face on dead blocks, programmatic variety (5 eye shapes × 4 mouth styles per block via hash), evolution tier face progression (Spark→Ember→Flame→Blaze→Beacon adds blush/brows/halo), tier-aware LOD (Beacon visible from 54 units, Spark from 38))
+- **Spark Dev Panel** (`__DEV__` only: floating panel with energy slider + evolution tier + eye/mouth variant selectors + shuffle button for testing all face variations live)
 - **Charge bounce** (squash-and-stretch on charge flash — 0.1s squash → 0.15s stretch → 0.25s settle, volume-preserving, bottom-anchored)
 - **Enhanced share flow** (prominent gold Share button for owners, post-charge share nudge 8s pulse, achievement share, improved ShareCard with evo tier + streak badge)
 - **Bot-only demo images** (player blocks no longer show Doge/Solana logos — isBotOwner guard)
@@ -125,6 +125,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/HotBlockTicker.tsx` | Bottom-right notable block mini-cards (dying/fading/claimable/streak) |
 | `apps/mobile/components/ui/PokeReceivedToast.tsx` | Blink/in-app poke notification toast (gold glow, SFX, haptic) |
 | `apps/mobile/components/ui/UsernameModal.tsx` | Set display name modal |
+| `apps/mobile/components/ui/SparkDevSlider.tsx` | Dev-only face testing panel (energy slider + tier + eye/mouth variant pickers) |
 | `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator |
 | `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions |
 | `apps/mobile/components/ui/LevelUpCelebration.tsx` | Full-screen level-up overlay + haptic |
@@ -370,6 +371,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-04**: Spark face overhaul — adaptive contrast (bioluminescent faces on dark blocks), sleeping face on dead blocks (X_X or closed-line eyes), programmatic variety (5 eye shapes × 4 mouth shapes via hash21), evolution tier face progression (Tier 2 blush, Tier 3 eyebrows+sparkle, Tier 4 halo), tier-aware LOD (38-54 units), full dev panel (energy slider + tier + eye/mouth variant selectors + shuffle). Branch: `feat/spark-face-overhaul`. 222 mobile tests passing.
 
 - **2026-03-03**: Spark polish — narrowed mouth width, fixed customization selection UI (gold checkmark on emojis, stronger selected background), added Spark Tester to Settings (5 energy presets for face testing). 222 mobile tests passing.
 

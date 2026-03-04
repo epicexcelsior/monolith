@@ -546,6 +546,8 @@ export default function TowerGrid() {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += dt;
       materialRef.current.uniforms.uCameraPos.value.copy(state.camera.position);
+      // Dev-only face variant override
+      materialRef.current.uniforms.uDevFaceOverride.value = useTowerStore.getState().devFaceOverride;
     }
     if (glowMaterialRef.current) {
       glowMaterialRef.current.uniforms.uTime.value += dt;

@@ -26,6 +26,7 @@ import MyBlocksPanel from "@/components/ui/MyBlocksPanel";
 import BoardSheet from "@/components/ui/BoardSheet";
 import SettingsSheet from "@/components/ui/SettingsSheet";
 import TopHUD from "@/components/ui/TopHUD";
+import SparkDevSlider from "@/components/ui/SparkDevSlider";
 import WalletConnectSheet from "@/components/ui/WalletConnectSheet";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -166,6 +167,9 @@ export default function TowerScreen() {
 
             {/* Connection status */}
             <ConnectionBanner />
+
+            {/* Dev-only energy scrubber for Spark face testing */}
+            {__DEV__ && <SparkDevSlider />}
           </View>
         )}
 

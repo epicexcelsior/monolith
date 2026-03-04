@@ -1,6 +1,6 @@
 # The Spark System — Living Faces on Blocks
 
-> **Status:** MVP shipped (2026-03-03) | **Next:** Evolution tier visuals, neighbor interactions
+> **Status:** Face overhaul shipped (2026-03-04) | **Next:** Neighbor interactions, advanced idle behaviors
 >
 > **Core insight:** The charge mechanic mirrors Tamagotchi's attention loop, but without the creature. Sparks add the creature — transforming "maintain a number" into "care for a living thing."
 
@@ -32,22 +32,55 @@ Every block on the tower is a **Spark** — a living geometric entity with a fac
 
 ---
 
-## What's Shipped (MVP — 2026-03-03)
+## What's Shipped
 
-### SDF Faces on All Blocks
+### SDF Faces on All Blocks (2026-03-03)
 - Kawaii faces rendered via Signed Distance Field functions in the block shader
-- Two dot eyes + curved mouth line on all 4 vertical faces of every non-image block
-- LOD fade at 25-35 units — faces disappear at distance (saves GPU, faces are sub-pixel anyway)
+- Faces on all 4 vertical faces of every non-image block
 - Skipped on image blocks (interior-mapped windows take priority)
+- Energy spike during charge flash gives free happy-face reaction
 
 ### Energy-Driven Expressions
 | Charge State | Expression | Details |
 |---|---|---|
-| **Blazing** (80-100%) | Happy squint + big smile | Eyes half-squinted (0.55 openness), wide smile (+0.07 curvature), eye glint highlight |
-| **Thriving** (50-79%) | Content + gentle smile | Eyes fully open, gentle smile (+0.02 curvature) |
-| **Fading** (20-49%) | Worried + slight frown | Smaller pupils (0.7x), slight frown (-0.02 curvature) |
-| **Dying** (1-19%) | Drowsy + frown | Nearly closed eyes (0.2 openness), frown (-0.04 curvature) |
-| **Dead** (0%) | No face | Face skipped entirely — dark dormant block |
+| **Blazing** (80-100%) | Happy squint + big smile | Eyes half-squinted (0.55), wide smile (+0.07), eye glint |
+| **Thriving** (50-79%) | Content + gentle smile | Eyes fully open, gentle smile (+0.02) |
+| **Fading** (20-49%) | Worried + slight frown | Smaller pupils (0.7x), slight frown (-0.02) |
+| **Dying** (1-19%) | Drowsy + frown | Nearly closed eyes (0.2), frown (-0.04) |
+| **Dead** (0%) | Sleeping face | X_X or closed-line eyes, flat mouth, amber glow |
+
+### Adaptive Contrast (2026-03-04)
+- **Bright blocks** (blazing/thriving): dark face features for natural contrast
+- **Dark blocks** (dying/dead): face features glow warm amber (bioluminescent)
+- Faces are readable at ALL energy levels — no more invisible features
+
+### Programmatic Face Variety (2026-03-04)
+Each block gets a unique face personality from `hash21(instanceOffset)`:
+
+| Type | Variants | Selection |
+|---|---|---|
+| **Eyes** | Circle (30%), Oval (20%), Star (15%), Heart (15%), Cat-eye (20%) | Hash-based, deterministic per block |
+| **Mouths** | Arc (40%), Cat `:3` (20%), Small O (20%), Wide Grin (20%) | Hash-based, deterministic per block |
+
+Variety unlocks at Tier 1+ (Ember). Tier 0 (Spark) blocks all have the simplest circle-eye + arc-mouth face.
+
+### Evolution Tier Face Progression (2026-03-04)
+Each tier adds visible face complexity — a visual journey from simple dot creature to radiant being:
+
+| Tier | Name | Face Features | Scale |
+|---|---|---|---|
+| 0 | **Spark** | Dot eyes + thin line. No variety. | 0.70x |
+| 1 | **Ember** | Face variety unlocked (5 eyes × 4 mouths). | 0.775x |
+| 2 | **Flame** | + Blush marks (pink circles on cheeks, energy > 50%). | 0.85x |
+| 3 | **Blaze** | + Eyebrow arcs (energy-driven angle). Sparkle in eye glints. | 0.925x |
+| 4 | **Beacon** | + Halo ring above head (animated gold glow). | 1.0x |
+
+### Tier-Aware LOD (2026-03-04)
+Higher evolution tiers are visible from further away:
+- Spark: fade at 38 units
+- Beacon: fade at 54 units
+- Overview distance (~45 units): Beacon faces faintly visible, Spark faces hidden
+- Rewards evolution with visual hierarchy at distance
 
 ### Idle Blink Animation
 - Per-block random blink period (2.5-5.0 seconds) using `hash21(instanceOffset)`
@@ -56,51 +89,49 @@ Every block on the tower is a **Spark** — a living geometric entity with a fac
 
 ### Charge Bounce (Squash-and-Stretch)
 When the player charges their Spark:
-1. **0-0.1s:** Squash down (scaleY → 0.85) — the block compresses like it's absorbing energy
-2. **0.1-0.25s:** Stretch up (scaleY → 1.12) — spring upward, the creature wakes up
-3. **0.25-0.5s:** Settle back (scaleY → 1.0) — gentle return to rest
-- Volume preservation: X/Z scale = `2.0 - scaleY` (block maintains mass)
-- Bottom-anchored: block stays planted on its base, stretch goes upward
-- Combined with existing charge flash (energy spike to 1.0 → happy expression automatically)
+1. **0-0.1s:** Squash down (scaleY → 0.85) — absorbing energy
+2. **0.1-0.25s:** Stretch up (scaleY → 1.12) — spring upward
+3. **0.25-0.5s:** Settle back (scaleY → 1.0) — gentle return
+- Volume preservation: X/Z scale = `2.0 - scaleY`
+- Bottom-anchored: base stays planted, stretch goes upward
 
-### Breathing Animation (Pre-existing)
-- Energy-tiered breathing aura already drives subtle expansion/contraction
-- Blazing: warm gold pulse. Thriving: amber. Fading: anxious flicker. Dying: cold sparks.
+### Breathing Animation
+- Energy-tiered breathing aura: blazing (warm gold pulse), thriving (amber), fading (anxious flicker), dying (cold sparks)
 
-### All Customization Unlocked
-- Streak gates removed: all 16 colors, 48 emojis, 11 styles, 7 textures available at streak 0
-- Lets testers experience the full palette on day 1
+### Spark Dev Panel (`__DEV__` only)
+Floating panel on tower view for testing all face variations:
+- **Energy slider** — drag to set 0-100%
+- **Evolution tier pills** — tap Spark/Ember/Flame/Blaze/Beacon
+- **Eye variant pills** — tap Circle/Oval/Star/Heart/Cat
+- **Mouth variant pills** — tap Arc/Cat :3/O/Grin
+- **Shuffle button** — randomize everything
+- Only appears when a block is selected
 
 ---
 
 ## Implementation Details
 
 ### Shader Architecture
-Three GLSL functions added to `BlockShader.ts` (after `energyGlowColor()`, before `getTexturePattern()`):
+GLSL functions in `BlockShader.ts` (after `energyGlowColor()`, before `getTexturePattern()`):
 
-- **`sdEye(p, center, radius, openness)`** — Circle SDF with Y-squish for eyelid closing
-- **`sdMouth(p, center, width, curvature)`** — Arc SDF with curvature control
-- **`renderFace(uv, energy, instanceOff, time)`** → `vec4(faceColor, faceMask)` — Composes everything
+- **`faceHash(instanceOff, seed)`** — deterministic personality hash
+- **`adaptiveFaceColor(energy)`** — dark features on bright blocks, glowing on dark blocks
+- **`sdEyeShape(p, center, radius, openness, shapeType)`** — 5 eye shape variants
+- **`sdMouthShape(p, center, width, curvature, shapeType)`** — 4 mouth shape variants
+- **`sdBlush/sdEyebrow/sdHalo`** — tier decoration SDFs
+- **`renderFace(uv, energy, instanceOff, time, evoTier)`** → `vec4(faceColor, faceMask)` — full face system
 
-Face composited in fragment main as **Layer 1.75** (between interior mapping and style modifiers):
-```glsl
-if (vImageIndex < 0.5 && energy > 0.01) {
-  float isVertFace = step(abs(vWorldNormal.y), 0.5);
-  float faceLOD = smoothstep(35.0, 25.0, vDist);
-  if (isVertFace > 0.5 && faceLOD > 0.01) {
-    vec4 face = renderFace(vFaceUV, energy, vInstanceOffset, uTime);
-    baseColor = mix(baseColor, face.rgb, face.a * faceLOD);
-  }
-}
-```
+Face composited at **Layer 1.75** (between interior mapping and style modifiers). Dead blocks now render sleeping faces. LOD is tier-aware.
 
-**Performance:** ~18 ALU ops total (trivial vs interior mapping's 100+). LOD skip at distance. No new uniforms or attributes — uses existing `vFaceUV`, `vInstanceOffset`, `uTime`, `vEnergy`.
+One dev-only uniform `uDevFaceOverride` (-1 = hash-based, ≥0 = eyeType×10+mouthType) enables the dev panel.
+
+**Performance:** ~30-38 ALU ops for Tier 0, ~69 ops worst case (Tier 4 Beacon). Interior mapping costs 100+, so faces are not the bottleneck. LOD skip eliminates face rendering for ~80% of blocks at overview distance.
 
 ### Charge Bounce Architecture
-Extends the charge flash loop in `TowerGrid.tsx` (follows the proven poke bounce pattern):
-- Manipulates instance matrix via `tempObjRef` → `setMatrixAt()` for first 0.5s of flash
+Extends the charge flash loop in `TowerGrid.tsx`:
+- Manipulates instance matrix via `tempObjRef` → `setMatrixAt()`
 - Matrix restored to base values on flash completion
-- No new refs or state — reuses existing `layoutData`, `tempObjRef`, `getLayerScale`
+- Reuses existing `layoutData`, `tempObjRef`, `getLayerScale`
 
 ---
 
@@ -113,64 +144,40 @@ Evolution tier and charge state are **independent axes on the same creature:**
 | **High Tier** | Magnificent + alive. Aspirational. | Magnificent + dormant. Dramatic/motivating. |
 | **Low Tier** | Simple + alive. Dedicated new player. | Simple + dormant. New or abandoned. |
 
-This means there is no "done" state. Even the most evolved Spark still needs daily attention.
+No "done" state. Even the most evolved Spark still needs daily attention.
 
 ---
 
-## What's Next (Post-Tester Feedback)
+## What's Next
 
-### Evolution Tier Visuals (Priority 1)
-Blocks visually evolve through five tiers based on cumulative charges:
-
-| Tier | Name | Charges | Visual Change |
-|---|---|---|---|
-| 1 | **Mote** | 0-10 | Raw cube, basic face, faint glow |
-| 2 | **Ember** | 11-50 | Softened edges, more expressive face, warmer glow |
-| 3 | **Shard** | 51-150 | Crystalline facets, full expression range, ambient particles |
-| 4 | **Prism** | 151-500 | Complex crystal, light refraction, glow reaches neighbors |
-| 5 | **Monolith** | 500+ | Transcendent form, fragments orbit core, procedurally unique |
-
-Currently these tiers exist as data (GLSL glow/rim/shimmer multipliers) but don't change geometry or face complexity. The visual evolution is the highest-impact post-MVP feature.
-
-### Neighbor Interactions (Priority 2)
-Adjacent Sparks subtly interact:
+### Neighbor Interactions (Priority 1)
 - Synchronized breathing pulses between neighbors
-- Turning to "look at" nearby active Sparks (eye direction)
-- Brief bump animations on proximity events
+- Eyes "looking at" nearby active Sparks (eye direction)
 - Particle exchange between high-energy blocks
 
-### Advanced Idle Behaviors (Priority 3)
+### Advanced Idle Behaviors (Priority 2)
 - Pupils that drift (looking around)
 - Yawning animation at low energy
 - Excited wiggle when owner approaches (camera proximity)
-- Sleep animation at 0% (Z's floating up)
+- Z's floating up at 0% energy
 
-### Advanced Customization (Priority 4)
-Expanded self-expression options (all procedural):
-- Eye shape variants (dot, star, heart, diamond)
-- Mouth shape variants (cat mouth `:3`, excited `D`, smirk)
-- Glow color independent of base color
-- Surface pattern overlays
-- Ambient sound/tone per block
-
-### PvP Visual Expression (Priority 5)
-Game mechanics expressed through Sparks:
+### PvP Visual Expression (Priority 3)
 - Energy raids → visible pulse traveling between Sparks
 - Charge duels → competing glow intensities
-- Territory control → constellations of allied Sparks with matching signatures
+- Territory control → constellations of allied Sparks
 
 ---
 
 ## What We're Testing
 
-The test build exists to answer:
-
 1. **Emotional attachment:** Do testers say "my little guy looks sad" instead of "my block is at 40%"?
 2. **Return motivation:** Higher next-day return rate than builds without faces?
 3. **Tap satisfaction:** Is the charge bounce + expression change satisfying?
 4. **Readability at distance:** Can testers read moods when zoomed out?
-5. **Creepiness check:** Any "uncanny valley" feedback? → Simplify further if so.
-6. **Performance:** Frame drops, overheating, battery drain on Seeker?
+5. **Face variety:** Do testers notice and appreciate that blocks have different personalities?
+6. **Evolution progression:** Is the Spark→Beacon journey motivating?
+7. **Creepiness check:** Any "uncanny valley" feedback? → Simplify further if so.
+8. **Performance:** Frame drops, overheating, battery drain on Seeker?
 
 ---
 

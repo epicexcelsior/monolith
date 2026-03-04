@@ -129,6 +129,7 @@ interface TowerStore {
   multiplayerMode: boolean;
   revealProgress: number;
   revealComplete: boolean;
+  devFaceOverride: number; // -1 = hash personality, >= 0 = eyeType*10+mouthType
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -218,6 +219,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   multiplayerMode: false,
   revealProgress: 0,
   revealComplete: false,
+  devFaceOverride: -1,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
