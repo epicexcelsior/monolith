@@ -55,7 +55,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
 - **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast, share button)
 - **Breathing blocks** (energy-tiered aura: blazing warm gold pulse, thriving amber, fading anxious flicker, dying cold sparks, dead dark)
-- **Spark faces** (kawaii SDF faces on block vertical faces — energy-driven expressions: happy squint/smile at blazing, worried frown at fading, drowsy at dying; idle blink with per-block random period; LOD fade at distance; skipped on image blocks)
+- **Spark faces** (kawaii SDF faces on block vertical faces — energy-driven expressions: happy squint/smile at blazing, worried frown at fading, drowsy at dying; idle blink with per-block random period; LOD fade at distance; skipped on image blocks; proportional mouth width)
+- **Spark Tester** (Settings panel: 5 energy preset buttons to instantly set block energy for testing face expressions)
 - **Charge bounce** (squash-and-stretch on charge flash — 0.1s squash → 0.15s stretch → 0.25s settle, volume-preserving, bottom-anchored)
 - **Enhanced share flow** (prominent gold Share button for owners, post-charge share nudge 8s pulse, achievement share, improved ShareCard with evo tier + streak badge)
 - **Bot-only demo images** (player blocks no longer show Doge/Solana logos — isBotOwner guard)
@@ -369,6 +370,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-03**: Spark polish — narrowed mouth width, fixed customization selection UI (gold checkmark on emojis, stronger selected background), added Spark Tester to Settings (5 energy presets for face testing). 222 mobile tests passing.
 
 - **2026-03-03**: Spark System MVP — kawaii SDF faces on blocks (energy-driven expressions + idle blink + LOD fade), charge squash-and-stretch bounce, streak gates removed (all customization unlocked for testers). Pure client-side visual layer, no server changes. 222 mobile tests passing.
 
