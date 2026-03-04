@@ -219,6 +219,82 @@ const fragmentShader = /* glsl */ `
     return col;
   }
 
+  // ─── SDF Face (Spark System) ────────────────────────────
+  // Kawaii face driven by energy state + idle blink
+
+  // Circle SDF with vertical squish for eyelid closing
+  float sdEye(vec2 p, vec2 center, float radius, float openness) {
+    vec2 d = p - center;
+    d.y /= max(openness, 0.05); // squish Y for closing
+    return length(d) - radius;
+  }
+
+  // Arc SDF: curvature > 0 = smile, < 0 = frown, 0 = flat
+  float sdMouth(vec2 p, vec2 center, float width, float curvature) {
+    vec2 d = p - center;
+    d.x /= width;
+    float arc = d.y - curvature * d.x * d.x;
+    return abs(arc) - 0.008;
+  }
+
+  // Render face → vec4(rgb, mask)
+  vec4 renderFace(vec2 uv, float energy, float instanceOff, float time) {
+    // Center UV so (0,0) is block center
+    vec2 p = uv - 0.5;
+
+    // Energy-driven expression parameters
+    // Blazing (>0.8): happy squint, big smile
+    // Thriving (>0.5): content, gentle smile
+    // Fading (>0.2): worried, slight frown
+    // Dying (>0.01): drowsy, frown
+    float eyeOpen = mix(0.2, 1.0, smoothstep(0.0, 0.5, energy));
+    eyeOpen = mix(eyeOpen, 0.55, smoothstep(0.8, 1.0, energy)); // squint when blazing
+    float mouthCurve = mix(-0.04, 0.02, smoothstep(0.0, 0.5, energy));
+    mouthCurve = mix(mouthCurve, 0.07, smoothstep(0.5, 0.9, energy));
+    float pupilSize = mix(0.7, 1.0, smoothstep(0.1, 0.5, energy));
+
+    // Idle blink: per-block random period (2.5-5.0s), quick 0.12s close-open
+    float blinkPeriod = 2.5 + hash21(vec2(instanceOff, 0.0)) * 2.5;
+    float blinkPhase = mod(time + hash21(vec2(instanceOff, 1.0)) * blinkPeriod, blinkPeriod);
+    float blink = 1.0 - smoothstep(0.0, 0.04, blinkPhase) + smoothstep(0.08, 0.12, blinkPhase);
+    eyeOpen *= blink;
+
+    // Eye positions (symmetric)
+    float eyeSpacing = 0.1;
+    float eyeY = 0.04;
+    float eyeRadius = 0.035;
+    vec2 leftEyeCenter = vec2(-eyeSpacing, eyeY);
+    vec2 rightEyeCenter = vec2(eyeSpacing, eyeY);
+
+    float leftEye = sdEye(p, leftEyeCenter, eyeRadius * pupilSize, eyeOpen);
+    float rightEye = sdEye(p, rightEyeCenter, eyeRadius * pupilSize, eyeOpen);
+    float eyeMask = 1.0 - smoothstep(-0.005, 0.005, min(leftEye, rightEye));
+
+    // Eye glint on blazing blocks
+    float glintMask = 0.0;
+    if (energy > 0.8) {
+      vec2 glintOff = vec2(-0.012, 0.012);
+      float glintL = length(p - leftEyeCenter - glintOff) - 0.01;
+      float glintR = length(p - rightEyeCenter - glintOff) - 0.01;
+      glintMask = (1.0 - smoothstep(-0.004, 0.004, min(glintL, glintR))) * eyeOpen;
+    }
+
+    // Mouth
+    vec2 mouthCenter = vec2(0.0, -0.06);
+    float mouthWidth = 0.55 + 0.2 * smoothstep(0.5, 1.0, energy);
+    float mouth = sdMouth(p, mouthCenter, mouthWidth, mouthCurve);
+    float mouthMask = 1.0 - smoothstep(-0.004, 0.004, mouth);
+
+    // Compose: dark for eyes/mouth, white for glint
+    float faceMask = max(eyeMask, mouthMask);
+    vec3 faceColor = vec3(0.05); // dark features
+    // Add glint as bright spot
+    faceColor = mix(faceColor, vec3(1.0, 0.95, 0.85), glintMask);
+    faceMask = max(faceMask, glintMask);
+
+    return vec4(faceColor, faceMask * 0.85);
+  }
+
   // ─── Texture patterns (procedural) ─────────────────────
   // Returns a 0-1 pattern value to modulate the base color
   float getTexturePattern(float texId, vec3 wp) {
@@ -417,6 +493,18 @@ const fragmentShader = /* glsl */ `
         baseColor = mix(baseColor, imgFinal, blendStrength);
         baseColor += imgGlow * frameMask;
         baseColor += vOwnerColor * edgeGlow;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // LAYER 1.75: SPARK FACE — kawaii SDF face on vertical faces
+    // ═══════════════════════════════════════════════════════
+    if (vImageIndex < 0.5 && energy > 0.01) {
+      float isVertFace = step(abs(vWorldNormal.y), 0.5);
+      float faceLOD = smoothstep(35.0, 25.0, vDist);
+      if (isVertFace > 0.5 && faceLOD > 0.01) {
+        vec4 face = renderFace(vFaceUV, energy, vInstanceOffset, uTime);
+        baseColor = mix(baseColor, face.rgb, face.a * faceLOD);
       }
     }
 

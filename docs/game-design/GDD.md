@@ -251,6 +251,35 @@ Illuminated neighbors get a **visual brightness boost** (purely cosmetic for MVP
 
 ---
 
+## 7.5 The Spark System (Living Blocks)
+
+> **Full spec:** `docs/game-design/SPARK_SYSTEM.md`
+
+Every block is a **Spark** — a living creature with a kawaii SDF face, energy-driven expressions, and idle animations. The block IS the creature. This transforms the charge loop from "maintain a number" into "care for a living thing."
+
+### Expressions (Driven by Charge State)
+| Charge | Face | Player Feels |
+|---|---|---|
+| **Blazing** (80-100%) | Happy squint, big smile, eye glint | "My little guy is thriving!" |
+| **Thriving** (50-79%) | Content, gentle smile | "Looking good, check back later" |
+| **Fading** (20-49%) | Worried, slight frown, small pupils | "Uh oh, needs attention" |
+| **Dying** (1-19%) | Drowsy, nearly closed eyes, frown | "I feel bad for neglecting it" |
+| **Dormant** (0%) | No face — dark, cracked | "It's gone..." |
+
+### Behaviors
+- **Idle blink:** Random interval per block (2.5-5s), quick 0.12s close-open
+- **Breathing:** Subtle expansion/contraction scaled to energy tier
+- **Charge bounce:** Squash-and-stretch on charge (compress → spring up → settle)
+- **Charge expression snap:** Face jumps to happy on charge (energy spike to 100%)
+
+### Why This Works
+The charge tap now produces a **bidirectional emotional interaction**: player acts → creature reacts (bounces, smiles, glows). The creature's reaction IS the reward. When the player returns after hours away, the drowsy face communicates "I missed you" without any text. This is the retention lever that was missing.
+
+### Evolution (Future)
+Sparks evolve through 5 visual tiers based on cumulative charges (Mote → Ember → Shard → Prism → Monolith), changing geometry, face complexity, and particle budget. Evolution + charge state are independent axes — a high-tier dormant Spark looks impressive but abandoned, while a low-tier blazing Spark looks humble but full of life.
+
+---
+
 ## 8. Progression & Retention
 
 ### 8.1 Session 1 — "The Aha Moment" (~60 seconds)

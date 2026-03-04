@@ -28,13 +28,19 @@
 
 ### Charge Daily
 - Tap your block > **CHARGE** to restore energy
-- Energy decays over time — charge daily to keep your block alive
+- Watch your Spark bounce and smile when you charge it!
+- Energy decays over time — charge daily to keep your Spark alive and happy
 - Build **streaks** by charging on consecutive days (3d, 7d, 30d = bonus XP)
+- Your Spark's face reflects its energy: happy when blazing, drowsy when fading, asleep when dead
+
+### Customize Your Spark
+- All 16 colors, 48 emojis, 11 styles, and 7 textures are unlocked
+- Make your Spark unique — it appears on all 4 sides of your block
+- Styles like Holographic, Neon, Fire, and Aurora overlay on top of the face
 
 ### Earn XP
 - **Claim**: 100 XP (first block: +200 bonus)
 - **Charge**: 25 XP + streak milestone bonuses
-- **Customize**: 10 XP
 - **Combo**: Act within 30s for up to 3x multiplier
 
 ### Compete
@@ -45,9 +51,8 @@
 ## Known Limitations
 
 - Devnet only (no real money)
-- Sound effects not yet wired
-- Push notifications not yet implemented
-- Activity feed on Board tab uses generated data (real-time ticker works on tower view)
+- Spark evolution tiers are tracked but don't yet change block geometry (visual tier progression coming soon)
+- Activity feed on Board tab uses generated data when server has no events
 
 ## Bug Reports
 

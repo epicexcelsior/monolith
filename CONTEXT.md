@@ -22,7 +22,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - MWA wallet connect (Seed Vault / Phantom)
 - On-chain USDC vault (deposit / withdraw, devnet)
 - Charge system (variable 15-35 energy, weighted brackets, streak 1x-3x multiplier, quality-based visual feedback)
-- Block customization (color, emoji, name, style, textureId) — fully networked + persisted, streak-gated unlock tiers
+- Block customization (color, emoji, name, style, textureId) — fully networked + persisted, all tiers unlocked for testers
 - Bot simulation (21 personas, 6 archetypes, ~450 blocks, denser energy distribution)
 - Colyseus multiplayer (server-authoritative, JSON messages, Railway)
 - **Immersive onboarding revamp** (9-phase: cinematic orbit → title → claim → celebration → customize → charge → poke → wallet → done)
@@ -55,6 +55,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
 - **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast, share button)
 - **Breathing blocks** (energy-tiered aura: blazing warm gold pulse, thriving amber, fading anxious flicker, dying cold sparks, dead dark)
+- **Spark faces** (kawaii SDF faces on block vertical faces — energy-driven expressions: happy squint/smile at blazing, worried frown at fading, drowsy at dying; idle blink with per-block random period; LOD fade at distance; skipped on image blocks)
+- **Charge bounce** (squash-and-stretch on charge flash — 0.1s squash → 0.15s stretch → 0.25s settle, volume-preserving, bottom-anchored)
 - **Enhanced share flow** (prominent gold Share button for owners, post-charge share nudge 8s pulse, achievement share, improved ShareCard with evo tier + streak badge)
 - **Bot-only demo images** (player blocks no longer show Doge/Solana logos — isBotOwner guard)
 - **multi_block achievement** ("Empire Builder" — fires when player owns 3+ blocks)
@@ -356,6 +358,7 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `docs/LESSONS.md` | Technical lessons indexed by topic |
 | `docs/ARCHITECTURE.md` | System design, tech decisions, game mechanics |
 | `docs/game-design/GDD.md` | Game Design Document (canonical) |
+| `docs/game-design/SPARK_SYSTEM.md` | Spark System PRD — living faces, expressions, evolution roadmap |
 | `docs/design/UI_SYSTEM.md` | Solarpunk design system spec |
 | `docs/design/GACHA_VISION.md` | Loot drop / gacha design vision (post-testing) |
 | `docs/MULTIPLAYER_DEPLOYMENT.md` | Colyseus + Railway setup |
@@ -366,6 +369,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-03**: Spark System MVP — kawaii SDF faces on blocks (energy-driven expressions + idle blink + LOD fade), charge squash-and-stretch bounce, streak gates removed (all customization unlocked for testers). Pure client-side visual layer, no server changes. 222 mobile tests passing.
 
 - **2026-03-03**: Tester experience overhaul — breathing blocks (energy-tiered aura shader: blazing/thriving/fading/dying/dead with warm-to-cold tint), enhanced share flow (gold Share button + post-charge nudge + achievement share + improved ShareCard with evo tier/streak badge), bot-only demo images fix (isBotOwner guard), multi_block achievement wired, gacha/loot vision doc. 222 mobile tests passing.
 

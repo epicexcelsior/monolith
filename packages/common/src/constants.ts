@@ -394,14 +394,14 @@ export const CUSTOMIZATION_TIERS = {
   BASE_COLORS: 8,
   BASE_EMOJIS: 20,
   BASE_STYLES: 7,       // ids 0-6 (Default, Holo, Neon, Matte, Glass, Fire, Ice)
-  /** Streak 3+: all 16 colors */
-  PREMIUM_COLORS_STREAK: 3,
-  /** Streak 7+: animated styles (Lava, Aurora, Crystal, Nature — ids 7-10) */
-  ANIMATED_STYLES_STREAK: 7,
-  /** Streak 14+: all textures */
-  TEXTURES_STREAK: 14,
-  /** Streak 30+: full emoji library (all 48) */
-  FULL_EMOJIS_STREAK: 30,
+  /** All 16 colors — unlocked for testers (was streak 3) */
+  PREMIUM_COLORS_STREAK: 0,
+  /** Animated styles — unlocked for testers (was streak 7) */
+  ANIMATED_STYLES_STREAK: 0,
+  /** All textures — unlocked for testers (was streak 14) */
+  TEXTURES_STREAK: 0,
+  /** Full emoji library — unlocked for testers (was streak 30) */
+  FULL_EMOJIS_STREAK: 0,
 } as const;
 
 /** Get the number of unlocked colors for a given streak */

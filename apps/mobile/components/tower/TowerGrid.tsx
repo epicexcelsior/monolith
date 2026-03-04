@@ -716,6 +716,36 @@ export default function TowerGrid() {
               colorAttr.array[cf.blockIndex * 3 + 1] = blended.g;
               colorAttr.array[cf.blockIndex * 3 + 2] = blended.b;
               colorAttr.needsUpdate = true;
+
+              // Squash-and-stretch bounce (first 0.5s of flash)
+              if (t < 0.5) {
+                const layoutItem = layoutData[cf.blockIndex];
+                if (layoutItem) {
+                  let scaleY: number;
+                  if (t < 0.1) {
+                    scaleY = 1.0 - 0.15 * (t / 0.1); // squash down to 0.85
+                  } else if (t < 0.25) {
+                    scaleY = 0.85 + 0.27 * ((t - 0.1) / 0.15); // stretch up to 1.12
+                  } else {
+                    scaleY = 1.12 - 0.12 * ((t - 0.25) / 0.25); // settle to 1.0
+                  }
+                  const scaleXZ = 2.0 - scaleY; // volume preservation
+                  const layerScale = getLayerScale(block.layer, config.layerCount);
+                  const ts = layoutItem.tileScale;
+                  const halfHeight = (BLOCK_SIZE * layerScale) * 0.5;
+                  const tempObj = tempObjRef.current;
+                  tempObj.position.set(
+                    block.position.x,
+                    block.position.y + (scaleY - 1.0) * halfHeight,
+                    block.position.z,
+                  );
+                  tempObj.scale.set(layerScale * ts * scaleXZ, layerScale * scaleY, layerScale * scaleXZ);
+                  tempObj.rotation.set(0, layoutItem.rotY, 0);
+                  tempObj.updateMatrix();
+                  meshRef.current!.setMatrixAt(cf.blockIndex, tempObj.matrix);
+                  meshRef.current!.instanceMatrix.needsUpdate = true;
+                }
+              }
             }
           } else {
             // Complete — restore
@@ -728,6 +758,20 @@ export default function TowerGrid() {
               colorAttr.array[cf.blockIndex * 3 + 1] = tempColor.g;
               colorAttr.array[cf.blockIndex * 3 + 2] = tempColor.b;
               colorAttr.needsUpdate = true;
+
+              // Restore matrix to base position
+              const layoutItem = layoutData[cf.blockIndex];
+              if (layoutItem) {
+                const layerScale = getLayerScale(block.layer, config.layerCount);
+                const ts = layoutItem.tileScale;
+                const tempObj = tempObjRef.current;
+                tempObj.position.set(block.position.x, block.position.y, block.position.z);
+                tempObj.scale.set(layerScale * ts, layerScale, layerScale);
+                tempObj.rotation.set(0, layoutItem.rotY, 0);
+                tempObj.updateMatrix();
+                meshRef.current!.setMatrixAt(cf.blockIndex, tempObj.matrix);
+                meshRef.current!.instanceMatrix.needsUpdate = true;
+              }
             }
             completed.push(fi);
           }

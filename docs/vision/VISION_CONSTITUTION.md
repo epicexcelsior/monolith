@@ -40,6 +40,9 @@ A tapered tower that narrows to a point at the top, inspired by the Washington M
 
 ### The Living World
 * The tower **pulses** with the heartbeat of activity (real-time Charge states)
+* Every block is a **Spark** — a living creature with kawaii SDF faces, energy-driven expressions, and idle blink animations. The block IS the creature.
+* Sparks **react** to charging (squash-stretch bounce + expression snap to happy) — the creature's reaction is the reward
+* Sparks **communicate need** — drowsy faces and frowns when energy is low say "I missed you" without text
 * It **evolves:** Neighborhoods form organically around Lighthouses (high-value blocks)
 * It **remembers:** Long-held blocks develop visual patina and badges showing their age
 * It **grows:** New floors unlock as total staked capital increases
@@ -57,13 +60,13 @@ A tapered tower that narrows to a point at the top, inspired by the Washington M
 - Blocks at 0 Charge go **Dormant** — after 3+ days, they become claimable by others
 
 ### Visual States
-| Charge | State | Look |
-|---|---|---|
-| 80–100 | **Blazing** 🔥 | Brilliant glow + particles |
-| 50–79 | **Thriving** ✨ | Steady warm glow |
-| 20–49 | **Fading** 💫 | Dim, flickering |
-| 1–19 | **Flickering** ⚡ | Dark, sparking weakly |
-| 0 | **Dormant** 💤 | Black, cracked texture |
+| Charge | State | Look | Spark Face |
+|---|---|---|---|
+| 80–100 | **Blazing** 🔥 | Brilliant glow + particles | Happy squint, big smile, eye glint |
+| 50–79 | **Thriving** ✨ | Steady warm glow | Content, gentle smile |
+| 20–49 | **Fading** 💫 | Dim, flickering | Worried, slight frown |
+| 1–19 | **Flickering** ⚡ | Dark, sparking weakly | Drowsy, nearly closed eyes |
+| 0 | **Dormant** 💤 | Black, cracked texture | No face (dormant) |
 
 ### Why This Works
 The daily Charge tap is the "Snapchat streak" of DeFi — a tiny, habitual action that builds loyalty. Breaking a streak only resets your multiplier. You never lose your block from one missed day.
