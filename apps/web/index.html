@@ -49,7 +49,7 @@
     /* ═══ HERO ═══ */
     .hero{height:100vh;height:100dvh;display:flex;flex-direction:column;justify-content:flex-end;padding:0 5vw 5vh;position:relative}
     .hero-grad{position:absolute;inset:0;z-index:0;pointer-events:none;
-      background:linear-gradient(to bottom,transparent 0%,transparent 50%,rgba(5,7,16,0.10) 65%,rgba(5,7,16,0.35) 85%,rgba(5,7,16,0.45) 100%)}
+      background:linear-gradient(to bottom,transparent 0%,transparent 60%,rgba(5,7,16,0.06) 75%,rgba(5,7,16,0.15) 90%,rgba(5,7,16,0.22) 100%)}
     .hero-inner{position:relative;z-index:1}
 
     @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
@@ -138,15 +138,19 @@
     .s-h{font-family:var(--syne);font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;letter-spacing:-0.03em;line-height:1.1;margin-bottom:1rem;color:#fff}
     .s-p{font-size:1rem;color:var(--text-dim);max-width:520px;line-height:1.7;margin-bottom:3rem;font-weight:300}
 
-    /* ═══ VALUE PROPS — transparent cards, thin border ═══ */
+    /* ═══ VALUE PROPS — glassmorphism cards ═══ */
     .val-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;max-width:900px;margin:0 auto 2rem}
     .val-card{
       padding:2rem 1.8rem;
       border-radius:16px;
-      border:1px solid rgba(212,168,71,0.12);
-      transition:border-color 0.3s,transform 0.3s;
+      background:rgba(255,255,255,0.06);
+      backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+      border:1px solid rgba(255,255,255,0.12);
+      box-shadow:0 8px 32px rgba(0,0,0,0.2);
+      transition:background 0.3s,border-color 0.3s,transform 0.3s,box-shadow 0.3s;
     }
-    .val-card:hover{border-color:rgba(212,168,71,0.30);transform:translateY(-2px)}
+    @supports not (backdrop-filter:blur(1px)){.val-card{background:rgba(5,7,16,0.85)}}
+    .val-card:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.20);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.3)}
     .val-icon{
       width:40px;height:40px;margin-bottom:1rem;
       display:flex;align-items:center;justify-content:center;
@@ -157,15 +161,19 @@
     .val-card h3{font-family:var(--syne);font-size:1.15rem;font-weight:700;margin-bottom:0.5rem;color:#fff}
     .val-card p{font-size:0.92rem;color:var(--text-dim);line-height:1.7;font-weight:300}
 
-    /* ═══ FEATURE CARDS — transparent, thin border ═══ */
+    /* ═══ FEATURE CARDS — glassmorphism ═══ */
     .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
     .feat-card{
       padding:1.8rem 1.5rem;
       border-radius:14px;
-      border:1px solid rgba(212,168,71,0.08);
-      transition:border-color 0.3s;
+      background:rgba(255,255,255,0.05);
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+      border:1px solid rgba(255,255,255,0.10);
+      box-shadow:0 4px 20px rgba(0,0,0,0.15);
+      transition:background 0.3s,border-color 0.3s,transform 0.2s;
     }
-    .feat-card:hover{border-color:rgba(212,168,71,0.22)}
+    @supports not (backdrop-filter:blur(1px)){.feat-card{background:rgba(5,7,16,0.85)}}
+    .feat-card:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);transform:translateY(-2px)}
     .feat-icon{
       width:36px;height:36px;border-radius:8px;
       display:flex;align-items:center;justify-content:center;
@@ -895,8 +903,8 @@ function easeOut3(x) { return 1 - Math.pow(1 - x, 3); }
 
 function animate() {
   requestAnimationFrame(animate);
-  const t = clock.getElapsedTime();
   const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
 
   // Camera
   const introE = easeOut3(Math.min(t / 4.0, 1));
@@ -964,12 +972,12 @@ function animate() {
     let tx = 0, ty = 0, tz = 0;
     if (mA > 0.01) {
       _tv.set(p.x - _mw.x, p.y - _mw.y, p.z - _mw.z);
-      const dist = _tv.length(), force = Math.max(0, 1 - dist / 12) * mA * 6;
+      const dist = _tv.length(), force = Math.max(0, 1 - dist / 6) * mA * 2;
       if (force > 0.001) {
         const rx = p.x, rz = p.z, rl = Math.sqrt(rx * rx + rz * rz) || 1;
-        tx = (rx / rl) * force * 2.5;
-        ty = force * 0.3;
-        tz = (rz / rl) * force * 2.5;
+        tx = (rx / rl) * force * 1.0;
+        ty = force * 0.1;
+        tz = (rz / rl) * force * 1.0;
       }
     }
     _dp[di] += (tx - _dp[di]) * 0.08;
