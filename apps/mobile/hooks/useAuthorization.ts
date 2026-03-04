@@ -33,6 +33,8 @@ import { usePlayerStore } from "@/stores/player-store";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import { findOrCreateProfile, searchProfiles, getSocialCounts } from "@/utils/tapestry";
 import { buildPlayerInitTransactions, markPlayerInitialized } from "@/utils/soar";
+import { SOAR_ENABLED } from "@/services/soar-constants";
+import { showStatusToast } from "@/stores/status-toast-store";
 import { PublicKey } from "@solana/web3.js";
 
 // ---------------------------------------------------------------------------
@@ -132,6 +134,7 @@ function bootstrapTapestryProfile(walletAddress: string): void {
       bootstrapBotProfiles(result.profile.id).catch(console.warn);
     } catch (e) {
       console.warn("Tapestry profile creation failed:", e);
+      showStatusToast("Profile setup failed — social features may be limited", "error");
     }
   })();
 }
@@ -329,7 +332,9 @@ export function useAuthorization() {
       bootstrapTapestryProfile(pubkey.toBase58());
 
       // SOAR on-chain registration — fire-and-forget, opens second MWA popup
-      bootstrapSoarRegistration(pubkey.toBase58(), walletUriBase);
+      if (SOAR_ENABLED) {
+        bootstrapSoarRegistration(pubkey.toBase58(), walletUriBase);
+      }
 
       return pubkey;
     } catch (err) {
@@ -428,7 +433,9 @@ export function useAuthorization() {
         bootstrapTapestryProfile(pubkey.toBase58());
 
         // SOAR: register on-chain if needed (opens MWA if not registered)
-        bootstrapSoarRegistration(pubkey.toBase58(), cachedWalletUriBase ?? undefined);
+        if (SOAR_ENABLED) {
+          bootstrapSoarRegistration(pubkey.toBase58(), cachedWalletUriBase ?? undefined);
+        }
       }
     },
     [setConnected],

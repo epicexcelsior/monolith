@@ -141,6 +141,16 @@ PanResponder.create({
 
 ## Shaders & 3D Rendering
 
+### Three.js Clock: getElapsedTime() Consumes getDelta() (2026-03-04)
+**Problem**: Calling `clock.getElapsedTime()` then `clock.getDelta()` in the same frame always returns ~0 for getDelta. Internally, `getElapsedTime()` calls `getDelta()` which updates `oldTime`. The second `getDelta()` sees no time has passed. Result: any frame-delta-dependent logic (timers, countdowns) silently breaks.
+**Solution**: Call `getDelta()` first, then read `clock.elapsedTime` (property, not method): `const dt = clock.getDelta(); const t = clock.elapsedTime;`. Or track dt manually with a `prevTime` variable.
+**Key Insight**: Three.js Clock methods have hidden side effects — `getElapsedTime()` mutates the same internal state as `getDelta()`. Never call both methods in the same frame; use the property `clock.elapsedTime` after `getDelta()`.
+
+### Mouse Displacement on 3D Scenes — Use Vertical Plane, Not Camera-Facing (2026-03-04)
+**Problem**: Raycasting mouse position onto a camera-facing plane (`normal.applyQuaternion(camera.quaternion)`) causes the intersection point to project behind the tower — hovering the front pushes blocks on the back. Also, using `mA *= 0.97` decay means displacement springs back even while mouse is stationary over the scene.
+**Solution**: Use a vertical plane aligned to camera's horizontal direction only: `camera.getWorldDirection(dir); dir.y = 0; dir.normalize()`. For sticky hover, track `mouseInViewport` flag — only decay `mA` on `mouseleave`/`touchend`, not every frame.
+**Key Insight**: For mouse-reactive 3D scenes, the ray-plane intersection plane should be axis-aligned (not camera-rotated), and displacement should persist while the mouse is in the viewport — decay only on exit.
+
 ### SDF Faces on Instanced Blocks — Reuse Existing Varyings (2026-03-03)
 **Problem**: Adding kawaii faces to 650+ instanced blocks could require new uniforms/attributes for per-block randomness and UV mapping. New attributes mean new typed arrays, geometry setup changes, and per-frame `needsUpdate` calls.
 **Solution**: `renderFace()` uses only existing varyings: `vFaceUV` (already computed per-face in vertex shader), `vInstanceOffset` (unique per block), `uTime` (global). Per-block blink randomness via `hash21(vec2(instanceOff, seed))` — 4x cheaper than `noise2D`. LOD gate with `smoothstep(35.0, 25.0, vDist)` skips face rendering when blocks are sub-pixel. Total cost: ~18 ALU ops (trivial vs interior mapping's 100+).
@@ -549,6 +559,11 @@ cd "$SCRIPT_DIR/apps/mobile" && npx expo start  # absolute path
 ---
 
 ## UI/UX & Design System
+
+### Glassmorphism Over WebGL Canvas — Use @supports Fallback (2026-03-04)
+**Problem**: `backdrop-filter: blur()` on HTML elements overlaying a `<canvas>` may not work in all browsers (canvas content isn't always part of the same compositing layer). Cards looked broken — no blur, no background, just floating text.
+**Solution**: Add `@supports not (backdrop-filter:blur(1px))` fallback with a solid dark background (`rgba(5,7,16,0.85)`). Also include `-webkit-backdrop-filter` for Safari. The glassmorphism is progressive enhancement; the fallback ensures readability everywhere.
+**Key Insight**: When using `backdrop-filter` over WebGL/canvas content, always provide a `@supports not` fallback with an opaque-enough background. Test in both Chrome and Safari — they composite differently.
 
 ### AchievementToast pointerEvents Must Change for Interactive Buttons (2026-03-03)
 **Problem**: AchievementToast had `pointerEvents="none"` (set in a previous fix to prevent blocking tower taps). Adding a "Share" button inside the toast meant the button was untappable — `pointerEvents="none"` on the parent prevents ALL descendant touch events.

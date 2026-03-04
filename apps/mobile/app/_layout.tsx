@@ -5,6 +5,7 @@ import { StyleSheet } from "react-native";
 import * as Notifications from "expo-notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
+import * as Updates from "expo-updates";
 import {
   useFonts,
   Outfit_400Regular,
@@ -30,6 +31,20 @@ import { COLORS } from "@/constants/theme";
 
 // Prevent splash from auto-hiding
 SplashScreen.preventAutoHideAsync();
+
+/** Check for OTA updates on launch (preview/prod builds only). */
+async function checkForOTAUpdate(): Promise<void> {
+  if (__DEV__) return;
+  try {
+    const update = await Updates.checkForUpdateAsync();
+    if (update.isAvailable) {
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    }
+  } catch {
+    // Network errors — don't block app startup
+  }
+}
 
 /**
  * Root layout — wraps the entire app with providers and handles
@@ -70,7 +85,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function bootstrap() {
-      // Fire both in parallel — neither blocks the other
+      // Fire all in parallel — neither blocks the other
       await Promise.all([
         hydrateCachedAuth(true).catch((err) => {
           // Non-fatal — user will just see "not connected" state
@@ -78,6 +93,7 @@ export default function RootLayout() {
         }),
         initAudio(),
         initAchievements(),
+        checkForOTAUpdate(),
       ]);
     }
     bootstrap();

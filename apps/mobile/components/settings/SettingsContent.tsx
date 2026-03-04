@@ -182,38 +182,6 @@ export default function SettingsContent({ onClose }: SettingsContentProps) {
         </View>
       </View>
 
-      {/* Dev: Spark Energy Simulator */}
-      {myBlocks.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SPARK TESTER</Text>
-          <Text style={styles.devHelpText}>Set energy on your first block to preview face expressions</Text>
-          <View style={styles.devEnergyRow}>
-            {[
-              { label: "Blazing", energy: 95, color: "#d4a847" },
-              { label: "Thriving", energy: 65, color: "#b89030" },
-              { label: "Fading", energy: 35, color: "#8a6e50" },
-              { label: "Dying", energy: 10, color: "#7a3020" },
-              { label: "Dead", energy: 0, color: "#444" },
-            ].map((preset) => (
-              <TouchableOpacity
-                key={preset.label}
-                style={[styles.devEnergyButton, { borderColor: preset.color }]}
-                onPress={() => {
-                  hapticButtonPress();
-                  const block = myBlocks[0];
-                  if (block) {
-                    useTowerStore.getState().updateDemoBlock(block.id, { energy: preset.energy });
-                  }
-                }}
-              >
-                <Text style={[styles.devEnergyLabel, { color: preset.color }]}>{preset.label}</Text>
-                <Text style={styles.devEnergyValue}>{preset.energy}%</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
       {/* Actions */}
       <View style={styles.section}>
         <TouchableOpacity
@@ -348,17 +316,4 @@ const styles = StyleSheet.create({
   dangerButton: { backgroundColor: "rgba(196, 64, 42, 0.15)" },
   dangerText: { color: COLORS.error },
 
-  // Dev energy simulator
-  devHelpText: { fontFamily: FONT_FAMILY.body, fontSize: 12, color: COLORS.textMuted },
-  devEnergyRow: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.xs },
-  devEnergyButton: {
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1.5,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    alignItems: "center",
-  },
-  devEnergyLabel: { fontFamily: FONT_FAMILY.bodySemibold, fontSize: 11 },
-  devEnergyValue: { fontFamily: FONT_FAMILY.mono, fontSize: 10, color: COLORS.textMuted },
 });

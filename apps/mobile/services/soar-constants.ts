@@ -30,4 +30,4 @@ export const SOAR_AUTHORITY_SECRET = new Uint8Array([
 ]);
 
 // Whether SOAR integration is active
-export const SOAR_ENABLED = true;
+export const SOAR_ENABLED = false;

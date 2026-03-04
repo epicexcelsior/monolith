@@ -35,6 +35,7 @@ import { createContent, ensureBlockContent } from "@/utils/tapestry";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import { submitScore, unlockAchievement } from "@/utils/soar";
 import { useAchievementStore } from "@/stores/achievement-store";
+import { showStatusToast } from "@/stores/status-toast-store";
 import { PublicKey } from "@solana/web3.js";
 
 /** Fire-and-forget Tapestry content creation. Never blocks gameplay. */
@@ -384,6 +385,7 @@ export function useBlockActions() {
       console.warn("[ImageUpload] Failed:", err);
       hapticError();
       playError();
+      showStatusToast("Image upload failed", "error");
     }
   }, [selectedBlockId, publicKey, customizeBlock]);
 
