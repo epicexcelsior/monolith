@@ -141,6 +141,16 @@ PanResponder.create({
 
 ## Shaders & 3D Rendering
 
+### SDF Faces on Instanced Blocks — Reuse Existing Varyings (2026-03-03)
+**Problem**: Adding kawaii faces to 650+ instanced blocks could require new uniforms/attributes for per-block randomness and UV mapping. New attributes mean new typed arrays, geometry setup changes, and per-frame `needsUpdate` calls.
+**Solution**: `renderFace()` uses only existing varyings: `vFaceUV` (already computed per-face in vertex shader), `vInstanceOffset` (unique per block), `uTime` (global). Per-block blink randomness via `hash21(vec2(instanceOff, seed))` — 4x cheaper than `noise2D`. LOD gate with `smoothstep(35.0, 25.0, vDist)` skips face rendering when blocks are sub-pixel. Total cost: ~18 ALU ops (trivial vs interior mapping's 100+).
+**Key Insight**: Before adding new shader attributes, check if existing varyings (`vInstanceOffset`, `vFaceUV`, `vWorldNormal`) already provide what you need. `hash21` with offset seeds gives cheap per-instance randomness without new data.
+
+### Squash-Stretch on InstancedMesh — Clone the Poke Pattern (2026-03-03)
+**Problem**: Adding charge bounce required manipulating instance matrices during the charge flash loop, but the flash loop only modified color/energy attributes. Matrix manipulation needs position, scale, rotation from layout data, plus volume preservation math.
+**Solution**: Clone the existing poke bounce pattern (which already does shake + pop-up via `tempObjRef` → `setMatrixAt`). Key additions: volume-preserving scale (`scaleXZ = 2.0 - scaleY`), bottom-anchoring (`y += (scaleY - 1.0) * halfHeight`), and matrix restore on flash completion. Must restore matrix in BOTH the active branch (when t > 0.5s, stop modifying) AND the completion branch.
+**Key Insight**: When adding new matrix animations to InstancedMesh, find the existing pattern that does matrix manipulation (poke, pop-out) and replicate its restore logic exactly. Missing the restore = blocks stuck at wrong scale.
+
 ### Energy-Tiered Shader Branching — Use `if/else` Not Smoothstep Blending (2026-03-03)
 **Problem**: The original pulse was a single `sin(uTime * pulseSpeed)` with pulseSpeed linearly interpolated from energy. This gave all blocks the same "feel" just faster/slower. Wanted distinct emotional states (warm confident vs cold sparking) but blending between tints with smoothstep would create mushy transitions and cost extra ALU ops.
 **Solution**: Use discrete `if/else if` branches on energy thresholds (0.8/0.5/0.2/0.01). Each branch has its own frequency, amplitude, and tint. On InstancedMesh, all instances in the same draw call hit GPU branching, but since energy values cluster (most blocks are 50-80%), branch coherence is high. The hash21-based dying sparks (15% chance per frame) are cheaper than a sine wave.
