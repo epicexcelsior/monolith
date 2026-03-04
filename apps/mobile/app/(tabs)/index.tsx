@@ -18,6 +18,7 @@ import ScreenFlash from "@/components/ui/ScreenFlash";
 import HotBlockTicker from "@/components/ui/HotBlockTicker";
 import AchievementToast from "@/components/ui/AchievementToast";
 import PokeReceivedToast from "@/components/ui/PokeReceivedToast";
+import StatusToast from "@/components/ui/StatusToast";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import FloatingNav from "@/components/ui/FloatingNav";
 import MyBlockFAB from "@/components/ui/MyBlockFAB";
@@ -28,9 +29,10 @@ import TopHUD from "@/components/ui/TopHUD";
 import WalletConnectSheet from "@/components/ui/WalletConnectSheet";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
-import { useMultiplayerStore, onPlayerSync } from "@/stores/multiplayer-store";
+import { useMultiplayerStore, onPlayerSync, onServerError } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { useWalletStore } from "@/stores/wallet-store";
+import { showStatusToast } from "@/stores/status-toast-store";
 import { COLORS } from "@/constants/theme";
 
 export default function TowerScreen() {
@@ -65,10 +67,13 @@ export default function TowerScreen() {
   const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
   const isOnboarding = onboardingPhase !== "done";
 
-  // Register player sync handler
+  // Register player sync handler + server error handler
   useEffect(() => {
     onPlayerSync((data) => {
       usePlayerStore.getState().setFromServer(data);
+    });
+    onServerError((error) => {
+      showStatusToast(error.message || "Server error", "error");
     });
   }, []);
 
@@ -187,6 +192,9 @@ export default function TowerScreen() {
 
         {/* Achievement toast — slides in from top, auto-dismisses */}
         <AchievementToast />
+
+        {/* Status toast — error/success/info notifications */}
+        <StatusToast />
 
         {/* Poke received toast — Blink pokes + in-app pokes */}
         <PokeReceivedToast />
