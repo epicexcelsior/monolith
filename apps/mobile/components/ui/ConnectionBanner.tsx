@@ -1,7 +1,7 @@
 /**
  * ConnectionBanner — Thin status banner at top of tower HUD.
  *
- * Shows connecting/reconnecting/offline states.
+ * Shows connecting/reconnecting/offline/demo-mode states.
  * Connected state fades out after 2s.
  */
 
@@ -14,6 +14,7 @@ import Animated, {
   withDelay,
 } from "react-native-reanimated";
 import { useMultiplayerStore } from "@/stores/multiplayer-store";
+import { useTowerStore } from "@/stores/tower-store";
 import { COLORS, FONT_FAMILY, SPACING, GLASS_STYLE } from "@/constants/theme";
 
 export default function ConnectionBanner() {
@@ -22,18 +23,21 @@ export default function ConnectionBanner() {
   const reconnecting = useMultiplayerStore((s) => s.reconnecting);
   const error = useMultiplayerStore((s) => s.error);
   const connect = useMultiplayerStore((s) => s.connect);
+  const multiplayerMode = useTowerStore((s) => s.multiplayerMode);
 
   const opacity = useSharedValue(1);
 
+  const isDemoMode = !multiplayerMode && !connected && !connecting && !reconnecting;
+
   useEffect(() => {
-    if (connected) {
+    if (connected && !isDemoMode) {
       // Show briefly, then fade out
       opacity.value = 1;
       opacity.value = withDelay(2000, withTiming(0, { duration: 500 }));
     } else {
       opacity.value = 1;
     }
-  }, [connected, connecting, reconnecting, error, opacity]);
+  }, [connected, connecting, reconnecting, error, isDemoMode, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -41,34 +45,39 @@ export default function ConnectionBanner() {
 
   // Don't show when connected and faded out
   const isOffline = !connected && !connecting && !reconnecting && error;
-  const showBanner = connecting || reconnecting || isOffline;
+  const showBanner = connecting || reconnecting || isOffline || isDemoMode;
 
   if (!showBanner && !connected) return null;
 
-  const dotColor = connecting || reconnecting
+  const dotColor = isDemoMode
     ? COLORS.warning
-    : isOffline
-      ? COLORS.error
-      : COLORS.success;
-  const label = connecting
-    ? "Connecting..."
-    : reconnecting
-      ? "Reconnecting..."
+    : connecting || reconnecting
+      ? COLORS.warning
       : isOffline
-        ? "Offline"
-        : "Connected";
+        ? COLORS.error
+        : COLORS.success;
+  const label = isDemoMode
+    ? "Demo Mode"
+    : connecting
+      ? "Connecting..."
+      : reconnecting
+        ? "Reconnecting..."
+        : isOffline
+          ? "Offline"
+          : "Connected";
 
-  const Wrapper = isOffline ? TouchableOpacity : View;
+  const canRetry = isOffline || isDemoMode;
+  const Wrapper = canRetry ? TouchableOpacity : View;
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
       <Wrapper
         style={styles.banner}
-        {...(isOffline ? { onPress: connect, activeOpacity: 0.7 } : {})}
+        {...(canRetry ? { onPress: connect, activeOpacity: 0.7 } : {})}
       >
         <View style={[styles.dot, { backgroundColor: dotColor }]} />
         <Text style={styles.label}>{label}</Text>
-        {isOffline && <Text style={styles.retry}>Tap to retry</Text>}
+        {canRetry && <Text style={styles.retry}>Tap to retry</Text>}
       </Wrapper>
     </Animated.View>
   );
