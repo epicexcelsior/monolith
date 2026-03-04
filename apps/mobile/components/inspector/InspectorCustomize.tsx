@@ -108,6 +108,7 @@ export default function InspectorCustomize({
             onPress={() => { onEmojiChange(icon); hapticButtonPress(); }}
           >
             <Text style={styles.emojiText}>{icon}</Text>
+            {block.emoji === icon && <Text style={styles.emojiCheck}>✓</Text>}
           </TouchableOpacity>
         ))}
         {streak < CUSTOMIZATION_TIERS.FULL_EMOJIS_STREAK && (
@@ -298,6 +299,17 @@ const styles = StyleSheet.create({
   emojiText: {
     fontSize: 18,
   },
+  emojiCheck: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    fontSize: 10,
+    fontFamily: FONT_FAMILY.bodyBold,
+    color: COLORS.gold,
+    textShadowColor: COLORS.textShadowDark,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   hScroll: {
     flexDirection: "row",
     maxHeight: 56,
@@ -315,7 +327,7 @@ const styles = StyleSheet.create({
   cellSelected: {
     borderWidth: 2,
     borderColor: COLORS.gold,
-    backgroundColor: COLORS.goldSubtle,
+    backgroundColor: "rgba(212, 168, 71, 0.3)",
   },
   cellIcon: {
     fontSize: 16,

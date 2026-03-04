@@ -281,7 +281,7 @@ const fragmentShader = /* glsl */ `
 
     // Mouth
     vec2 mouthCenter = vec2(0.0, -0.06);
-    float mouthWidth = 0.55 + 0.2 * smoothstep(0.5, 1.0, energy);
+    float mouthWidth = 0.25 + 0.1 * smoothstep(0.5, 1.0, energy);
     float mouth = sdMouth(p, mouthCenter, mouthWidth, mouthCurve);
     float mouthMask = 1.0 - smoothstep(-0.004, 0.004, mouth);
 
