@@ -97,7 +97,11 @@ export function rollChargeAmount(): { amount: number; quality: ChargeQuality } {
 }
 
 // ─── Block Evolution System ──────────────────────────────
-/** Evolution tiers — permanent visual progression based on cumulative charges */
+
+/** Testing mode: dramatically lower thresholds so testers see progression in one session */
+export const TESTING_MODE = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
+
+/** Production evolution tiers */
 export const EVOLUTION_TIERS = [
   { name: "Spark",  charges: 0,   streakReq: 0,  glowMultiplier: 1.0 },
   { name: "Ember",  charges: 10,  streakReq: 0,  glowMultiplier: 1.2 },
@@ -106,11 +110,24 @@ export const EVOLUTION_TIERS = [
   { name: "Beacon", charges: 150, streakReq: 30, glowMultiplier: 1.8 },
 ] as const;
 
+/** Testing evolution tiers — reachable in a single session */
+export const EVOLUTION_TIERS_TESTING = [
+  { name: "Spark",  charges: 0,   streakReq: 0,  glowMultiplier: 1.0 },
+  { name: "Ember",  charges: 3,   streakReq: 0,  glowMultiplier: 1.2 },
+  { name: "Flame",  charges: 8,   streakReq: 0,  glowMultiplier: 1.4 },
+  { name: "Blaze",  charges: 15,  streakReq: 0,  glowMultiplier: 1.6 },
+  { name: "Beacon", charges: 25,  streakReq: 0,  glowMultiplier: 1.8 },
+] as const;
+
+/** Use this everywhere instead of EVOLUTION_TIERS directly */
+export const ACTIVE_EVOLUTION_TIERS: readonly { name: string; charges: number; streakReq: number; glowMultiplier: number }[] =
+  TESTING_MODE ? EVOLUTION_TIERS_TESTING : EVOLUTION_TIERS;
+
 /** Compute evolution tier index (0-4) from totalCharges and best streak */
 export function getEvolutionTier(totalCharges: number, bestStreak: number = 0): number {
   let tier = 0;
-  for (let i = EVOLUTION_TIERS.length - 1; i >= 0; i--) {
-    if (totalCharges >= EVOLUTION_TIERS[i].charges && bestStreak >= EVOLUTION_TIERS[i].streakReq) {
+  for (let i = ACTIVE_EVOLUTION_TIERS.length - 1; i >= 0; i--) {
+    if (totalCharges >= ACTIVE_EVOLUTION_TIERS[i].charges && bestStreak >= ACTIVE_EVOLUTION_TIERS[i].streakReq) {
       tier = i;
       break;
     }
@@ -120,15 +137,15 @@ export function getEvolutionTier(totalCharges: number, bestStreak: number = 0): 
 
 /** Get evolution tier info by index */
 export function getEvolutionTierInfo(tier: number) {
-  return EVOLUTION_TIERS[Math.min(tier, EVOLUTION_TIERS.length - 1)];
+  return ACTIVE_EVOLUTION_TIERS[Math.min(tier, ACTIVE_EVOLUTION_TIERS.length - 1)];
 }
 
 /** Charges needed to reach the next evolution tier (or 0 if max) */
 export function chargesToNextTier(totalCharges: number, bestStreak: number = 0): { needed: number; nextTierName: string; progress: number } | null {
   const currentTier = getEvolutionTier(totalCharges, bestStreak);
-  if (currentTier >= EVOLUTION_TIERS.length - 1) return null;
-  const next = EVOLUTION_TIERS[currentTier + 1];
-  const prev = EVOLUTION_TIERS[currentTier];
+  if (currentTier >= ACTIVE_EVOLUTION_TIERS.length - 1) return null;
+  const next = ACTIVE_EVOLUTION_TIERS[currentTier + 1];
+  const prev = ACTIVE_EVOLUTION_TIERS[currentTier];
   const needed = next.charges - totalCharges;
   const range = next.charges - prev.charges;
   const progress = range > 0 ? (totalCharges - prev.charges) / range : 0;

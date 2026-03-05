@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import { truncateAddress, formatUsdc } from "@/hooks/useBlockActions";
-import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, EVOLUTION_TIERS } from "@monolith/common";
+import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, ACTIVE_EVOLUTION_TIERS } from "@monolith/common";
 import type { DemoBlock } from "@/stores/tower-store";
 
 interface InspectorActionsProps {
@@ -145,7 +145,7 @@ export default function InspectorActions({
               <Text style={styles.evolutionTierText}>{evolutionTierInfo.name}</Text>
               {nextEvolutionTier ? (
                 <Text style={styles.evolutionProgressText}>
-                  {totalCharges}/{EVOLUTION_TIERS[evolutionTier + 1].charges} to {nextEvolutionTier.nextTierName}
+                  {totalCharges}/{ACTIVE_EVOLUTION_TIERS[evolutionTier + 1].charges} to {nextEvolutionTier.nextTierName}
                 </Text>
               ) : (
                 <Text style={styles.evolutionMaxText}>Max Tier</Text>

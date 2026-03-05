@@ -77,7 +77,7 @@ export default function FloatingPoints() {
         )}
         <View style={styles.content}>
           {lastChargeAmount != null ? (
-            <Text style={[styles.points, { color: qualityColor }]}>+{lastChargeAmount} {"\u26A1"}</Text>
+            <Text style={[styles.points, { color: qualityColor }]}>+1 Charge {"\u26A1"}</Text>
           ) : (
             <Text style={styles.points}>+{lastPointsEarned} XP</Text>
           )}
@@ -85,9 +85,6 @@ export default function FloatingPoints() {
             <Text style={styles.combo}>{"\u00D7"}{lastCombo}</Text>
           )}
         </View>
-        {lastChargeAmount != null && (
-          <Text style={styles.xpSubtext}>+{lastPointsEarned} XP</Text>
-        )}
       </Animated.View>
     </View>
   );
