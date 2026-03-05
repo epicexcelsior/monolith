@@ -1402,10 +1402,10 @@ Explicitly OUT OF SCOPE:
 > **Ralph Loop:** Update this section after completing each phase. Mark `[x]` when done, `[~]` if partial with notes.
 
 ### Pass 1 — Testable Loop
-- [ ] **Phase 1:** Glow Reduction
-- [ ] **Phase 2:** Face Scale-Up
-- [ ] **Phase 3:** Customize Panel Simplify (Color + Name + Emoji)
-- [ ] **Phase 4:** Progression Clarity (hide XP, testing thresholds)
+- [x] **Phase 1:** Glow Reduction — all 12 glow values reduced per spec, faces visible through warm glow
+- [x] **Phase 2:** Face Scale-Up — features ~1.5x bigger, bolder SDF strokes, LOD 42→48
+- [x] **Phase 3:** Customize Panel Simplify — 3 sections (Color/Name/Emoji), new pastel palette, 16 curated emojis
+- [x] **Phase 4:** Progression Clarity — ACTIVE_EVOLUTION_TIERS, "+1 Charge" floats, XP removed from TopHUD, auto-style on tier-up
 - [ ] **Phase 5:** Onboarding Copy ("Spark" framing)
 
 > **=== PASS 1 GATE ===** Push APK. Get tester feedback. Review visuals.

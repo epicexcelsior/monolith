@@ -197,8 +197,8 @@ export default function OnboardingFlow() {
         ghostChargeBlock(ghostBlockId);
         setRecentlyChargedId(ghostBlockId);
 
-        // Trigger FloatingPoints "+25 XP"
-        addPoints({ pointsEarned: 25 });
+        // Trigger FloatingPoints "+1 Charge"
+        addPoints({ pointsEarned: 25, chargeAmount: 1 });
 
         // Animate energy bar fill
         setChargeAnimating(true);
@@ -307,11 +307,11 @@ export default function OnboardingFlow() {
                     { bottom: Math.max(insets.bottom, 12) + SPACING.xxl, opacity: claimFade, transform: [{ scale: claimScale }] },
                 ]}>
                     <Text style={styles.claimSubtitle}>
-                        This block is yours to keep. Or lose.
+                        Choose a Spark to care for
                     </Text>
 
                     <Button
-                        title="CLAIM THIS BLOCK"
+                        title="WAKE UP THIS SPARK"
                         variant="primary"
                         size="lg"
                         onPress={handleClaim}
@@ -332,8 +332,8 @@ export default function OnboardingFlow() {
             {phase === "customize" && (
                 <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
-                        title="Make it yours"
-                        subtitle="Pick a color and emoji"
+                        title="What color is your Spark?"
+                        subtitle="Make it yours"
                         step={currentStep}
                         totalSteps={TOTAL_STEPS}
                     >
@@ -390,12 +390,12 @@ export default function OnboardingFlow() {
             {phase === "charge" && (
                 <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
-                        title="Charge your block daily"
+                        title="Charge your Spark!"
                         step={currentStep}
                         totalSteps={TOTAL_STEPS}
                     >
                         <Text style={styles.chargeWarning}>
-                            Miss 3 days and anyone can take it
+                            Your Spark needs energy! Miss 3 days and it fades away.
                         </Text>
 
                         {/* Energy bar */}
@@ -408,15 +408,15 @@ export default function OnboardingFlow() {
                                             width: chargeAnimating
                                                 ? chargeBarWidth.interpolate({
                                                     inputRange: [0, 1],
-                                                    outputRange: ["20%", "100%"],
+                                                    outputRange: ["60%", "100%"],
                                                 })
-                                                : "20%",
+                                                : "60%",
                                         },
                                     ]}
                                 />
                             </View>
                             <Text style={styles.energyBarLabel}>
-                                {chargeAnimating ? "FULL" : "LOW"}
+                                {chargeAnimating ? "FULL" : "60%"}
                             </Text>
                         </View>
 
@@ -431,8 +431,8 @@ export default function OnboardingFlow() {
                         </View>
 
                         <Text style={styles.panelHint}>
-                            Your block decays every 24 hours.{"\n"}
-                            Come back to keep it alive.
+                            Your Spark gets drowsy over time.{"\n"}
+                            Come back to keep it happy!
                         </Text>
                     </StepCard>
                 </View>
@@ -442,7 +442,7 @@ export default function OnboardingFlow() {
             {phase === "poke" && (
                 <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
-                        title="Poke your neighbors 👋"
+                        title="Say hi to a neighbor Spark 👋"
                         subtitle="Give them a boost of energy"
                         step={currentStep}
                         totalSteps={TOTAL_STEPS}
@@ -473,7 +473,7 @@ export default function OnboardingFlow() {
             {phase === "wallet" && (
                 <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
-                        title="You're in."
+                        title="Take care of your Spark!"
                         subtitle={"Connect a wallet to stake real USDC\nand compete on the leaderboard."}
                         step={currentStep}
                         totalSteps={TOTAL_STEPS}
