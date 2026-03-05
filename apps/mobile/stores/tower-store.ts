@@ -7,7 +7,7 @@ import type {
   TowerConfig,
   Player,
 } from "@monolith/common";
-import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getEvolutionTierInfo, getStreakMultiplier, isNextDay } from "@monolith/common";
 import type { ChargeQuality } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
 import { useAchievementStore } from "@/stores/achievement-store";
@@ -130,6 +130,7 @@ interface TowerStore {
   revealProgress: number;
   revealComplete: boolean;
   devFaceOverride: number; // -1 = hash personality, >= 0 = eyeType*10+mouthType
+  justEvolved: string | null; // tier name when evolution just happened (cleared by consumer)
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -220,6 +221,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   revealProgress: 0,
   revealComplete: false,
   devFaceOverride: -1,
+  justEvolved: null,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
@@ -382,7 +384,15 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     const newTotalCharges = (block.totalCharges ?? 0) + 1;
     const newBestStreak = Math.max(block.bestStreak ?? 0, newStreak);
     // Evolution tier never regresses (ratchet)
-    const newEvolutionTier = Math.max(block.evolutionTier ?? 0, getEvolutionTier(newTotalCharges, newBestStreak));
+    const oldEvolutionTier = block.evolutionTier ?? 0;
+    const newEvolutionTier = Math.max(oldEvolutionTier, getEvolutionTier(newTotalCharges, newBestStreak));
+
+    // Auto-assign style based on evolution tier (Flame=Crystal(8), Blaze=Aurora(7), Beacon=Lava(9))
+    const TIER_STYLES = [0, 0, 8, 7, 9];
+    const autoStyle = newEvolutionTier >= 2 ? TIER_STYLES[newEvolutionTier] ?? 0 : undefined;
+
+    // Detect evolution tier-up
+    const evolved = newEvolutionTier > oldEvolutionTier;
 
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
@@ -396,9 +406,11 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             totalCharges: newTotalCharges,
             bestStreak: newBestStreak,
             evolutionTier: newEvolutionTier,
+            ...(autoStyle !== undefined && { style: autoStyle }),
           }
           : b,
       ),
+      ...(evolved && { justEvolved: getEvolutionTierInfo(newEvolutionTier).name }),
     }));
     get().persistBlocks();
     // Unlock streak achievements on milestone days
