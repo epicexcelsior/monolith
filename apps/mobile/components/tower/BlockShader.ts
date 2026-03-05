@@ -250,8 +250,8 @@ const fragmentShader = /* glsl */ `
     vec2 dl = p - lc; vec2 dr = p - rc;
     float arcL = dl.y - 0.6 * dl.x * dl.x / (radius * radius) * radius;
     float arcR = dr.y - 0.6 * dr.x * dr.x / (radius * radius) * radius;
-    float maskL = (1.0 - step(0.006, abs(arcL))) * step(length(dl), radius * 1.3);
-    float maskR = (1.0 - step(0.006, abs(arcR))) * step(length(dr), radius * 1.3);
+    float maskL = (1.0 - step(0.010, abs(arcL))) * step(length(dl), radius * 1.3);
+    float maskR = (1.0 - step(0.010, abs(arcR))) * step(length(dr), radius * 1.3);
     return max(maskL, maskR);
   }
   float happyMouth(vec2 p, vec2 mc, float width, float energy) {
@@ -259,7 +259,7 @@ const fragmentShader = /* glsl */ `
     d.x /= width;
     float curve = mix(0.02, 0.10, smoothstep(0.0, 0.8, energy));
     float arc = d.y - curve * (1.0 - 4.0 * d.x * d.x);
-    return 1.0 - step(0.006, abs(arc));
+    return 1.0 - step(0.010, abs(arc));
   }
 
   // Personality 1: Cool — -_- half-lid rectangles + flat smirk
@@ -276,7 +276,7 @@ const fragmentShader = /* glsl */ `
     d.x /= (width * 0.7);
     // Subtle asymmetric smirk — slightly raised on right
     float smirk = d.y - 0.015 * d.x;
-    return 1.0 - step(0.005, abs(smirk));
+    return 1.0 - step(0.008, abs(smirk));
   }
 
   // Personality 2: Sleepy — u_u round droopy circles + small O mouth
@@ -292,26 +292,26 @@ const fragmentShader = /* glsl */ `
   float sleepyMouth(vec2 p, vec2 mc, float width, float energy) {
     vec2 d = p - mc;
     // Small O circle mouth
-    float oSize = 0.018 + 0.008 * smoothstep(0.0, 0.5, energy);
-    return 1.0 - step(0.005, abs(length(d) - oSize));
+    float oSize = 0.028 + 0.012 * smoothstep(0.0, 0.5, energy);
+    return 1.0 - step(0.008, abs(length(d) - oSize));
   }
 
   // Personality 3: Fierce — >_< angled V-shapes + zigzag teeth
   float fierceEyes(vec2 p, vec2 lc, vec2 rc, float radius, float openness) {
     vec2 dl = p - lc; vec2 dr = p - rc;
     // V-shaped angry eyes (chevrons)
-    float vL = abs(dl.y - 0.8 * abs(dl.x)) - 0.008;
-    float vR = abs(dr.y - 0.8 * abs(dr.x)) - 0.008;
-    float maskL = (1.0 - step(0.004, vL)) * step(length(dl), radius * 1.4);
-    float maskR = (1.0 - step(0.004, vR)) * step(length(dr), radius * 1.4);
+    float vL = abs(dl.y - 0.8 * abs(dl.x)) - 0.013;
+    float vR = abs(dr.y - 0.8 * abs(dr.x)) - 0.013;
+    float maskL = (1.0 - step(0.006, vL)) * step(length(dl), radius * 1.4);
+    float maskR = (1.0 - step(0.006, vR)) * step(length(dr), radius * 1.4);
     return max(maskL, maskR);
   }
   float fierceMouth(vec2 p, vec2 mc, float width, float energy) {
     vec2 d = p - mc;
     d.x /= width;
     // Zigzag teeth grin — sawtooth wave
-    float teeth = abs(d.y - 0.012 * sin(d.x * 40.0));
-    return 1.0 - step(0.007, teeth);
+    float teeth = abs(d.y - 0.019 * sin(d.x * 40.0));
+    return 1.0 - step(0.011, teeth);
   }
 
   // Personality 4: Derp — O_o mismatched sizes + wavy wobbly line
@@ -329,24 +329,24 @@ const fragmentShader = /* glsl */ `
     vec2 d = p - mc;
     d.x /= width;
     // Wavy wobbly line
-    float wave = d.y - 0.015 * sin(d.x * 25.0);
-    return 1.0 - step(0.005, abs(wave));
+    float wave = d.y - 0.024 * sin(d.x * 25.0);
+    return 1.0 - step(0.008, abs(wave));
   }
 
   // ── Tier decorations ──
   float sdBlush(vec2 p, vec2 center) {
-    return length(p - center) - 0.035;
+    return length(p - center) - 0.050;
   }
 
   float sdEyebrow(vec2 p, vec2 center, float width, float arch) {
     vec2 d = p - center;
     d.x /= width;
     float arc = d.y - arch * (1.0 - d.x * d.x);
-    return abs(arc) - 0.005;
+    return abs(arc) - 0.008;
   }
 
   float sdHalo(vec2 p, vec2 center, float radius) {
-    return abs(length(p - center) - radius) - 0.005;
+    return abs(length(p - center) - radius) - 0.008;
   }
 
   // ── Render face → vec4(rgb, mask) ──
@@ -373,10 +373,10 @@ const fragmentShader = /* glsl */ `
     eyeOpen *= blink;
 
     // ── 4. Bigger features, gentler tier scaling ──
-    float featureScale = 0.90 + evoTier * 0.025;
-    float eyeRadius = 0.055 * featureScale;
-    float eyeSpacing = 0.1;
-    float eyeY = 0.05;
+    float featureScale = 1.0 + evoTier * 0.025;
+    float eyeRadius = 0.08 * featureScale;
+    float eyeSpacing = 0.12;
+    float eyeY = 0.06;
 
     // Breathing eye pulse
     float eyeBreath = 0.98 + 0.04 * sin(time * 5.0 + instanceOff);
@@ -385,8 +385,8 @@ const fragmentShader = /* glsl */ `
     // ── 5. Eyes + Mouth (per-personality paired rendering) ──
     vec2 lc = vec2(-eyeSpacing, eyeY);
     vec2 rc = vec2(eyeSpacing, eyeY);
-    vec2 mc = vec2(0.0, -0.065);
-    float mouthWidth = 0.25 + 0.1 * smoothstep(0.5, 1.0, energy);
+    vec2 mc = vec2(0.0, -0.085);
+    float mouthWidth = 0.36 + 0.14 * smoothstep(0.5, 1.0, energy);
     float eyeMask = 0.0;
     float mouthMask = 0.0;
 
@@ -399,21 +399,21 @@ const fragmentShader = /* glsl */ `
         float r2 = eyeRadius * 1.2;
         float xL = min(abs(dl.x - dl.y), abs(dl.x + dl.y));
         float xR = min(abs(dr.x - dr.y), abs(dr.x + dr.y));
-        float xMaskL = (1.0 - step(0.006, xL)) * step(length(dl), r2);
-        float xMaskR = (1.0 - step(0.006, xR)) * step(length(dr), r2);
+        float xMaskL = (1.0 - step(0.010, xL)) * step(length(dl), r2);
+        float xMaskR = (1.0 - step(0.010, xR)) * step(length(dr), r2);
         eyeMask = max(xMaskL, xMaskR);
       } else {
         // Closed-line eyes — horizontal dashes (sleeping)
-        float lineL = (1.0 - step(0.005, abs(p.y - eyeY)))
+        float lineL = (1.0 - step(0.008, abs(p.y - eyeY)))
                     * step(abs(p.x + eyeSpacing), eyeRadius * 1.1);
-        float lineR = (1.0 - step(0.005, abs(p.y - eyeY)))
+        float lineR = (1.0 - step(0.008, abs(p.y - eyeY)))
                     * step(abs(p.x - eyeSpacing), eyeRadius * 1.1);
         eyeMask = max(lineL, lineR);
       }
       // Dead: flat line mouth
       vec2 d = p - mc;
       d.x /= (mouthWidth * 0.5);
-      mouthMask = 1.0 - step(0.005, abs(d.y));
+      mouthMask = 1.0 - step(0.008, abs(d.y));
     } else {
       // Per-personality paired eye + mouth rendering
       if (personality == 0) {
@@ -437,9 +437,9 @@ const fragmentShader = /* glsl */ `
     // ── 6. Eye glint (energy > 0.7, sparkle at Tier 3+) ──
     float glintMask = 0.0;
     if (energy > 0.7) {
-      vec2 glintOff = vec2(-0.012, 0.012);
-      float glintL = length(p - lc - glintOff) - 0.012;
-      float glintR = length(p - rc - glintOff) - 0.012;
+      vec2 glintOff = vec2(-0.018, 0.018);
+      float glintL = length(p - lc - glintOff) - 0.018;
+      float glintR = length(p - rc - glintOff) - 0.018;
       glintMask = (1.0 - step(0.0, min(glintL, glintR))) * eyeOpen;
       if (evoTier >= 3.0) {
         glintMask *= 0.7 + 0.3 * sin(time * 6.0 + instanceOff * 3.0);
@@ -450,8 +450,8 @@ const fragmentShader = /* glsl */ `
     // Tier 2+ (Flame): Blush marks
     float blushMask = 0.0;
     if (evoTier >= 2.0 && energy > 0.5) {
-      float blL = sdBlush(p, vec2(-0.14, -0.01));
-      float blR = sdBlush(p, vec2(0.14, -0.01));
+      float blL = sdBlush(p, vec2(-0.17, -0.02));
+      float blR = sdBlush(p, vec2(0.17, -0.02));
       blushMask = (1.0 - smoothstep(-0.008, 0.015, min(blL, blR))) * 0.35;
     }
 
@@ -459,15 +459,15 @@ const fragmentShader = /* glsl */ `
     float browMask = 0.0;
     if (evoTier >= 3.0 && energy > 0.01) {
       float browAngle = mix(-0.03, 0.05, smoothstep(0.0, 0.8, energy));
-      float browL = sdEyebrow(p, vec2(-eyeSpacing, eyeY + 0.06), 0.18, browAngle);
-      float browR = sdEyebrow(p, vec2(eyeSpacing, eyeY + 0.06), 0.18, browAngle);
+      float browL = sdEyebrow(p, vec2(-eyeSpacing, eyeY + 0.08), 0.22, browAngle);
+      float browR = sdEyebrow(p, vec2(eyeSpacing, eyeY + 0.08), 0.22, browAngle);
       browMask = 1.0 - smoothstep(-0.003, 0.003, min(browL, browR));
     }
 
     // Tier 4 (Beacon): Halo ring
     float haloMask = 0.0;
     if (evoTier >= 4.0 && energy > 0.3) {
-      float haloSdf = sdHalo(p, vec2(0.0, 0.16), 0.10);
+      float haloSdf = sdHalo(p, vec2(0.0, 0.19), 0.13);
       haloMask = (1.0 - smoothstep(-0.003, 0.003, haloSdf));
       haloMask *= 0.6 + 0.4 * sin(time * 3.0 + instanceOff);
     }
@@ -698,7 +698,7 @@ const fragmentShader = /* glsl */ `
       float isVertFace = step(abs(vWorldNormal.y), 0.5);
       float evo = clamp(vEvolutionTier, 0.0, 4.0);
       // Tier-aware LOD: higher tiers visible from further away
-      float lodFar = 42.0 + evo * 4.0;
+      float lodFar = 48.0 + evo * 4.0;
       float faceLOD = smoothstep(lodFar, 25.0, vDist);
       if (isVertFace > 0.5 && faceLOD > 0.01) {
         vec4 face = renderFace(vFaceUV, energy, vInstanceOffset, uTime, evo);
