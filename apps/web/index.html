@@ -1028,25 +1028,38 @@ const camPos = new THREE.Vector3();
 const camTargetPos = new THREE.Vector3();
 
 function easeOut3(x) { return 1 - Math.pow(1 - x, 3); }
+function easeOutExpo(x) { return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x); }
 
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
 
-  // Camera
-  const introE = easeOut3(Math.min(t / 4.0, 1));
+  // Camera — cinematic spin-in intro
+  const introDur = 5.0;
+  const introT = Math.min(t / introDur, 1);
+  const introE = easeOutExpo(introT);
   const scrollNorm = Math.min(sY / (innerHeight * 3), 1);
+
+  // Spin: fast initial rotation that decelerates into gentle auto-orbit
+  const introSpin = prefersReduced ? 0 : (1 - introE) * Math.PI * 1.8; // ~324° sweep that decelerates
   const autoOrbit = prefersReduced ? 0 : t * 0.025;
-  const camAngle = 0.6 + autoOrbit + scrollNorm * Math.PI * 0.5;
-  const camR = 20 + 25 * introE;
-  const camE = 0.72 - scrollNorm * 0.12;
+  const camAngle = 0.6 + autoOrbit + introSpin + scrollNorm * Math.PI * 0.5;
+
+  // Zoom: start far out and pull in, then settle at final radius
+  const camRStart = 70, camREnd = 45;
+  const camR = camRStart + (camREnd - camRStart) * introE;
+
+  // Elevation: start high looking down, ease into final elevation
+  const camEStart = 1.1;
+  const camEEnd = 0.72 - scrollNorm * 0.12;
+  const camE = camEStart + (camEEnd - camEStart) * introE;
 
   camTargetPos.x = Math.sin(camAngle) * Math.cos(camE) * camR;
   camTargetPos.z = Math.cos(camAngle) * Math.cos(camE) * camR;
   camTargetPos.y = Math.sin(camE) * camR + 5;
 
-  camPos.lerp(camTargetPos, t < 0.5 ? 1 : 0.04);
+  camPos.lerp(camTargetPos, t < 0.3 ? 1 : 0.06);
   camera.position.copy(camPos);
   camera.lookAt(lookTarget);
 
@@ -1103,17 +1116,18 @@ function animate() {
     let tx = 0, ty = 0, tz = 0;
     if (mA > 0.01) {
       _tv.set(p.x - _mw.x, p.y - _mw.y, p.z - _mw.z);
-      const dist = _tv.length(), force = Math.max(0, 1 - dist / 6) * mA * 2;
+      const dist = _tv.length(), force = Math.max(0, 1 - dist / 6) * mA * 2.5;
       if (force > 0.001) {
-        const rx = p.x, rz = p.z, rl = Math.sqrt(rx * rx + rz * rz) || 1;
-        tx = (rx / rl) * force * 1.0;
-        ty = force * 0.1;
-        tz = (rz / rl) * force * 1.0;
+        // Push blocks away from cursor position (not tower center)
+        const il = 1 / (dist || 1);
+        tx = _tv.x * il * force * 1.2;
+        ty = _tv.y * il * force * 0.4 + force * 0.08;
+        tz = _tv.z * il * force * 1.2;
       }
     }
-    _dp[di] += (tx - _dp[di]) * 0.08;
-    _dp[di + 1] += (ty - _dp[di + 1]) * 0.08;
-    _dp[di + 2] += (tz - _dp[di + 2]) * 0.08;
+    _dp[di] += (tx - _dp[di]) * 0.12;
+    _dp[di + 1] += (ty - _dp[di + 1]) * 0.12;
+    _dp[di + 2] += (tz - _dp[di + 2]) * 0.12;
     if (Math.abs(_dp[di]) + Math.abs(_dp[di + 1]) + Math.abs(_dp[di + 2]) > 0.0001) {
       const sc = lScale(layerOf(p.y));
       dummy.position.set(p.x + _dp[di], p.y + _dp[di + 1], p.z + _dp[di + 2]);
