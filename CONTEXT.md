@@ -372,6 +372,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
+- **2026-03-04**: Landing page redesign (`apps/web/index.html`) — JS-fitted full-width title (88% viewport, recalculates on resize), removed all dark-band scrims and hero-grad overlay (tower visible throughout), true glassmorphic cards (rgba(10,12,28,0.30-0.35) + blur(28-32px) + white borders + inset highlights), card hover animations (scale(1.02) + translateY + gold glow), typography overhaul (Syne hero title only, Outfit headings, Inter body), all text larger/bolder with text-shadow for 3D readability, copywriting refreshed to PITCH.md brand voice (Keeper/skyline/blaze/fade), waitlist CTA "Claim Your Spot" with gold shimmer, footer redesigned with icon pill-buttons (X/GitHub/Discord). Branch: `worktree-feat/improve-landing`.
+
 - **2026-03-04**: Spark face overhaul — adaptive contrast (bioluminescent faces on dark blocks), sleeping face on dead blocks (X_X or closed-line eyes), programmatic variety (5 eye shapes × 4 mouth shapes via hash21), evolution tier face progression (Tier 2 blush, Tier 3 eyebrows+sparkle, Tier 4 halo), tier-aware LOD (38-54 units), full dev panel (energy slider + tier + eye/mouth variant selectors + shuffle). Branch: `feat/spark-face-overhaul`. 222 mobile tests passing.
 
 - **2026-03-03**: Spark polish — narrowed mouth width, fixed customization selection UI (gold checkmark on emojis, stronger selected background), added Spark Tester to Settings (5 energy presets for face testing). 222 mobile tests passing.

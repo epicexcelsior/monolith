@@ -26,7 +26,6 @@
     :root{
       --gold:#D4A847;--gold-bright:#F5D96E;--void:#050710;
       --text:#F2EDE5;--text-dim:rgba(242,237,229,0.7);--text-ghost:rgba(242,237,229,0.4);
-      --glass:rgba(5,7,16,0.72);--glass-border:rgba(212,168,71,0.18);
       --syne:'Syne',sans-serif;--outfit:'Outfit',sans-serif;--body:'Inter','Outfit',sans-serif;
       --ease:cubic-bezier(0.16,1,0.3,1);
     }
@@ -44,7 +43,6 @@
     .ct>*{pointer-events:auto}
 
     /* ═══ TEXT SHADOWS — readability over 3D ═══ */
-    .ts{text-shadow:0 2px 20px rgba(0,0,0,0.6),0 0 50px rgba(0,0,0,0.35)}
     .s-eye,.s-h,.s-p,.quote-s,.bot-cta{text-shadow:0 2px 20px rgba(0,0,0,0.6),0 0 50px rgba(0,0,0,0.35)}
 
     /* ═══ HERO — full viewport, left-aligned, MASSIVE ═══ */
@@ -54,9 +52,7 @@
     /* ═══ TYPEWRITER ANIMATION ═══ */
     @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
     @keyframes clipReveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0% 0 0)}}
-    @keyframes cursorBlink{0%,100%{border-color:var(--gold)}50%{border-color:transparent}}
     @keyframes slideInLeft{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
-    @keyframes scaleIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
 
     .hero-tag{
       display:inline-flex;align-items:center;gap:0.6rem;
@@ -316,7 +312,7 @@ setTimeout(function(){document.getElementById('veil').classList.add('gone')},120
 
   <section class="rv">
     <div class="s-eye">Why It Matters</div>
-    <h2 class="s-h ts">Not another dashboard. A monument.</h2>
+    <h2 class="s-h">Not another dashboard. A monument.</h2>
     <div class="val-grid">
       <div class="val-card">
         <div class="val-icon"><svg viewBox="0 0 24 24"><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41l-7.59-7.59a2.41 2.41 0 0 0-3.41 0z"/></svg></div>
@@ -343,8 +339,8 @@ setTimeout(function(){document.getElementById('veil').classList.add('gone')},120
 
   <section class="rv">
     <div class="s-eye">The Tower</div>
-    <h2 class="s-h ts">A tower that breathes</h2>
-    <p class="s-p ts">Every block is owned by someone real. It fades when they stop caring. It blazes when they return.</p>
+    <h2 class="s-h">A tower that breathes</h2>
+    <p class="s-p">Every block is owned by someone real. It fades when they stop caring. It blazes when they return.</p>
     <div class="feat-grid">
       <div class="feat-card">
         <div class="feat-icon"><svg viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m6.08 9.5-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"/><path d="m6.08 14.5-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"/></svg></div>
@@ -379,7 +375,7 @@ setTimeout(function(){document.getElementById('veil').classList.add('gone')},120
   </div>
 
   <div class="bot-cta rv">
-    <h2 class="ts">The skyline won't wait.</h2>
+    <h2>The skyline won't wait.</h2>
     <p>650 blocks. First Keeper claims the crown.</p>
     <div class="wl" id="wl-bot">
       <div class="wl-count" id="wl-count-bot"></div>
