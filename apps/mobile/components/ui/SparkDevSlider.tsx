@@ -23,8 +23,13 @@ const TIERS = [
 ] as const;
 
 const EVO_TIERS = ["Spark", "Ember", "Flame", "Blaze", "Beacon"] as const;
-const EYE_SHAPES = ["Circle", "Oval", "Star", "Heart", "Cat"] as const;
-const MOUTH_SHAPES = ["Arc", "Cat :3", "O", "Grin"] as const;
+const PERSONALITIES = [
+  { name: "Happy", emoji: "^_^" },
+  { name: "Cool", emoji: "-_-" },
+  { name: "Sleepy", emoji: "u_u" },
+  { name: "Fierce", emoji: ">_<" },
+  { name: "Derp", emoji: "O_o" },
+] as const;
 
 function getTier(energy: number) {
   return TIERS.find((t) => energy >= t.min) ?? TIERS[TIERS.length - 1];
@@ -66,42 +71,27 @@ export default function SparkDevSlider() {
   const pct = Math.round(block.energy);
   const evoTier = block.evolutionTier ?? 0;
 
-  // Decode current dev face override
-  const currentEye = devFaceOverride >= 0 ? Math.floor(devFaceOverride / 10) : -1;
-  const currentMouth = devFaceOverride >= 0 ? Math.round(devFaceOverride % 10) : -1;
+  // Decode current personality override
+  const currentPersonality = devFaceOverride >= 0 ? devFaceOverride : -1;
 
   const setEvo = (t: number) => {
     useTowerStore.getState().updateDemoBlock(selectedBlockId, { evolutionTier: t });
   };
 
-  const setFaceOverride = (eye: number, mouth: number) => {
-    useTowerStore.setState({ devFaceOverride: eye * 10 + mouth });
-  };
-
-  const toggleEye = (idx: number) => {
-    if (currentEye === idx) {
-      // Reset to hash-based
+  const togglePersonality = (idx: number) => {
+    if (currentPersonality === idx) {
       useTowerStore.setState({ devFaceOverride: -1 });
     } else {
-      setFaceOverride(idx, Math.max(0, currentMouth));
-    }
-  };
-
-  const toggleMouth = (idx: number) => {
-    if (currentMouth === idx) {
-      useTowerStore.setState({ devFaceOverride: -1 });
-    } else {
-      setFaceOverride(Math.max(0, currentEye), idx);
+      useTowerStore.setState({ devFaceOverride: idx });
     }
   };
 
   const shuffle = () => {
     const e = Math.round(Math.random() * 100);
     const t = Math.floor(Math.random() * 5);
-    const eye = Math.floor(Math.random() * 5);
-    const mouth = Math.floor(Math.random() * 4);
+    const p = Math.floor(Math.random() * 5);
     useTowerStore.getState().updateDemoBlock(selectedBlockId, { energy: e, evolutionTier: t });
-    useTowerStore.setState({ devFaceOverride: eye * 10 + mouth });
+    useTowerStore.setState({ devFaceOverride: p });
   };
 
   return (
@@ -139,33 +129,17 @@ export default function SparkDevSlider() {
           ))}
         </View>
 
-        {/* Eye shape pills */}
-        <Text style={styles.sectionLabel}>Eyes</Text>
+        {/* Character personality pills */}
+        <Text style={styles.sectionLabel}>Character</Text>
         <View style={styles.pillRow}>
-          {EYE_SHAPES.map((name, i) => (
+          {PERSONALITIES.map(({ name, emoji }, i) => (
             <TouchableOpacity
               key={name}
-              style={[styles.pill, currentEye === i && styles.pillActive]}
-              onPress={() => toggleEye(i)}
+              style={[styles.pill, currentPersonality === i && styles.pillActive]}
+              onPress={() => togglePersonality(i)}
             >
-              <Text style={[styles.pillText, currentEye === i && styles.pillTextActive]}>
-                {name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Mouth shape pills */}
-        <Text style={styles.sectionLabel}>Mouth</Text>
-        <View style={styles.pillRow}>
-          {MOUTH_SHAPES.map((name, i) => (
-            <TouchableOpacity
-              key={name}
-              style={[styles.pill, currentMouth === i && styles.pillActive]}
-              onPress={() => toggleMouth(i)}
-            >
-              <Text style={[styles.pillText, currentMouth === i && styles.pillTextActive]}>
-                {name}
+              <Text style={[styles.pillText, currentPersonality === i && styles.pillTextActive]}>
+                {emoji} {name}
               </Text>
             </TouchableOpacity>
           ))}

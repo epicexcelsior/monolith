@@ -54,32 +54,35 @@ Every block on the tower is a **Spark** — a living geometric entity with a fac
 - **Dark blocks** (dying/dead): face features glow warm amber (bioluminescent)
 - Faces are readable at ALL energy levels — no more invisible features
 
-### Programmatic Face Variety (2026-03-04)
-Each block gets a unique face personality from `hash21(instanceOffset)`:
+### 5 Named Character Personalities (2026-03-04)
+Each block gets one of 5 distinct named personalities from `hash21(instanceOffset)` (equal 20% distribution). Chunky vector-style rendering with hard `step()` edges for maximum readability.
 
-| Type | Variants | Selection |
-|---|---|---|
-| **Eyes** | Circle (30%), Oval (20%), Star (15%), Heart (15%), Cat-eye (20%) | Hash-based, deterministic per block |
-| **Mouths** | Arc (40%), Cat `:3` (20%), Small O (20%), Wide Grin (20%) | Hash-based, deterministic per block |
+| # | Name | Eyes | Mouth | Vibe |
+|---|------|------|-------|------|
+| 0 | **Happy** | ^_^ upturned arcs | Wide smile arc | Cheerful |
+| 1 | **Cool** | -_- half-lid rectangles | Subtle flat smirk | Chill |
+| 2 | **Sleepy** | u_u round droopy circles | Small O circle | Gentle |
+| 3 | **Fierce** | >_< angled V-shapes | Zigzag teeth grin | Intense |
+| 4 | **Derp** | O_o mismatched sizes | Wavy wobbly line | Goofy |
 
-Variety unlocks at Tier 1+ (Ember). Tier 0 (Spark) blocks all have the simplest circle-eye + arc-mouth face.
+All tiers get personality (no variety lock at Tier 0). Each personality is a paired eye+mouth renderer — no mix-and-match.
 
 ### Evolution Tier Face Progression (2026-03-04)
 Each tier adds visible face complexity — a visual journey from simple dot creature to radiant being:
 
 | Tier | Name | Face Features | Scale |
 |---|---|---|---|
-| 0 | **Spark** | Dot eyes + thin line. No variety. | 0.70x |
-| 1 | **Ember** | Face variety unlocked (5 eyes × 4 mouths). | 0.775x |
-| 2 | **Flame** | + Blush marks (pink circles on cheeks, energy > 50%). | 0.85x |
-| 3 | **Blaze** | + Eyebrow arcs (energy-driven angle). Sparkle in eye glints. | 0.925x |
+| 0 | **Spark** | Personality face, big chunky features. | 0.90x |
+| 1 | **Ember** | Slightly larger features. | 0.925x |
+| 2 | **Flame** | + Blush marks (pink circles on cheeks, energy > 50%). | 0.95x |
+| 3 | **Blaze** | + Eyebrow arcs (energy-driven angle). Sparkle in eye glints. | 0.975x |
 | 4 | **Beacon** | + Halo ring above head (animated gold glow). | 1.0x |
 
 ### Tier-Aware LOD (2026-03-04)
 Higher evolution tiers are visible from further away:
-- Spark: fade at 38 units
-- Beacon: fade at 54 units
-- Overview distance (~45 units): Beacon faces faintly visible, Spark faces hidden
+- Spark: fade at 42 units
+- Beacon: fade at 58 units
+- Overview distance (~45 units): most faces visible, Spark faces faintly
 - Rewards evolution with visual hierarchy at distance
 
 ### Idle Blink Animation
@@ -102,8 +105,7 @@ When the player charges their Spark:
 Floating panel on tower view for testing all face variations:
 - **Energy slider** — drag to set 0-100%
 - **Evolution tier pills** — tap Spark/Ember/Flame/Blaze/Beacon
-- **Eye variant pills** — tap Circle/Oval/Star/Heart/Cat
-- **Mouth variant pills** — tap Arc/Cat :3/O/Grin
+- **Character pills** — tap Happy/Cool/Sleepy/Fierce/Derp (with kaomoji labels)
 - **Shuffle button** — randomize everything
 - Only appears when a block is selected
 
@@ -116,14 +118,14 @@ GLSL functions in `BlockShader.ts` (after `energyGlowColor()`, before `getTextur
 
 - **`faceHash(instanceOff, seed)`** — deterministic personality hash
 - **`adaptiveFaceColor(energy)`** — dark features on bright blocks, glowing on dark blocks
-- **`sdEyeShape(p, center, radius, openness, shapeType)`** — 5 eye shape variants
-- **`sdMouthShape(p, center, width, curvature, shapeType)`** — 4 mouth shape variants
+- **`happyEyes/coolEyes/sleepyEyes/fierceEyes/derpEyes`** — per-personality eye renderers
+- **`happyMouth/coolMouth/sleepyMouth/fierceMouth/derpMouth`** — per-personality mouth renderers
 - **`sdBlush/sdEyebrow/sdHalo`** — tier decoration SDFs
 - **`renderFace(uv, energy, instanceOff, time, evoTier)`** → `vec4(faceColor, faceMask)` — full face system
 
 Face composited at **Layer 1.75** (between interior mapping and style modifiers). Dead blocks now render sleeping faces. LOD is tier-aware.
 
-One dev-only uniform `uDevFaceOverride` (-1 = hash-based, ≥0 = eyeType×10+mouthType) enables the dev panel.
+One dev-only uniform `uDevFaceOverride` (-1 = hash-based, 0-4 = personality index) enables the dev panel.
 
 **Performance:** ~30-38 ALU ops for Tier 0, ~69 ops worst case (Tier 4 Beacon). Interior mapping costs 100+, so faces are not the bottleneck. LOD skip eliminates face rendering for ~80% of blocks at overview distance.
 
