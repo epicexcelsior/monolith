@@ -205,6 +205,13 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `supabase/migrations/004_block_evolution.sql` | Evolution columns (total_charges, best_streak, evolution_tier) |
 | `supabase/config.toml` | Supabase CLI config (linked to project pscgsbdznfitscxflxrm) |
 
+### Landing Page & Deploy
+| File | Purpose |
+|------|---------|
+| `apps/web/index.html` | Landing page (Three.js tower, aurora skybox, waitlist form) |
+| `apps/web/LANDING-CONTEXT.md` | Landing page design context |
+| `.github/workflows/deploy-landing.yml` | CF Pages auto-deploy on push to `apps/web/` |
+
 ### Anchor Program
 | File | Purpose |
 |------|---------|
@@ -372,7 +379,9 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 
 ## Recent Changes
 
-- **2026-03-04**: Landing page redesign (`apps/web/index.html`) — JS-fitted full-width title (88% viewport, recalculates on resize), removed all dark-band scrims and hero-grad overlay (tower visible throughout), true glassmorphic cards (rgba(10,12,28,0.30-0.35) + blur(28-32px) + white borders + inset highlights), card hover animations (scale(1.02) + translateY + gold glow), typography overhaul (Syne hero title only, Outfit headings, Inter body), all text larger/bolder with text-shadow for 3D readability, copywriting refreshed to PITCH.md brand voice (Keeper/skyline/blaze/fade), waitlist CTA "Claim Your Spot" with gold shimmer, footer redesigned with icon pill-buttons (X/GitHub/Discord). Branch: `worktree-feat/improve-landing`.
+- **2026-03-04**: Landing page immersive aurora + deploy (`apps/web/index.html`) — dramatic aurora skybox (4 seamless FBM ribbon layers: purple/teal/gold/magenta, cylindrical coords for no seam, scroll-responsive intensity, liquid flow motion), liquid marble pedestal (animated flowing veins via time-offset FBM), 3-tier parallax particles (150 near embers + 80 aurora-colored fireflies + 250 far cosmic dust), bloom 0.50, ground glow aurora-tinted, waitlist form bug fix (inline display:none overriding success class), tight title shadow. CF Pages deployed to themonolith.pages.dev, GitHub Action auto-deploys on push to `apps/web/`. Waitlist writes to Supabase verified working.
+
+- **2026-03-04**: Landing page redesign (`apps/web/index.html`) — JS-fitted full-width title (88% viewport, recalculates on resize), removed all dark-band scrims and hero-grad overlay (tower visible throughout), true glassmorphic cards (rgba(10,12,28,0.30-0.35) + blur(28-32px) + white borders + inset highlights), card hover animations (scale(1.02) + translateY + gold glow), typography overhaul (Syne hero title only, Outfit headings, Inter body), all text larger/bolder with text-shadow for 3D readability, copywriting refreshed to PITCH.md brand voice (Keeper/skyline/blaze/fade), waitlist CTA "Claim Your Spot" with gold shimmer, footer redesigned with icon pill-buttons (X/GitHub/Discord).
 
 - **2026-03-04**: Spark face overhaul — adaptive contrast (bioluminescent faces on dark blocks), sleeping face on dead blocks (X_X or closed-line eyes), programmatic variety (5 eye shapes × 4 mouth shapes via hash21), evolution tier face progression (Tier 2 blush, Tier 3 eyebrows+sparkle, Tier 4 halo), tier-aware LOD (38-54 units), full dev panel (energy slider + tier + eye/mouth variant selectors + shuffle). Branch: `feat/spark-face-overhaul`. 222 mobile tests passing.
 
