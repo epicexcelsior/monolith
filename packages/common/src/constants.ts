@@ -301,74 +301,44 @@ export const LOD_DISTANCES = {
 // ─── Block Customization ──────────────────────────────────
 /** Available block colors (desaturated jewel tones + warm earths) */
 export const BLOCK_COLORS = [
-  "#5b8fb9", // Steel Blue
-  "#7b6b8a", // Dusty Plum
-  "#6b9e7a", // Sage Green
-  "#c98042", // Bronze
-  "#cc6644", // Copper Rust
-  "#8a7e72", // Warm Stone
-  "#b8860b", // Dark Goldenrod
-  "#9e7c5a", // Driftwood
-  "#7a8f6e", // Moss
-  "#a5736e", // Rosewood
-  "#d4a055", // Honey
-  "#6e8898", // Slate
-  "#b5784a", // Amber Clay
-  "#8b7355", // Khaki
-  "#9a6b4c", // Sienna
-  "#7c9a92", // Teal Stone
+  // Row 1: Pastels
+  "#FFB5C2", // Blush Pink
+  "#C8B6FF", // Lavender
+  "#B8F3D4", // Mint
+  "#FFD4B8", // Peach
+  "#B8D4FF", // Sky Blue
+  "#FFF3D4", // Cream
+  "#C2D4B8", // Sage
+  "#FF9B9B", // Coral
+  // Row 2: Vibrant
+  "#FF4D8D", // Hot Pink
+  "#8B5CF6", // Purple
+  "#14B8A6", // Teal
+  "#D4AF55", // Gold
+  "#DC2626", // Crimson
+  "#16A34A", // Forest
+  "#0284C7", // Ocean
+  "#4A4A5A", // Charcoal
 ] as const;
 
 /** Available block icons (emoji) */
 export const BLOCK_ICONS = [
-  "🏠",
-  "🏰",
-  "🗼",
+  "✨",
+  "🔥",
   "💎",
   "⚡",
-  "🔥",
-  "✨",
   "🌟",
-  "🎮",
-  "🎯",
   "🚀",
-  "💰",
-  "🏆",
   "👑",
-  "🎪",
   "🌈",
-  "🔮",
-  "💫",
-  "🎭",
+  "🎮",
   "🎨",
-  "🎵",
   "🌙",
-  "☀️",
+  "🦄",
+  "🦋",
   "🌊",
   "🍀",
-  "🦄",
-  "🐉",
-  "🦋",
-  "🌺",
-  "🍄",
-  "🎃",
-  "💀",
-  "🤖",
-  "👾",
-  "🛸",
-  "⚔️",
-  "🛡️",
-  "🏴‍☠️",
-  "🔱",
-  "⚓",
-  "🧭",
-  "🗺️",
-  "🏔️",
-  "🌋",
-  "🏜️",
-  "🌌",
-  "🎆",
-  "🎇",
+  "💫",
 ] as const;
 
 /** Available block textures (procedural patterns applied in shader) */

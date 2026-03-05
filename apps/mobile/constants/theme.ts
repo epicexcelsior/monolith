@@ -44,6 +44,9 @@ export const COLORS = {
 
   // ─── Gold Accent ──────────────────────────
   gold: "#D4A847",                 // Primary actions, links, highlights
+  goldAccent: "#D4AF55",           // Gold accent for selection indicators
+  goldAccentLight: "#E8D48A",      // Light gold tint for selected backgrounds
+  goldAccentDim: "#8B7832",        // Dimmed gold for subtle indicators
   goldLight: "#F0BC5E",            // Hover/active states, chart fills
   goldDark: "#B08A30",             // Pressed states, text on gold bg
   goldSubtle: "rgba(212, 168, 71, 0.15)",   // Tinted glass backgrounds
