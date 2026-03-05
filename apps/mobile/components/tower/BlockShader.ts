@@ -943,8 +943,8 @@ const fragmentShader = /* glsl */ `
     vec3 rimContrib = vec3(0.0);
     if (style != 3) {
       vec3 rimTint = mix(vec3(0.5, 0.7, 1.0), glowColor, 0.5 + energy * 0.5);
-      float rimStrength = fresnel * (0.35 + energy * 1.0);
-      rimContrib = rimTint * 2.2 * rimStrength;
+      float rimStrength = fresnel * (0.2 + energy * 0.4);
+      rimContrib = rimTint * 0.8 * rimStrength;
     }
 
     // Edge highlights removed — fwidth() too expensive on mobile
@@ -953,7 +953,7 @@ const fragmentShader = /* glsl */ `
     float innerGlow = 0.0;
     if (energy > 0.05) {
       float coreFactor = NdotV * NdotV;
-      innerGlow = coreFactor * energy * 0.15;
+      innerGlow = coreFactor * energy * 0.06;
     }
 
     // ═══════════════════════════════════════════════════════
@@ -971,19 +971,19 @@ const fragmentShader = /* glsl */ `
     if (energy > 0.8) {
       // Blazing: slow 0.8Hz sine, warm gold
       breathe = 0.5 + 0.5 * sin(uTime * 5.03 + vInstanceOffset);
-      breatheIntensity = 0.35 + energy * 0.35;
+      breatheIntensity = 0.15 + energy * 0.15;
       auraTint = vec3(0.25, 0.18, 0.0);
     } else if (energy > 0.5) {
       // Thriving: 1.2Hz gentle sine, amber
       breathe = 0.5 + 0.5 * sin(uTime * 7.54 + vInstanceOffset);
-      breatheIntensity = 0.2 + energy * 0.3;
+      breatheIntensity = 0.1 + energy * 0.15;
       auraTint = vec3(0.15, 0.08, 0.0);
     } else if (energy > 0.2) {
       // Fading: 2.5Hz anxious with jitter noise
       float base = sin(uTime * 15.7 + vInstanceOffset);
       float jitter = hash21(vec2(floor(uTime * 8.0), vInstanceOffset)) * 0.4 - 0.2;
       breathe = 0.5 + 0.5 * base + jitter;
-      breatheIntensity = 0.15 + energy * 0.2;
+      breatheIntensity = 0.08 + energy * 0.1;
       auraTint = vec3(0.12, 0.04, 0.0);
     } else if (energy > 0.01) {
       // Dying: random hash sparks (15% chance), blue-cold
@@ -996,14 +996,14 @@ const fragmentShader = /* glsl */ `
 
     // Vertical scanline
     float scanY = mod(uTime * 0.8, uTowerHeight + 8.0) - 4.0;
-    float scanLine = smoothstep(2.0, 0.0, abs(vWorldY - scanY)) * 0.25;
+    float scanLine = smoothstep(2.0, 0.0, abs(vWorldY - scanY)) * 0.08;
 
     // Spire glow boost
     float spireBoost = smoothstep(uSpireThreshold - 0.05, uSpireThreshold + 0.15, vLayerNorm);
-    float spireGlow = spireBoost * (0.4 + 0.5 * sin(uTime * 1.5 + vInstanceOffset * 2.0));
+    float spireGlow = spireBoost * (0.15 + 0.2 * sin(uTime * 1.5 + vInstanceOffset * 2.0));
 
     // Emissive radiate (high-energy only)
-    float radiate = smoothstep(0.6, 1.0, energy) * (0.3 + 0.2 * sin(uTime * 2.0 + vInstanceOffset));
+    float radiate = smoothstep(0.85, 1.0, energy) * (0.1 + 0.1 * sin(uTime * 2.0 + vInstanceOffset));
 
     // Height tint
     vec3 baseTint = vec3(0.04, 0.03, 0.05);
@@ -1022,7 +1022,7 @@ const fragmentShader = /* glsl */ `
     // Tier 4 (Beacon): 1.8x glow + intense aura + radiant emission
 
     float evoTier = clamp(vEvolutionTier, 0.0, 4.0);
-    float evoGlowMult = 1.0 + evoTier * 0.2; // 1.0, 1.2, 1.4, 1.6, 1.8
+    float evoGlowMult = 1.0 + evoTier * 0.08; // 1.0, 1.08, 1.16, 1.24, 1.32
     float evoRimBoost = evoTier * 0.15;        // extra rim per tier
     float evoShimmer = 0.0;
     if (evoTier >= 2.0 && energy > 0.1) {
@@ -1306,16 +1306,16 @@ const glowFragmentShader = /* glsl */ `
     // warm amber for unclaimed
     vec3 warmGold = vec3(1.0, 0.8, 0.3);
     vec3 dormantAmber = vec3(0.7, 0.4, 0.12);
-    vec3 glowColor = mix(vOwnerColor, warmGold, 0.4) * 1.5;
+    vec3 glowColor = mix(vOwnerColor, warmGold, 0.4) * 1.0;
     glowColor = mix(glowColor, dormantAmber, isDead);
 
     // Subtle pulse
-    float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + vOwnerColor.r * 10.0);
+    float pulse = 0.92 + 0.08 * sin(uTime * 2.0 + vOwnerColor.r * 10.0);
     // Slower, gentler pulse for dormant blocks
     float dormantPulse = 0.9 + 0.1 * sin(uTime * 0.5 + vOwnerColor.g * 8.0);
     pulse = mix(pulse, dormantPulse, isDead);
 
-    float alpha = fresnel * max(glowStrength, dormantGlow) * pulse * 0.35;
+    float alpha = fresnel * max(glowStrength, dormantGlow) * pulse * 0.15;
 
     // Inspect mode: fade glow on non-selected, reduce on selected
     alpha *= mix(0.15, 1.0, vFade); // stronger fade in night scene
