@@ -118,7 +118,7 @@ describe("onboarding integration", () => {
 
         const block = useTowerStore.getState().demoBlocks.find((b) => b.id === blockId);
         expect(block!.owner).toBe("__ghost__");
-        expect(block!.energy).toBe(100);
+        expect(block!.energy).toBe(60); // starts at 60% so charge step is meaningful
         expect(block!.ownerColor).toBe("#FFB800");
         expect(block!.stakedAmount).toBe(1);
         expect(block!.streak).toBe(1);
@@ -130,10 +130,10 @@ describe("onboarding integration", () => {
         const blockId = "block-5-0";
 
         useTowerStore.getState().ghostClaimBlock(blockId);
-        useTowerStore.getState().ghostDecayBlock(blockId, 60);
+        useTowerStore.getState().ghostDecayBlock(blockId, 30);
 
         const block = useTowerStore.getState().demoBlocks.find((b) => b.id === blockId);
-        expect(block!.energy).toBe(40);
+        expect(block!.energy).toBe(30); // 60 - 30
     });
 
     it("should ghost charge → verify energy increase", async () => {
@@ -141,14 +141,13 @@ describe("onboarding integration", () => {
         const blockId = "block-5-0";
 
         useTowerStore.getState().ghostClaimBlock(blockId);
-        useTowerStore.getState().ghostDecayBlock(blockId, 60);
-
+        // starts at 60, charge adds 25
         const result = useTowerStore.getState().ghostChargeBlock(blockId);
         expect(result.success).toBe(true);
         expect(result.chargeAmount).toBe(25);
 
         const block = useTowerStore.getState().demoBlocks.find((b) => b.id === blockId);
-        expect(block!.energy).toBe(65); // 40 + 25
+        expect(block!.energy).toBe(85); // 60 + 25
     });
 
     it("should complete onboarding — both stores mark done", async () => {

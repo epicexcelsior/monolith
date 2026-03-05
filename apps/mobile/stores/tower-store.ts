@@ -515,7 +515,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             ...b,
             owner: "__ghost__",
             ownerColor: "#FFB800",
-            energy: MAX_ENERGY,
+            energy: 60, // Start at 60% so charge step is meaningful
             stakedAmount: 1,
             streak: 1,
           }
