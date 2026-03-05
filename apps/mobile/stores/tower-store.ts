@@ -330,6 +330,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             energy: MAX_ENERGY,
             stakedAmount: amount,
             lastChargeTime: Date.now(),
+            imageIndex: 0,
           }
           : b,
       ),
