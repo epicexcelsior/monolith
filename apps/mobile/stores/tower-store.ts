@@ -523,6 +523,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             energy: 60, // Start at 60% so charge step is meaningful
             stakedAmount: 1,
             streak: 1,
+            personality: 0, // Default to Happy
           }
           : b,
       ),
