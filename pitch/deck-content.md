@@ -98,16 +98,16 @@ The Seeker dApp Store launches with **zero idle games**. Gen Z already loves gam
 
 ### Three revenue streams. No token needed.
 
+**5% Claim Fee**
+On every stake-in. Dormant blocks get re-claimed, so the game's core loop generates recurring revenue.
+
 **Yield Spread**
-15% of DeFi yield from staked USDC via Drift & Kamino. Revenue from day one.
+15% of DeFi yield on staked USDC via Drift & Kamino. Passive income that scales with TVL.
 
-**MONO LST**
-Custom liquid staking token. Stakers earn yield while their block stays alive.
+**In-App Purchases**
+Boosts, MONO LST, premium Spark skins. Recurring revenue from power users.
 
-**Expansion Revenue**
-Boost purchases, premium Spark skins, seasonal cosmetics. The proven playbook.
-
-5K users x $5 avg stake = **$25K TVL**. 15% yield spread = **~$1,500/yr** profit at near-zero operating cost. Add MONO LST + cosmetics and it scales. No token. No speculation.
+5K users x $5 avg = **$25K TVL**. Claim fees alone = **$3,750+/yr** from block turnover. Add yield spread + in-app purchases and it scales. Near-zero operating cost. No token.
 
 ---
 

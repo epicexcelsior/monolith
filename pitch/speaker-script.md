@@ -8,7 +8,7 @@
 ## Slide 1: THE HOOK
 **[10 seconds]**
 
-"Someone stole your block. You staked five dollars three days ago. You forgot about it. Now it's theirs."
+"Someone stole your block. You staked five dollars. You forgot about it. Now it's theirs."
 
 *[pause -- point to the three faces]*
 
@@ -64,7 +64,7 @@
 ## Slide 7: BUSINESS MODEL
 **[10 seconds]**
 
-"Three revenue streams, no token. Yield spread on staked USDC: I take 15% of what Drift and Kamino generate. A custom MONO liquid staking token. And expansion revenue: boosts, premium skins, the proven cosmetics playbook. Near-zero operating cost, so revenue is mostly profit."
+"Three revenue streams, no token. First: a 5% claim fee on every stake-in. And here's the key: when a block goes dormant and gets stolen, the new owner pays the fee again. The game's core loop generates recurring revenue. Second: 15% yield spread on staked USDC from Drift and Kamino. Third: in-app purchases. Boosts, premium skins. Near-zero operating cost, so revenue is profit."
 
 ---
 

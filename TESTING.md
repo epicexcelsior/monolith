@@ -1,6 +1,6 @@
 # Test The Monolith
 
-> Stake your spot on the tower, customize it, and compete to take it over. Solana Mobile Seeker or Android phone required for testing.
+> Claim a living block on a shared 3D tower. Your block has a face — a **Spark** — that reacts to how you take care of it. Stake USDC, charge daily, watch it grow. Neglect it and someone else can take it. Android required.
 
 ---
 
@@ -16,12 +16,14 @@
 </p>
 
 <p align="center">
-  <a href="https://expo.dev/artifacts/eas/a7biu9Mn2D9og3nh7fWjS4.apk">
+  <a href="https://expo.dev/artifacts/eas/gW4Ugm3HAiTr33Tn8zgkrt.apk">
     Download APK from Expo
   </a>
 </p>
 
 Your phone will ask to allow installs from your browser — tap **Allow**, then **Install**.
+
+If you already have an older version, uninstall it first.
 
 ---
 
@@ -57,23 +59,43 @@ These are devnet tokens with no real value.
 
 ## 4. Play
 
-| Action | How | XP |
-|--------|-----|-----|
-| **Claim a block** | Tap any unclaimed block > pick a color > confirm tx | 100 |
-| **Charge daily** | Tap your block > **CHARGE** (energy decays over time) | 25 |
-| **Build streaks** | Charge on consecutive days (3d, 7d, 30d milestones) | Bonus |
-| **Customize** | Tap your block > change color, emoji, or style | 0 |
-| **Compete** | Check the **Board** tab for leaderboards | — |
+| Action | How | What to expect |
+|--------|-----|----------------|
+| **Claim a Spark** | Tap any unclaimed block > pick a color > confirm tx | Gold celebration, your Spark face appears |
+| **Charge daily** | Tap your block > **CHARGE** | Bounce animation, energy fills, face smiles |
+| **Build streaks** | Charge on consecutive days | Streak counter grows, bonus XP |
+| **Customize** | Tap your block > change color, emoji, style, name | All options unlocked for testing |
+| **Watch it evolve** | Keep charging — Spark > Ember > Flame > Blaze > Beacon | Glow and face details increase per tier |
+| **Compete** | Check the **Board** tab | Leaderboards, activity feed |
+| **Poke rivals** | Tap someone else's block > **POKE** | Their block shakes, they get a notification |
 
 ---
 
-## 5. Report Bugs
+## 5. What to Focus On
+
+We want feedback on these specifically:
+
+1. **First 60 seconds** — Did the onboarding make sense? Did you understand what to do?
+2. **Claiming + celebration** — Was the camera animation smooth? Did it feel rewarding?
+3. **Spark faces** — Can you see the faces on blocks? Do they react to energy changes?
+4. **Charging loop** — Is tapping CHARGE satisfying? Does the bounce/energy feedback feel good?
+5. **Crashes or freezes** — Especially during wallet connect, claiming, or navigating between tabs
+6. **Performance** — Does the 3D tower feel smooth? Any lag or jank?
+
+Don't worry about:
+- Wallet/token setup issues (devnet can be flaky)
+- Missing features or placeholder text
+- Visual polish details
+
+---
+
+## 6. Report Bugs
 
 If something breaks, please note:
 
 1. What you tapped / were doing
 2. What happened vs. what you expected
-3. Screenshot if possible
+3. Screenshot or screen recording if possible
 
 Send to [GitHub Issues](https://github.com/epicexcelsior/monolith/issues) or message [@exce1s](https://t.me/exce1s) on TG directly.
 
@@ -88,7 +110,13 @@ No. Everything runs on Solana devnet. Tokens are free and have no value.
 Any Android phone or Solana Seeker. No iOS or web support yet.
 
 **Q: The app crashed / won't open.**
-Make sure you have Android 10+ and enough storage. Try reinstalling.
+Make sure you have Android 10+ and enough storage. Uninstall any old version and reinstall.
 
 **Q: My transaction failed.**
 You might be out of devnet SOL. Go to Me > Get Test Tokens to get more.
+
+**Q: What are Sparks?**
+The living faces on your blocks. They react to energy — happy when charged, drowsy when fading, asleep when dead. They evolve as you keep charging.
+
+**Q: Can I play without a wallet?**
+Yes! The onboarding lets you claim and play in demo mode. Connect a wallet later to stake real (devnet) USDC.
