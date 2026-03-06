@@ -31,7 +31,7 @@ const BLOCK_ID_RE = /^block-\d+-\d+$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const MAX_NAME_LENGTH = 30;
 const MAX_EMOJI_LENGTH = 4;
-const HTML_TAG_RE = /<[^>]*>/g;
+const HTML_TAG_RE = /<[^>]*>/;
 
 function isValidBlockId(id: unknown): id is string {
   return typeof id === "string" && BLOCK_ID_RE.test(id);
@@ -158,12 +158,7 @@ export function validateUploadToken(token: string, blockId: string): string | nu
 }
 
 function generateToken(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 32; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  return require("crypto").randomBytes(24).toString("base64url");
 }
 
 export class TowerRoom extends Room<TowerRoomState> {
@@ -546,31 +541,33 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         const changes = msg.changes;
-        if (changes) {
-          if (changes.color !== undefined && !isValidColor(changes.color)) {
-            client.send("error", { message: "Invalid color" });
-            return;
-          }
-          if (changes.emoji !== undefined && !isValidEmoji(changes.emoji)) {
-            client.send("error", { message: "Invalid emoji" });
-            return;
-          }
-          if (changes.name !== undefined && !isValidName(changes.name)) {
-            client.send("error", { message: "Invalid name (max 30 chars, no HTML)" });
-            return;
-          }
-          if (changes.style !== undefined && !isValidStyle(changes.style)) {
-            client.send("error", { message: "Invalid style" });
-            return;
-          }
-          if (changes.textureId !== undefined && !isValidTextureId(changes.textureId)) {
-            client.send("error", { message: "Invalid textureId" });
-            return;
-          }
-          if (changes.personality !== undefined && !isValidPersonality(changes.personality)) {
-            client.send("error", { message: "Invalid personality" });
-            return;
-          }
+        if (!changes || typeof changes !== "object") {
+          client.send("error", { message: "Missing changes" });
+          return;
+        }
+        if (changes.color !== undefined && !isValidColor(changes.color)) {
+          client.send("error", { message: "Invalid color" });
+          return;
+        }
+        if (changes.emoji !== undefined && !isValidEmoji(changes.emoji)) {
+          client.send("error", { message: "Invalid emoji" });
+          return;
+        }
+        if (changes.name !== undefined && !isValidName(changes.name)) {
+          client.send("error", { message: "Invalid name (max 30 chars, no HTML)" });
+          return;
+        }
+        if (changes.style !== undefined && !isValidStyle(changes.style)) {
+          client.send("error", { message: "Invalid style" });
+          return;
+        }
+        if (changes.textureId !== undefined && !isValidTextureId(changes.textureId)) {
+          client.send("error", { message: "Invalid textureId" });
+          return;
+        }
+        if (changes.personality !== undefined && !isValidPersonality(changes.personality)) {
+          client.send("error", { message: "Invalid personality" });
+          return;
         }
 
         const wallet = this.getSessionWallet(client);
@@ -813,6 +810,10 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("request_upload_token", (client: Client, msg: { blockId: string }) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
         const wallet = this.getSessionWallet(client);
         if (!wallet) {
           client.send("error", { message: "Not authenticated" });
