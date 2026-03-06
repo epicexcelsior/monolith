@@ -99,7 +99,10 @@ export function rollChargeAmount(): { amount: number; quality: ChargeQuality } {
 // ─── Block Evolution System ──────────────────────────────
 
 /** Testing mode: dramatically lower thresholds so testers see progression in one session */
-export const TESTING_MODE = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
+export const TESTING_MODE =
+  typeof __DEV__ !== "undefined"
+    ? __DEV__ || process.env.EXPO_PUBLIC_TESTING_MODE === "true"
+    : process.env.NODE_ENV !== "production" || process.env.EXPO_PUBLIC_TESTING_MODE === "true";
 
 /** Production evolution tiers */
 export const EVOLUTION_TIERS = [

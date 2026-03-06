@@ -170,6 +170,7 @@ interface TowerStore {
   clearRecentlyPoked: () => void;
   setGlowUpBlockId: (id: string | null) => void;
   clearGlowUpBlock: () => void;
+  clearJustEvolved: () => void;
   completeOnboarding: () => void;
   resetOnboardingFlag: () => Promise<void>;
 
@@ -492,6 +493,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   clearRecentlyPoked: () => set({ recentlyPokedId: null }),
   setGlowUpBlockId: (id) => set({ glowUpBlockId: id }),
   clearGlowUpBlock: () => set({ glowUpBlockId: null }),
+  clearJustEvolved: () => set({ justEvolved: null }),
 
   completeOnboarding: () => {
     set({ onboardingDone: true });
