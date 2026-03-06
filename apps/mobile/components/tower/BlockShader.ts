@@ -907,7 +907,7 @@ const fragmentShader = /* glsl */ `
 
     // ─── Fake AO: darken faces pointing toward tower center ──
     vec3 toCenter = normalize(vec3(0.0, vWorldPos.y, 0.0) - vWorldPos);
-    float ao = 1.0 - max(dot(N, toCenter), 0.0) * 0.4;
+    float ao = 1.0 - max(dot(N, toCenter), 0.0) * 0.32;
     faceBrightness *= ao;
 
     // ─── Contact shadow: darken block edges where they meet grid ──
@@ -923,13 +923,16 @@ const fragmentShader = /* glsl */ `
 
     // ─── SSS approximation: light wrapping for high-energy blocks ──
     float sss = pow(max(dot(-N, lightDir), 0.0), 2.0) * energy * 0.2;
-    baseColor += vec3(0.15, 0.08, 0.03) * sss;
+    baseColor += vec3(0.17, 0.09, 0.03) * sss;
 
     // ─── Uplight bounce: warm light on undersides ──
     baseColor += vec3(0.06, 0.04, 0.02) * max(0.0, -N.y) * energy;
 
     // Warm ambient on sides for living blocks
     baseColor += vec3(0.04, 0.02, 0.01) * sideFace * energy;
+
+    // Global ambient floor — warmer, more inviting
+    baseColor += vec3(0.03, 0.02, 0.01);
 
     // ═══════════════════════════════════════════════════════
     // LAYER 4: ENERGY OVERLAY (system-driven, additive)
@@ -1219,7 +1222,7 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
     fragmentShader,
     uniforms: {
       uTime: { value: 0 },
-      uFogColor: { value: new THREE.Color(0x2a1828) },
+      uFogColor: { value: new THREE.Color(0x2a1e2e) },
       uFogDensity: { value: 0.0 },
       uSpireThreshold: { value: SPIRE_START_LAYER / DEFAULT_TOWER_CONFIG.layerCount },
       uTowerHeight: { value: getTowerHeight(DEFAULT_TOWER_CONFIG.layerCount) },

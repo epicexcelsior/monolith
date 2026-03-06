@@ -55,8 +55,8 @@ const particleFragmentShader = /* glsl */ `
 
   void main() {
     // Color shifts from deep ember at base to bright gold near spire
-    vec3 baseColor = vec3(0.8, 0.35, 0.08);
-    vec3 topColor = vec3(1.2, 0.95, 0.35);
+    vec3 baseColor = vec3(0.9, 0.50, 0.15);
+    vec3 topColor = vec3(1.3, 1.0, 0.45);
     vec3 color = mix(baseColor, topColor, vHeight);
 
     gl_FragColor = vec4(color, vAlpha);
