@@ -38,6 +38,8 @@ const vertexShader = /* glsl */ `
   attribute float aImageIndex;
   attribute float aEvolutionTier; // 0-4 (Spark, Ember, Flame, Blaze, Beacon)
   attribute float aPersonality;   // -1=hash, 0-4=player choice
+  attribute float aIsBot;         // 0=not bot, 1=bot
+  attribute float aHasOwner;      // 0=unclaimed, 1=has owner
 
   // Passed to fragment
   varying float vEnergy;
@@ -56,6 +58,8 @@ const vertexShader = /* glsl */ `
   varying float vImageIndex;
   varying float vEvolutionTier;
   varying float vPersonality;
+  varying float vIsBot;
+  varying float vHasOwner;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;       // raw local-space position (for interior mapping)
@@ -95,6 +99,8 @@ const vertexShader = /* glsl */ `
     vImageIndex = aImageIndex;
     vEvolutionTier = aEvolutionTier;
     vPersonality = aPersonality;
+    vIsBot = aIsBot;
+    vHasOwner = aHasOwner;
     vLocalPos = position; // raw local-space vertex position
     // Block center from instance matrix translation column
     vBlockCenter = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
@@ -177,6 +183,8 @@ const fragmentShader = /* glsl */ `
   varying float vImageIndex;
   varying float vEvolutionTier;
   varying float vPersonality;
+  varying float vIsBot;
+  varying float vHasOwner;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;
@@ -695,7 +703,8 @@ const fragmentShader = /* glsl */ `
     // LAYER 1.75: SPARK FACE — kawaii SDF face on vertical faces
     // Dead blocks now show sleeping face (no energy > 0.01 guard)
     // ═══════════════════════════════════════════════════════
-    if (vImageIndex < 0.5) {
+    // Skip face on bot blocks (have images) and unclaimed blocks (no owner)
+    if (vImageIndex < 0.5 && vHasOwner > 0.5) {
       float isVertFace = step(abs(vWorldNormal.y), 0.5);
       float evo = clamp(vEvolutionTier, 0.0, 4.0);
       // Tier-aware LOD: higher tiers visible from further away
@@ -1110,6 +1119,17 @@ const fragmentShader = /* glsl */ `
     // Fresnel rim — amber glow at viewing angle edges
     float rimPulse = 0.85 + 0.15 * sin(uTime * 0.6 + vInstanceOffset * 2.0);
     deadColor += vec3(0.18, 0.10, 0.04) * fresnel * 0.7 * rimPulse;
+
+    // Dormant blocks (has owner, 0 energy, NOT bot): desaturate + dark overlay
+    float isDormant = (1.0 - deadMask) * vHasOwner * (1.0 - vIsBot);
+    if (isDormant > 0.5) {
+      // Desaturate owner color (saturation * 0.4)
+      float luma = dot(color, vec3(0.299, 0.587, 0.114));
+      vec3 desatColor = mix(vec3(luma), color, 0.4);
+      // Dark overlay 30%
+      desatColor = mix(desatColor, vec3(0.15), 0.3);
+      deadColor = desatColor;
+    }
 
     color = mix(deadColor, color, deadMask);
 
