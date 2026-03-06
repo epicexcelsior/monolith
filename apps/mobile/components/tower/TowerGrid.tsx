@@ -71,7 +71,7 @@ export default function TowerGrid() {
   // Track claim flash animation
   const claimFlashRef = useRef<{ blockIndex: number; time: number } | null>(null);
   // Track charge flash animation (multiple can be active) — quality affects intensity
-  const chargeFlashQueueRef = useRef<Array<{ blockIndex: number; time: number; quality: number }>>([]);
+  const chargeFlashQueueRef = useRef<Array<{ blockIndex: number; time: number; quality: number; reaction: number }>>([]);
   // Track glow-up animation (gold→owner color after zoom-back)
   const glowUpRef = useRef<{ blockIndex: number; time: number; ownerColor: string } | null>(null);
   // Track user-uploaded image texture for inspected block
@@ -340,6 +340,11 @@ export default function TowerGrid() {
       hasOwnerAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
       geo.setAttribute("aHasOwner", hasOwnerAttr);
     }
+    let chargeReactionAttr = geo.getAttribute("aChargeReaction") as THREE.InstancedBufferAttribute | null;
+    if (!chargeReactionAttr || chargeReactionAttr.count !== count) {
+      chargeReactionAttr = new THREE.InstancedBufferAttribute(new Float32Array(count).fill(-1), 1);
+      geo.setAttribute("aChargeReaction", chargeReactionAttr);
+    }
 
     // ─── Write values directly into existing arrays ──
     const eArr = energyAttr.array as Float32Array;
@@ -473,7 +478,8 @@ export default function TowerGrid() {
       if (idx >= 0) {
         // Map quality string to numeric: 0=normal, 1=good, 2=great
         const quality = recentlyChargedQuality === "great" ? 2 : recentlyChargedQuality === "good" ? 1 : 0;
-        chargeFlashQueueRef.current.push({ blockIndex: idx, time: 0, quality });
+        const reaction = Math.floor(Math.random() * 5);
+        chargeFlashQueueRef.current.push({ blockIndex: idx, time: 0, quality, reaction });
       }
       const timer = setTimeout(() => clearRecentlyCharged(), 100);
       return () => clearTimeout(timer);
@@ -730,6 +736,13 @@ export default function TowerGrid() {
               }
               energyAttr.needsUpdate = true;
 
+              // Set charge reaction attribute for shader face expression override
+              const crAttr = geo.getAttribute("aChargeReaction") as THREE.InstancedBufferAttribute | null;
+              if (crAttr) {
+                crAttr.array[cf.blockIndex] = t < 0.8 ? cf.reaction : -1;
+                crAttr.needsUpdate = true;
+              }
+
               // Flash color by quality: normal=white-blue, good=warm gold, great=bright gold
               const tempColor = tmpColorRef.current.set(block.ownerColor);
               if (q >= 2) {
@@ -745,17 +758,34 @@ export default function TowerGrid() {
               colorAttr.array[cf.blockIndex * 3 + 2] = blended.b;
               colorAttr.needsUpdate = true;
 
-              // Squash-and-stretch bounce (first 0.5s of flash)
+              // Reaction-specific motion (first 0.5s of flash)
               if (t < 0.5) {
                 const layoutItem = layoutData[cf.blockIndex];
                 if (layoutItem) {
                   let scaleY: number;
-                  if (t < 0.1) {
-                    scaleY = 1.0 - 0.15 * (t / 0.1); // squash down to 0.85
-                  } else if (t < 0.25) {
-                    scaleY = 0.85 + 0.27 * ((t - 0.1) / 0.15); // stretch up to 1.12
+                  let offsetX = 0;
+                  const r = cf.reaction;
+                  if (r === 1) {
+                    // Surprise: taller stretch
+                    if (t < 0.1) scaleY = 1.0 - 0.15 * (t / 0.1);
+                    else if (t < 0.25) scaleY = 0.85 + 0.33 * ((t - 0.1) / 0.15); // stretch to 1.18
+                    else scaleY = 1.18 - 0.18 * ((t - 0.25) / 0.25);
+                  } else if (r === 2) {
+                    // Excited: side-to-side wiggle
+                    scaleY = 1.0;
+                    offsetX = Math.sin(t * 40) * 0.06 * (1 - t / 0.5);
+                  } else if (r === 3) {
+                    // Grateful: slow Y bob
+                    scaleY = 1.0 + 0.06 * Math.sin(t * 8) * (1 - t / 0.5);
+                  } else if (r === 4) {
+                    // Wake-up: quick X jitter then settle
+                    scaleY = 1.0;
+                    offsetX = (Math.random() - 0.5) * 0.08 * Math.max(0, 1 - t / 0.2);
                   } else {
-                    scaleY = 1.12 - 0.12 * ((t - 0.25) / 0.25); // settle to 1.0
+                    // Joy (0): standard bounce
+                    if (t < 0.1) scaleY = 1.0 - 0.15 * (t / 0.1);
+                    else if (t < 0.25) scaleY = 0.85 + 0.27 * ((t - 0.1) / 0.15);
+                    else scaleY = 1.12 - 0.12 * ((t - 0.25) / 0.25);
                   }
                   const scaleXZ = 2.0 - scaleY; // volume preservation
                   const layerScale = getLayerScale(block.layer, config.layerCount);
@@ -763,7 +793,7 @@ export default function TowerGrid() {
                   const halfHeight = (BLOCK_SIZE * layerScale) * 0.5;
                   const tempObj = tempObjRef.current;
                   tempObj.position.set(
-                    block.position.x,
+                    block.position.x + offsetX,
                     block.position.y + (scaleY - 1.0) * halfHeight,
                     block.position.z,
                   );
@@ -786,6 +816,12 @@ export default function TowerGrid() {
               colorAttr.array[cf.blockIndex * 3 + 1] = tempColor.g;
               colorAttr.array[cf.blockIndex * 3 + 2] = tempColor.b;
               colorAttr.needsUpdate = true;
+              // Reset charge reaction
+              const crAttr = geo.getAttribute("aChargeReaction") as THREE.InstancedBufferAttribute | null;
+              if (crAttr) {
+                crAttr.array[cf.blockIndex] = -1;
+                crAttr.needsUpdate = true;
+              }
 
               // Restore matrix to base position
               const layoutItem = layoutData[cf.blockIndex];
