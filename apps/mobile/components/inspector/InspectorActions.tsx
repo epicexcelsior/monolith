@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { COLORS, SPACING, RADIUS, FONT_FAMILY, TEXT } from "@/constants/theme";
 import { useWalletStore } from "@/stores/wallet-store";
 import Badge from "@/components/ui/Badge";
@@ -81,11 +81,29 @@ export default function InspectorActions({
   onUnlike,
 }: InspectorActionsProps) {
 
-  // Evolution progress (computed once, used in owner section)
+  // Evolution progress (computed once, used in owner + other-player sections)
   const totalCharges = block.totalCharges ?? 0;
-  const evolutionTier = getEvolutionTier(totalCharges, block.bestStreak ?? 0);
+  const bestStreak = block.bestStreak ?? 0;
+  const evolutionTier = getEvolutionTier(totalCharges, bestStreak);
   const evolutionTierInfo = getEvolutionTierInfo(evolutionTier);
-  const nextEvolutionTier = chargesToNextTier(totalCharges, block.bestStreak ?? 0);
+  const nextEvolutionTier = chargesToNextTier(totalCharges, bestStreak);
+  const isCloseToEvolving = nextEvolutionTier != null && nextEvolutionTier.needed <= 3;
+  const isMaxTier = evolutionTier >= ACTIVE_EVOLUTION_TIERS.length - 1;
+
+  // Pulse animation when close to evolving
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (isCloseToEvolving) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.02, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [isCloseToEvolving, pulseAnim]);
 
   return (
     <View style={styles.ctaSection}>
@@ -119,15 +137,48 @@ export default function InspectorActions({
 
       {isOwner && (
         <>
+          {/* Evolution progress card — ABOVE charge button */}
+          <Animated.View style={[styles.evolutionCard, isCloseToEvolving && { transform: [{ scale: pulseAnim }] }]}>
+            {isMaxTier ? (
+              <View style={styles.evolutionFullyEvolved}>
+                <Text style={styles.evolutionFullyEvolvedText}>FULLY EVOLVED</Text>
+                <Text style={styles.evolutionTierLabel}>{evolutionTierInfo.name}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.evolutionHeader}>
+                  <Text style={styles.evolutionTierText}>{evolutionTierInfo.name}</Text>
+                  {nextEvolutionTier && (
+                    <Text style={styles.evolutionTierText}>{nextEvolutionTier.nextTierName}</Text>
+                  )}
+                </View>
+                {nextEvolutionTier && (
+                  <View style={styles.evolutionBar}>
+                    <View style={[styles.evolutionBarFill, { width: `${Math.round(nextEvolutionTier.progress * 100)}%` }]} />
+                  </View>
+                )}
+                <View style={styles.evolutionDetails}>
+                  <Text style={styles.evolutionProgressText}>
+                    {totalCharges}/{ACTIVE_EVOLUTION_TIERS[evolutionTier + 1].charges} charges
+                  </Text>
+                  {nextEvolutionTier && ACTIVE_EVOLUTION_TIERS[evolutionTier + 1].streakReq > 0 && (
+                    <Text style={styles.evolutionStreakReq}>
+                      Streak: {bestStreak}/{ACTIVE_EVOLUTION_TIERS[evolutionTier + 1].streakReq} days
+                    </Text>
+                  )}
+                </View>
+              </>
+            )}
+          </Animated.View>
           {/* Streak info */}
           <View style={styles.streakBadge}>
             {streak > 0 ? (
               <Text style={styles.streakBadgeText}>
-                {"\uD83D\uDD25"} {streak}-day streak {multiplier > 1 ? `\u00B7 ${multiplier}\u00D7 XP` : ""}
+                {"\uD83D\uDD25"} {streak}-day streak {multiplier > 1 ? `\u00B7 ${multiplier}\u00D7` : ""}
               </Text>
             ) : (
               <Text style={styles.streakHintText}>
-                Charge daily to keep your block alive
+                Charge daily to keep your Spark alive
               </Text>
             )}
           </View>
@@ -139,24 +190,6 @@ export default function InspectorActions({
             disabled={!!cooldownText}
             pulsing={!cooldownText}
           />
-          {/* Evolution progress */}
-          <View style={styles.evolutionSection}>
-            <View style={styles.evolutionHeader}>
-              <Text style={styles.evolutionTierText}>{evolutionTierInfo.name}</Text>
-              {nextEvolutionTier ? (
-                <Text style={styles.evolutionProgressText}>
-                  {totalCharges}/{ACTIVE_EVOLUTION_TIERS[evolutionTier + 1].charges} to {nextEvolutionTier.nextTierName}
-                </Text>
-              ) : (
-                <Text style={styles.evolutionMaxText}>Max Tier</Text>
-              )}
-            </View>
-            {nextEvolutionTier && (
-              <View style={styles.evolutionBar}>
-                <View style={[styles.evolutionBarFill, { width: `${Math.round(nextEvolutionTier.progress * 100)}%` }]} />
-              </View>
-            )}
-          </View>
           <Text style={styles.chargeExplainer}>
             Energy decays daily. 0% for 3 days = anyone can reclaim it.
           </Text>
@@ -207,6 +240,16 @@ export default function InspectorActions({
             {block.stakedAmount > 0 && (
               <Text style={styles.stakedText}>{formatUsdc(block.stakedAmount)}</Text>
             )}
+          </View>
+          {/* Read-only evolution tier for other players */}
+          <View style={styles.otherEvoRow}>
+            <Text style={styles.otherEvoTier}>{evolutionTierInfo.name}</Text>
+            {!isMaxTier && nextEvolutionTier && (
+              <View style={styles.otherEvoBarWrap}>
+                <View style={[styles.evolutionBarFill, { width: `${Math.round(nextEvolutionTier.progress * 100)}%` }]} />
+              </View>
+            )}
+            {isMaxTier && <Text style={styles.otherEvoMax}>FULLY EVOLVED</Text>}
           </View>
           {isWalletConnected && mpConnected && !isDormant && (
             <View style={styles.pokeRow}>
@@ -375,8 +418,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textMuted,
   },
-  evolutionSection: {
-    gap: 4,
+  evolutionCard: {
+    backgroundColor: COLORS.goldSubtle,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.goldAccentDim,
+    padding: SPACING.sm,
+    gap: 6,
   },
   evolutionHeader: {
     flexDirection: "row",
@@ -385,30 +433,75 @@ const styles = StyleSheet.create({
   },
   evolutionTierText: {
     fontFamily: FONT_FAMILY.headingSemibold,
-    fontSize: 12,
-    color: COLORS.gold,
+    fontSize: 13,
+    color: COLORS.goldAccent,
     letterSpacing: 0.5,
+  },
+  evolutionDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   evolutionProgressText: {
     fontFamily: FONT_FAMILY.mono,
     fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  evolutionStreakReq: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 11,
     color: COLORS.textMuted,
   },
-  evolutionMaxText: {
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 11,
-    color: COLORS.gold,
+  evolutionTierLabel: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 13,
+    color: COLORS.goldAccent,
+    letterSpacing: 0.5,
+  },
+  evolutionFullyEvolved: {
+    alignItems: "center",
+    gap: 2,
+  },
+  evolutionFullyEvolvedText: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 14,
+    color: COLORS.goldAccent,
+    letterSpacing: 1,
   },
   evolutionBar: {
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: COLORS.bgMuted,
     overflow: "hidden" as const,
   },
   evolutionBarFill: {
     height: "100%",
+    borderRadius: 3,
+    backgroundColor: COLORS.goldAccent,
+  },
+  otherEvoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+  },
+  otherEvoTier: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 12,
+    color: COLORS.goldAccent,
+    letterSpacing: 0.5,
+  },
+  otherEvoBarWrap: {
+    flex: 1,
+    height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.gold,
+    backgroundColor: COLORS.bgMuted,
+    overflow: "hidden" as const,
+  },
+  otherEvoMax: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 11,
+    color: COLORS.goldAccent,
   },
   chargeExplainer: {
     ...TEXT.caption,
