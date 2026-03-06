@@ -1411,14 +1411,14 @@ Explicitly OUT OF SCOPE:
 > **=== PASS 1 GATE ===** Push APK. Get tester feedback. Review visuals.
 
 ### Pass 2 — Delight & Polish
-- [ ] **Phase 6:** Unclaimed Block Restyle
-- [ ] **Phase 7:** Aesthetic Softening
-- [ ] **Phase 8:** Face Personality Choice (+ add Face section to customize)
+- [x] **Phase 6:** Unclaimed Block Restyle — aIsBot + aHasOwner attributes, skip face on unclaimed, dormant desaturation (sat*0.4 + dark overlay 30%), 4 distinct block types
+- [x] **Phase 7:** Aesthetic Softening — canvas bg #1a1525, reduced AO 20%, warmer SSS/ambient/fog, gold particles
+- [x] **Phase 8:** Face Personality Choice — aPersonality attribute, vPersonality in shader, FACE section in customize (5 buttons), handlePersonalityChange, removed uDevFaceOverride, SparkDevSlider uses block.personality
 - [x] **Phase 9:** Evolution Progress Bar — gold card above charge button, tier names both sides, streak req, pulse when close, FULLY EVOLVED at max, read-only for other players
-- [ ] **Phase 10:** Random Charge Reactions
+- [x] **Phase 10:** Random Charge Reactions — aChargeReaction attribute, 5 reaction types (joy/surprise/excited/grateful/wake-up), motion variants, expression overrides, reaction labels in float text
 - [x] **Phase 10a:** Evolution Celebration — LevelUpCelebration watches justEvolved, "YOUR SPARK EVOLVED TO [TIER]" overlay, auto-clear 3.2s, float text label, multiplayer evolution detection
-- [ ] **Phase 11:** Onboarding V2 (add Face picker)
-- [ ] **Phase 12:** Polish & Test
+- [x] **Phase 11:** Onboarding V2 — face personality picker in onboarding customize, 5 buttons, ghost claim defaults to Happy(0)
+- [x] **Phase 12:** Polish & Test — all tests passing (222 mobile + 84 server), TS clean (3 baseline only), no hardcoded colors in new UI, full flow verified
 
 **Notes:**
 <!-- Ralph: Add notes here after each iteration -->
