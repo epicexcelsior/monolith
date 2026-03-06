@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Monolith -- Hackathon Pitch</title>
+
+    <!-- Fonts: Syne (hero), Outfit (headings), DM Serif Display (stats), DM Sans (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Outfit:wght@400;500;600;700;800&family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #FFFAF3;
+            --bg-warm: #FFF5E8;
+            --bg-card: rgba(212, 160, 23, 0.05);
+            --card-border: rgba(212, 160, 23, 0.15);
+
+            --gold: #D4A017;
+            --gold-bright: #F5C518;
+            --gold-deep: #8B6914;
+            --amber: #E8941A;
+            --orange: #FF8C42;
+
+            --sage: #5A9040;
+            --sage-bg: rgba(90, 144, 64, 0.07);
+            --coral: #E04545;
+            --coral-bg: rgba(224, 69, 69, 0.06);
+            --lavender: #7B6EA4;
+            --sky: #3D7FB5;
+
+            --text: #111122;
+            --text-secondary: #333350;
+            --text-muted: #666680;
+
+            --font-hero: 'Syne', sans-serif;
+            --font-heading: 'Outfit', sans-serif;
+            --font-display: 'DM Serif Display', serif;
+            --font-body: 'Outfit', sans-serif;
+
+            --hero-size: clamp(3.8rem, 10vw, 8.5rem);
+            --title-size: clamp(2.5rem, 6vw, 5rem);
+            --h2-size: clamp(1.8rem, 4vw, 3.2rem);
+            --h3-size: clamp(1.15rem, 2.2vw, 1.5rem);
+            --body-size: clamp(1rem, 1.6vw, 1.3rem);
+            --body-lg: clamp(1.15rem, 2vw, 1.65rem);
+            --small-size: clamp(0.875rem, 1.1vw, 0.95rem);
+            --stat-size: clamp(3rem, 6.5vw, 5.5rem);
+
+            --pad: clamp(2rem, 6vw, 6rem);
+            --pad-x: clamp(2.5rem, 7vw, 8rem);
+            --gap: clamp(1rem, 2.5vw, 2.2rem);
+            --gap-sm: clamp(0.5rem, 1.2vw, 0.8rem);
+
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --dur: 0.7s;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            height: 100%;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            height: 100%;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* SLIDES */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: var(--pad) var(--pad-x);
+            overflow: hidden;
+        }
+
+        /* dot pattern removed — was the biggest "template" signal */
+
+        .slide > * { position: relative; z-index: 1; }
+
+        .slide-inner {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: var(--gap);
+        }
+
+        .slide-inner.center { align-items: center; text-align: center; }
+        .slide-inner.left { align-items: flex-start; text-align: left; }
+
+        /* TYPOGRAPHY */
+        .hero-title {
+            font-family: var(--font-hero);
+            font-weight: 800;
+            font-size: var(--hero-size);
+            line-height: 1.05;
+            letter-spacing: -0.03em;
+            color: var(--text);
+        }
+
+        h1 {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: var(--title-size);
+            line-height: 1.08;
+            letter-spacing: -0.02em;
+            color: var(--text);
+        }
+
+        h2 {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: var(--h2-size);
+            line-height: 1.12;
+            letter-spacing: -0.01em;
+        }
+
+        h3 {
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: var(--h3-size);
+            line-height: 1.25;
+        }
+
+        p {
+            font-size: var(--body-size);
+            line-height: 1.55;
+            color: var(--text-secondary);
+        }
+
+        .body-lg {
+            font-size: var(--body-lg);
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        .overline {
+            font-family: var(--font-heading);
+            font-size: var(--small-size);
+            font-weight: 800;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--gold);
+        }
+
+        .gold { color: var(--gold-deep); }
+        .coral { color: var(--coral); }
+        .sage { color: var(--sage); }
+
+        .stat {
+            font-family: var(--font-display);
+            font-size: var(--stat-size);
+            color: var(--gold);
+            line-height: 1;
+        }
+
+        .glow-text {
+            background: linear-gradient(135deg, var(--gold-deep), var(--gold-bright), var(--orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        strong { color: var(--text); }
+
+        /* REVEALS */
+        .r {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        }
+        .slide.visible .r { opacity: 1; transform: translateY(0); }
+        .r1 { transition-delay: 0.06s; }
+        .r2 { transition-delay: 0.14s; }
+        .r3 { transition-delay: 0.22s; }
+        .r4 { transition-delay: 0.30s; }
+        .r5 { transition-delay: 0.38s; }
+
+        .r-scale {
+            opacity: 0;
+            transform: scale(0.93);
+            transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+        }
+        .slide.visible .r-scale { opacity: 1; transform: scale(1); }
+
+        /* COMPONENTS */
+        .card {
+            background: white;
+            border: 1.5px solid var(--card-border);
+            border-radius: 16px;
+            padding: clamp(1rem, 2.2vw, 1.6rem);
+            box-shadow: 0 2px 12px rgba(212, 160, 23, 0.04);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: var(--small-size);
+            font-weight: 700;
+            padding: 0.4em 1em;
+            border-radius: 999px;
+            background: rgba(212, 160, 23, 0.08);
+            color: var(--gold-deep);
+            border: 1px solid rgba(212, 160, 23, 0.15);
+        }
+        .pill-gold-accent { background: rgba(212,160,23,0.15); border-color: rgba(212,160,23,0.3); font-size: clamp(0.82rem, 1.2vw, 1rem); }
+        .pill-sage { background: var(--sage-bg); color: var(--sage); border-color: rgba(90,144,64,0.2); }
+        .pill-coral { background: var(--coral-bg); color: var(--coral); border-color: rgba(224,69,69,0.15); }
+        .pill-sky { background: rgba(61,127,181,0.07); color: var(--sky); border-color: rgba(61,127,181,0.2); }
+
+        .divider {
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--orange));
+            border-radius: 2px;
+        }
+
+        .insight {
+            background: linear-gradient(135deg, rgba(212,160,23,0.06), rgba(255,140,66,0.03));
+            border-left: 4px solid var(--gold);
+            padding: clamp(0.8rem, 1.8vw, 1.4rem);
+            border-radius: 0 14px 14px 0;
+        }
+        .insight p { color: var(--text); font-weight: 500; }
+
+        /* CONTRAST CARDS */
+        .contrast-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--gap);
+            max-width: 700px;
+            width: 100%;
+        }
+        @media (max-width: 700px) {
+            .contrast-grid { grid-template-columns: 1fr; }
+        }
+        .contrast-card {
+            background: white;
+            border: 1.5px solid var(--card-border);
+            border-radius: 16px;
+            padding: clamp(1.2rem, 2.5vw, 2rem);
+            text-align: center;
+        }
+
+        /* GRIDS */
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+        .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+        @media (max-width: 700px) {
+            .g3 { grid-template-columns: 1fr; }
+            .g2 { grid-template-columns: 1fr; }
+        }
+
+        /* STEP CARDS */
+        .step-card {
+            background: white;
+            border: 1.5px solid var(--card-border);
+            border-radius: 20px;
+            padding: clamp(1.4rem, 2.8vw, 2.2rem) clamp(1rem, 2vw, 1.5rem);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+            align-items: center;
+        }
+
+        .step-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .step-icon svg { width: 26px; height: 26px; }
+
+        .step-num {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 3vw, 2.8rem);
+            color: var(--gold-bright);
+            opacity: 0.25;
+        }
+
+        /* TIMELINE */
+        .timeline {
+            display: flex;
+            gap: clamp(8px, 1vw, 14px);
+            width: 100%;
+        }
+
+        .t-phase {
+            flex: 1;
+            background: white;
+            border: 1.5px solid var(--card-border);
+            border-radius: 14px;
+            padding: clamp(1rem, 2vw, 1.6rem);
+            text-align: center;
+        }
+
+        .t-phase.now {
+            border-color: var(--gold);
+            box-shadow: 0 0 24px rgba(212,160,23,0.1);
+            background: rgba(212,160,23,0.04);
+        }
+
+        .t-label { font-weight: 800; font-size: var(--body-size); color: var(--gold-deep); }
+        .t-time { font-size: var(--small-size); color: var(--text-muted); margin: 4px 0 10px; }
+        .t-desc { font-size: var(--body-size); color: var(--text-secondary); line-height: 1.45; }
+
+        /* SPARK STATE FACES (hook slide) */
+        .spark-states {
+            display: flex;
+            gap: clamp(16px, 3vw, 32px);
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .spark-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .spark-mini {
+            width: clamp(68px, 10vw, 96px);
+            height: clamp(68px, 10vw, 96px);
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s var(--ease);
+        }
+
+        .spark-mini-eyes { display: flex; gap: clamp(5px, 0.8vw, 8px); margin-bottom: 3px; }
+        .spark-mini-eye {
+            width: clamp(7px, 1.2vw, 10px);
+            height: clamp(7px, 1.2vw, 10px);
+            background: white;
+            border-radius: 50%;
+            position: relative;
+        }
+        .spark-mini-eye::after {
+            content: '';
+            position: absolute;
+            width: 45%; height: 45%;
+            background: #1A1A2E;
+            border-radius: 50%;
+            top: 30%; left: 30%;
+        }
+
+        .spark-mini-mouth {
+            width: clamp(8px, 1.3vw, 12px);
+            height: clamp(4px, 0.7vw, 6px);
+            background: white;
+            opacity: 0.85;
+        }
+
+        .spark-charged {
+            background: linear-gradient(135deg, #F5C518, #E8941A);
+            box-shadow: 0 0 30px rgba(245,197,24,0.3);
+            animation: sparkChargedPulse 2.5s ease-in-out infinite;
+        }
+        .spark-charged .spark-mini-mouth { border-radius: 0 0 50% 50%; }
+        .spark-charged .spark-mini-eye { animation: sparkChargedBlink 3.5s ease-in-out infinite; }
+
+        @keyframes sparkChargedPulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(245,197,24,0.3); transform: scale(1); }
+            50% { box-shadow: 0 0 45px rgba(245,197,24,0.45); transform: scale(1.04); }
+        }
+        @keyframes sparkChargedBlink {
+            0%, 85%, 100% { transform: scaleY(1); }
+            89% { transform: scaleY(0.1); }
+        }
+
+        .spark-fading {
+            background: linear-gradient(135deg, #c4a040, #a88a30);
+            box-shadow: 0 0 12px rgba(180,160,60,0.15);
+            animation: sparkFadingDim 3s ease-in-out infinite;
+        }
+        .spark-fading .spark-mini-eye { background: rgba(255,255,255,0.6); }
+        .spark-fading .spark-mini-mouth { border-radius: 2px; height: clamp(2px, 0.4vw, 3px); opacity: 0.5; }
+
+        @keyframes sparkFadingDim {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 0.45; }
+        }
+
+        .spark-dead {
+            background: linear-gradient(135deg, #666, #444);
+            box-shadow: none;
+            opacity: 0.5;
+            animation: sparkDeadFlicker 4s ease-in-out infinite;
+        }
+        .spark-dead .spark-mini-eye { background: transparent; border: 1.5px solid rgba(255,255,255,0.3); }
+        .spark-dead .spark-mini-eye::after { display: none; }
+        .spark-dead .spark-mini-mouth { border-radius: 50%; width: clamp(6px, 1vw, 8px); height: clamp(6px, 1vw, 8px); opacity: 0.3; }
+
+        @keyframes sparkDeadFlicker {
+            0%, 100% { opacity: 0.5; }
+            30% { opacity: 0.35; }
+            32% { opacity: 0.55; }
+            34% { opacity: 0.3; }
+            50% { opacity: 0.5; }
+        }
+
+        .spark-label {
+            font-size: clamp(0.75rem, 1vw, 0.875rem);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* STAT STRIP */
+        .stat-strip {
+            display: flex;
+            gap: clamp(16px, 3vw, 40px);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-family: var(--font-display);
+            font-size: clamp(2.2rem, 5vw, 4rem);
+            color: var(--gold);
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .stat-number-lg {
+            font-size: clamp(3rem, 7vw, 5.5rem);
+        }
+
+        /* TEAM */
+        .team-card {
+            display: flex;
+            align-items: center;
+            gap: clamp(20px, 3vw, 32px);
+            background: white;
+            border: 1.5px solid var(--card-border);
+            border-radius: 20px;
+            padding: clamp(1.4rem, 3vw, 2.4rem);
+            max-width: 680px;
+            width: 100%;
+        }
+
+        .team-avatar-img {
+            width: clamp(72px, 11vw, 100px);
+            height: clamp(72px, 11vw, 100px);
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 3px solid rgba(212,160,23,0.2);
+        }
+
+        .team-avatar-fallback {
+            width: clamp(72px, 11vw, 100px);
+            height: clamp(72px, 11vw, 100px);
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold-bright), var(--amber));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-hero);
+            font-size: clamp(28px, 4vw, 42px);
+            font-weight: 800;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        /* TECH PILL GRID */
+        .tech-pills {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* NAV */
+        #progress {
+            position: fixed;
+            top: 0; left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--orange));
+            z-index: 1000;
+            width: 0%;
+            transition: width 0.3s var(--ease);
+        }
+
+        #nav {
+            position: fixed;
+            right: clamp(12px, 1.5vw, 22px);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            z-index: 100;
+        }
+
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(212,160,23,0.15);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 0;
+        }
+        .dot.active { background: var(--gold); box-shadow: 0 0 12px rgba(212,160,23,0.3); transform: scale(1.4); }
+        .dot:hover { background: rgba(212,160,23,0.35); }
+
+        #counter {
+            position: fixed;
+            bottom: clamp(12px, 1.5vh, 22px);
+            right: clamp(16px, 2vw, 30px);
+            font-weight: 700;
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            z-index: 100;
+        }
+
+        #keys {
+            position: fixed;
+            bottom: clamp(12px, 1.5vh, 22px);
+            left: clamp(16px, 2vw, 30px);
+            font-size: clamp(0.75rem, 0.9vw, 0.85rem);
+            color: var(--text-muted);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .key {
+            padding: 2px 6px;
+            border: 1px solid rgba(17,17,34,0.12);
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+
+        /* SPECIAL BACKGROUNDS */
+        #s-hook { background: linear-gradient(180deg, #FFFAF3 0%, #FFF0D6 100%); }
+
+        /* Problem slide — dark for CONTRAST. Breaks the warm monotony. */
+        #s-problem { background: linear-gradient(180deg, #0c0a14 0%, #141020 50%, #0c0a14 100%); }
+        #s-problem .overline { color: var(--coral); }
+        #s-problem h1 { color: white; }
+        #s-problem h1 .glow-text {
+            background: linear-gradient(135deg, var(--coral), #ff8866, var(--coral));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        #s-problem p { color: rgba(255,255,255,0.6); }
+        #s-problem strong { color: white; }
+        #s-problem .stat-number { font-size: clamp(3.5rem, 8vw, 7rem); }
+        #s-problem .stat-label { color: rgba(255,255,255,0.55); }
+        #s-problem .spark-motif { background: linear-gradient(135deg, rgba(224,69,69,0.15), rgba(255,136,102,0.1)); }
+        #s-problem .spark-motif-eye { background: rgba(224,69,69,0.35); }
+        /* RESPONSIVE */
+        @media (max-height: 700px) {
+            :root {
+                --pad: clamp(1.2rem, 3vw, 2.5rem);
+                --gap: clamp(0.6rem, 1.5vw, 1.2rem);
+                --hero-size: clamp(2.8rem, 8vw, 5.5rem);
+                --title-size: clamp(2rem, 5vw, 3.8rem);
+            }
+        }
+        @media (max-height: 600px) {
+            :root { --pad: clamp(0.8rem, 2.5vw, 1.5rem); }
+            #keys { display: none; }
+        }
+        @media (max-height: 500px) { #nav { display: none; } }
+        @media (max-width: 600px) {
+            .timeline { flex-wrap: wrap; }
+            .t-phase { min-width: 44%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.15s !important; }
+            html { scroll-behavior: auto; }
+        }
+
+        /* SVG icon colors */
+        .icon-gold { color: var(--gold); }
+        .icon-sage { color: var(--sage); }
+        .icon-sky { color: var(--sky); }
+        .icon-coral { color: var(--coral); }
+        .icon-lavender { color: var(--lavender); }
+        .icon-muted { color: var(--text-muted); }
+
+        /* RECURRING SPARK MOTIF -- tiny floating Spark in slide corners */
+        .spark-motif {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            background: linear-gradient(135deg, rgba(245,197,24,0.15), rgba(232,148,26,0.1));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 0;
+            pointer-events: none;
+            animation: sparkMotifFloat 6s ease-in-out infinite;
+        }
+        .spark-motif::before {
+            content: '';
+            display: flex;
+            width: 10px;
+            gap: 3px;
+            height: 5px;
+            border-bottom: 2px solid rgba(245,197,24,0.3);
+            border-radius: 0 0 50% 50%;
+            margin-top: 2px;
+        }
+        .spark-motif-eyes {
+            display: flex;
+            gap: 4px;
+        }
+        .spark-motif-eye {
+            width: 4px;
+            height: 4px;
+            background: rgba(245,197,24,0.35);
+            border-radius: 50%;
+        }
+        @keyframes sparkMotifFloat {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
+            50% { transform: translateY(-6px) rotate(3deg); opacity: 0.9; }
+        }
+        .spark-motif.pos-tr { top: clamp(20px, 4vh, 40px); right: clamp(40px, 5vw, 80px); }
+        .spark-motif.pos-bl { bottom: clamp(20px, 4vh, 40px); left: clamp(40px, 5vw, 80px); animation-delay: -2s; }
+        .spark-motif.pos-tl { top: clamp(20px, 4vh, 40px); left: clamp(40px, 5vw, 80px); animation-delay: -4s; }
+
+        /* TRACTION SLIDE — warm gold tint */
+        #s-traction { background: linear-gradient(180deg, #FFF8ED 0%, #FFF0D6 100%); }
+
+        /* DARK CTA SLIDE */
+        #s-close {
+            background: linear-gradient(180deg, #0a0812 0%, #111020 40%, #0d0b18 100%);
+        }
+        #s-close .hero-title { color: white; }
+        #s-close .glow-text {
+            background: linear-gradient(135deg, var(--gold-bright), var(--orange), var(--gold-bright));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        #s-close p { color: rgba(255,255,255,0.7); }
+        #s-close a { color: rgba(255,255,255,0.7); }
+        #s-close a:hover { color: var(--gold-bright); }
+        #s-close .pill { background: rgba(245,197,24,0.1); color: var(--gold-bright); border-color: rgba(245,197,24,0.2); }
+        #s-close .pill-sage { background: rgba(90,144,64,0.1); color: #7FB069; border-color: rgba(90,144,64,0.2); }
+        #s-close .divider { background: linear-gradient(90deg, var(--gold-bright), var(--orange)); }
+        #s-close #qr-container { background: white; }
+        #s-close .r5 { color: rgba(255,255,255,0.5) !important; }
+        #s-close .r5 svg { fill: rgba(255,255,255,0.5); }
+
+        /* CTA tower background */
+        .cta-tower-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.08;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* SCREENSHOT SLIDESHOW */
+        .phone-img {
+            position: absolute;
+            inset: 4px;
+            width: calc(100% - 8px);
+            height: calc(100% - 8px);
+            border-radius: 28px;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 1.5s ease;
+        }
+        .phone-img.active { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div id="progress"></div>
+<nav id="nav" aria-label="Slide navigation"></nav>
+<div id="counter">01 / 11</div>
+<div id="keys"><span class="key">&uarr;</span><span class="key">&darr;</span> navigate</div>
+
+
+<!-- ===================== 1. HOOK ===================== -->
+<section class="slide" id="s-hook">
+    <div class="slide-inner center" style="gap: clamp(1.2rem, 3vh, 2.2rem);">
+
+        <div class="hero-title r">
+            Your stake is&nbsp;<span class="glow-text">alive.</span>
+        </div>
+
+        <p class="r r1" style="font-family: var(--font-heading); font-size: clamp(1.3rem, 2.8vw, 2.2rem); font-weight: 600; color: var(--text-secondary); max-width: 600px;">
+            Forget it and <strong style="color: var(--coral);">someone takes it.</strong>
+        </p>
+
+        <div class="spark-states r r2" style="margin: clamp(0.5rem, 1.5vh, 1rem) 0;">
+            <div class="spark-state">
+                <div class="spark-mini spark-charged">
+                    <div class="spark-mini-eyes">
+                        <div class="spark-mini-eye"></div>
+                        <div class="spark-mini-eye"></div>
+                    </div>
+                    <div class="spark-mini-mouth"></div>
+                </div>
+                <span class="spark-label" style="color: var(--sage);">Charged</span>
+            </div>
+            <div class="spark-state">
+                <div class="spark-mini spark-fading">
+                    <div class="spark-mini-eyes">
+                        <div class="spark-mini-eye"></div>
+                        <div class="spark-mini-eye"></div>
+                    </div>
+                    <div class="spark-mini-mouth"></div>
+                </div>
+                <span class="spark-label" style="color: var(--amber);">Fading</span>
+            </div>
+            <div class="spark-state">
+                <div class="spark-mini spark-dead">
+                    <div class="spark-mini-eyes">
+                        <div class="spark-mini-eye"></div>
+                        <div class="spark-mini-eye"></div>
+                    </div>
+                    <div class="spark-mini-mouth"></div>
+                </div>
+                <span class="spark-label" style="color: var(--text-muted);">Stolen</span>
+            </div>
+        </div>
+
+        <!-- Hook breathes. No explanation. The mystery pulls them forward. -->
+    </div>
+</section>
+
+
+<!-- ===================== 2. PROBLEM ===================== -->
+<section class="slide" id="s-problem">
+    <div class="spark-motif pos-tr"><div class="spark-motif-eyes"><div class="spark-motif-eye"></div><div class="spark-motif-eye"></div></div></div>
+    <div class="slide-inner center">
+        <div class="overline r">The Problem</div>
+
+        <h1 class="r r1">
+            Nobody opens their<br>DeFi app <span class="glow-text">twice.</span>
+        </h1>
+
+        <div class="stat-strip r r2">
+            <div class="stat-item">
+                <div class="stat-number" style="color: var(--coral);">73%</div>
+                <div class="stat-label">DeFi users churn in 7 days<br><span style="font-size: 0.85em; opacity: 0.6;">Dune Analytics, 2024</span></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: var(--coral);">0</div>
+                <div class="stat-label">Reasons to open a vault daily</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: var(--sage);">30x</div>
+                <div class="stat-label">Snapchat opens / day</div>
+            </div>
+        </div>
+
+        <p class="r r3 body-lg" style="max-width: 480px;">
+            Snapchat gets 30 opens/day from a streak counter.<br>DeFi has <strong>nothing</strong>.
+        </p>
+    </div>
+</section>
+
+
+<!-- ===================== 3. VALUE PROP ===================== -->
+<section class="slide">
+    <div class="slide-inner left" style="flex-direction: row; align-items: center; gap: clamp(2rem, 5vw, 5rem); flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 280px;">
+            <div class="overline r">The Monolith</div>
+
+            <h1 class="r r1" style="margin: var(--gap-sm) 0;">
+                r/Place meets DeFi<br><span class="glow-text">&mdash; in 3D.</span>
+            </h1>
+
+            <p class="r r2 body-lg" style="max-width: 480px;">
+                A 3D tower where every block is real territory, backed by USDC on Solana. Stake to claim. Charge daily to hold. Go dormant &mdash; and your block is <strong style="color: var(--coral);">up for grabs</strong>.
+            </p>
+
+            <div class="r r3" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: var(--gap-sm);">
+                <span class="pill">On-chain ownership</span>
+                <span class="pill pill-sage">Daily ritual</span>
+                <span class="pill pill-coral">Territory war</span>
+            </div>
+        </div>
+
+        <!-- Animated 3D tower canvas -->
+        <div class="r r2" style="width: clamp(220px, 28vw, 340px); height: clamp(260px, 40vh, 400px); flex-shrink: 0;">
+            <canvas class="tower-canvas" style="width: 100%; height: 100%;"></canvas>
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================== 4. HOW IT WORKS ===================== -->
+<section class="slide">
+    <div class="spark-motif pos-bl"><div class="spark-motif-eyes"><div class="spark-motif-eye"></div><div class="spark-motif-eye"></div></div></div>
+    <div class="slide-inner center">
+        <div class="overline r">How It Works</div>
+        <h1 class="r r1">
+            Three taps. <span class="glow-text">30 seconds.</span>
+        </h1>
+
+        <div class="g3 r r2" style="max-width: 900px; width: 100%;">
+            <div class="step-card">
+                <div class="step-num">1</div>
+                <div class="step-icon" style="background: rgba(212,160,23,0.12);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-gold"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M12 10v4m-2-2h4"/></svg>
+                </div>
+                <h3 style="color: var(--text); font-size: var(--h3-size);">Stake $1 USDC</h3>
+                <p style="color: var(--text-secondary);">One tap via <strong style="color: var(--gold-deep);">Seed Vault</strong>. No browser. No extension.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">2</div>
+                <div class="step-icon" style="background: rgba(90,144,64,0.12);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sage"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                </div>
+                <h3 style="color: var(--text); font-size: var(--h3-size);">Claim Your Block</h3>
+                <p style="color: var(--text-secondary);">A Spark is born. It's <strong>yours</strong>.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">3</div>
+                <div class="step-icon" style="background: rgba(224,69,69,0.12);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-coral"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <h3 style="color: var(--text); font-size: var(--h3-size);">Defend It Daily</h3>
+                <p style="color: var(--text-secondary);">Push notification when fading. Miss 3 days &mdash; <strong style="color: var(--coral);">block is claimable</strong>.</p>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+
+<!-- ===================== 5. DEMO ===================== -->
+<section class="slide" id="s-demo">
+    <div class="slide-inner center">
+        <div class="overline r">Live on Solana Seeker</div>
+        <h1 class="r r1">
+            Real app. <span class="glow-text">Real device.</span>
+        </h1>
+
+        <!-- Phone mockup — THE STAR of this slide -->
+        <div class="r r2" style="display: flex; flex-direction: column; align-items: center;">
+            <div style="width: clamp(240px, 28vw, 300px); height: clamp(440px, 58vh, 580px); border-radius: 36px; background: #111122; border: 3px solid rgba(212,160,23,0.2); position: relative; overflow: hidden; box-shadow: 0 12px 60px rgba(0,0,0,0.15), 0 0 80px rgba(212,160,23,0.08);">
+                <div style="width: 36%; height: 24px; background: #111122; border-radius: 0 0 14px 14px; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 3;"></div>
+                <img id="phone-screenshot-1" class="phone-img" alt="Monolith tower view">
+                <img id="phone-screenshot-2" class="phone-img" alt="Monolith detail view">
+                <img id="phone-screenshot-3" class="phone-img" alt="Monolith block detail">
+                <div id="phone-fallback" style="position: absolute; inset: 4px; border-radius: 32px; background: linear-gradient(180deg, #0a0812 0%, #111020 50%, #0a0812 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                    <div style="color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">THE MONOLITH</div>
+                    <div style="color: var(--gold-bright); font-weight: 800; font-size: 13px; padding: 8px 20px; border: 1.5px solid rgba(245,197,24,0.3); border-radius: 999px;">Loading...</div>
+                </div>
+            </div>
+            <p style="font-size: var(--small-size); color: var(--text-muted); font-weight: 600; text-align: center; margin-top: 10px; letter-spacing: 0.05em;">Real app &middot; Solana Seeker &middot; 60 FPS</p>
+        </div>
+
+        <div class="r r3" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+            <span class="pill">Custom GLSL shaders</span>
+            <span class="pill pill-sage">Haptic feedback</span>
+            <span class="pill pill-coral">Claim celebration</span>
+            <span class="pill pill-sky">5 Spark personalities</span>
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================== 6. MARKET ===================== -->
+<section class="slide">
+    <div class="slide-inner center">
+        <div class="overline r">The Market</div>
+        <h1 class="r r1">
+            Who is <span class="glow-text">this for?</span>
+        </h1>
+
+        <div class="contrast-grid r r2">
+            <div class="contrast-card">
+                <div style="font-family: var(--font-display); font-size: clamp(1.8rem, 3.5vw, 2.5rem); color: var(--gold); line-height: 1; margin-bottom: 8px;">380K+</div>
+                <h3 style="color: var(--text); margin-bottom: 4px;">Seeker owners</h3>
+                <p style="font-size: var(--small-size);">Every Seeker ships with Seed Vault and MWA. The Monolith is built for their hardware.</p>
+            </div>
+            <div class="contrast-card">
+                <div style="font-family: var(--font-display); font-size: clamp(1.8rem, 3.5vw, 2.5rem); color: var(--sage); line-height: 1; margin-bottom: 8px;">#1</div>
+                <h3 style="color: var(--text); margin-bottom: 4px;">Idle game retention</h3>
+                <p style="font-size: var(--small-size);">Idle games have the highest D30 retention of any mobile genre. The Monolith is an idle game with real money.</p>
+            </div>
+        </div>
+
+        <div class="insight r r3" style="max-width: 700px;">
+            <p>The Seeker dApp Store launches with <strong>zero idle games</strong>. The Monolith is designed to be the first &mdash; a daily-open app for people who already stake crypto and already play games on their phone.</p>
+        </div>
+
+        <div class="r r4" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+            <span class="pill">dApp Store day-one app</span>
+            <span class="pill pill-sky">Blue ocean: no idle games on Seeker</span>
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================== 7. BUSINESS MODEL ===================== -->
+<section class="slide">
+    <div class="slide-inner center">
+        <div class="overline r">Business Model</div>
+        <h1 class="r r1">
+            Three revenue streams.<br><span class="glow-text">No token needed.</span>
+        </h1>
+
+        <div class="g3 r r2" style="max-width: 900px; width: 100%;">
+            <div class="card" style="text-align: center; padding: clamp(1.2rem, 2.5vw, 2rem);">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" width="28" height="28"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                    <h3 style="color: var(--text);">Yield Spread</h3>
+                </div>
+                <p style="color: var(--text-secondary);">10-20% of DeFi yield from staked USDC via Drift, Kamino, Orca</p>
+            </div>
+            <div class="card" style="text-align: center; padding: clamp(1.2rem, 2.5vw, 2rem);">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" width="28" height="28"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    <h3 style="color: var(--text);">Boost Purchases</h3>
+                </div>
+                <p style="color: var(--text-secondary);">Instant charge refill for USDC &mdash; skip the daily wait</p>
+            </div>
+            <div class="card" style="text-align: center; padding: clamp(1.2rem, 2.5vw, 2rem);">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--lavender)" stroke-width="2" stroke-linecap="round" width="28" height="28"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    <h3 style="color: var(--text);">Premium Skins</h3>
+                </div>
+                <p style="color: var(--text-secondary);">Custom block styles, animated textures, rare visual effects</p>
+            </div>
+        </div>
+
+        <div class="insight r r3" style="max-width: 700px;">
+            <p>10K users &times; $5 avg stake = <strong>$50K TVL</strong>. Break-even at ~5K active users. No token. No speculation.</p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================== 8. TRACTION ===================== -->
+<section class="slide" id="s-traction">
+    <div class="spark-motif pos-tl"><div class="spark-motif-eyes"><div class="spark-motif-eye"></div><div class="spark-motif-eye"></div></div></div>
+    <div class="slide-inner center">
+        <div class="overline r">What I Built &mdash; Solo, in 6 Weeks</div>
+        <h1 class="r r1">Not a prototype.</h1>
+
+        <div class="stat-strip r r2" style="gap: clamp(24px, 5vw, 60px);">
+            <div class="stat-item">
+                <div class="stat-number stat-number-lg">60</div>
+                <div class="stat-label">FPS on mobile</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number stat-number-lg">320+</div>
+                <div class="stat-label">Tests passing</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number stat-number-lg">650</div>
+                <div class="stat-label">On-chain blocks</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number stat-number-lg">100%</div>
+                <div class="stat-label">Withdrawable</div>
+            </div>
+        </div>
+
+        <div class="tech-pills r r3">
+            <span class="pill pill-gold-accent">Anchor / Rust</span>
+            <span class="pill pill-gold-accent">MWA + Seed Vault</span>
+            <span class="pill pill-gold-accent">GLSL Shaders</span>
+            <span class="pill pill-sage">Expo 54</span>
+            <span class="pill pill-sky">React Three Fiber</span>
+            <span class="pill pill-sage">Colyseus Multiplayer</span>
+            <span class="pill pill-sky">Solana Blinks</span>
+            <span class="pill">SOAR Leaderboard</span>
+            <span class="pill pill-sage">Tapestry Social</span>
+            <span class="pill pill-coral">Push Notifs</span>
+            <span class="pill">16 SFX + Haptics</span>
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================== 9. ROADMAP ===================== -->
+<section class="slide">
+    <div class="slide-inner center">
+        <div class="overline r">Roadmap</div>
+        <h1 class="r r1">From hackathon to&nbsp;<span class="glow-text">platform.</span></h1>
+
+        <div class="timeline r r2" style="max-width: 960px;">
+            <div class="t-phase now">
+                <div class="t-label">Q1 2026</div>
+                <div class="t-time">NOW</div>
+                <div class="t-desc">Ship-ready demo<br>Seeker native<br>On-chain program</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Q2 2026</div>
+                <div class="t-time">Apr &ndash; Jun</div>
+                <div class="t-desc">dApp Store launch<br>Referral system<br>$SKR integration</div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Q3 2026</div>
+                <div class="t-time">Jul &ndash; Sep</div>
+                <div class="t-desc">Real DeFi yield<br>Seasonal events<br>AI Agent API<br><span style="font-size: 0.8em; color: var(--text-muted);">(AI agents claim &amp; manage blocks on-chain)</span></div>
+            </div>
+            <div class="t-phase">
+                <div class="t-label">Q4 2026</div>
+                <div class="t-time">Oct &ndash; Dec</div>
+                <div class="t-desc">Multi-tower worlds<br>Community events<br>Tower SDK</div>
+            </div>
+        </div>
+
+        <p class="r r3 body-lg" style="max-width: 500px; font-weight: 700; color: var(--text);">
+            Q1 is <strong class="gold">done</strong>. Everything else has a date.
+        </p>
+    </div>
+</section>
+
+
+<!-- ===================== 10. TEAM ===================== -->
+<section class="slide">
+    <div class="slide-inner center">
+        <div class="overline r">The Builder</div>
+        <h1 class="r r1">
+            One dev. <span class="glow-text">Full stack.</span>
+        </h1>
+
+        <div class="team-card r r2" style="margin: 0 auto;">
+            <img id="team-avatar-img" class="team-avatar-img" alt="Hunter" src="" style="display:none;"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <div id="team-avatar-fallback" class="team-avatar-fallback">H</div>
+            <div style="text-align: left;">
+                <h3 style="font-size: var(--body-lg); color: var(--text); margin-bottom: 6px;">Hunter</h3>
+                <p style="font-size: var(--body-size); color: var(--gold-deep); font-weight: 700; margin-bottom: 10px;">
+                    Solo Builder &mdash; CS student in Fairbanks, Alaska. No tech hub. No team.
+                </p>
+                <p style="font-size: var(--body-size);">
+                    Built the entire stack in 6 weeks: Anchor smart contracts, 3D rendering engine,
+                    real-time multiplayer, custom GLSL shaders, and a production deploy on Railway.
+                </p>
+                <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                    <span class="pill">Rust / Anchor</span>
+                    <span class="pill">React Native</span>
+                    <span class="pill">Three.js / GLSL</span>
+                    <span class="pill pill-sage">Colyseus</span>
+                </div>
+            </div>
+        </div>
+
+        <p class="r r3 body-lg" style="max-width: 520px; font-weight: 700; color: var(--text);">
+            "I built this alone in 6 weeks.<br><span class="glow-text">Imagine what happens with a team.</span>"
+        </p>
+    </div>
+</section>
+
+
+<!-- ===================== 11. CTA ===================== -->
+<section class="slide" id="s-close">
+    <canvas class="cta-tower-bg tower-canvas"></canvas>
+    <div class="slide-inner center" style="gap: clamp(0.8rem, 2.5vh, 1.5rem);">
+
+        <div class="hero-title r">
+            <span class="glow-text">THE MONOLITH</span>
+        </div>
+
+        <p class="r r1" style="font-family: var(--font-heading); font-size: clamp(1.2rem, 2.5vw, 2rem); font-weight: 600; color: var(--text-secondary);">
+            The tower is live. Come claim your block.
+        </p>
+
+        <p class="r r1" style="font-size: var(--small-size); color: rgba(255,255,255,0.55); font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;">
+            Solana Seeker Native &middot; On-chain USDC &middot; Open Source
+        </p>
+
+        <div class="divider r r2" style="margin: 0 auto;"></div>
+
+        <div class="r r3" style="display: flex; gap: clamp(28px, 5vw, 52px); align-items: center; flex-wrap: wrap; justify-content: center;">
+            <div id="qr-container" style="width: clamp(130px, 20vw, 190px); height: clamp(130px, 20vw, 190px); border-radius: 16px; background: white; border: 1.5px solid var(--card-border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px; box-shadow: 0 2px 12px rgba(212,160,23,0.04);">
+                <canvas id="qr-canvas" style="width: 100%; height: auto; image-rendering: pixelated;"></canvas>
+                <span style="font-size: var(--small-size); color: var(--text-muted); font-weight: 600;">Try the APK <span style="opacity: 0.6; font-size: 0.85em;">(Android)</span></span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+                <a href="https://github.com/epicexcelsior/monolith" target="_blank" style="display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-weight: 700; font-size: var(--body-size); text-decoration: none;">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    github.com/epicexcelsior/monolith
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-weight: 600; font-size: var(--body-size); text-decoration: none;">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    @exce1
+                </a>
+            </div>
+        </div>
+
+        <div class="r r4" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+            <span class="pill pill-sage">Live on Seeker</span>
+            <span class="pill">Solana Mobile Hackathon 2026</span>
+        </div>
+
+        <div class="r r5" style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--small-size);">
+            <svg viewBox="0 0 397.7 311.7" fill="currentColor" width="18" height="18"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></svg>
+            Built on Solana
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================== JAVASCRIPT ===================== -->
+<script>
+/* DECK CONTROLLER */
+class Deck {
+    constructor() {
+        this.slides = [...document.querySelectorAll('.slide')];
+        this.idx = 0;
+        this.buildNav();
+        this.observe();
+        this.keys();
+        this.touch();
+        this.wheel();
+        this.updateUI();
+    }
+
+    buildNav() {
+        const nav = document.getElementById('nav');
+        this.slides.forEach((_, i) => {
+            const d = document.createElement('button');
+            d.className = 'dot';
+            d.setAttribute('aria-label', `Slide ${i + 1}`);
+            d.onclick = () => this.go(i);
+            nav.appendChild(d);
+        });
+        this.dots = [...nav.querySelectorAll('.dot')];
+    }
+
+    observe() {
+        const obs = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('visible');
+                    const i = this.slides.indexOf(e.target);
+                    if (i !== -1) { this.idx = i; this.updateUI(); }
+                }
+            });
+        }, { threshold: 0.45 });
+        this.slides.forEach(s => obs.observe(s));
+    }
+
+    keys() {
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault(); this.go(Math.min(this.idx + 1, this.slides.length - 1));
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault(); this.go(Math.max(this.idx - 1, 0));
+            } else if (e.key === 'Home') { e.preventDefault(); this.go(0); }
+            else if (e.key === 'End') { e.preventDefault(); this.go(this.slides.length - 1); }
+        });
+    }
+
+    touch() {
+        let y0 = 0;
+        document.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', e => {
+            const d = y0 - e.changedTouches[0].clientY;
+            if (Math.abs(d) > 50) this.go(d > 0 ? Math.min(this.idx + 1, this.slides.length - 1) : Math.max(this.idx - 1, 0));
+        }, { passive: true });
+    }
+
+    wheel() {
+        let last = 0;
+        document.addEventListener('wheel', e => {
+            const now = Date.now();
+            if (now - last < 500) return;
+            last = now;
+            this.go(e.deltaY > 0 ? Math.min(this.idx + 1, this.slides.length - 1) : Math.max(this.idx - 1, 0));
+        }, { passive: true });
+    }
+
+    go(i) {
+        if (i < 0 || i >= this.slides.length) return;
+        this.idx = i;
+        this.slides[i].scrollIntoView({ behavior: 'smooth' });
+        this.updateUI();
+    }
+
+    updateUI() {
+        const pct = (this.idx / (this.slides.length - 1)) * 100;
+        document.getElementById('progress').style.width = pct + '%';
+        this.dots.forEach((d, i) => d.classList.toggle('active', i === this.idx));
+        document.getElementById('counter').textContent =
+            String(this.idx + 1).padStart(2, '0') + ' / ' + String(this.slides.length).padStart(2, '0');
+    }
+}
+
+/* 3D OBELISK TOWER -- canvas renderer */
+class Tower3D {
+    constructor(canvas) {
+        this.c = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.time = 0;
+        this.blocks = [];
+        this.rotation = 0;
+
+        const colors = [
+            '#F5C518','#E8941A','#7FB069','#5BA4CF','#FF6B6B',
+            '#9B8EC4','#D4A017','#FFD700','#34D399','#FF8C42',
+            '#B8860B','#5A9040','#3D8AB5','#D04444','#7B6EA4'
+        ];
+
+        // Obelisk shape: wide base, aggressive taper, pyramid cap
+        const totalLayers = 28;
+        for (let layer = 0; layer < totalLayers; layer++) {
+            const t = layer / (totalLayers - 1); // 0 = bottom, 1 = top
+
+            // Obelisk taper: wide base, narrow sharply toward top
+            let radius, blocksInLayer;
+            if (t < 0.85) {
+                // Main body: gradual taper
+                const bodyT = t / 0.85;
+                radius = 65 - bodyT * 35; // 65 -> 30
+                blocksInLayer = Math.max(3, Math.floor(10 - bodyT * 6)); // 10 -> 4
+            } else {
+                // Pyramid cap: rapid taper to point
+                const capT = (t - 0.85) / 0.15;
+                radius = 30 - capT * 26; // 30 -> 4
+                blocksInLayer = Math.max(1, Math.floor(4 - capT * 3)); // 4 -> 1
+            }
+
+            for (let i = 0; i < blocksInLayer; i++) {
+                const angle = (i / blocksInLayer) * Math.PI * 2;
+                const isDead = Math.random() < 0.06;
+                const energy = isDead ? 0 : 0.3 + Math.random() * 0.7;
+
+                // Golden capstone for very top
+                const isCapstone = layer >= totalLayers - 2;
+                const color = isCapstone ? '#FFD700' : (isDead ? '#555' : colors[Math.floor(Math.random() * colors.length)]);
+
+                this.blocks.push({
+                    layer, angle, radius,
+                    color,
+                    energy: isCapstone ? 1 : energy,
+                    pulseOffset: Math.random() * Math.PI * 2,
+                    blinkTimer: Math.random() * 6,
+                    blinkState: 1,
+                    isDead: isCapstone ? false : isDead,
+                    isCapstone
+                });
+            }
+        }
+
+        this.totalLayers = totalLayers;
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.loop();
+    }
+
+    resize() {
+        const rect = this.c.parentElement.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.c.width = rect.width * dpr;
+        this.c.height = rect.height * dpr;
+        this.c.style.width = rect.width + 'px';
+        this.c.style.height = rect.height + 'px';
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this.w = rect.width;
+        this.h = rect.height;
+    }
+
+    loop() {
+        const dt = 1/60;
+        this.time += dt;
+        this.rotation += dt * 0.25;
+
+        this.ctx.clearRect(0, 0, this.w, this.h);
+
+        const cx = this.w / 2;
+        const blockSize = Math.min(this.w / 16, 14);
+        const layerHeight = blockSize * 0.88;
+        // Center tower vertically
+        const towerHeight = this.totalLayers * layerHeight;
+        const baseY = Math.min(this.h * 0.92, (this.h + towerHeight) / 2 + 10);
+
+        // Draw foundation first
+        const baseW = Math.min(this.w * 0.65, 170);
+        this.ctx.fillStyle = '#B8A07A';
+        this.roundRect(cx - baseW/2 - 8, baseY + 2, baseW + 16, 8, 4);
+        this.ctx.fill();
+        this.ctx.fillStyle = '#A8926A';
+        this.roundRect(cx - baseW/2, baseY + 9, baseW, 5, 3);
+        this.ctx.fill();
+
+        // Sort by depth
+        const sorted = [...this.blocks].sort((a, b) => {
+            const za = Math.cos(a.angle + this.rotation) * a.radius;
+            const zb = Math.cos(b.angle + this.rotation) * b.radius;
+            return za - zb;
+        });
+
+        for (const block of sorted) {
+            const angle = block.angle + this.rotation;
+            const x = cx + Math.sin(angle) * block.radius;
+            const y = baseY - block.layer * layerHeight;
+            const z = Math.cos(angle) * block.radius;
+
+            if (z < -8) continue;
+
+            const depth = (z + 70) / 140;
+            const scale = 0.55 + depth * 0.45;
+            const alpha = 0.25 + depth * 0.75;
+
+            const pulse = block.isDead ? 0.4 : 0.7 + 0.3 * Math.sin(this.time * 2 + block.pulseOffset);
+            const size = blockSize * scale;
+
+            // Capstone glow
+            if (block.isCapstone) {
+                const glowSize = size * 3;
+                const grad = this.ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+                grad.addColorStop(0, 'rgba(255,215,0,0.25)');
+                grad.addColorStop(0.5, 'rgba(255,215,0,0.08)');
+                grad.addColorStop(1, 'transparent');
+                this.ctx.fillStyle = grad;
+                this.ctx.fillRect(x - glowSize, y - glowSize, glowSize * 2, glowSize * 2);
+            }
+            // Normal glow
+            else if (!block.isDead && block.energy > 0.5) {
+                const glowSize = size * 1.8 * block.energy;
+                const grad = this.ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+                grad.addColorStop(0, this.hexToRgba(block.color, 0.12 * pulse * alpha));
+                grad.addColorStop(1, 'transparent');
+                this.ctx.fillStyle = grad;
+                this.ctx.fillRect(x - glowSize, y - glowSize, glowSize * 2, glowSize * 2);
+            }
+
+            // Block
+            const r = size * 0.18;
+            this.ctx.globalAlpha = alpha * pulse;
+            this.ctx.fillStyle = block.color;
+            this.roundRect(x - size/2, y - size/2, size, size, r);
+            this.ctx.fill();
+
+            // 3D edge
+            if (depth > 0.3) {
+                this.ctx.fillStyle = this.darken(block.color, 0.6);
+                this.ctx.fillRect(x + size/2, y - size/2 + 2, 3 * scale, size - 2);
+            }
+
+            // Spark face
+            if (size > 7 && depth > 0.4 && !block.isDead) {
+                block.blinkTimer -= dt;
+                if (block.blinkTimer <= 0) {
+                    block.blinkState = block.blinkState === 1 ? 0.1 : 1;
+                    block.blinkTimer = block.blinkState === 1 ? (2.5 + Math.random() * 3) : 0.12;
+                }
+
+                const eyeSize = Math.max(1.5, size * 0.11);
+                const eyeGap = size * 0.17;
+                const eyeY = y - size * 0.06;
+                const eyeH = eyeSize * block.blinkState;
+
+                this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                this.ctx.beginPath();
+                this.ctx.ellipse(x - eyeGap, eyeY, eyeSize, eyeH, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.beginPath();
+                this.ctx.ellipse(x + eyeGap, eyeY, eyeSize, eyeH, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                const mouthY = y + size * 0.1;
+                this.ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                if (block.energy > 0.6) {
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(x, mouthY, size * 0.1, size * 0.05, 0, 0, Math.PI);
+                    this.ctx.fill();
+                } else {
+                    this.ctx.fillRect(x - size * 0.07, mouthY, size * 0.14, Math.max(1, size * 0.025));
+                }
+            }
+
+            // Dead X eyes
+            if (block.isDead && size > 7 && depth > 0.4) {
+                const xs = size * 0.08;
+                const eyeY = y - size * 0.04;
+                this.ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                this.ctx.lineWidth = Math.max(1, size * 0.035);
+                for (const dx of [-size * 0.14, size * 0.14]) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x + dx - xs, eyeY - xs);
+                    this.ctx.lineTo(x + dx + xs, eyeY + xs);
+                    this.ctx.moveTo(x + dx + xs, eyeY - xs);
+                    this.ctx.lineTo(x + dx - xs, eyeY + xs);
+                    this.ctx.stroke();
+                }
+            }
+
+            this.ctx.globalAlpha = 1;
+        }
+
+        requestAnimationFrame(() => this.loop());
+    }
+
+    roundRect(x, y, w, h, r) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + r, y);
+        this.ctx.lineTo(x + w - r, y);
+        this.ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        this.ctx.lineTo(x + w, y + h - r);
+        this.ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        this.ctx.lineTo(x + r, y + h);
+        this.ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        this.ctx.lineTo(x, y + r);
+        this.ctx.quadraticCurveTo(x, y, x + r, y);
+        this.ctx.closePath();
+    }
+
+    hexToRgba(hex, a) {
+        const r = parseInt(hex.slice(1,3), 16);
+        const g = parseInt(hex.slice(3,5), 16);
+        const b = parseInt(hex.slice(5,7), 16);
+        return `rgba(${r},${g},${b},${a})`;
+    }
+
+    darken(hex, factor) {
+        const r = Math.floor(parseInt(hex.slice(1,3), 16) * factor);
+        const g = Math.floor(parseInt(hex.slice(3,5), 16) * factor);
+        const b = Math.floor(parseInt(hex.slice(5,7), 16) * factor);
+        return `rgb(${r},${g},${b})`;
+    }
+}
+
+/* ASSET LOADER -- loads data URI files via fetch with XHR fallback */
+function loadDataUri(filename) {
+    return fetch(filename)
+        .then(r => r.ok ? r.text() : Promise.reject())
+        .then(data => {
+            const trimmed = data.trim();
+            if (trimmed.startsWith('data:')) return trimmed;
+            throw new Error('Not a data URI');
+        })
+        .catch(() => {
+            // XHR fallback for file:// protocol
+            return new Promise((resolve, reject) => {
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', filename, true);
+                    xhr.onload = function() {
+                        if (xhr.status === 200 || xhr.status === 0) {
+                            const data = xhr.responseText.trim();
+                            if (data.startsWith('data:')) return resolve(data);
+                        }
+                        reject();
+                    };
+                    xhr.onerror = reject;
+                    xhr.send();
+                } catch(e) { reject(e); }
+            });
+        });
+}
+
+/* AVATAR LOADER */
+function loadAvatar() {
+    loadDataUri('avatar-data-uri.txt').then(dataUri => {
+        const img = document.getElementById('team-avatar-img');
+        const fb = document.getElementById('team-avatar-fallback');
+        if (img) { img.src = dataUri; img.style.display = 'block'; }
+        if (fb) fb.style.display = 'none';
+    }).catch(() => { /* fallback H stays visible */ });
+}
+
+/* SCREENSHOT SLIDESHOW -- loads screenshots, crossfades between them */
+function loadScreenshots() {
+    const imgs = [
+        document.getElementById('phone-screenshot-1'),
+        document.getElementById('phone-screenshot-2'),
+        document.getElementById('phone-screenshot-3')
+    ];
+    const fb = document.getElementById('phone-fallback');
+    const loadedImgs = [];
+    let slideshowStarted = false;
+
+    function onImageLoaded(img) {
+        loadedImgs.push(img);
+        if (fb) fb.style.display = 'none';
+        if (loadedImgs.length === 1) loadedImgs[0].classList.add('active');
+        if (loadedImgs.length >= 2 && !slideshowStarted) {
+            slideshowStarted = true;
+            let idx = 0;
+            setInterval(() => {
+                loadedImgs[idx].classList.remove('active');
+                idx = (idx + 1) % loadedImgs.length;
+                loadedImgs[idx].classList.add('active');
+            }, 3500);
+        }
+    }
+
+    ['screenshot1-data-uri.txt', 'screenshot2-data-uri.txt', 'screenshot3-data-uri.txt'].forEach((file, i) => {
+        loadDataUri(file).then(dataUri => {
+            if (imgs[i]) { imgs[i].src = dataUri; onImageLoaded(imgs[i]); }
+        }).catch(() => {});
+    });
+}
+
+/* QR CODE -- real scannable QR for APK URL */
+function generateQR(text, canvas) {
+    // Pre-computed QR code for https://expo.dev/artifacts/eas/qN92LCNGBf9pNz25ar3fN.apk
+    // Generated with npm 'qrcode' library (Version 4, 33x33, ECC M, byte mode)
+    // Each row: '1' = dark module, '0' = light module
+    const qr = [
+        '111111100100011011111001001111111',
+        '100000100000111111001000101000001',
+        '101110101000010100100101001011101',
+        '101110101111001111010001001011101',
+        '101110101110100100110111001011101',
+        '100000101011110111000110101000001',
+        '111111101010101010101010101111111',
+        '000000001110001100111101000000000',
+        '101111100000010101010011101111100',
+        '001010011001100010111101101101111',
+        '001101110001100110100000010010100',
+        '011111011111001110001101011011101',
+        '110111110011000101000001110101011',
+        '010001011110101110001110000000011',
+        '000110101100001000100110111111110',
+        '001010010011111010011110111010100',
+        '000000110010101001001010110111001',
+        '010101011011000010111111001101100',
+        '101011100010100110100110100110110',
+        '100001011010010010110110101111110',
+        '110111110110110011000010010101000',
+        '100101001010001100111101001000101',
+        '100010110100011111101010010010010',
+        '101001011010110100010100110101100',
+        '100100101011101101001001111110101',
+        '000000001110000001011101100010111',
+        '111111100000000111101101101010110',
+        '100000101001101000000111100011111',
+        '101110101001011100101010111111011',
+        '101110101000010110110010110011011',
+        '101110101111101000000010011100100',
+        '100000100011010010110111010011100',
+        '111111101001000011000010101100110',
+    ];
+    const size = 33;
+    const quiet = 2; // quiet zone modules
+    const total = size + quiet * 2;
+    const scale = Math.max(3, Math.floor(Math.min(180, canvas.parentElement.clientWidth - 20) / total));
+    canvas.width = total * scale;
+    canvas.height = total * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#111122';
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            if (qr[y][x] === '1') {
+                ctx.fillRect((x + quiet) * scale, (y + quiet) * scale, scale, scale);
+            }
+        }
+    }
+}
+
+/* INIT */
+document.addEventListener('DOMContentLoaded', () => {
+    new Deck();
+    document.querySelector('.slide')?.classList.add('visible');
+    loadAvatar();
+    loadScreenshots();
+    // Eager-init value prop tower, lazy-init CTA tower on scroll
+    document.querySelectorAll('.tower-canvas').forEach(c => {
+        if (c.closest('#s-close')) {
+            const obs = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting) { new Tower3D(c); obs.disconnect(); }
+            }, { threshold: 0.1 });
+            obs.observe(c.closest('#s-close'));
+        } else {
+            new Tower3D(c);
+        }
+    });
+
+    // Generate QR code for APK download link
+    const qrCanvas = document.getElementById('qr-canvas');
+    if (qrCanvas) {
+        generateQR('https://expo.dev/artifacts/eas/qN92LCNGBf9pNz25ar3fN.apk', qrCanvas);
+    }
+});
+</script>
+</body>
+</html>
