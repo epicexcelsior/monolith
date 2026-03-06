@@ -1414,9 +1414,9 @@ Explicitly OUT OF SCOPE:
 - [ ] **Phase 6:** Unclaimed Block Restyle
 - [ ] **Phase 7:** Aesthetic Softening
 - [ ] **Phase 8:** Face Personality Choice (+ add Face section to customize)
-- [ ] **Phase 9:** Evolution Progress Bar
+- [x] **Phase 9:** Evolution Progress Bar — gold card above charge button, tier names both sides, streak req, pulse when close, FULLY EVOLVED at max, read-only for other players
 - [ ] **Phase 10:** Random Charge Reactions
-- [ ] **Phase 10a:** Evolution Celebration
+- [x] **Phase 10a:** Evolution Celebration — LevelUpCelebration watches justEvolved, "YOUR SPARK EVOLVED TO [TIER]" overlay, auto-clear 3.2s, float text label, multiplayer evolution detection
 - [ ] **Phase 11:** Onboarding V2 (add Face picker)
 - [ ] **Phase 12:** Polish & Test
 
