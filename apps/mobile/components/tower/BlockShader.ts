@@ -40,6 +40,7 @@ const vertexShader = /* glsl */ `
   attribute float aPersonality;   // -1=hash, 0-4=player choice
   attribute float aIsBot;         // 0=not bot, 1=bot
   attribute float aHasOwner;      // 0=unclaimed, 1=has owner
+  attribute float aChargeReaction; // -1=none, 0-4=reaction type during charge flash
 
   // Passed to fragment
   varying float vEnergy;
@@ -60,6 +61,7 @@ const vertexShader = /* glsl */ `
   varying float vPersonality;
   varying float vIsBot;
   varying float vHasOwner;
+  varying float vChargeReaction;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;       // raw local-space position (for interior mapping)
@@ -101,6 +103,7 @@ const vertexShader = /* glsl */ `
     vPersonality = aPersonality;
     vIsBot = aIsBot;
     vHasOwner = aHasOwner;
+    vChargeReaction = aChargeReaction;
     vLocalPos = position; // raw local-space vertex position
     // Block center from instance matrix translation column
     vBlockCenter = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
@@ -185,6 +188,7 @@ const fragmentShader = /* glsl */ `
   varying float vPersonality;
   varying float vIsBot;
   varying float vHasOwner;
+  varying float vChargeReaction;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;
@@ -381,6 +385,29 @@ const fragmentShader = /* glsl */ `
     float blink = 1.0 - smoothstep(0.0, 0.04, blinkPhase) + smoothstep(0.08, 0.12, blinkPhase);
     eyeOpen *= blink;
 
+    // ── 3.5 Charge reaction override ──
+    float forceBlush = 0.0;
+    if (vChargeReaction >= 0.0) {
+      int reaction = int(vChargeReaction + 0.5);
+      if (reaction == 0) {
+        // Joy: big smile, sparkle eyes
+        eyeOpen = 1.0;
+      } else if (reaction == 1) {
+        // Surprise: wide eyes
+        eyeOpen = 1.2;
+      } else if (reaction == 2) {
+        // Excited: squinty happy
+        eyeOpen = 0.4;
+      } else if (reaction == 3) {
+        // Grateful: gentle smile, forced blush
+        eyeOpen = 0.8;
+        forceBlush = 1.0;
+      } else {
+        // Wake-up: eyes snap open
+        eyeOpen = 1.0;
+      }
+    }
+
     // ── 4. Bigger features, gentler tier scaling ──
     float featureScale = 1.0 + evoTier * 0.025;
     float eyeRadius = 0.08 * featureScale;
@@ -458,7 +485,7 @@ const fragmentShader = /* glsl */ `
     // ── 7. Tier decorations ──
     // Tier 2+ (Flame): Blush marks
     float blushMask = 0.0;
-    if (evoTier >= 2.0 && energy > 0.5) {
+    if (evoTier >= 2.0 && energy > 0.5 || forceBlush > 0.5) {
       float blL = sdBlush(p, vec2(-0.17, -0.02));
       float blR = sdBlush(p, vec2(0.17, -0.02));
       blushMask = (1.0 - smoothstep(-0.008, 0.015, min(blL, blR))) * 0.35;
