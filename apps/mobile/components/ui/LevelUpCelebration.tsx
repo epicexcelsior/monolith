@@ -1,7 +1,8 @@
 /**
- * LevelUpCelebration — Full-screen momentary overlay for level-ups.
+ * LevelUpCelebration — Full-screen momentary overlay for evolution tier-ups.
  *
- * Triggered by usePlayerStore.levelUp.
+ * Triggered by useTowerStore.justEvolved (string tier name or null).
+ * Auto-clears after 3.2s.
  */
 
 import React, { useEffect } from "react";
@@ -13,40 +14,47 @@ import Animated, {
   withTiming,
   withDelay,
 } from "react-native-reanimated";
-import { usePlayerStore } from "@/stores/player-store";
+import { useTowerStore } from "@/stores/tower-store";
 import { COLORS, FONT_FAMILY } from "@/constants/theme";
 import { hapticLevelUp } from "@/utils/haptics";
 import { playLevelUp } from "@/utils/audio";
 
 export default function LevelUpCelebration() {
-  const levelUp = usePlayerStore((s) => s.levelUp);
-  const clearLevelUp = usePlayerStore((s) => s.clearLevelUp);
+  const justEvolved = useTowerStore((s) => s.justEvolved);
+  const clearJustEvolved = useTowerStore((s) => s.clearJustEvolved);
 
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
   const bgOpacity = useSharedValue(0);
 
   useEffect(() => {
-    if (levelUp == null) return;
+    if (justEvolved == null) return;
 
     // Haptic + SFX
     hapticLevelUp();
     playLevelUp();
 
-    // Animate
+    // Animate in then out
     scale.value = withSequence(
       withTiming(1.2, { duration: 300 }),
       withTiming(1, { duration: 200 }),
     );
     opacity.value = withSequence(
       withTiming(1, { duration: 200 }),
-      withDelay(1500, withTiming(0, { duration: 800 })),
+      withDelay(2000, withTiming(0, { duration: 800 })),
     );
     bgOpacity.value = withSequence(
       withTiming(1, { duration: 200 }),
-      withDelay(1500, withTiming(0, { duration: 800 })),
+      withDelay(2000, withTiming(0, { duration: 800 })),
     );
-  }, [levelUp, scale, opacity, bgOpacity]);
+
+    // Auto-clear after 3.2s
+    const timer = setTimeout(() => {
+      clearJustEvolved();
+    }, 3200);
+
+    return () => clearTimeout(timer);
+  }, [justEvolved, scale, opacity, bgOpacity, clearJustEvolved]);
 
   const contentStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -57,12 +65,13 @@ export default function LevelUpCelebration() {
     opacity: bgOpacity.value,
   }));
 
-  if (levelUp == null) return null;
+  if (justEvolved == null) return null;
 
   return (
     <Animated.View style={[styles.overlay, bgStyle]} pointerEvents="none">
       <Animated.View style={[styles.content, contentStyle]}>
-        <Text style={styles.levelText}>LEVEL {levelUp}</Text>
+        <Text style={styles.subtitle}>YOUR SPARK EVOLVED TO</Text>
+        <Text style={styles.tierText}>{justEvolved.toUpperCase()}</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -80,10 +89,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  levelText: {
+  subtitle: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    letterSpacing: 2,
+  },
+  tierText: {
     fontFamily: FONT_FAMILY.headingBlack,
     fontSize: 48,
-    color: COLORS.gold,
+    color: COLORS.goldAccent,
     letterSpacing: 4,
     textShadowColor: COLORS.goldGlow,
     textShadowOffset: { width: 0, height: 0 },

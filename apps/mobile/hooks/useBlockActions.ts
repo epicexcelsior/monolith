@@ -8,7 +8,7 @@ import { usePokeStore } from "@/stores/poke-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { useStaking } from "@/hooks/useStaking";
 import { useClaimCelebration } from "@/hooks/useClaimCelebration";
-import { ENERGY_THRESHOLDS } from "@monolith/common";
+import { ENERGY_THRESHOLDS, getEvolutionTierInfo } from "@monolith/common";
 import type { BlockState } from "@monolith/common";
 import { COLORS } from "@/constants/theme";
 import {
@@ -239,7 +239,11 @@ export function useBlockActions() {
         const store = usePlayerStore.getState();
         const isFirstToday = store.isFirstChargeToday();
         const pts = isFirstToday ? 50 : 25;
-        const label = isFirstToday ? "Daily Charge \u2713" : undefined;
+        // Evolution label takes priority over daily charge label
+        const evolvedTierName = useTowerStore.getState().justEvolved;
+        const label = evolvedTierName
+          ? `Evolved to ${evolvedTierName}!`
+          : isFirstToday ? "Daily Charge \u2713" : undefined;
         store.addPoints({
           pointsEarned: pts,
           totalXp: store.xp + pts,
@@ -404,13 +408,26 @@ export function useBlockActions() {
           hapticStreakMilestone();
           playStreakMilestone();
         }
+        // Evolution detection: compare BEFORE block_update overwrites the block
+        // charge_result arrives first, so selectedBlock still has the old tier
+        if (result.evolutionTier != null) {
+          const selectedBlock = useTowerStore.getState().demoBlocks.find(
+            (b) => b.id === useTowerStore.getState().selectedBlockId
+          );
+          if (selectedBlock && result.evolutionTier > (selectedBlock.evolutionTier ?? 0)) {
+            const tierName = getEvolutionTierInfo(result.evolutionTier).name;
+            useTowerStore.setState({ justEvolved: tierName });
+          }
+        }
         if (result.pointsEarned) {
+          const evolvedTierName = useTowerStore.getState().justEvolved;
           usePlayerStore.getState().addPoints({
             pointsEarned: result.pointsEarned,
             combo: result.combo,
             totalXp: result.totalXp,
             level: result.level,
             levelUp: result.levelUp,
+            label: evolvedTierName ? `Evolved to ${evolvedTierName}!` : undefined,
             chargeAmount: result.chargeAmount,
             chargeQuality: result.chargeQuality,
           });
