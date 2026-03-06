@@ -330,6 +330,16 @@ export default function TowerGrid() {
       personalityAttr = new THREE.InstancedBufferAttribute(new Float32Array(count).fill(-1), 1);
       geo.setAttribute("aPersonality", personalityAttr);
     }
+    let isBotAttr = geo.getAttribute("aIsBot") as THREE.InstancedBufferAttribute | null;
+    if (!isBotAttr || isBotAttr.count !== count) {
+      isBotAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aIsBot", isBotAttr);
+    }
+    let hasOwnerAttr = geo.getAttribute("aHasOwner") as THREE.InstancedBufferAttribute | null;
+    if (!hasOwnerAttr || hasOwnerAttr.count !== count) {
+      hasOwnerAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      geo.setAttribute("aHasOwner", hasOwnerAttr);
+    }
 
     // ─── Write values directly into existing arrays ──
     const eArr = energyAttr.array as Float32Array;
@@ -340,6 +350,8 @@ export default function TowerGrid() {
     const iArr = imageAttr.array as Float32Array;
     const evArr = evoAttr.array as Float32Array;
     const pArr = personalityAttr.array as Float32Array;
+    const botArr = isBotAttr.array as Float32Array;
+    const ownerArr = hasOwnerAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
       const block = blockData[i];
@@ -368,6 +380,10 @@ export default function TowerGrid() {
 
       // Personality: -1 for bots/unclaimed (hash fallback), 0-4 for player choice
       pArr[i] = storeBlock?.personality ?? -1;
+
+      // Bot and owner flags
+      botArr[i] = block.owner && isBotOwner(block.owner) ? 1.0 : 0.0;
+      ownerArr[i] = block.owner ? 1.0 : 0.0;
     }
 
     energyAttr.needsUpdate = true;
@@ -378,6 +394,8 @@ export default function TowerGrid() {
     imageAttr.needsUpdate = true;
     evoAttr.needsUpdate = true;
     personalityAttr.needsUpdate = true;
+    isBotAttr.needsUpdate = true;
+    hasOwnerAttr.needsUpdate = true;
 
     // ─── Inspect mode attributes (fade + highlight + pop-out) ──
     if (!fadeCurrentRef.current || fadeCurrentRef.current.length !== count) {
