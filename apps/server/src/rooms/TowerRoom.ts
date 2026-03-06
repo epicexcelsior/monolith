@@ -1,7 +1,7 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE } from "@monolith/common";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality } from "@monolith/common";
 import {
   loadPlayerBlocks,
@@ -29,7 +29,7 @@ import {
 // Game constants (match client)
 const DECAY_AMOUNT = 1;
 const DECAY_INTERVAL_MS = 60_000;
-const CHARGE_COOLDOWN_MS = 30_000;
+const CHARGE_COOLDOWN_MS = TESTING_MODE ? 5_000 : 30_000;
 const STATE_BROADCAST_INTERVAL_MS = 15_000;
 const PERSISTENCE_INTERVAL_MS = 60_000;
 const DORMANT_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
