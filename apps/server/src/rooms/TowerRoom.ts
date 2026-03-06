@@ -66,6 +66,7 @@ export function serializeBlock(block: BlockSchema) {
       style: block.appearance.style,
       textureId: block.appearance.textureId,
       imageUrl: block.appearance.imageUrl || undefined,
+      personality: block.appearance.personality ?? -1,
     },
   };
 }
@@ -93,6 +94,7 @@ export function blockToRow(block: BlockSchema) {
       style: block.appearance.style,
       textureId: block.appearance.textureId,
       imageUrl: block.appearance.imageUrl || undefined,
+      personality: block.appearance.personality ?? -1,
     },
   };
 }
@@ -477,6 +479,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         if (changes.name !== undefined) block.appearance.name = changes.name;
         if (changes.style !== undefined) block.appearance.style = changes.style;
         if (changes.textureId !== undefined) block.appearance.textureId = changes.textureId;
+        if (changes.personality !== undefined) block.appearance.personality = changes.personality;
 
         // No XP for customization — was farmable by repeated changes
         insertEvent("customize", msg.blockId, msg.wallet || block.owner);

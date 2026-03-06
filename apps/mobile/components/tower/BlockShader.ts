@@ -37,6 +37,7 @@ const vertexShader = /* glsl */ `
   attribute float aHighlight;
   attribute float aImageIndex;
   attribute float aEvolutionTier; // 0-4 (Spark, Ember, Flame, Blaze, Beacon)
+  attribute float aPersonality;   // -1=hash, 0-4=player choice
 
   // Passed to fragment
   varying float vEnergy;
@@ -54,6 +55,7 @@ const vertexShader = /* glsl */ `
   varying float vHighlight;
   varying float vImageIndex;
   varying float vEvolutionTier;
+  varying float vPersonality;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;       // raw local-space position (for interior mapping)
@@ -92,6 +94,7 @@ const vertexShader = /* glsl */ `
     vHighlight = aHighlight;
     vImageIndex = aImageIndex;
     vEvolutionTier = aEvolutionTier;
+    vPersonality = aPersonality;
     vLocalPos = position; // raw local-space vertex position
     // Block center from instance matrix translation column
     vBlockCenter = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
@@ -158,9 +161,6 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uClaimLightPos;
   uniform float uClaimLightIntensity;
 
-  // Dev-only face override: -1 = hash personality, >= 0 = eyeType*10+mouthType
-  uniform float uDevFaceOverride;
-
   varying float vEnergy;
   varying vec3 vOwnerColor;
   varying vec3 vNormal;
@@ -176,6 +176,7 @@ const fragmentShader = /* glsl */ `
   varying float vHighlight;
   varying float vImageIndex;
   varying float vEvolutionTier;
+  varying float vPersonality;
   varying vec3 vWorldNormal;
   varying vec2 vFaceUV;
   varying vec3 vLocalPos;
@@ -353,13 +354,13 @@ const fragmentShader = /* glsl */ `
   vec4 renderFace(vec2 uv, float energy, float instanceOff, float time, float evoTier) {
     vec2 p = uv - 0.5;
 
-    // ── 1. Personality selection (single hash, 5 equal personalities) ──
-    float personalitySel = faceHash(instanceOff, 10.0);
-    int personality = personalitySel < 0.20 ? 0 : personalitySel < 0.40 ? 1 : personalitySel < 0.60 ? 2 : personalitySel < 0.80 ? 3 : 4;
-
-    // Dev override (uDevFaceOverride >= 0 = personality index 0-4)
-    if (uDevFaceOverride >= 0.0) {
-      personality = int(uDevFaceOverride + 0.5);
+    // ── 1. Personality selection: player choice or hash fallback ──
+    int personality;
+    if (vPersonality >= 0.0) {
+      personality = int(vPersonality + 0.5);
+    } else {
+      float personalitySel = faceHash(instanceOff, 10.0);
+      personality = personalitySel < 0.20 ? 0 : personalitySel < 0.40 ? 1 : personalitySel < 0.60 ? 2 : personalitySel < 0.80 ? 3 : 4;
     }
 
     // ── 2. Expression parameters (energy-driven) ──
@@ -1215,8 +1216,6 @@ export function createBlockMaterial(): THREE.ShaderMaterial {
       uClaimWaveIntensity: { value: 0 },
       uClaimLightPos: { value: new THREE.Vector3() },
       uClaimLightIntensity: { value: 0 },
-      // Dev-only face override: -1 = hash personality, >= 0 = eyeType*10+mouthType
-      uDevFaceOverride: { value: -1.0 },
     },
     fog: false,
     toneMapped: false,

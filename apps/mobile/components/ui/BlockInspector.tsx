@@ -73,6 +73,7 @@ export default function BlockInspector() {
     handleEmojiChange,
     handleNameSubmit,
     handleTextureChange,
+    handlePersonalityChange,
     handleImageUpload,
     resetPanelState,
     canPoke,
@@ -369,6 +370,7 @@ export default function BlockInspector() {
                 onStyleChange={handleStyleChange}
                 onTextureChange={handleTextureChange}
                 onNameSubmit={handleNameSubmit}
+                onPersonalityChange={handlePersonalityChange}
                 onImageUpload={handleImageUpload}
                 isPostClaim={recentlyClaimedId === selectedBlockId}
               />

@@ -84,6 +84,7 @@ export interface DemoBlock {
   textureId?: number; // 0=None, 1=Bricks, 2=Circuits, 3=Scales, 4=Camo, 5=Marble, 6=Carbon
   imageIndex?: number; // 0=None, 1-5=atlas slot (solana, dogecoin, quicknode, toly, mike)
   imageUrl?: string; // User-uploaded image URL (Supabase Storage)
+  personality?: number; // 0=Happy, 1=Cool, 2=Sleepy, 3=Fierce, 4=Derp. undefined=hash
   lastChargeTime?: number;
   streak?: number;
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
@@ -129,7 +130,8 @@ interface TowerStore {
   multiplayerMode: boolean;
   revealProgress: number;
   revealComplete: boolean;
-  devFaceOverride: number; // -1 = hash personality, >= 0 = eyeType*10+mouthType
+  /** @deprecated Use block.personality instead */
+  devFaceOverride: number;
   justEvolved: string | null; // tier name when evolution just happened (cleared by consumer)
 
   // ─── Actions ──────────────────────────────
@@ -157,7 +159,7 @@ interface TowerStore {
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
   chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number };
-  customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number; imageUrl?: string }) => void;
+  customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number; imageUrl?: string; personality?: number }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
   startBotSimulation: () => () => void;
@@ -178,7 +180,7 @@ interface TowerStore {
   ghostClaimBlock: (blockId: string) => void;
   ghostChargeBlock: (blockId: string) => { success: boolean; chargeAmount?: number };
   ghostDecayBlock: (blockId: string, amount?: number) => void;
-  ghostCustomizeBlock: (blockId: string, changes: { color?: string; emoji?: string; style?: number }) => void;
+  ghostCustomizeBlock: (blockId: string, changes: { color?: string; emoji?: string; style?: number; personality?: number }) => void;
   clearGhostBlock: () => void;
 
   // ─── Computed ─────────────────────────────
@@ -434,6 +436,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             ...(changes.style !== undefined && { style: changes.style }),
             ...(changes.textureId !== undefined && { textureId: changes.textureId }),
             ...(changes.imageUrl !== undefined && { imageUrl: changes.imageUrl }),
+            ...(changes.personality !== undefined && { personality: changes.personality }),
           }
           : b,
       ),
@@ -561,6 +564,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             ...(changes.color !== undefined && { ownerColor: changes.color }),
             ...(changes.emoji !== undefined && { emoji: changes.emoji }),
             ...(changes.style !== undefined && { style: changes.style }),
+            ...(changes.personality !== undefined && { personality: changes.personality }),
           }
           : b,
       ),

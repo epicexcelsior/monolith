@@ -8,6 +8,7 @@ export class BlockAppearanceSchema extends Schema {
   style: number = 0;
   textureId: number = 0;
   imageUrl: string = "";
+  personality: number = -1; // -1=hash, 0-4=player choice
 }
 
 defineTypes(BlockAppearanceSchema, {
@@ -17,6 +18,7 @@ defineTypes(BlockAppearanceSchema, {
   style: "uint8",
   textureId: "uint8",
   imageUrl: "string",
+  personality: "int8",
 });
 
 // ─── Block Schema ─────────────────────────────────────────

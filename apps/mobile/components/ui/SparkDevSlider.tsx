@@ -40,7 +40,7 @@ export default function SparkDevSlider() {
   const block = useTowerStore((s) =>
     s.selectedBlockId ? s.getDemoBlockById(s.selectedBlockId) : undefined,
   );
-  const devFaceOverride = useTowerStore((s) => s.devFaceOverride);
+  const blockPersonality = block?.personality;
 
   const trackWidth = useRef(0);
   // Use ref for latest callback so PanResponder never captures stale closure
@@ -71,27 +71,22 @@ export default function SparkDevSlider() {
   const pct = Math.round(block.energy);
   const evoTier = block.evolutionTier ?? 0;
 
-  // Decode current personality override
-  const currentPersonality = devFaceOverride >= 0 ? devFaceOverride : -1;
+  const currentPersonality = blockPersonality ?? -1;
 
   const setEvo = (t: number) => {
     useTowerStore.getState().updateDemoBlock(selectedBlockId, { evolutionTier: t });
   };
 
   const togglePersonality = (idx: number) => {
-    if (currentPersonality === idx) {
-      useTowerStore.setState({ devFaceOverride: -1 });
-    } else {
-      useTowerStore.setState({ devFaceOverride: idx });
-    }
+    const newVal = currentPersonality === idx ? undefined : idx;
+    useTowerStore.getState().updateDemoBlock(selectedBlockId, { personality: newVal });
   };
 
   const shuffle = () => {
     const e = Math.round(Math.random() * 100);
     const t = Math.floor(Math.random() * 5);
     const p = Math.floor(Math.random() * 5);
-    useTowerStore.getState().updateDemoBlock(selectedBlockId, { energy: e, evolutionTier: t });
-    useTowerStore.setState({ devFaceOverride: p });
+    useTowerStore.getState().updateDemoBlock(selectedBlockId, { energy: e, evolutionTier: t, personality: p });
   };
 
   return (

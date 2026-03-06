@@ -305,7 +305,7 @@ export function useBlockActions() {
   }, [selectBlock]);
 
   // Customize helpers
-  const applyCustomize = useCallback((changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number }) => {
+  const applyCustomize = useCallback((changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number; personality?: number }) => {
     if (!selectedBlockId) return;
     if (mpConnected) {
       const wallet = publicKey?.toBase58() || "";
@@ -336,6 +336,12 @@ export function useBlockActions() {
 
   const handleTextureChange = useCallback((textureId: number) => {
     applyCustomize({ textureId });
+    hapticCustomize();
+    playCustomize();
+  }, [applyCustomize]);
+
+  const handlePersonalityChange = useCallback((personality: number) => {
+    applyCustomize({ personality });
     hapticCustomize();
     playCustomize();
   }, [applyCustomize]);
@@ -584,6 +590,7 @@ export function useBlockActions() {
     handleEmojiChange,
     handleNameSubmit,
     handleTextureChange,
+    handlePersonalityChange,
     handleImageUpload,
     resetPanelState,
     canPoke,

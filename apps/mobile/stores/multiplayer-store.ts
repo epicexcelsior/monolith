@@ -47,6 +47,7 @@ interface ServerBlock {
     style: number;
     textureId: number;
     imageUrl?: string;
+    personality?: number;
   };
   eventType?: "claim" | "charge" | "customize" | "poke";
 }
@@ -227,6 +228,7 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     totalCharges: block.totalCharges ?? 0,
     bestStreak: block.bestStreak ?? 0,
     evolutionTier: block.evolutionTier ?? 0,
+    personality: block.appearance?.personality != null && block.appearance.personality >= 0 ? block.appearance.personality : undefined,
   };
 }
 
@@ -275,7 +277,8 @@ function applyFullState(data: ServerState) {
       cur.textureId !== (serverBlock.appearance?.textureId || 0) ||
       cur.imageIndex !== (serverBlock.imageIndex || 0) ||
       cur.emoji !== (serverBlock.appearance?.emoji || undefined) ||
-      cur.name !== (serverBlock.appearance?.name || undefined)
+      cur.name !== (serverBlock.appearance?.name || undefined) ||
+      cur.personality !== (serverBlock.appearance?.personality != null && serverBlock.appearance.personality >= 0 ? serverBlock.appearance.personality : undefined)
     ) {
       updated[idx] = serverBlockToDemo(serverBlock);
       changed = true;
@@ -313,7 +316,8 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
       cur.textureId === updated.textureId &&
       cur.emoji === updated.emoji &&
       cur.name === updated.name &&
-      cur.imageUrl === updated.imageUrl
+      cur.imageUrl === updated.imageUrl &&
+      cur.personality === updated.personality
     );
 
     if (dataChanged) {
