@@ -65,3 +65,9 @@ yarn-error.log*
 # Maestro E2E test output
 .maestro/results.xml
 google-services.json
+
+# Security audit (local only)
+SECURITY_TODO.md
+
+# Agent working docs
+ralph-spark2.md
