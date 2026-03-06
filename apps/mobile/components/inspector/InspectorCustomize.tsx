@@ -5,6 +5,14 @@ import { BLOCK_COLORS, BLOCK_ICONS } from "@monolith/common";
 import { hapticButtonPress } from "@/utils/haptics";
 import type { DemoBlock } from "@/stores/tower-store";
 
+const PERSONALITIES = [
+  { name: "Happy", kaomoji: "^_^" },
+  { name: "Cool", kaomoji: "B-)" },
+  { name: "Sleepy", kaomoji: "-_-" },
+  { name: "Fierce", kaomoji: ">_<" },
+  { name: "Derp", kaomoji: ":P" },
+] as const;
+
 interface InspectorCustomizeProps {
   block: DemoBlock;
   onColorChange: (color: string) => void;
@@ -12,6 +20,7 @@ interface InspectorCustomizeProps {
   onStyleChange: (style: number) => void;
   onTextureChange: (textureId: number) => void;
   onNameSubmit: (name: string) => void;
+  onPersonalityChange?: (personality: number) => void;
   onImageUpload?: () => void;
   isPostClaim?: boolean;
 }
@@ -21,6 +30,7 @@ export default function InspectorCustomize({
   onColorChange,
   onEmojiChange,
   onNameSubmit,
+  onPersonalityChange,
   isPostClaim,
 }: InspectorCustomizeProps) {
   const [nameInput, setNameInput] = useState("");
@@ -60,6 +70,31 @@ export default function InspectorCustomize({
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* FACE — personality choice */}
+      {onPersonalityChange && (
+        <>
+          <Text style={styles.sectionLabel}>FACE</Text>
+          <View style={styles.personalityRow}>
+            {PERSONALITIES.map((p, i) => (
+              <TouchableOpacity
+                key={p.name}
+                style={[
+                  styles.personalityCell,
+                  block.personality === i && styles.personalityCellSelected,
+                ]}
+                onPress={() => {
+                  onPersonalityChange(i);
+                  hapticButtonPress();
+                }}
+              >
+                <Text style={styles.personalityKaomoji}>{p.kaomoji}</Text>
+                <Text style={styles.personalityLabel}>{p.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
 
       {/* NAME — text identity */}
       <Text style={styles.sectionLabel}>NAME</Text>
@@ -205,5 +240,36 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 18,
+  },
+  personalityRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.xs,
+    marginTop: SPACING.sm,
+  },
+  personalityCell: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.bgMuted,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  personalityCellSelected: {
+    borderColor: COLORS.goldAccent,
+    backgroundColor: "rgba(212, 175, 85, 0.10)",
+  },
+  personalityKaomoji: {
+    fontFamily: FONT_FAMILY.mono,
+    fontSize: 14,
+    color: COLORS.text,
+  },
+  personalityLabel: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 1,
   },
 });

@@ -325,6 +325,11 @@ export default function TowerGrid() {
       evoAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
       geo.setAttribute("aEvolutionTier", evoAttr);
     }
+    let personalityAttr = geo.getAttribute("aPersonality") as THREE.InstancedBufferAttribute | null;
+    if (!personalityAttr || personalityAttr.count !== count) {
+      personalityAttr = new THREE.InstancedBufferAttribute(new Float32Array(count).fill(-1), 1);
+      geo.setAttribute("aPersonality", personalityAttr);
+    }
 
     // ─── Write values directly into existing arrays ──
     const eArr = energyAttr.array as Float32Array;
@@ -334,6 +339,7 @@ export default function TowerGrid() {
     const tArr = textureAttr.array as Float32Array;
     const iArr = imageAttr.array as Float32Array;
     const evArr = evoAttr.array as Float32Array;
+    const pArr = personalityAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
       const block = blockData[i];
@@ -359,6 +365,9 @@ export default function TowerGrid() {
 
       // Evolution tier
       evArr[i] = storeBlock?.evolutionTier ?? 0;
+
+      // Personality: -1 for bots/unclaimed (hash fallback), 0-4 for player choice
+      pArr[i] = storeBlock?.personality ?? -1;
     }
 
     energyAttr.needsUpdate = true;
@@ -368,6 +377,7 @@ export default function TowerGrid() {
     textureAttr.needsUpdate = true;
     imageAttr.needsUpdate = true;
     evoAttr.needsUpdate = true;
+    personalityAttr.needsUpdate = true;
 
     // ─── Inspect mode attributes (fade + highlight + pop-out) ──
     if (!fadeCurrentRef.current || fadeCurrentRef.current.length !== count) {
@@ -546,8 +556,6 @@ export default function TowerGrid() {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value += dt;
       materialRef.current.uniforms.uCameraPos.value.copy(state.camera.position);
-      // Dev-only face variant override
-      materialRef.current.uniforms.uDevFaceOverride.value = useTowerStore.getState().devFaceOverride;
     }
     if (glowMaterialRef.current) {
       glowMaterialRef.current.uniforms.uTime.value += dt;

@@ -79,6 +79,9 @@ export interface BlockAppearance {
 
   /** Optional NFT mint address for texture */
   nftMint?: string;
+
+  /** Face personality (0-4). undefined = hash-based. */
+  personality?: number;
 }
 
 /**
@@ -183,6 +186,7 @@ export interface CustomizeMessage {
     name?: string;
     style?: number;
     textureId?: number;
+    personality?: number;
   };
 }
 
