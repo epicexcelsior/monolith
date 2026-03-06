@@ -37,6 +37,13 @@ import StepCard from "@/components/ui/StepCard";
 
 const ONBOARDING_COLORS = BLOCK_COLORS.slice(0, 8);
 const ONBOARDING_ICONS = BLOCK_ICONS.slice(0, 16);
+const ONBOARDING_PERSONALITIES = [
+    { name: "Happy", kaomoji: "^_^" },
+    { name: "Cool", kaomoji: "B-)" },
+    { name: "Sleepy", kaomoji: "-_-" },
+    { name: "Fierce", kaomoji: ">_<" },
+    { name: "Derp", kaomoji: ":P" },
+] as const;
 
 /** Find a good unclaimed block for the tutorial */
 function pickTutorialBlock(
@@ -179,6 +186,13 @@ export default function OnboardingFlow() {
     const handleEmojiPick = useCallback((emoji: string) => {
         if (!ghostBlockId) return;
         ghostCustomizeBlock(ghostBlockId, { emoji });
+        hapticButtonPress();
+        playCustomize();
+    }, [ghostBlockId, ghostCustomizeBlock]);
+
+    const handlePersonalityPick = useCallback((personality: number) => {
+        if (!ghostBlockId) return;
+        ghostCustomizeBlock(ghostBlockId, { personality });
         hapticButtonPress();
         playCustomize();
     }, [ghostBlockId, ghostCustomizeBlock]);
@@ -350,6 +364,24 @@ export default function OnboardingFlow() {
                                     onPress={() => handleColorPick(color)}
                                     activeOpacity={0.7}
                                 />
+                            ))}
+                        </View>
+
+                        <Text style={styles.sectionHeader}>FACE</Text>
+                        <View style={styles.personalityRow}>
+                            {ONBOARDING_PERSONALITIES.map((p, i) => (
+                                <TouchableOpacity
+                                    key={p.name}
+                                    style={[
+                                        styles.personalitySwatch,
+                                        ghostBlock?.personality === i && styles.swatchSelected,
+                                    ]}
+                                    onPress={() => handlePersonalityPick(i)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.personalityKaomoji}>{p.kaomoji}</Text>
+                                    <Text style={styles.personalityLabel}>{p.name}</Text>
+                                </TouchableOpacity>
                             ))}
                         </View>
 
@@ -587,6 +619,33 @@ const styles = StyleSheet.create({
     },
     emojiText: {
         fontSize: 24,
+    },
+
+    // ─── Personality row ─────────────────────────
+    personalityRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: SPACING.xs,
+        marginBottom: SPACING.sm,
+    },
+    personalitySwatch: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: RADIUS.sm,
+        backgroundColor: COLORS.hudHighlight,
+        borderWidth: 3,
+        borderColor: "transparent",
+    },
+    personalityKaomoji: {
+        fontSize: 14,
+        color: COLORS.textOnDark,
+    },
+    personalityLabel: {
+        fontSize: 10,
+        color: COLORS.textSecondary,
+        marginTop: 1,
     },
 
     // ─── Button row (centered) ────────────────
