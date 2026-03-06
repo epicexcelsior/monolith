@@ -1422,3 +1422,185 @@ Explicitly OUT OF SCOPE:
 
 **Notes:**
 <!-- Ralph: Add notes here after each iteration -->
+
+---
+
+## 16. Pass 2 Remaining — Ralph Loop Sprint
+
+> **Date:** 2026-03-05
+> **Goal:** Complete remaining Pass 2 phases (6, 7, 8, 10, 11, 12) on a new branch.
+> **Branch:** `feat/spark-pass2` (create from `main` at `d7024db`)
+> **Predecessor:** All Pass 1 + hotfixes + Phase 9 + Phase 10a are on `main`.
+
+### What's Left
+
+| Phase | Status | Depends On | Effort |
+|-------|--------|------------|--------|
+| 6 | Partially done (hotfixes added bright glass + wireframe) — needs dormant block desaturation + `aIsBot`/`aHasOwner` attributes | None | Medium |
+| 7 | Not started | None | Small |
+| 8 | Not started | None | Large (shader + data model + server + UI) |
+| 10 | Not started | Phase 7 + 8 | Large (shader + TowerGrid animation) |
+| 11 | Not started | Phase 8 | Small |
+| 12 | Not started | All above | Small |
+
+### Phase Dependencies (execution order)
+
+```
+Phase 6 (Unclaimed finish) ──┐
+Phase 7 (Aesthetic)          ├──> Phase 10 (Charge Reactions) ──> Phase 12 (Polish)
+Phase 8 (Personality)        ├──> Phase 11 (Onboarding V2)   ──> Phase 12
+                             └─────────────────────────────────> Phase 12
+```
+
+Phases 6, 7, 8 can run in ANY order (no dependencies between them).
+Phase 10 needs Phase 8 (face personality attribute exists in shader).
+Phase 11 needs Phase 8 (face picker component exists).
+Phase 12 is always last.
+
+**Recommended order:** 8 → 6 → 7 → 10 → 11 → 12
+(Phase 8 first because 10 and 11 depend on it.)
+
+### Detailed Gap Analysis Per Phase
+
+#### Phase 6 Gaps (Unclaimed Block Restyle)
+
+What the hotfixes already did:
+- Unclaimed blocks are brighter (lavender-grey base)
+- Golden wireframe edges exist
+- Face not shown on unclaimed (no owner)
+
+What's still missing:
+- **`aIsBot` attribute** — shader has no way to distinguish "unclaimed" from "bot-owned". Currently bot detection uses `aImageIndex > 0` but that's indirect. Need a proper float attribute.
+- **`aHasOwner` attribute** — to distinguish unclaimed (no owner, no face) from dormant (has owner, sleeping face, desaturated). Currently the shader uses energy-based checks which conflates the two.
+- **Dormant desaturation** — dormant blocks should desaturate the owner color (multiply saturation by ~0.4) and apply dark overlay (mix with vec3(0.15) at 30%). Not implemented.
+- **Dormant detection in shader** — needs `aHasOwner == 1.0 && energy == 0.0 && NOT bot`. This is only possible with the new attributes.
+
+Files:
+- `BlockShader.ts` — add `attribute float aIsBot; attribute float aHasOwner;` to vertex shader, pass as varyings, use in fragment to: (a) skip face on unclaimed, (b) desaturate dormant, (c) skip images on non-bots
+- `TowerGrid.tsx` — create `isBotArr` and `hasOwnerArr` Float32Arrays, populate per block, register as InstancedBufferAttribute
+
+#### Phase 7 Gaps (Aesthetic Softening)
+
+The plan specifies exact changes but is vague on shader specifics. Here's what needs to happen:
+
+- `TowerCore.tsx` — canvas background `#0a0812` → `#1a1525`
+- `BlockShader.ts`:
+  - AO: find the AO term (likely `aoFactor` or `ao`), reduce its darkening contribution by ~20% (e.g., `mix(1.0, aoFactor, 0.6)` → `mix(1.0, aoFactor, 0.45)`)
+  - Ambient: increase ambient light floor (the `+ 0.08` or similar constant added to final color) by ~0.03
+  - SSS tint: find `sssColor` or subsurface scatter tint, shift hue warmer (add a touch of vec3(0.02, 0.01, 0.0))
+- `Particles.tsx` — find color definitions, shift toward warm gold/amber (the exact colors will vary; grep for `new THREE.Color` or hex values)
+- `Foundation.tsx` — warm marble tones if time allows (optional, low priority)
+
+**Testing:** Take before/after screenshots. The tower should look noticeably warmer.
+
+#### Phase 8 Gaps (Face Personality Choice)
+
+This is the most complex remaining phase. Full data flow:
+
+1. **DemoBlock type** (`tower-store.ts` line ~86) — add `personality?: number;`
+2. **customizeBlock** (`tower-store.ts` line ~427) — add `...(changes.personality !== undefined && { personality: changes.personality })`
+3. **ghostCustomizeBlock** (`tower-store.ts` line ~555) — add `...(changes.personality !== undefined && { personality: changes.personality })`
+4. **customizeBlock signature** (`tower-store.ts` line ~163) — add `personality?: number` to the changes type
+5. **ghostCustomizeBlock signature** (`tower-store.ts` line ~181) — add `personality?: number`
+6. **CustomizeMessage type** (`packages/common/src/types.ts` line ~180) — add `personality?: number;`
+7. **TowerRoom.ts customize handler** (`apps/server/src/rooms/TowerRoom.ts` line ~471) — add `if (changes.personality !== undefined) block.appearance.personality = changes.personality;`
+8. **TowerRoom serializeBlock** — include personality
+9. **multiplayer-store.ts block_update handler** — ensure personality syncs from server broadcast
+10. **TowerGrid.tsx** — add `aPersonality` InstancedBufferAttribute (float, -1 default for bots/unclaimed, 0-4 for player choice)
+11. **BlockShader.ts** — declare `attribute float aPersonality;`, pass as varying `vPersonality`, in `renderFace()`: if `vPersonality >= 0.0` use it, else fall back to hash
+12. **Remove `uDevFaceOverride` uniform** — personality is now a real choice. Remove from shader, from TowerGrid uniform assignments, and from SparkDevSlider if it sets this.
+13. **InspectorCustomize.tsx** — add FACE section between Color and Name:
+    ```
+    FACE
+    [^_^  Happy] [B-)  Cool] [-_-  Sleepy] [>_<  Fierce] [:P  Derp]
+    ```
+    5 TouchableOpacity buttons, kaomoji preview + label, gold border on selected. Set via `onPersonalityChange(index)`.
+14. **useBlockActions.ts** — add `handlePersonalityChange` callback that calls `customizeBlock` or sends multiplayer customize message with `personality` field
+15. **BlockInspector.tsx** — pass `handlePersonalityChange` to InspectorCustomize
+
+**Data persistence:** `personality` is part of the block appearance, persisted via `upsertBlock` in TowerRoom and `persistBlocks` in tower-store. The `blockToRow` / `serializeBlock` functions in TowerRoom need to include it.
+
+**SparkDevSlider.tsx** — currently sets `uDevFaceOverride`. After Phase 8, the dev slider should set personality on the selected block directly OR be simplified/removed. Simplest: remove the eye/mouth variant pickers (those were for the old hash system), keep energy slider + tier picker.
+
+#### Phase 10 Gaps (Random Charge Reactions)
+
+This requires both shader and TowerGrid animation changes:
+
+**New attribute in TowerGrid.tsx:**
+- `aChargeReaction` (float per instance, default -1.0)
+- On charge flash start: set `reactionArr[blockIndex] = Math.floor(Math.random() * 5)`
+- On charge flash end (after animation): set `reactionArr[blockIndex] = -1`
+- Need to identify where the charge flash animation is handled — look for `recentlyChargedId` in TowerGrid
+
+**Shader changes in BlockShader.ts:**
+- Declare `attribute float aChargeReaction;` → varying `vChargeReaction`
+- In `renderFace()`: if `vChargeReaction >= 0.0`, override expression parameters:
+  - Reaction 0 (Joy): bigger smile, sparkle eyes (increase eyeOpen to 1.0, add glint)
+  - Reaction 1 (Surprise): wide eyes (1.2x scale), small O mouth
+  - Reaction 2 (Excited): squinty (eyeOpen 0.4), wide smile
+  - Reaction 3 (Grateful): gentle smile, forced blush
+  - Reaction 4 (Wake-up): eyes snap open (use uTime-based transition)
+- Hold reaction for ~0.8s (use flash timer or uTime delta), ease back to normal
+
+**TowerGrid.tsx animation variants per reaction type:**
+Currently charge flash does a squash-and-stretch bounce. Add variants:
+- Reaction 0 (Joy): standard bounce (existing)
+- Reaction 1 (Surprise): taller stretch (scaleY 1.18)
+- Reaction 2 (Excited): side-to-side wiggle (alternating X offset via sin)
+- Reaction 3 (Grateful): slow Y bob (longer settle time)
+- Reaction 4 (Wake-up): quick X jitter then settle
+
+**FloatingPoints label per reaction:**
+In `useBlockActions.ts` handleCharge, pick random reaction label:
+```typescript
+const REACTION_LABELS = ["Happy!", "Surprised!", "Excited!", "Thanks!", "I'm awake!"];
+const reactionLabel = REACTION_LABELS[Math.floor(Math.random() * 5)];
+```
+Pass as `label` in `addPoints` (alongside or instead of "Daily Charge ✓").
+
+**Sound per reaction:**
+Use existing sounds mapped per reaction (no new audio):
+```typescript
+const REACTION_SOUNDS = [playChargeTap, playPokeReceive, playStreakMilestone, playChargeTap, playBlockClaim];
+REACTION_SOUNDS[reactionIndex]();
+```
+
+#### Phase 11 Gaps (Onboarding V2 — Face Picker)
+
+After Phase 8 adds personality choice to customize panel, onboarding needs it too:
+
+- `OnboardingFlow.tsx` customize phase (~line 332) — add face personality picker between color and emoji rows
+- 5 buttons matching the inspector face picker layout
+- `ghostCustomizeBlock` already supports personality after Phase 8 changes
+- Default personality to 0 (Happy) when ghost block is claimed
+
+Small phase — mostly copying the face picker UI from InspectorCustomize into OnboardingFlow.
+
+#### Phase 12 Gaps (Polish & Test)
+
+Validation sweep:
+1. Run full test suite (mobile + server)
+2. TypeScript check
+3. Grep for hardcoded colors in ALL modified files → replace with tokens
+4. Mental trace of full flow: onboarding → claim → customize (color + face + emoji + name) → charge → see reaction → evolve → celebration
+5. Cross-check all 6 user stories from Section 5
+6. Run testing checklist from Section 13
+7. Update CONTEXT.md with new files/changes
+8. Check that SparkDevSlider still works or is cleaned up
+
+### Test Points (Run After EACH Phase)
+
+```bash
+# After every phase:
+cd apps/mobile && npx jest
+cd apps/server && npx jest
+timeout 90 npx tsc --noEmit --project apps/mobile/tsconfig.json
+```
+
+Phase-specific manual checks:
+- **After Phase 8:** Change personality in customize → block face updates on all 4 sides → survives app restart
+- **After Phase 6:** At tower overview: unclaimed = glass, dormant = sleeping face + desaturated color, player = bright face, bot = images
+- **After Phase 7:** Tower screenshot comparison — warmer, softer, inviting
+- **After Phase 10:** Charge 5+ times → see at least 3 different reaction labels and block motion types
+- **After Phase 11:** Full onboarding flow includes face picker → chosen face persists after onboarding
+- **After Phase 12:** All Section 13 checklist items satisfied
