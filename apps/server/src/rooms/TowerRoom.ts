@@ -26,6 +26,35 @@ import {
   shouldNotifyEnergyLow,
 } from "../utils/notifications.js";
 
+// ─── Input Validation ────────────────────────────────────
+const BLOCK_ID_RE = /^block-\d+-\d+$/;
+const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const MAX_NAME_LENGTH = 30;
+const MAX_EMOJI_LENGTH = 4;
+const HTML_TAG_RE = /<[^>]*>/g;
+
+function isValidBlockId(id: unknown): id is string {
+  return typeof id === "string" && BLOCK_ID_RE.test(id);
+}
+function isValidColor(c: unknown): c is string {
+  return typeof c === "string" && COLOR_RE.test(c);
+}
+function isValidName(n: unknown): n is string {
+  return typeof n === "string" && n.length <= MAX_NAME_LENGTH && !HTML_TAG_RE.test(n);
+}
+function isValidEmoji(e: unknown): e is string {
+  return typeof e === "string" && e.length <= MAX_EMOJI_LENGTH;
+}
+function isValidStyle(s: unknown): s is number {
+  return typeof s === "number" && Number.isInteger(s) && s >= 0 && s <= 10;
+}
+function isValidTextureId(t: unknown): t is number {
+  return typeof t === "number" && Number.isInteger(t) && t >= 0 && t <= 6;
+}
+function isValidPersonality(p: unknown): p is number {
+  return typeof p === "number" && Number.isInteger(p) && p >= -1 && p <= 4;
+}
+
 // Game constants (match client)
 const DECAY_AMOUNT = 1;
 const DECAY_INTERVAL_MS = 60_000;
@@ -113,6 +142,28 @@ interface PlayerState {
 let activeRoom: TowerRoom | null = null;
 export function getActiveRoom(): TowerRoom | null {
   return activeRoom;
+}
+
+/** One-time upload tokens: token → { wallet, blockId, expires } */
+const uploadTokens = new Map<string, { wallet: string; blockId: string; expires: number }>();
+const UPLOAD_TOKEN_TTL_MS = 60_000; // 60 seconds
+
+export function validateUploadToken(token: string, blockId: string): string | null {
+  const entry = uploadTokens.get(token);
+  if (!entry) return null;
+  uploadTokens.delete(token); // one-time use
+  if (Date.now() > entry.expires) return null;
+  if (entry.blockId !== blockId) return null;
+  return entry.wallet;
+}
+
+function generateToken(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 export class TowerRoom extends Room<TowerRoomState> {
@@ -235,6 +286,15 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("claim", async (client: Client, msg: ClaimMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+        if (msg.color !== undefined && !isValidColor(msg.color)) {
+          client.send("error", { message: "Invalid color" });
+          return;
+        }
+
         const wallet = this.getSessionWallet(client);
         if (!wallet) {
           client.send("error", { message: "Not authenticated" });
@@ -355,6 +415,11 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("charge", async (client: Client, msg: ChargeMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
         const wallet = this.getSessionWallet(client);
         if (!wallet) {
           client.send("error", { message: "Not authenticated" });
@@ -475,6 +540,39 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("customize", async (client: Client, msg: CustomizeMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
+        const changes = msg.changes;
+        if (changes) {
+          if (changes.color !== undefined && !isValidColor(changes.color)) {
+            client.send("error", { message: "Invalid color" });
+            return;
+          }
+          if (changes.emoji !== undefined && !isValidEmoji(changes.emoji)) {
+            client.send("error", { message: "Invalid emoji" });
+            return;
+          }
+          if (changes.name !== undefined && !isValidName(changes.name)) {
+            client.send("error", { message: "Invalid name (max 30 chars, no HTML)" });
+            return;
+          }
+          if (changes.style !== undefined && !isValidStyle(changes.style)) {
+            client.send("error", { message: "Invalid style" });
+            return;
+          }
+          if (changes.textureId !== undefined && !isValidTextureId(changes.textureId)) {
+            client.send("error", { message: "Invalid textureId" });
+            return;
+          }
+          if (changes.personality !== undefined && !isValidPersonality(changes.personality)) {
+            client.send("error", { message: "Invalid personality" });
+            return;
+          }
+        }
+
         const wallet = this.getSessionWallet(client);
         if (!wallet) {
           client.send("error", { message: "Not authenticated" });
@@ -492,8 +590,6 @@ export class TowerRoom extends Room<TowerRoomState> {
           client.send("error", { message: "Not your block" });
           return;
         }
-
-        const changes = msg.changes;
         if (changes.color !== undefined) {
           block.ownerColor = changes.color;
           block.appearance.color = changes.color;
@@ -524,6 +620,11 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("poke", async (client: Client, msg: PokeMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
         const wallet = this.getSessionWallet(client);
         if (!wallet) {
           client.send("error", { message: "Not authenticated" });
@@ -707,6 +808,31 @@ export class TowerRoom extends Room<TowerRoomState> {
         console.log(`[TowerRoom] Push token registered for ${wallet.slice(0, 8)}...`);
       } catch (err) {
         console.error("[TowerRoom] register_push_token error:", err);
+      }
+    });
+
+    this.onMessage("request_upload_token", (client: Client, msg: { blockId: string }) => {
+      try {
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+        const block = this.state.blocks.get(msg.blockId);
+        if (!block) {
+          client.send("error", { message: "Block not found" });
+          return;
+        }
+        if (block.owner !== wallet) {
+          client.send("error", { message: "Not your block" });
+          return;
+        }
+        const token = generateToken();
+        uploadTokens.set(token, { wallet, blockId: msg.blockId, expires: Date.now() + UPLOAD_TOKEN_TTL_MS });
+        client.send("upload_token", { token, blockId: msg.blockId });
+      } catch (err) {
+        console.error("[TowerRoom] request_upload_token error:", err);
+        client.send("error", { message: "Failed to generate upload token" });
       }
     });
 

@@ -18,6 +18,11 @@ import { applyBlinkPoke } from "../utils/blink-poke.js";
 
 const router = Router();
 
+// ─── Blink Poke Rate Limiting ─────────────────────────────
+// In-memory cooldown: 1 poke per account per block per 24h (matches WS poke cooldown)
+const blinkPokeCooldowns = new Map<string, number>();
+const BLINK_POKE_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 // ─── Helpers ──────────────────────────────────────────────
 
 const SERVER_URL =
@@ -144,9 +149,21 @@ router.post(
       return;
     }
 
+    // Rate limit: 1 poke per account per block per 24h
+    const cooldownKey = `${account}:${blockId}`;
+    const lastPoke = blinkPokeCooldowns.get(cooldownKey);
+    const now = Date.now();
+    if (lastPoke && now - lastPoke < BLINK_POKE_COOLDOWN_MS) {
+      res.status(429).json({ error: "Already poked this block. Try again later." });
+      return;
+    }
+
     try {
       const memo = `monolith:poke:${blockId}`;
       const tx = await createMemoTransaction(userPubkey, memo);
+
+      // Record cooldown before applying poke
+      blinkPokeCooldowns.set(cooldownKey, now);
 
       // Fire-and-forget: apply poke in-game (energy boost + event + push notif)
       applyBlinkPoke(blockId, account).catch((err) =>

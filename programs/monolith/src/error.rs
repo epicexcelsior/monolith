@@ -10,4 +10,7 @@ pub enum MonolithError {
 
     #[msg("Invalid USDC mint address")]
     InvalidMint,
+
+    #[msg("Arithmetic overflow")]
+    ArithmeticOverflow,
 }
