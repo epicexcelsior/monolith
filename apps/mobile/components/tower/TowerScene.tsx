@@ -660,7 +660,7 @@ function NightSkybox() {
           vec3 lowerMidSky   = vec3(0.08, 0.09, 0.19);    // purple-teal transition
           vec3 horizonGlow   = vec3(0.05, 0.14, 0.16);    // teal identity, tower lit
           vec3 belowHorizon  = vec3(0.06, 0.06, 0.10);    // dark purple-grey
-          vec3 nadirColor    = vec3(0.04, 0.03, 0.07);    // matches canvas #0a0812
+          vec3 nadirColor    = vec3(0.10, 0.08, 0.15);    // matches canvas #1a1525
 
           // Smooth gradient — wide overlapping bands, no hard edges
           vec3 skyColor;
@@ -1100,6 +1100,6 @@ export default function TowerScene() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0a0812", // matches darker sky nadir
+    backgroundColor: "#1a1525", // warm solarpunk base
   },
 });
