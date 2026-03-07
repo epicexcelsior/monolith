@@ -573,17 +573,42 @@
 
         /* SOLUTION SLIDE — cinematic 3D tower reveal */
         #s-solution { background: #050710; padding: 0; }
-        #s-solution .slide-inner { padding: 0 var(--pad-x); }
-        #s-solution .overline { color: var(--gold-bright); }
+        #s-solution .slide-inner {
+            padding: 0 var(--pad-x);
+            position: relative;
+        }
+        #s-solution .slide-inner::before {
+            content: '';
+            position: absolute;
+            inset: -20%;
+            background: radial-gradient(ellipse at center, rgba(5,7,16,0.45) 0%, transparent 65%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        #s-solution .overline {
+            color: var(--gold-bright);
+            text-shadow: 0 0 14px rgba(245,197,24,0.5), 0 2px 20px rgba(0,0,0,0.9);
+        }
         #s-solution h1 { color: white; }
         #s-solution .glow-text {
-            background: linear-gradient(135deg, var(--gold-bright), var(--orange), var(--gold-bright));
+            background: linear-gradient(135deg, #FFD700, #F5D96E, #FFE44D, #FFD700);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            filter: drop-shadow(0 2px 8px rgba(255,215,0,0.45)) drop-shadow(0 0 24px rgba(0,0,0,0.7));
         }
-        #s-solution p { color: rgba(255,255,255,0.85); }
+        #s-solution p { color: rgba(255,255,255,0.95); }
         #s-solution strong { color: white; }
+        #s-solution .pill {
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.1);
+            text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+            font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+        }
         .tower-text {
-            text-shadow: 0 2px 24px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.6), 0 0 120px rgba(0,0,0,0.3);
+            text-shadow:
+                0 0 8px rgba(0,0,0,1),
+                0 2px 16px rgba(0,0,0,0.95),
+                0 0 48px rgba(0,0,0,0.7),
+                0 0 100px rgba(0,0,0,0.4);
             transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .tower-text.show { opacity: 1 !important; }
@@ -813,9 +838,9 @@
             The first DeFi app you'll actually <strong>want</strong> to open every day.
         </p>
         <div class="tower-text" style="opacity:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-            <span class="pill" style="background:rgba(245,197,24,0.12);color:#F5C518;border-color:rgba(245,197,24,0.25);">Real stakes</span>
-            <span class="pill" style="background:rgba(90,144,64,0.12);color:#7FB069;border-color:rgba(90,144,64,0.25);">Daily addiction</span>
-            <span class="pill" style="background:rgba(224,69,69,0.10);color:#FF8A7A;border-color:rgba(224,69,69,0.2);">Territory war</span>
+            <span class="pill" style="background:rgba(245,197,24,0.18);color:#FFD700;border-color:rgba(245,197,24,0.4);">Real stakes</span>
+            <span class="pill" style="background:rgba(90,144,64,0.18);color:#8FD070;border-color:rgba(90,144,64,0.4);">Daily addiction</span>
+            <span class="pill" style="background:rgba(224,69,69,0.15);color:#FF9A8A;border-color:rgba(224,69,69,0.35);">Territory war</span>
         </div>
     </div>
 </section>
