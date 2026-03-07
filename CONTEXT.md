@@ -212,6 +212,13 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/web/LANDING-CONTEXT.md` | Landing page design context |
 | `.github/workflows/deploy-landing.yml` | CF Pages auto-deploy on push to `apps/web/` |
 
+### Pitch Deck
+| File | Purpose |
+|------|---------|
+| `pitch/deck.html` | Hackathon pitch deck (11 slides, snap scroll, slide 3 = cinematic Three.js tower reveal) |
+| `pitch/deck-content.md` | Pitch content/copy source |
+| `pitch/speaker-script.md` | Speaker notes per slide |
+
 ### Anchor Program
 | File | Purpose |
 |------|---------|
@@ -378,6 +385,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-07**: Landing page camera overhaul + pitch deck cinematic tower — Landing page: imposing low-angle camera (FOV 42→52, ground-level start R=22, looking UP), scroll-driven spiral ascent (2 full rotations climbing to overhead view at page bottom), aurora green shift (teal→classic green ribbons, magenta→emerald wisps, green sky undertones), darkened aurora (ribbon multipliers 3.5→1.0, bloom 0.50→0.35, exposure 0.9→0.7). Pitch deck: replaced slide 3 (old 2D canvas) with full-screen Three.js cinematic tower reveal — same tower geometry/shaders/aurora/particles/bloom as landing page, cinematic spin-in camera (R=55→22, 324° sweep), text fades in at 2.5s with staggered reveals, lazy-init via IntersectionObserver, renders pause off-screen, graceful WebGL fallback. Text contrast: 4-layer black text-shadow, radial vignette behind text, bright gold gradient on "in 3D" with gold drop-shadow glow, pills with backdrop-filter blur.
 
 - **2026-03-04**: Landing page immersive aurora + deploy (`apps/web/index.html`) — dramatic aurora skybox (4 seamless FBM ribbon layers: purple/teal/gold/magenta, cylindrical coords for no seam, scroll-responsive intensity, liquid flow motion), liquid marble pedestal (animated flowing veins via time-offset FBM), 3-tier parallax particles (150 near embers + 80 aurora-colored fireflies + 250 far cosmic dust), bloom 0.50, ground glow aurora-tinted, waitlist form bug fix (inline display:none overriding success class), tight title shadow. CF Pages deployed to themonolith.pages.dev, GitHub Action auto-deploys on push to `apps/web/`. Waitlist writes to Supabase verified working.
 
