@@ -489,7 +489,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.9;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.5, 1200);
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.5, 1200);
 
 // ═══ TOWER GEOMETRY ═══
 const BS = 0.85, BG = 0.005, HW = 6, HD = 3.5, TL = 25, SS = 16;
@@ -767,11 +767,11 @@ void main() {
   float d = distance(vUv, vec2(0.5));
   float g = smoothstep(0.5, 0.02, d); g *= g;
   float p = 0.85 + 0.15 * sin(uTime * 0.35);
-  // Shifting aurora-tinted glow
+  // Shifting aurora-tinted glow — green undertones
   float shift = sin(uTime * 0.15) * 0.5 + 0.5;
-  vec3 warm = vec3(0.42, 0.28, 0.12);
-  vec3 cool = vec3(0.15, 0.25, 0.35);
-  vec3 c = mix(cool, warm, g) * p + vec3(0.12, 0.05, 0.18) * (1.0 - g) * shift;
+  vec3 warm = vec3(0.35, 0.34, 0.12);
+  vec3 cool = vec3(0.10, 0.32, 0.25);
+  vec3 c = mix(cool, warm, g) * p + vec3(0.06, 0.12, 0.10) * (1.0 - g) * shift;
   gl_FragColor = vec4(c, g * 0.15);
 }`,
 });
@@ -804,12 +804,12 @@ void main() {
   float cx = d.x / max(length(vec2(d.x, d.z)), 0.001);
   float cz = d.z / max(length(vec2(d.x, d.z)), 0.001);
 
-  // Deep cosmic void — dark zenith, no white wash
-  vec3 sky = vec3(0.018, 0.010, 0.045);
-  sky = mix(sky, vec3(0.03, 0.015, 0.08), smoothstep(0.0, 0.12, lat));
-  sky = mix(sky, vec3(0.055, 0.028, 0.14), smoothstep(0.10, 0.28, lat));
-  sky = mix(sky, vec3(0.04, 0.065, 0.12), smoothstep(0.32, 0.50, lat));
-  sky = mix(sky, vec3(0.02, 0.012, 0.05), smoothstep(0.55, 1.0, lat));
+  // Deep cosmic void — green undertones, dark zenith
+  vec3 sky = vec3(0.015, 0.020, 0.042);
+  sky = mix(sky, vec3(0.025, 0.035, 0.07), smoothstep(0.0, 0.12, lat));
+  sky = mix(sky, vec3(0.04, 0.058, 0.12), smoothstep(0.10, 0.28, lat));
+  sky = mix(sky, vec3(0.03, 0.078, 0.10), smoothstep(0.32, 0.50, lat));
+  sky = mix(sky, vec3(0.015, 0.025, 0.045), smoothstep(0.55, 1.0, lat));
 
   // Aurora zone — concentrated mid-sky band, fades at zenith
   float aZone = smoothstep(0.75, 0.08, lat) * smoothstep(0.0, 0.06, lat);
@@ -825,27 +825,27 @@ void main() {
   float r1uv = fb(vec2(cx * 2.5 + cz * 1.5 + t * 0.015 + sin(t * 0.008) * 0.3, lat * 5.5 + t * 0.010));
   float ribbon1 = smoothstep(0.22, 0.58, r1uv);
   float r1edge = smoothstep(0.58, 0.50, r1uv) * 0.5;
-  sky += vec3(0.50 + scrollHue, 0.10, 0.75) * (ribbon1 + r1edge) * aZone * curtain * 3.8 * scrollBoost;
+  sky += vec3(0.45 + scrollHue, 0.12, 0.72) * (ribbon1 + r1edge) * aZone * curtain * 3.5 * scrollBoost;
 
-  // === RIBBON 2: Teal aurora waves — slower, wider ===
+  // === RIBBON 2: Aurora green waves — classic northern lights ===
   float r2uv = fb(vec2(cx * 3.5 - cz * 2.0 - t * 0.018 + cos(t * 0.006) * 0.2, lat * 7.0 + t * 0.013));
   float ribbon2 = smoothstep(0.20, 0.56, r2uv);
   float r2edge = smoothstep(0.56, 0.48, r2uv) * 0.4;
-  sky += vec3(0.08, 0.78, 0.70) * (ribbon2 + r2edge) * aZone * curtain * 3.0 * scrollBoost;
+  sky += vec3(0.06, 0.85, 0.35) * (ribbon2 + r2edge) * aZone * curtain * 3.4 * scrollBoost;
 
   // === RIBBON 3: Gold fire accents ===
   float r3uv = fb(vec2(cx * 2.0 + cz * 1.2 + t * 0.010, lat * 4.5 - t * 0.007 + sin(t * 0.005) * 0.15));
   float ribbon3 = smoothstep(0.28, 0.57, r3uv);
   sky += vec3(0.90, 0.72, 0.28) * ribbon3 * aZone * curtain * 2.2 * scrollBoost;
 
-  // === RIBBON 4: Magenta wisps — ethereal ===
+  // === RIBBON 4: Emerald wisps — deep green accents ===
   float r4uv = fb(vec2(cx * 4.5 - cz * 2.5 + t * 0.020, lat * 6.0 + t * 0.012));
   float ribbon4 = smoothstep(0.34, 0.62, r4uv);
-  sky += vec3(0.72, 0.15, 0.50) * ribbon4 * aZone * curtain * 1.6 * scrollBoost;
+  sky += vec3(0.12, 0.68, 0.42) * ribbon4 * aZone * curtain * 2.0 * scrollBoost;
 
-  // Warm horizon glow — subtle
+  // Warm horizon glow — green-gold blend
   float hGlow = smoothstep(0.58, 0.40, lat) * smoothstep(0.36, 0.48, lat);
-  sky += vec3(0.40, 0.20, 0.08) * hGlow * 0.5;
+  sky += vec3(0.30, 0.35, 0.10) * hGlow * 0.5;
 
   // Stars — dense field, multi-brightness, twinkle
   float sZone = smoothstep(0.55, 0.0, lat);
@@ -1023,7 +1023,7 @@ const rc = new THREE.Raycaster();
 const _pn = new THREE.Vector3(), _pl = new THREE.Plane(), _mw = new THREE.Vector3(), _tv = new THREE.Vector3();
 const _camDir = new THREE.Vector3();
 const _dp = new Float32Array(NB * 3);
-const lookTarget = new THREE.Vector3(0, TH * 0.38, 0);
+const lookTarget = new THREE.Vector3(0, TH * 0.35, 0);
 const camPos = new THREE.Vector3();
 const camTargetPos = new THREE.Vector3();
 
@@ -1035,29 +1035,34 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
 
-  // Camera — cinematic spin-in intro
+  // Camera — imposing low-angle with scroll-driven spiral ascent
   const introDur = 5.0;
   const introT = Math.min(t / introDur, 1);
   const introE = easeOutExpo(introT);
-  const scrollNorm = Math.min(sY / (innerHeight * 3), 1);
+  const scrollNorm = Math.min(sY / (innerHeight * 4), 1);
+  const scrollEased = easeOut3(scrollNorm);
 
-  // Spin: fast initial rotation that decelerates into gentle auto-orbit
-  const introSpin = prefersReduced ? 0 : (1 - introE) * Math.PI * 1.8; // ~324° sweep that decelerates
-  const autoOrbit = prefersReduced ? 0 : t * 0.025;
-  const camAngle = 0.6 + autoOrbit + introSpin + scrollNorm * Math.PI * 0.5;
+  // Rotation: intro spin decelerates, then scroll drives spiral around tower
+  const introSpin = prefersReduced ? 0 : (1 - introE) * Math.PI * 1.8;
+  const autoOrbit = prefersReduced ? 0 : t * 0.015;
+  const scrollSpiral = scrollEased * Math.PI * 3; // 1.5 full rotations on scroll
+  const camAngle = 0.6 + autoOrbit + introSpin + scrollSpiral;
 
-  // Zoom: start far out and pull in, then settle at final radius
-  const camRStart = 70, camREnd = 45;
-  const camR = camRStart + (camREnd - camRStart) * introE;
+  // Radius: zoom in close to the tower base — imposing scale
+  const camRStart = 55;
+  const camREnd = 22;
+  const camR = camRStart + (camREnd - camRStart) * introE + scrollEased * 3;
 
-  // Elevation: start high looking down, ease into final elevation
-  const camEStart = 1.1;
-  const camEEnd = 0.72 - scrollNorm * 0.12;
-  const camE = camEStart + (camEEnd - camEStart) * introE;
+  // Height: start near ground, intro drops from slight elevation, scroll spirals up
+  const introY = (1 - introE) * 8;
+  const camY = introY + scrollEased * TH * 0.7;
 
-  camTargetPos.x = Math.sin(camAngle) * Math.cos(camE) * camR;
-  camTargetPos.z = Math.cos(camAngle) * Math.cos(camE) * camR;
-  camTargetPos.y = Math.sin(camE) * camR + 5;
+  camTargetPos.x = Math.sin(camAngle) * camR;
+  camTargetPos.z = Math.cos(camAngle) * camR;
+  camTargetPos.y = camY;
+
+  // Look target rises with scroll — always gazing UP the tower
+  lookTarget.y = TH * 0.35 + scrollEased * TH * 0.4;
 
   camPos.lerp(camTargetPos, t < 0.3 ? 1 : 0.06);
   camera.position.copy(camPos);
