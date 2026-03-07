@@ -570,6 +570,24 @@
         #s-problem .stat-label { color: rgba(255,255,255,0.55); }
         #s-problem .spark-motif { background: linear-gradient(135deg, rgba(224,69,69,0.15), rgba(255,136,102,0.1)); }
         #s-problem .spark-motif-eye { background: rgba(224,69,69,0.35); }
+
+        /* SOLUTION SLIDE — cinematic 3D tower reveal */
+        #s-solution { background: #050710; padding: 0; }
+        #s-solution .slide-inner { padding: 0 var(--pad-x); }
+        #s-solution .overline { color: var(--gold-bright); }
+        #s-solution h1 { color: white; }
+        #s-solution .glow-text {
+            background: linear-gradient(135deg, var(--gold-bright), var(--orange), var(--gold-bright));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        #s-solution p { color: rgba(255,255,255,0.85); }
+        #s-solution strong { color: white; }
+        .tower-text {
+            text-shadow: 0 2px 24px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.6), 0 0 120px rgba(0,0,0,0.3);
+            transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .tower-text.show { opacity: 1 !important; }
+
         /* RESPONSIVE */
         @media (max-height: 700px) {
             :root {
@@ -710,7 +728,7 @@
         </div>
 
         <p class="r r1" style="font-family: var(--font-heading); font-size: clamp(1.3rem, 2.8vw, 2.2rem); font-weight: 600; color: var(--text-secondary); max-width: 600px;">
-            You staked $5. You forgot. <strong style="color: var(--coral);">Now it's theirs.</strong>
+            You staked $5 three days ago. You forgot. <strong style="color: var(--coral);">Now it's theirs.</strong>
         </p>
 
         <div class="spark-states r r2" style="margin: clamp(0.5rem, 1.5vh, 1rem) 0;">
@@ -783,30 +801,21 @@
 </section>
 
 
-<!-- ===================== 3. VALUE PROP ===================== -->
-<section class="slide">
-    <div class="slide-inner left" style="flex-direction: row; align-items: center; gap: clamp(2rem, 5vw, 5rem); flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 280px;">
-            <div class="overline r">The Monolith</div>
-
-            <h1 class="r r1" style="margin: var(--gap-sm) 0;">
-                r/Place meets DeFi<br><span class="glow-text">in 3D.</span>
-            </h1>
-
-            <p class="r r2 body-lg" style="max-width: 480px;">
-                The first DeFi app you'll actually <strong>want</strong> to open every day.
-            </p>
-
-            <div class="r r3" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: var(--gap-sm);">
-                <span class="pill">Real stakes</span>
-                <span class="pill pill-sage">Daily addiction</span>
-                <span class="pill pill-coral">Territory war</span>
-            </div>
-        </div>
-
-        <!-- Animated 3D tower canvas -->
-        <div class="r r2" style="width: clamp(220px, 28vw, 340px); height: clamp(260px, 40vh, 400px); flex-shrink: 0;">
-            <canvas class="tower-canvas" style="width: 100%; height: 100%;"></canvas>
+<!-- ===================== 3. SOLUTION — CINEMATIC TOWER REVEAL ===================== -->
+<section class="slide" id="s-solution">
+    <canvas id="tower-reveal-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:0;"></canvas>
+    <div class="slide-inner center" style="z-index:2;">
+        <div class="overline tower-text" style="opacity:0;">The Solution</div>
+        <h1 class="tower-text" style="opacity:0;">
+            r/Place meets DeFi<br><span class="glow-text">in 3D.</span>
+        </h1>
+        <p class="tower-text body-lg" style="opacity:0;max-width:550px;font-weight:600;">
+            The first DeFi app you'll actually <strong>want</strong> to open every day.
+        </p>
+        <div class="tower-text" style="opacity:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+            <span class="pill" style="background:rgba(245,197,24,0.12);color:#F5C518;border-color:rgba(245,197,24,0.25);">Real stakes</span>
+            <span class="pill" style="background:rgba(90,144,64,0.12);color:#7FB069;border-color:rgba(90,144,64,0.25);">Daily addiction</span>
+            <span class="pill" style="background:rgba(224,69,69,0.10);color:#FF8A7A;border-color:rgba(224,69,69,0.2);">Territory war</span>
         </div>
     </div>
 </section>
@@ -836,7 +845,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sage"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                 </div>
                 <h3 style="color: var(--text); font-size: var(--h3-size);">Claim Your Block</h3>
-                <p style="color: var(--text-secondary);">A Spark is born. It's <strong>yours</strong>.</p>
+                <p style="color: var(--text-secondary);">It's <strong>yours</strong>. Customize it. Protect it from others.</p>
             </div>
             <div class="step-card">
                 <div class="step-num">3</div>
@@ -855,7 +864,7 @@
 <!-- ===================== 5. DEMO ===================== -->
 <section class="slide" id="s-demo">
     <div class="slide-inner center">
-        <div class="overline r">Live on Solana Seeker</div>
+        <div class="overline r">Live on the Solana Mobile dApp Store</div>
         <h1 class="r r1">
             Real app. <span class="glow-text">Real device.</span>
         </h1>
@@ -872,13 +881,13 @@
                     <div style="color: var(--gold-bright); font-weight: 800; font-size: 13px; padding: 8px 20px; border: 1.5px solid rgba(245,197,24,0.3); border-radius: 999px;">Loading...</div>
                 </div>
             </div>
-            <p style="font-size: var(--small-size); color: var(--text-muted); font-weight: 600; text-align: center; margin-top: 10px; letter-spacing: 0.05em;">Claim a block in 30 seconds &middot; Solana Seeker &middot; No browser needed</p>
+            <p style="font-size: var(--small-size); color: var(--text-muted); font-weight: 600; text-align: center; margin-top: 10px; letter-spacing: 0.05em;">Live on devnet &middot; Solana Mobile dApp Store &middot; Not a wrapper</p>
         </div>
 
         <div class="r r3" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
             <span class="pill">One-tap claiming via Seed Vault</span>
-            <span class="pill pill-sage">Haptics + sound on every interaction</span>
-            <span class="pill pill-coral">Push notifications when fading</span>
+            <span class="pill pill-sage">Feedback on every interaction</span>
+            <span class="pill pill-coral">Push notifications when fading or poked</span>
         </div>
     </div>
 </section>
@@ -906,7 +915,7 @@
         </div>
 
         <div class="insight r r3" style="max-width: 700px;">
-            <p>The Seeker dApp Store launches with <strong>zero idle games</strong>. Gen Z already loves gamified finance (see: <strong>CashApples</strong> launching next week). I'm bringing that energy to Solana through TikTok and Instagram.</p>
+            <p>The Solana dApp Store launches with <strong>very few idle games</strong>. Gen Z already loves gamified finance (see: <strong>CashApples</strong>). I'm meeting the younger generation buying these phones on TikTok and Instagram.</p>
         </div>
 
         <div class="r r4" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
@@ -930,28 +939,28 @@
             <div class="card" style="text-align: center; padding: clamp(1.2rem, 2.5vw, 2rem);">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" width="28" height="28"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M12 10v4m-2-2h4"/></svg>
-                    <h3 style="color: var(--text);">5% Claim Fee</h3>
+                    <h3 style="color: var(--text);">Yield Spread</h3>
                 </div>
-                <p style="color: var(--text-secondary);">On every stake-in. Dormant blocks get re-claimed, so the game's core loop generates recurring revenue.</p>
+                <p style="color: var(--text-secondary);">Percentage of staked USDC yield via Drift &amp; Kamino. Passive income that scales with TVL.</p>
             </div>
             <div class="card" style="text-align: center; padding: clamp(1.2rem, 2.5vw, 2rem);">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" width="28" height="28"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                    <h3 style="color: var(--text);">Yield Spread</h3>
+                    <h3 style="color: var(--text);">MONO LST</h3>
                 </div>
-                <p style="color: var(--text-secondary);">15% of DeFi yield on staked USDC via Drift &amp; Kamino. Passive income that scales with TVL.</p>
+                <p style="color: var(--text-secondary);">Custom liquid staking token. Stakers earn yield while their block stays alive on the tower.</p>
             </div>
             <div class="card" style="text-align: center; padding: clamp(1.2rem, 2.5vw, 2rem);">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="var(--lavender)" stroke-width="2" stroke-linecap="round" width="28" height="28"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                    <h3 style="color: var(--text);">In-App Purchases</h3>
+                    <h3 style="color: var(--text);">Cosmetics + Boosts</h3>
                 </div>
-                <p style="color: var(--text-secondary);">Boosts, MONO LST, premium Spark skins. Recurring revenue from power users.</p>
+                <p style="color: var(--text-secondary);">Premium Spark skins, boosts to skip cooldowns, seasonal cosmetics. Recurring revenue.</p>
             </div>
         </div>
 
         <div class="insight r r3" style="max-width: 700px;">
-            <p>5K users &times; $5 avg = <strong>$25K TVL</strong>. Claim fees alone = <strong>$3,750+/yr</strong> from block turnover. Add yield spread + in-app purchases and it scales. Near-zero operating cost. No token.</p>
+            <p>Near-zero operating cost. Revenue scales directly with users. No token. No speculation.</p>
         </div>
     </div>
 </section>
@@ -971,11 +980,11 @@
             </div>
             <div class="stat-item">
                 <div class="stat-number stat-number-lg">100%</div>
-                <div class="stat-label">Funds withdrawable</div>
+                <div class="stat-label">Self-custodied</div>
             </div>
             <div class="stat-item">
                 <div class="stat-number stat-number-lg" style="color: var(--gold);">1</div>
-                <div class="stat-label">Dev. 6 weeks.</div>
+                <div class="stat-label">Dev. 4 weeks.</div>
             </div>
         </div>
 
@@ -1014,7 +1023,7 @@
             <div class="t-phase">
                 <div class="t-label">Phase 4</div>
                 <div class="t-time">Scale</div>
-                <div class="t-desc">Multi-tower worlds<br>Seasonal events<br>Tower SDK</div>
+                <div class="t-desc">White-label towers<br>Other protocols create branded towers<br>Seasonal events</div>
             </div>
         </div>
 
@@ -1041,8 +1050,8 @@
                     Solo Builder. Anchorage, Alaska. No tech hub. No team.
                 </p>
                 <p style="font-size: var(--body-size);">
-                    Built the entire stack in 6 weeks: Anchor smart contracts, 3D rendering engine,
-                    real-time multiplayer, custom GLSL shaders, and a production deploy on Railway.
+                    Built the entire stack in 4 weeks starting at Mountain View: Anchor smart contracts, 3D rendering engine,
+                    real-time multiplayer, custom GLSL shaders, and a production deploy.
                 </p>
                 <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
                     <span class="pill">Rust / Anchor</span>
@@ -1071,7 +1080,7 @@
         </div>
 
         <p class="r r1" style="font-family: var(--font-heading); font-size: clamp(1.2rem, 2.5vw, 2rem); font-weight: 600; color: var(--text-secondary);">
-            The first idle game on Solana. Built solo in six weeks.
+            Your stake will never feel this alive.
         </p>
 
         <p class="r r1" style="font-size: var(--small-size); color: rgba(255,255,255,0.55); font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;">
@@ -1529,6 +1538,379 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 })();
 
+</script>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+(function() {
+const slide = document.getElementById('s-solution');
+const canvas = document.getElementById('tower-reveal-canvas');
+if (!slide || !canvas) return;
+
+let initialized = false, active = false;
+new IntersectionObserver(entries => {
+  const vis = entries[0].isIntersecting;
+  if (vis && !initialized) { initialized = true; try { init(); } catch(e) { console.warn('Tower reveal failed:', e); revealText(); } }
+  active = vis;
+}, { threshold: 0.3 }).observe(slide);
+
+function revealText() {
+  slide.querySelectorAll('.tower-text').forEach((el, i) => {
+    setTimeout(() => el.classList.add('show'), i * 200);
+  });
+}
+
+function init() {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(slide.clientWidth, slide.clientHeight);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.7;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(52, slide.clientWidth / slide.clientHeight, 0.5, 1200);
+
+  // Tower geometry (exact match with landing page)
+  const BS = 0.85, BG = 0.005, HW = 6, HD = 3.5, TL = 25, SS = 16;
+  function lScale(l) { const t = l / (TL - 1); return 1 + 0.8 * t * t; }
+  function lY(l) { let y = 0; for (let i = 0; i < l; i++) y += BS * lScale(i) + BG; return y; }
+  function spireDim(l) { const p = (l - SS) / (TL - 1 - SS), s = Math.pow(1 - p, 1.5); return { hw: HW * s, hd: HD * s }; }
+  function bpf(fw, sc) { const bw = BS * sc; return fw < bw * 0.5 ? 0 : Math.max(1, Math.round(fw / bw)); }
+
+  const pos = [];
+  function addFace(y, ahw, ahd, fc, sc, bw) {
+    const bh = bw / 2;
+    function d(n, fw) { if (n <= 0) return []; const tw = fw / n, o = []; for (let i = 0; i < n; i++) o.push(-fw / 2 + tw / 2 + i * tw); return o; }
+    const fp = d(fc, 2 * ahw), sp = d(sc, 2 * ahd);
+    for (const x of fp) { pos.push({ x, y, z: ahd + bh, ry: 0 }); pos.push({ x, y, z: -ahd - bh, ry: Math.PI }); }
+    for (const z of sp) { pos.push({ x: ahw + bh, y, z, ry: Math.PI / 2 }); pos.push({ x: -ahw - bh, y, z, ry: -Math.PI / 2 }); }
+    if (fc > 0 && sc > 0) { pos.push({ x: ahw + bh, y, z: ahd + bh, ry: 0 }, { x: -ahw - bh, y, z: ahd + bh, ry: 0 }, { x: ahw + bh, y, z: -ahd - bh, ry: 0 }, { x: -ahw - bh, y, z: -ahd - bh, ry: 0 }); }
+  }
+  for (let l = 0; l < TL; l++) {
+    const sc = lScale(l), bw = BS * sc, y = lY(l);
+    if (l < SS) { addFace(y, HW, HD, bpf(2 * HW, sc), bpf(2 * HD, sc), bw); }
+    else { const { hw, hd } = spireDim(l); const fc = bpf(2 * hw, sc), scc = bpf(2 * hd, sc); if (!fc && !scc) pos.push({ x: 0, y, z: 0, ry: 0 }); else addFace(y, (fc * bw) / 2, (scc * bw) / 2, fc, scc, bw); }
+  }
+  const NB = pos.length;
+  const TH = lY(TL - 1) + BS * lScale(TL - 1);
+  const THstr = TH.toFixed(1);
+  const spireNorm = (lY(SS) / TH).toFixed(4);
+
+  // Block data
+  const energies = new Float32Array(NB), phases = new Float32Array(NB), hueOffsets = new Float32Array(NB);
+  for (let i = 0; i < NB; i++) {
+    energies[i] = Math.pow(Math.random(), 0.4) * 0.7 + 0.3;
+    phases[i] = Math.random() * Math.PI * 2;
+    hueOffsets[i] = Math.random();
+  }
+
+  // Block shader (from landing page)
+  const blockVS = `precision highp float;
+attribute float aEnergy; attribute float aHue; attribute float aPhase;
+varying float vEnergy, vHue, vLayerNorm; varying vec3 vNormal, vWorldPos; varying float vInstanceOffset;
+void main() {
+  vEnergy = aEnergy; vHue = aHue;
+  vNormal = normalize(normalMatrix * normal);
+  vLayerNorm = instanceMatrix[3].y / ${THstr};
+  vec4 wp = instanceMatrix * vec4(position, 1.0);
+  vWorldPos = wp.xyz; vInstanceOffset = wp.x * 0.3 + wp.y * 0.7 + wp.z * 0.5;
+  gl_Position = projectionMatrix * modelViewMatrix * wp;
+}`;
+
+  const blockFS = `precision mediump float;
+uniform highp float uTime; uniform vec3 uCamPos; uniform float uTowerHeight; uniform float uSpireNorm;
+varying float vEnergy, vHue, vLayerNorm; varying vec3 vNormal, vWorldPos; varying float vInstanceOffset;
+vec3 hsv2rgb(float h, float s, float v) {
+  vec3 c = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  return v * mix(vec3(1.0), c, s);
+}
+float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5); }
+vec3 pastelColor(float hue, float energy) {
+  return hsv2rgb(hue, 0.35 + energy * 0.20, 0.55 + energy * 0.30);
+}
+vec3 energyTint(float e) {
+  return mix(vec3(0.15, 0.18, 0.30), vec3(1.0, 0.85, 0.55), smoothstep(0.0, 0.8, e));
+}
+void main() {
+  float energy = clamp(vEnergy, 0.0, 1.0);
+  vec3 N = normalize(vNormal); vec3 V = normalize(uCamPos - vWorldPos);
+  float NdotV = max(dot(N, V), 0.0);
+  float hue = fract(vHue + vLayerNorm * 0.08);
+  vec3 baseCol = pastelColor(hue, energy); vec3 tint = energyTint(energy);
+  vec3 col = baseCol + tint * energy * 0.15;
+  vec3 lightDir = normalize(vec3(0.25, 0.8, -0.5));
+  float faceBright = 0.72 + 0.30 * dot(N, lightDir) + max(0.0, N.y) * 0.15 - max(0.0, -N.y) * 0.10;
+  col *= faceBright;
+  float fresnel = pow(max(0.0, 1.0 - NdotV), 4.0);
+  col += mix(vec3(0.5, 0.7, 1.0), tint, 0.5 + energy * 0.5) * fresnel * (0.1 + energy * 0.3);
+  vec3 H = normalize(lightDir + V);
+  col += vec3(1.0, 0.95, 0.85) * pow(max(0.0, dot(N, H)), 28.0) * 0.25 * energy;
+  float breathe = 0.0, bI = 0.0; vec3 aT = vec3(0.0);
+  if (energy > 0.8) { breathe = 0.5 + 0.5 * sin(uTime * 5.03 + vInstanceOffset); bI = 0.15 + energy * 0.15; aT = vec3(0.12, 0.09, 0.0); }
+  else if (energy > 0.5) { breathe = 0.5 + 0.5 * sin(uTime * 7.54 + vInstanceOffset); bI = 0.10 + energy * 0.15; aT = vec3(0.08, 0.04, 0.0); }
+  else if (energy > 0.2) { breathe = 0.5 + 0.5 * sin(uTime * 15.7 + vInstanceOffset) + (hash21(vec2(floor(uTime * 8.0), vInstanceOffset)) * 0.4 - 0.2); bI = 0.08 + energy * 0.10; aT = vec3(0.06, 0.02, 0.0); }
+  else if (energy > 0.01) { float sp = hash21(vec2(floor(uTime * 12.0), vInstanceOffset + 7.3)); breathe = sp > 0.85 ? sp * 2.0 : 0.1; bI = 0.05 + energy * 0.08; aT = vec3(-0.03, -0.01, 0.04); }
+  col *= (0.9 + breathe * bI * 0.25); col += aT * breathe * bI;
+  float scanY = mod(uTime * 0.65, uTowerHeight + 8.0) - 4.0;
+  col += tint * smoothstep(2.5, 0.0, abs(vWorldPos.y - scanY)) * 0.2 * energy;
+  float spireBoost = smoothstep(uSpireNorm - 0.05, uSpireNorm + 0.15, vLayerNorm);
+  col += tint * spireBoost * (0.35 + 0.45 * sin(uTime * 1.5 + vInstanceOffset * 2.0)) * 0.08;
+  col += mix(vec3(0.03, 0.02, 0.04), vec3(0.20, 0.15, 0.06), vLayerNorm) * 0.04;
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+  const blockGeo = new THREE.BoxGeometry(BS, BS, BS);
+  const blockMat = new THREE.ShaderMaterial({
+    vertexShader: blockVS, fragmentShader: blockFS,
+    uniforms: { uTime: { value: 0 }, uCamPos: { value: new THREE.Vector3() }, uTowerHeight: { value: TH }, uSpireNorm: { value: parseFloat(spireNorm) } },
+    toneMapped: true
+  });
+  const tower = new THREE.InstancedMesh(blockGeo, blockMat, NB);
+  tower.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const eAttr = new THREE.InstancedBufferAttribute(energies, 1);
+  blockGeo.setAttribute('aEnergy', eAttr);
+  blockGeo.setAttribute('aHue', new THREE.InstancedBufferAttribute(hueOffsets, 1));
+  blockGeo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phases, 1));
+
+  const dummy = new THREE.Object3D();
+  function layerOf(y) { for (let l = TL - 1; l >= 0; l--) if (y >= lY(l) - 0.01) return l; return 0; }
+  for (let i = 0; i < NB; i++) {
+    const p = pos[i], sc = lScale(layerOf(p.y));
+    dummy.position.set(p.x, p.y, p.z);
+    dummy.rotation.set(0, p.ry, 0);
+    dummy.scale.setScalar(sc);
+    dummy.updateMatrix();
+    tower.setMatrixAt(i, dummy.matrix);
+  }
+  tower.instanceMatrix.needsUpdate = true;
+  scene.add(tower);
+
+  // Pedestal (simplified)
+  const pedMat = new THREE.MeshStandardMaterial({ color: 0x8a7e6a, roughness: 0.4, metalness: 0.2 });
+  const pedG = new THREE.Group();
+  let yT = -0.5;
+  for (const tier of [{ s: 1.6, h: 0.6 }, { s: 2.8, h: 1.2 }, { s: 3.8, h: 0.8 }]) {
+    const r = HW * tier.s, h = tier.h;
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 32), pedMat);
+    m.position.y = yT - h / 2; pedG.add(m); yT -= h;
+  }
+  scene.add(pedG);
+
+  // Aurora skybox (matching landing page green aurora)
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `precision mediump float;
+uniform highp float uTime; varying vec3 vP;
+float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5); }
+float vn(vec2 p) { vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }
+float fb(vec2 p) { float v=0.0,a=0.5; mat2 rot=mat2(0.8,0.6,-0.6,0.8); for(int i=0;i<6;i++){v+=a*vn(p);p=rot*p*2.0;a*=0.5;} return v; }
+void main() {
+  vec3 d = normalize(vP); float lat = acos(d.y) / 3.14159; float t = uTime;
+  float cx = d.x / max(length(vec2(d.x, d.z)), 0.001);
+  float cz = d.z / max(length(vec2(d.x, d.z)), 0.001);
+  vec3 sky = vec3(0.015, 0.020, 0.042);
+  sky = mix(sky, vec3(0.025, 0.035, 0.07), smoothstep(0.0, 0.12, lat));
+  sky = mix(sky, vec3(0.04, 0.058, 0.12), smoothstep(0.10, 0.28, lat));
+  sky = mix(sky, vec3(0.03, 0.078, 0.10), smoothstep(0.32, 0.50, lat));
+  sky = mix(sky, vec3(0.015, 0.025, 0.045), smoothstep(0.55, 1.0, lat));
+  float aZone = smoothstep(0.75, 0.08, lat) * smoothstep(0.0, 0.06, lat);
+  float curtain = 0.55 + 0.45 * fb(vec2(cx * 1.2 + cz * 0.8 + t * 0.005, lat * 0.8 + t * 0.003));
+  float r1uv = fb(vec2(cx * 2.5 + cz * 1.5 + t * 0.015, lat * 5.5 + t * 0.010));
+  sky += vec3(0.45, 0.12, 0.72) * smoothstep(0.22, 0.58, r1uv) * aZone * curtain * 1.0;
+  float r2uv = fb(vec2(cx * 3.5 - cz * 2.0 - t * 0.018, lat * 7.0 + t * 0.013));
+  sky += vec3(0.06, 0.85, 0.35) * smoothstep(0.20, 0.56, r2uv) * aZone * curtain * 1.0;
+  float r3uv = fb(vec2(cx * 2.0 + cz * 1.2 + t * 0.010, lat * 4.5 - t * 0.007));
+  sky += vec3(0.90, 0.72, 0.28) * smoothstep(0.28, 0.57, r3uv) * aZone * curtain * 0.7;
+  float r4uv = fb(vec2(cx * 4.5 - cz * 2.5 + t * 0.020, lat * 6.0 + t * 0.012));
+  sky += vec3(0.12, 0.68, 0.42) * smoothstep(0.34, 0.62, r4uv) * aZone * curtain * 0.6;
+  sky += vec3(0.30, 0.35, 0.10) * smoothstep(0.58, 0.40, lat) * smoothstep(0.36, 0.48, lat) * 0.5;
+  float sZone = smoothstep(0.55, 0.0, lat);
+  if (sZone > 0.0) {
+    float az = atan(d.z, d.x); vec2 su = vec2(az * 90.0, lat * 180.0); float s = h(floor(su));
+    float tw = 0.45 + 0.55 * sin(t * (1.2 + s * 3.5) + s * 100.0);
+    if (s > 0.988) sky += vec3(1.0, 0.97, 0.94) * (s - 0.988) * 450.0 * tw * sZone;
+    else if (s > 0.975) sky += vec3(0.55, 0.60, 0.78) * (s - 0.975) * 70.0 * tw * sZone;
+  }
+  gl_FragColor = vec4(sky, 1.0);
+}`
+  });
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), skyMat));
+
+  // Embers (warm particles near tower)
+  const EC = 120;
+  const eGeo = new THREE.BufferGeometry();
+  const eP = new Float32Array(EC * 3), eSp = new Float32Array(EC), ePh = new Float32Array(EC);
+  const eCl = new Float32Array(EC * 3);
+  for (let i = 0; i < EC; i++) {
+    const a = Math.random() * Math.PI * 2, r = 2 + Math.random() * 6;
+    eP[i*3] = Math.cos(a)*r; eP[i*3+1] = Math.random()*TH*1.3-2; eP[i*3+2] = Math.sin(a)*r;
+    eSp[i] = 0.08 + Math.random()*0.12; ePh[i] = Math.random()*Math.PI*2;
+    const w = 0.85+Math.random()*0.15;
+    eCl[i*3]=w; eCl[i*3+1]=w*0.5+Math.random()*0.2; eCl[i*3+2]=0.05+Math.random()*0.15;
+  }
+  eGeo.setAttribute('position', new THREE.BufferAttribute(eP, 3));
+  eGeo.setAttribute('color', new THREE.BufferAttribute(eCl, 3));
+  const embers = new THREE.Points(eGeo, new THREE.PointsMaterial({
+    size: 0.2, vertexColors: true, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+  }));
+  scene.add(embers);
+
+  // Fireflies (aurora-colored, mid-distance)
+  const FC = 60;
+  const fGeo = new THREE.BufferGeometry();
+  const fP = new Float32Array(FC*3), fPh = new Float32Array(FC), fCl = new Float32Array(FC*3);
+  for (let i = 0; i < FC; i++) {
+    const a = Math.random()*Math.PI*2, r = 8+Math.random()*18;
+    fP[i*3]=Math.cos(a)*r; fP[i*3+1]=Math.random()*TH*1.6-4; fP[i*3+2]=Math.sin(a)*r;
+    fPh[i] = Math.random()*Math.PI*2;
+    const cc = Math.random();
+    if (cc < 0.4) { fCl[i*3]=0.45; fCl[i*3+1]=0.12; fCl[i*3+2]=0.65; }
+    else if (cc < 0.75) { fCl[i*3]=0.1; fCl[i*3+1]=0.6; fCl[i*3+2]=0.5; }
+    else { fCl[i*3]=0.85; fCl[i*3+1]=0.65; fCl[i*3+2]=0.15; }
+  }
+  fGeo.setAttribute('position', new THREE.BufferAttribute(fP, 3));
+  fGeo.setAttribute('color', new THREE.BufferAttribute(fCl, 3));
+  const fireflies = new THREE.Points(fGeo, new THREE.PointsMaterial({
+    size: 0.45, vertexColors: true, transparent: true, opacity: 0.3,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+  }));
+  scene.add(fireflies);
+
+  // God-ray (glow at tower top)
+  const godRay = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xFFD060, transparent: true, opacity: 0.4 }));
+  godRay.position.set(0, TH + 0.5, 0);
+  scene.add(godRay);
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xFFD060, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false }));
+  halo.position.set(0, TH + 0.5, 0);
+  scene.add(halo);
+
+  // Lights (matching landing page)
+  scene.add(new THREE.AmbientLight(0xD4C4A0, 0.20));
+  scene.add(new THREE.HemisphereLight(0x3a2850, 0x8A5820, 0.35));
+  const dL = new THREE.DirectionalLight(0xD0D8F0, 0.35);
+  dL.position.set(12, 40, 8); scene.add(dL);
+  const baseL = new THREE.PointLight(0xFFB040, 3, 55, 1.2);
+  baseL.position.set(0, 1, 0); scene.add(baseL);
+  const beaconL = new THREE.PointLight(0xFFD700, 2.5, 60, 1.0);
+  beaconL.position.set(0, TH - 2, 0); scene.add(beaconL);
+  const midL = new THREE.PointLight(0xFFA030, 2, 45, 1.2);
+  midL.position.set(0, TH * 0.5, 0); scene.add(midL);
+
+  // Post-processing (bloom)
+  let composer = null;
+  try {
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    composer.addPass(new UnrealBloomPass(
+      new THREE.Vector2(slide.clientWidth, slide.clientHeight), 0.35, 0.4, 0.88
+    ));
+  } catch(e) { composer = null; }
+
+  // Camera
+  const lookTarget = new THREE.Vector3(0, TH * 0.35, 0);
+  const camPos = new THREE.Vector3();
+  const camTargetPos = new THREE.Vector3();
+  function easeOutExpo(x) { return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x); }
+
+  // Timing
+  let time = 0, lastNow = 0, textRevealed = false;
+
+  // Resize
+  function resize() {
+    const w = slide.clientWidth, h = slide.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    if (composer) composer.setSize(w, h);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now() * 0.001;
+    if (!active) { lastNow = now; return; }
+    if (lastNow === 0) lastNow = now;
+    const dt = Math.min(now - lastNow, 0.05);
+    lastNow = now;
+    time += dt;
+
+    // Camera — cinematic low-angle spin-in (no scroll, auto-orbit only)
+    const introDur = 5.0;
+    const introT = Math.min(time / introDur, 1);
+    const introE = easeOutExpo(introT);
+    const introSpin = (1 - introE) * Math.PI * 1.8;
+    const autoOrbit = time * 0.015;
+    const camAngle = 0.6 + autoOrbit + introSpin;
+
+    const camRStart = 55, camREnd = 22;
+    const camR = camRStart + (camREnd - camRStart) * introE;
+    const introY = (1 - introE) * 8;
+
+    camTargetPos.x = Math.sin(camAngle) * camR;
+    camTargetPos.z = Math.cos(camAngle) * camR;
+    camTargetPos.y = introY;
+
+    camPos.lerp(camTargetPos, time < 0.3 ? 1 : 0.06);
+    camera.position.copy(camPos);
+    camera.lookAt(lookTarget);
+
+    // Reveal text after camera settles
+    if (!textRevealed && time > 2.5) { textRevealed = true; revealText(); }
+
+    // Uniforms
+    blockMat.uniforms.uCamPos.value.copy(camera.position);
+    blockMat.uniforms.uTime.value = time;
+    skyMat.uniforms.uTime.value = time;
+
+    // Embers rise + sway
+    const ea = embers.geometry.attributes.position.array;
+    for (let i = 0; i < EC; i++) {
+      ea[i*3+1] += eSp[i] * 0.016;
+      if (ea[i*3+1] > TH * 1.4) ea[i*3+1] = -3;
+      ea[i*3] += Math.sin(time * 0.7 + ePh[i]) * 0.006;
+      ea[i*3+2] += Math.cos(time * 0.5 + ePh[i] * 1.3) * 0.006;
+    }
+    embers.geometry.attributes.position.needsUpdate = true;
+    embers.material.opacity = 0.4 + 0.15 * Math.sin(time * 0.3);
+
+    // Fireflies drift + pulse
+    const fa = fireflies.geometry.attributes.position.array;
+    for (let i = 0; i < FC; i++) {
+      fa[i*3] += Math.sin(time * 0.3 + fPh[i]) * 0.008;
+      fa[i*3+1] += Math.cos(time * 0.2 + fPh[i] * 1.7) * 0.006 + 0.002;
+      fa[i*3+2] += Math.sin(time * 0.25 + fPh[i] * 0.8) * 0.008;
+      if (fa[i*3+1] > TH * 1.8) fa[i*3+1] = -5;
+    }
+    fireflies.geometry.attributes.position.needsUpdate = true;
+    fireflies.material.opacity = 0.2 + 0.2 * Math.sin(time * 0.4);
+
+    // Energy pulse
+    for (let i = 0; i < NB; i++) {
+      eAttr.setX(i, Math.max(0, Math.min(1, energies[i] + Math.sin(time * 0.3 + phases[i]) * 0.03)));
+    }
+    eAttr.needsUpdate = true;
+
+    beaconL.intensity = 2.5 + Math.sin(time * 0.7) * 0.8;
+
+    if (composer) composer.render();
+    else renderer.render(scene, camera);
+  }
+  animate();
+}
+})();
 </script>
 </body>
 </html>
