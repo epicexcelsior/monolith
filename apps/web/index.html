@@ -486,7 +486,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMob, alpha: fal
 renderer.setPixelRatio(Math.min(devicePixelRatio, isMob ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
+renderer.toneMappingExposure = 0.7;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.5, 1200);
@@ -825,23 +825,23 @@ void main() {
   float r1uv = fb(vec2(cx * 2.5 + cz * 1.5 + t * 0.015 + sin(t * 0.008) * 0.3, lat * 5.5 + t * 0.010));
   float ribbon1 = smoothstep(0.22, 0.58, r1uv);
   float r1edge = smoothstep(0.58, 0.50, r1uv) * 0.5;
-  sky += vec3(0.45 + scrollHue, 0.12, 0.72) * (ribbon1 + r1edge) * aZone * curtain * 3.5 * scrollBoost;
+  sky += vec3(0.45 + scrollHue, 0.12, 0.72) * (ribbon1 + r1edge) * aZone * curtain * 1.0 * scrollBoost;
 
   // === RIBBON 2: Aurora green waves — classic northern lights ===
   float r2uv = fb(vec2(cx * 3.5 - cz * 2.0 - t * 0.018 + cos(t * 0.006) * 0.2, lat * 7.0 + t * 0.013));
   float ribbon2 = smoothstep(0.20, 0.56, r2uv);
   float r2edge = smoothstep(0.56, 0.48, r2uv) * 0.4;
-  sky += vec3(0.06, 0.85, 0.35) * (ribbon2 + r2edge) * aZone * curtain * 3.4 * scrollBoost;
+  sky += vec3(0.06, 0.85, 0.35) * (ribbon2 + r2edge) * aZone * curtain * 1.0 * scrollBoost;
 
   // === RIBBON 3: Gold fire accents ===
   float r3uv = fb(vec2(cx * 2.0 + cz * 1.2 + t * 0.010, lat * 4.5 - t * 0.007 + sin(t * 0.005) * 0.15));
   float ribbon3 = smoothstep(0.28, 0.57, r3uv);
-  sky += vec3(0.90, 0.72, 0.28) * ribbon3 * aZone * curtain * 2.2 * scrollBoost;
+  sky += vec3(0.90, 0.72, 0.28) * ribbon3 * aZone * curtain * 0.7 * scrollBoost;
 
   // === RIBBON 4: Emerald wisps — deep green accents ===
   float r4uv = fb(vec2(cx * 4.5 - cz * 2.5 + t * 0.020, lat * 6.0 + t * 0.012));
   float ribbon4 = smoothstep(0.34, 0.62, r4uv);
-  sky += vec3(0.12, 0.68, 0.42) * ribbon4 * aZone * curtain * 2.0 * scrollBoost;
+  sky += vec3(0.12, 0.68, 0.42) * ribbon4 * aZone * curtain * 0.6 * scrollBoost;
 
   // Warm horizon glow — green-gold blend
   float hGlow = smoothstep(0.58, 0.40, lat) * smoothstep(0.36, 0.48, lat);
@@ -966,11 +966,11 @@ let composer = null;
 try {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloomStr = isMob ? 0.30 : 0.50;
+  const bloomStr = isMob ? 0.20 : 0.35;
   const bloomRes = isMob ? 0.5 : 1.0;
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(innerWidth * bloomRes, innerHeight * bloomRes),
-    bloomStr, 0.5, 0.78
+    bloomStr, 0.4, 0.88
   );
   composer.addPass(bloom);
 
@@ -1035,7 +1035,7 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
 
-  // Camera — imposing low-angle with scroll-driven spiral ascent
+  // Camera — low-angle spiral ascent, ending overhead looking down
   const introDur = 5.0;
   const introT = Math.min(t / introDur, 1);
   const introE = easeOutExpo(introT);
@@ -1045,24 +1045,28 @@ function animate() {
   // Rotation: intro spin decelerates, then scroll drives spiral around tower
   const introSpin = prefersReduced ? 0 : (1 - introE) * Math.PI * 1.8;
   const autoOrbit = prefersReduced ? 0 : t * 0.015;
-  const scrollSpiral = scrollEased * Math.PI * 3; // 1.5 full rotations on scroll
+  const scrollSpiral = scrollEased * Math.PI * 4; // 2 full rotations on scroll
   const camAngle = 0.6 + autoOrbit + introSpin + scrollSpiral;
 
-  // Radius: zoom in close to the tower base — imposing scale
+  // Radius: close at base, pulls out as we rise, then tightens overhead
   const camRStart = 55;
   const camREnd = 22;
-  const camR = camRStart + (camREnd - camRStart) * introE + scrollEased * 3;
+  const baseR = camRStart + (camREnd - camRStart) * introE;
+  const scrollR = scrollEased < 0.7
+    ? camREnd + scrollEased * 12  // pull out slightly while climbing
+    : camREnd + 8.4 - (scrollEased - 0.7) * 20; // tighten for overhead
+  const camR = introE < 0.99 ? baseR : Math.max(12, scrollR);
 
-  // Height: start near ground, intro drops from slight elevation, scroll spirals up
+  // Height: ground level → above tower top for overhead view
   const introY = (1 - introE) * 8;
-  const camY = introY + scrollEased * TH * 0.7;
+  const camY = introY + scrollEased * (TH * 1.4 + 15);
 
   camTargetPos.x = Math.sin(camAngle) * camR;
   camTargetPos.z = Math.cos(camAngle) * camR;
   camTargetPos.y = camY;
 
-  // Look target rises with scroll — always gazing UP the tower
-  lookTarget.y = TH * 0.35 + scrollEased * TH * 0.4;
+  // Look target: rises with scroll, but camera overtakes it → looking down
+  lookTarget.y = TH * 0.35 + scrollEased * TH * 0.55;
 
   camPos.lerp(camTargetPos, t < 0.3 ? 1 : 0.06);
   camera.position.copy(camPos);
