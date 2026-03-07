@@ -9,6 +9,8 @@
 3. If upgrading from an older version, uninstall the old one first
 4. Open "The Monolith"
 
+**Auto-updates:** After your initial install, the app checks for updates every launch. No need to reinstall for new versions.
+
 ## Get Test Tokens
 
 ### SOL (for transaction fees)

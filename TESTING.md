@@ -23,7 +23,9 @@
 
 Your phone will ask to allow installs from your browser — tap **Allow**, then **Install**.
 
-If you already have an older version, uninstall it first.
+If you already have an older version, uninstall it first — then install this one.
+
+**Updates are automatic.** After your initial install, the app checks for updates every time you open it. No need to reinstall — just reopen the app and it'll grab the latest version.
 
 ---
 
@@ -109,8 +111,11 @@ No. Everything runs on Solana devnet. Tokens are free and have no value.
 **Q: What phones work?**
 Any Android phone or Solana Seeker. No iOS or web support yet.
 
+**Q: How do I get the latest version?**
+Just close and reopen the app. It auto-updates on launch.
+
 **Q: The app crashed / won't open.**
-Make sure you have Android 10+ and enough storage. Uninstall any old version and reinstall.
+Make sure you have Android 10+ and enough storage. Try uninstalling and reinstalling from the link above.
 
 **Q: My transaction failed.**
 You might be out of devnet SOL. Go to Me > Get Test Tokens to get more.
