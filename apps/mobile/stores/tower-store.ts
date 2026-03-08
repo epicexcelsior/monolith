@@ -76,6 +76,7 @@ export interface DemoBlock {
   energy: number;
   ownerColor: string;
   owner: string | null;
+  ownerName?: string;
   stakedAmount: number;
   position: { x: number; y: number; z: number };
   emoji?: string;

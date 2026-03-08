@@ -20,6 +20,7 @@ import {
   type XpAction,
 } from "../utils/xp.js";
 import { upsertPushToken } from "../utils/push-tokens.js";
+import { resolveSkrName } from "../utils/skr-resolver.js";
 import {
   sendPlayerNotification,
   isBlockDormant,
@@ -43,13 +44,14 @@ function isDormant(block: BlockSchema): boolean {
 }
 
 /** Serialize a BlockSchema to a plain JSON object */
-export function serializeBlock(block: BlockSchema) {
+export function serializeBlock(block: BlockSchema, ownerName?: string) {
   return {
     id: block.id,
     layer: block.layer,
     index: block.index,
     energy: block.energy,
     owner: block.owner,
+    ownerName: ownerName || undefined,
     ownerColor: block.ownerColor,
     stakedAmount: block.stakedAmount,
     lastChargeTime: block.lastChargeTime,
@@ -107,6 +109,7 @@ interface PlayerState {
   totalCharges: number;
   comboBest: number;
   username: string | null;
+  skrName: string | null;
 }
 
 /** Active room reference for Blink pokes to access directly */
@@ -168,6 +171,27 @@ export class TowerRoom extends Room<TowerRoomState> {
     }
 
     this.recomputeStats();
+
+    // Pre-resolve .skr names for all block owners (background, non-blocking)
+    const ownerWallets = new Set<string>();
+    this.state.blocks.forEach((block) => {
+      if (block.owner && !isBotOwner(block.owner)) {
+        ownerWallets.add(block.owner);
+      }
+    });
+    if (ownerWallets.size > 0) {
+      Promise.all(
+        Array.from(ownerWallets).map(async (wallet) => {
+          const player = await this.getOrCreatePlayer(wallet);
+          // skrName is resolved in background by getOrCreatePlayer
+          return player;
+        }),
+      ).then(() => {
+        console.log(`[TowerRoom] Pre-resolved names for ${ownerWallets.size} block owners`);
+      }).catch((err) => {
+        console.error("[TowerRoom] SKR pre-resolve error:", err);
+      });
+    }
 
     // Start bot simulation
     this.stopBotSim = startBotSimulation(this.state.blocks);
@@ -299,7 +323,7 @@ export class TowerRoom extends Room<TowerRoomState> {
 
         // Broadcast to ALL clients with eventType
         this.broadcast("block_update", {
-          ...serializeBlock(block),
+          ...serializeBlock(block, this.getOwnerName(block.owner)),
           eventType: "claim",
         });
 
@@ -447,7 +471,7 @@ export class TowerRoom extends Room<TowerRoomState> {
 
         // Broadcast to ALL clients with eventType
         this.broadcast("block_update", {
-          ...serializeBlock(block),
+          ...serializeBlock(block, this.getOwnerName(block.owner)),
           eventType: "charge",
         });
       } catch (err) {
@@ -490,7 +514,7 @@ export class TowerRoom extends Room<TowerRoomState> {
 
         // Broadcast to ALL clients with eventType
         this.broadcast("block_update", {
-          ...serializeBlock(block),
+          ...serializeBlock(block, this.getOwnerName(block.owner)),
           eventType: "customize",
         });
       } catch (err) {
@@ -569,13 +593,13 @@ export class TowerRoom extends Room<TowerRoomState> {
 
         // Broadcast block update
         this.broadcast("block_update", {
-          ...serializeBlock(block),
+          ...serializeBlock(block, this.getOwnerName(block.owner)),
           eventType: "charge", // Show as charge effect visually
         });
 
         // Send poke_received to pokee if online
         const pokerPlayer = this.players.get(msg.wallet);
-        const pokerName = pokerPlayer?.username || msg.wallet.slice(0, 8) + "...";
+        const pokerName = pokerPlayer?.skrName || pokerPlayer?.username || msg.wallet.slice(0, 8) + "...";
 
         // Find pokee's client
         for (const otherClient of this.clients) {
@@ -698,6 +722,7 @@ export class TowerRoom extends Room<TowerRoomState> {
           totalCharges: player.totalCharges,
           comboBest: player.comboBest,
           username: player.username,
+          skrName: player.skrName,
         });
       } catch (err) {
         console.error("[TowerRoom] player_sync error:", err);
@@ -746,9 +771,24 @@ export class TowerRoom extends Room<TowerRoomState> {
       totalCharges: row.total_charges,
       comboBest: row.combo_best,
       username: row.username ?? null,
+      skrName: null,
     };
     this.players.set(wallet, player);
+
+    // Resolve .skr name in background (don't block player creation)
+    resolveSkrName(wallet).then((name) => {
+      if (name) player!.skrName = name;
+    }).catch(() => {});
+
     return player;
+  }
+
+  /** Get display name for a wallet: .skr name → custom username → null */
+  private getOwnerName(wallet: string | null): string | undefined {
+    if (!wallet) return undefined;
+    const player = this.players.get(wallet);
+    if (!player) return undefined;
+    return player.skrName || player.username || undefined;
   }
 
   /** Save all player-owned blocks to Supabase */
@@ -820,7 +860,7 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     return entries.slice(0, limit).map((e, i) => ({
       rank: i + 1,
-      name: e.username || e.wallet.slice(0, 8) + "...",
+      name: this.getOwnerName(e.wallet) || e.wallet.slice(0, 8) + "...",
       emoji: e.emoji,
       color: e.color,
       score: tab === "energy" ? Math.round(e.totalEnergy) : tab === "streak" ? e.bestStreak : e.xp,
@@ -835,7 +875,7 @@ export class TowerRoom extends Room<TowerRoomState> {
   private buildFullState() {
     const blocks: ReturnType<typeof serializeBlock>[] = [];
     this.state.blocks.forEach((block) => {
-      blocks.push(serializeBlock(block));
+      blocks.push(serializeBlock(block, this.getOwnerName(block.owner)));
     });
 
     return {

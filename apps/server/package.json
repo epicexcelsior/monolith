@@ -12,6 +12,7 @@
   "dependencies": {
     "@colyseus/schema": "^2.0.0",
     "@colyseus/ws-transport": "^0.15.0",
+    "@onsol/tldparser": "^1.2.1",
     "@solana/actions": "^1.6.6",
     "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.49.0",

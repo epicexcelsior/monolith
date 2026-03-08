@@ -27,7 +27,7 @@ export default function InspectorHeader({ block, isUnclaimed, isOwner }: Inspect
           </Text>
           {!isUnclaimed && block.owner && (
             <Text style={styles.ownerLabel}>
-              {isOwner ? "Your block" : truncateAddr(block.owner)}
+              {isOwner ? "Your block" : (block.ownerName || truncateAddr(block.owner))}
             </Text>
           )}
         </View>

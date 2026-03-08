@@ -168,8 +168,8 @@ export default function TowerScreen() {
             {/* Connection status */}
             <ConnectionBanner />
 
-            {/* Dev-only energy scrubber for Spark face testing */}
-            {__DEV__ && <SparkDevSlider />}
+            {/* Dev-only energy scrubber for Spark face testing — hidden during demo recording */}
+            {__DEV__ && false && <SparkDevSlider />}
           </View>
         )}
 
