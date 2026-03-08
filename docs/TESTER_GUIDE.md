@@ -47,8 +47,9 @@
 
 ### Customize Your Spark
 - All 16 colors, 48 emojis, 11 styles, and 7 textures are unlocked for testing
-- During onboarding, you pick your Spark's initial personality (face style)
+- During onboarding, you pick your Spark's personality: Happy (^_^), Cool (B-)), Sleepy (-_-), Fierce (>_<), or Derp (:P)
 - Styles like Holographic, Neon, Fire, and Aurora overlay on top of the face
+- Set a display name that shows up on your block and the leaderboard
 
 ### Earn XP
 - **Claim**: 100 XP (first block: +200 bonus)
@@ -65,8 +66,9 @@
 ## Known Limitations
 
 - Devnet only (no real money)
-- Activity feed on Board tab may use generated data when server has no events
+- Activity feed on Board tab may show generated data when server has no recent events
 - Wallet connection can occasionally be flaky (devnet RPC)
+- .skr domain names resolve on Seeker devices (requires mainnet RPC)
 
 ## Bug Reports
 

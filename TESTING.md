@@ -1,6 +1,6 @@
 # Test The Monolith
 
-> Claim a living block on a shared 3D tower. Your block has a face — a **Spark** — that reacts to how you take care of it. Stake USDC, charge daily, watch it grow. Neglect it and someone else can take it. Android required.
+> Claim a living block on a shared 3D tower. Your block has a face — a **Spark** — that reacts to how you take care of it. Stake USDC, charge daily, watch it evolve. Neglect it and someone else can take it. Android required.
 
 ---
 
@@ -16,16 +16,16 @@
 </p>
 
 <p align="center">
-  <a href="https://expo.dev/artifacts/eas/gW4Ugm3HAiTr33Tn8zgkrt.apk">
+  <a href="https://expo.dev/artifacts/eas/xkyYpoGPbqWc6Uh8hDikmE.apk">
     Download APK from Expo
   </a>
 </p>
 
 Your phone will ask to allow installs from your browser — tap **Allow**, then **Install**.
 
-If you already have an older version, uninstall it first — then install this one.
+**Important:** This is a new build — uninstall any older version before installing.
 
-**Updates are automatic.** After your initial install, the app checks for updates every time you open it. No need to reinstall — just reopen the app and it'll grab the latest version.
+**Updates are automatic.** After this install, the app checks for OTA updates every time you open it.
 
 ---
 
@@ -64,10 +64,11 @@ These are devnet tokens with no real value.
 | Action | How | What to expect |
 |--------|-----|----------------|
 | **Claim a Spark** | Tap any unclaimed block > pick a color > confirm tx | Gold celebration, your Spark face appears |
-| **Charge daily** | Tap your block > **CHARGE** | Bounce animation, energy fills, face smiles |
+| **Charge daily** | Tap your block > **CHARGE** | Bounce animation, energy fills, face reacts |
 | **Build streaks** | Charge on consecutive days | Streak counter grows, bonus XP |
+| **Pick a personality** | Choose your Spark's face during onboarding | Happy, Cool, Sleepy, Fierce, or Derp |
 | **Customize** | Tap your block > change color, emoji, style, name | All options unlocked for testing |
-| **Watch it evolve** | Keep charging — Spark > Ember > Flame > Blaze > Beacon | Glow and face details increase per tier |
+| **Watch it evolve** | Keep charging — Spark > Ember > Flame > Blaze > Beacon | Glow, face detail, and aura increase per tier |
 | **Compete** | Check the **Board** tab | Leaderboards, activity feed |
 | **Poke rivals** | Tap someone else's block > **POKE** | Their block shakes, they get a notification |
 
@@ -79,14 +80,14 @@ We want feedback on these specifically:
 
 1. **First 60 seconds** — Did the onboarding make sense? Did you understand what to do?
 2. **Claiming + celebration** — Was the camera animation smooth? Did it feel rewarding?
-3. **Spark faces** — Can you see the faces on blocks? Do they react to energy changes?
+3. **Spark faces** — Can you see the faces on blocks? Do they react to energy changes? Do the personalities feel distinct?
 4. **Charging loop** — Is tapping CHARGE satisfying? Does the bounce/energy feedback feel good?
-5. **Crashes or freezes** — Especially during wallet connect, claiming, or navigating between tabs
-6. **Performance** — Does the 3D tower feel smooth? Any lag or jank?
+5. **Evolution** — Did evolving your Spark feel like a milestone? Could you see the visual difference between tiers?
+6. **Crashes or freezes** — Especially during wallet connect, claiming, or navigating between tabs
+7. **Performance** — Does the 3D tower feel smooth? Any lag or jank?
 
 Don't worry about:
 - Wallet/token setup issues (devnet can be flaky)
-- Missing features or placeholder text
 - Visual polish details
 
 ---
