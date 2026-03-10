@@ -31,6 +31,7 @@ interface ServerBlock {
   index: number;
   energy: number;
   owner: string;
+  ownerName?: string;
   ownerColor: string;
   stakedAmount: number;
   lastChargeTime: number;
@@ -214,6 +215,7 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     energy: block.energy,
     ownerColor: block.ownerColor || "#00ffff",
     owner: block.owner || null,
+    ownerName: block.ownerName || undefined,
     stakedAmount: block.stakedAmount || 0,
     position: getBlockPosition(block.layer, block.index),
     emoji: block.appearance?.emoji || undefined,
@@ -270,6 +272,7 @@ function applyFullState(data: ServerState) {
     if (
       cur.energy !== serverBlock.energy ||
       cur.owner !== (serverBlock.owner || null) ||
+      cur.ownerName !== (serverBlock.ownerName || undefined) ||
       cur.ownerColor !== (serverBlock.ownerColor || "#00ffff") ||
       cur.stakedAmount !== (serverBlock.stakedAmount || 0) ||
       cur.streak !== (serverBlock.streak || 0) ||
@@ -309,6 +312,7 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
     const dataChanged = !(
       cur.energy === updated.energy &&
       cur.owner === updated.owner &&
+      cur.ownerName === updated.ownerName &&
       cur.ownerColor === updated.ownerColor &&
       cur.stakedAmount === updated.stakedAmount &&
       cur.streak === updated.streak &&
@@ -350,8 +354,8 @@ function applySingleBlockUpdate(serverBlock: ServerBlock) {
 
   // Push to recent events + activity feed
   if (serverBlock.eventType) {
-    const ownerName = serverBlock.appearance?.name || serverBlock.owner || "Unknown";
-    const truncatedOwner = ownerName.length > 12 ? ownerName.slice(0, 8) + "..." : ownerName;
+    const displayName = serverBlock.ownerName || serverBlock.appearance?.name || serverBlock.owner || "Unknown";
+    const truncatedOwner = displayName.length > 16 ? displayName.slice(0, 14) + "..." : displayName;
     const layerNum = serverBlock.layer + 1;
 
     let message: string;

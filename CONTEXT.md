@@ -48,6 +48,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Real activity feed on Board tab** (fetches from /api/events, fallback to generated)
 - **Poke mechanic** (tap opponent's block → poke, 30s cooldown, server-validated, push notification)
 - **Username system** (set display name, persisted to Supabase, shown on blocks + leaderboard)
+- **Seeker .skr name resolution** (AllDomains on-chain lookup via @onsol/tldparser, server-side cached, displayed in inspector/leaderboard/activity feed, fallback: .skr → username → truncated address)
 - **My Blocks panel** (bottom sheet listing owned blocks, urgency-sorted, Charge All, tap to fly camera)
 - **My Blocks FAB** (floating action button, bottom-left — single block: fly to it, multi: open panel, red urgency dot, 56px)
 - **Push notifications** (hourly decay check, poke alerts — server handler + expo-notifications)
@@ -187,6 +188,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/server/src/routes/blinks.ts` | Solana Blinks routes (actions.json, GET metadata, POST poke tx) |
 | `apps/server/src/utils/memo-tx.ts` | RPC connection + unsigned memo transaction builder |
 | `apps/server/src/utils/blink-poke.ts` | Apply Blink poke to live TowerRoom (energy boost, broadcast, push notif) |
+| `apps/server/src/utils/skr-resolver.ts` | .skr name resolution via @onsol/tldparser (mainnet RPC, in-memory cache) |
 | `apps/server/static/blink-icon.png` | Tower icon for Blink action cards |
 
 ### Shared Package
@@ -288,6 +290,7 @@ USDC deposit → useAnchorProgram.ts → MWA transact() → Anchor program (on-c
 ```
 SUPABASE_URL=https://pscgsbdznfitscxflxrm.supabase.co
 SUPABASE_SERVICE_KEY=eyJ...   ← service_role key from Supabase dashboard
+MAINNET_RPC_URL=https://solana-mainnet.g.alchemy.com/v2/...  ← for .skr name resolution
 ```
 
 ### Local dev with physical Android device
@@ -378,6 +381,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-10**: Seeker .skr name resolution — server-side AllDomains lookup via `@onsol/tldparser` (mainnet RPC), in-memory cache, display priority: `.skr` name > custom username > truncated address. Shown in inspector panel, leaderboard, activity feed, poke notifications. New file: `apps/server/src/utils/skr-resolver.ts`. Branch: `feat/skr-names`. 222 mobile + 84 server tests passing.
 
 - **2026-03-04**: Landing page immersive aurora + deploy (`apps/web/index.html`) — dramatic aurora skybox (4 seamless FBM ribbon layers: purple/teal/gold/magenta, cylindrical coords for no seam, scroll-responsive intensity, liquid flow motion), liquid marble pedestal (animated flowing veins via time-offset FBM), 3-tier parallax particles (150 near embers + 80 aurora-colored fireflies + 250 far cosmic dust), bloom 0.50, ground glow aurora-tinted, waitlist form bug fix (inline display:none overriding success class), tight title shadow. CF Pages deployed to themonolith.pages.dev, GitHub Action auto-deploys on push to `apps/web/`. Waitlist writes to Supabase verified working.
 
