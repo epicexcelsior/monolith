@@ -1,7 +1,7 @@
 # Monolith — Project Context
 
 > **Living state document.** Auto-updated by `/wrapup` workflow.
-> **Last updated:** 2026-02-27
+> **Last updated:** 2026-03-10
 
 ## What Is This?
 
@@ -385,6 +385,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-10**: Documentation cleanup for hackathon submission — archived 27 internal docs (sprint plans, roadmaps, scorecards, pitch internals, old marketing) to `archive/`, deleted 6 temporal files (outdated guides, old hackathon materials). Visual README overhaul (hero banner from og-image, shields.io tech badges, QR code for APK install, feature tables). New EAS cloud APK build (`4k3G64YyQ8NCJ7RgxA4RT6.apk`) + local release APK. TESTING.md APK link updated. Judge-facing docs are clean: root has 4 files, docs/ has 17 quality files, pitch/ has deck + media only.
 
 - **2026-03-07**: Landing page camera overhaul + pitch deck cinematic tower — Landing page: imposing low-angle camera (FOV 42→52, ground-level start R=22, looking UP), scroll-driven spiral ascent (2 full rotations climbing to overhead view at page bottom), aurora green shift (teal→classic green ribbons, magenta→emerald wisps, green sky undertones), darkened aurora (ribbon multipliers 3.5→1.0, bloom 0.50→0.35, exposure 0.9→0.7). Pitch deck: replaced slide 3 (old 2D canvas) with full-screen Three.js cinematic tower reveal — same tower geometry/shaders/aurora/particles/bloom as landing page, cinematic spin-in camera (R=55→22, 324° sweep), text fades in at 2.5s with staggered reveals, lazy-init via IntersectionObserver, renders pause off-screen, graceful WebGL fallback. Text contrast: 4-layer black text-shadow, radial vignette behind text, bright gold gradient on "in 3D" with gold drop-shadow glow, pills with backdrop-filter blur.
 
