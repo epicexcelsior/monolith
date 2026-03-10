@@ -376,7 +376,7 @@ export default function TowerGrid() {
       let imgIdx = storeBlock?.imageIndex ?? 0;
       if (imgIdx === 0 && block.owner && isBotOwner(block.owner)) {
         const hash = ((block.layer * 31 + block.index * 7 + 137) & 0xffff);
-        if (hash % 4 < 3) { imgIdx = (hash % 5) + 1; }
+        if (hash % 4 < 3) { imgIdx = (hash % 6) + 1; }
       }
       iArr[i] = imgIdx;
 

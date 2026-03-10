@@ -8,18 +8,51 @@
   <meta property="og:title" content="THE MONOLITH — A Living Monument on Solana" />
   <meta property="og:description" content="A living 3D tower powered by Solana. Stake. Glow. Compete." />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://themonolith.pages.dev" />
+  <meta property="og:image" content="https://themonolith.pages.dev/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:alt" content="THE MONOLITH — a glowing 3D tower of hundreds of blocks against an aurora sky" />
+  <meta property="og:site_name" content="MONOLITH" />
+  <meta property="og:locale" content="en_US" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="THE MONOLITH" />
-  <meta name="twitter:description" content="r/Place meets DeFi — in 3D" />
+  <meta name="twitter:title" content="THE MONOLITH — A Living Monument on Solana" />
+  <meta name="twitter:description" content="r/Place meets DeFi — in 3D. Stake crypto, own a glowing block, compete for the skyline." />
+  <meta name="twitter:image" content="https://themonolith.pages.dev/og-image.png" />
+  <meta name="twitter:image:alt" content="THE MONOLITH — a glowing 3D tower of hundreds of blocks against an aurora sky" />
+  <meta name="twitter:site" content="@excelhtf" />
+  <meta name="twitter:creator" content="@excelhtf" />
   <meta name="theme-color" content="#050710" />
   <meta name="color-scheme" content="dark" />
-  <link rel="canonical" href="https://themonolith.app" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://themonolith.pages.dev" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='30' y='10' width='40' height='80' rx='3' fill='%23D4A847'/></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MONOLITH","applicationCategory":"GameApplication","operatingSystem":"Android","description":"A living 3D tower on Solana.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MONOLITH",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Android",
+    "description": "r/Place meets DeFi — in 3D. A living shared tower on Solana where every block is owned by someone real. Stake crypto, claim a glowing block, and compete for the skyline.",
+    "url": "https://themonolith.pages.dev",
+    "image": "https://themonolith.pages.dev/og-image.png",
+    "screenshot": "https://themonolith.pages.dev/og-image.png",
+    "author": {
+      "@type": "Organization",
+      "name": "MONOLITH",
+      "url": "https://x.com/excelhtf"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
   </script>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -481,8 +514,9 @@ const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 try {
 
 const isMob = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isCapture = new URLSearchParams(location.search).has('capture');
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMob, alpha: false, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMob, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: isCapture });
 renderer.setPixelRatio(Math.min(devicePixelRatio, isMob ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1186,6 +1220,95 @@ function animate() {
   else renderer.render(scene, camera);
 }
 animate();
+
+// ═══ OG IMAGE CAPTURE — open page with ?capture to generate og-image.png ═══
+if (isCapture) {
+  document.fonts.ready.then(() => {
+    setTimeout(() => {
+      const W = 1200, H = 630;
+
+      // Render one frame at current viewport (don't resize — preserves camera framing)
+      if (composer) composer.render();
+      else renderer.render(scene, camera);
+
+      // Source canvas dimensions (may be scaled by devicePixelRatio)
+      const src = renderer.domElement;
+      const srcW = src.width, srcH = src.height;
+      const srcAspect = srcW / srcH;
+      const dstAspect = W / H;
+
+      // Crop source to match OG aspect ratio (center crop)
+      let sx, sy, sw, sh;
+      if (srcAspect > dstAspect) {
+        // Viewport is wider than 1.9:1 — crop sides
+        sh = srcH; sw = Math.round(srcH * dstAspect);
+        sx = Math.round((srcW - sw) / 2); sy = 0;
+      } else {
+        // Viewport is taller — crop top/bottom
+        sw = srcW; sh = Math.round(srcW / dstAspect);
+        sx = 0; sy = Math.round((srcH - sh) / 2);
+      }
+
+      const c2 = document.createElement('canvas');
+      c2.width = W; c2.height = H;
+      const ctx = c2.getContext('2d');
+
+      // Draw cropped + scaled 3D scene
+      ctx.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
+
+      // Dark gradient overlay for text legibility
+      const g = ctx.createLinearGradient(0, H * 0.15, 0, H);
+      g.addColorStop(0, 'rgba(5,7,16,0)');
+      g.addColorStop(0.45, 'rgba(5,7,16,0.45)');
+      g.addColorStop(1, 'rgba(5,7,16,0.88)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Scale factor: match text proportions to viewport
+      const scale = W / innerWidth;
+
+      // Text shadow setup
+      ctx.textBaseline = 'alphabetic';
+
+      // "THE"
+      ctx.font = '700 ' + Math.round(28 * scale) + 'px Syne';
+      ctx.fillStyle = 'rgba(242,237,229,0.55)';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 30;
+      ctx.letterSpacing = Math.round(12 * scale) + 'px';
+      ctx.fillText('THE', Math.round(60 * scale), H - Math.round(195 * scale));
+
+      // "MONOLITH" — measure the accent element's actual font size for accuracy
+      const accentEl = document.querySelector('.accent');
+      const accentPx = accentEl ? Math.round(parseFloat(getComputedStyle(accentEl).fontSize) * scale) : Math.round(145 * scale);
+      ctx.font = '800 ' + accentPx + 'px Syne';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.letterSpacing = Math.round(-4 * scale) + 'px';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 8;
+      ctx.fillText('MONOLITH', Math.round(50 * scale), H - Math.round(68 * scale));
+
+      // Lead text
+      ctx.font = '600 ' + Math.round(22 * scale) + 'px Outfit';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 20;
+      ctx.letterSpacing = '0px';
+      ctx.fillText('Stake crypto. Own a glowing block. Keep the flame alive.', Math.round(60 * scale), H - Math.round(34 * scale));
+
+      // Auto-download
+      c2.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'og-image.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        console.log('%c✅ OG image captured! Place og-image.png in apps/web/ and redeploy.', 'color: #4CAF50; font-size: 16px;');
+      }, 'image/png');
+    }, 7000); // Wait for intro animation + scene to settle
+  });
+}
 
 } catch (e) {
   console.error('3D scene failed:', e);

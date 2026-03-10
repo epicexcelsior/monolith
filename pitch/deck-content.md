@@ -1,15 +1,14 @@
 # The Monolith -- Pitch Deck Content
 
+> 10 slides. Traction merged into Builder. Demo is a separate video submission.
+
 ---
 
 ## Slide 1: Hook
 
-**Someone stole your block.**
+**Your DeFi app is collecting dust.**
 
-You staked $5. You forgot. **Now it's theirs.**
-
-| Charged | Fading | Stolen |
-|---------|--------|--------|
+Nobody opens it for fun. **I'm changing that.**
 
 ---
 
@@ -19,11 +18,11 @@ You staked $5. You forgot. **Now it's theirs.**
 
 ### Nobody opens their DeFi app for fun.
 
-| 73% | 0 | 30x |
-|-----|---|-----|
-| DeFi users churn in 7 days (Dune Analytics, 2024) | Reasons to open a vault daily | Snapchat opens / day |
+| 77% | 30x |
+|-----|-----|
+| of app users churn in 3 days (Adjust, 2024) | Snapchat opens / day from a streak counter |
 
-Snapchat gets 30 opens/day from a streak counter. DeFi has **nothing**.
+DeFi has **nothing** like that.
 
 ---
 
@@ -48,27 +47,28 @@ The first DeFi app you'll actually **want** to open every day.
 ### Three taps. 30 seconds.
 
 **1. Stake $1 USDC**
-One tap via **Seed Vault**. No browser. No extension.
+Your block ignites.
 
-**2. Claim Your Block**
-A Spark is born. It's **yours**.
+**2. Customize It**
+Make it yours.
 
 **3. Keep It Alive, or Lose It**
-Miss 3 days and **someone takes your block**. Push notifications warn you before it's too late.
+Miss 3 days and **someone takes your block**.
 
 ---
 
-## Slide 5: Demo
+## Slide 5: The App
 
-> LIVE ON SOLANA SEEKER
+> LIVE ON SOLANA DEVNET
 
-### Real app. Real device.
+### Real app. Real device. Not a wrapper.
 
-Claim a block in 30 seconds · Solana Seeker · No browser needed
+<!-- SCREENSHOTS: 3-up layout -->
+<!-- Left: Tower view (3D monument with glowing blocks) -->
+<!-- Center: Claim flow (block selected, stake prompt) — slightly larger -->
+<!-- Right: My Blocks panel (streaks, charge status, push notification) -->
 
-- One-tap claiming via Seed Vault
-- Haptics + sound on every interaction
-- Push notifications when fading
+Solana Mobile dApp Store · Seed Vault · Push Notifications
 
 ---
 
@@ -76,19 +76,15 @@ Claim a block in 30 seconds · Solana Seeker · No browser needed
 
 > THE MARKET
 
-### Who is this for?
+### People pay for digital territory.
 
-**140K+** Seekers shipped
-Every Seeker ships with Seed Vault and MWA. The Monolith is built for their hardware. I need 5,000. That's 3.5%.
+| r/Place | Million Dollar Homepage | CashApples |
+|---------|----------------------|------------|
+| 10M+ users fought over pixels. Twice. | Sold out in 138 days by a 21-year-old. | Cash App gamifies money. Shake trees, win real cash. Launched this week. |
 
-**#1** Idle game retention
-Idle games retain because they reward daily check-ins with minimal effort. The Monolith's daily charge **is** the DeFi interaction.
+<!-- Include: r/Place color gradient, MDH dark card, CashApples green card -->
 
-The Seeker dApp Store launches with **zero idle games**. Gen Z already loves gamified finance (see: **CashApples** launching next week). I'm bringing that energy to Solana through TikTok and Instagram.
-
-- dApp Store day-one app
-- Blue ocean: zero idle games on Seeker
-- Gen Z go-to-market
+The Monolith combines **all three**: shared territory + real stakes + daily streaks. Built natively for **150K+ Seekers** — and the dApp Store has **very few idle games**.
 
 ---
 
@@ -98,89 +94,71 @@ The Seeker dApp Store launches with **zero idle games**. Gen Z already loves gam
 
 ### Three revenue streams. No token needed.
 
-**5% Claim Fee**
-On every stake-in. Dormant blocks get re-claimed, so the game's core loop generates recurring revenue.
+**Staking Fees**
+Small fee on every deposit & withdrawal. Revenue from day one.
 
 **Yield Spread**
-15% of DeFi yield on staked USDC via Drift & Kamino. Passive income that scales with TVL.
+A cut of staked USDC yield routed through DeFi. Scales with TVL.
 
-**In-App Purchases**
-Boosts, MONO LST, premium Spark skins. Recurring revenue from power users.
+**Cosmetics**
+Premium Spark skins, boosts, seasonal drops. Recurring revenue.
 
-5K users x $5 avg = **$25K TVL**. Claim fees alone = **$3,750+/yr** from block turnover. Add yield spread + in-app purchases and it scales. Near-zero operating cost. No token.
-
----
-
-## Slide 8: What I Shipped
-
-> BUILT. TESTED. DEPLOYED.
-
-### Not a prototype.
-
-| Live | 100% | 1 |
-|------|------|---|
-| On Solana devnet | Funds withdrawable | Dev. 6 weeks. |
-
-Tech stack:
-- Anchor / Rust
-- MWA + Seed Vault
-- Colyseus Multiplayer
-- React Three Fiber + GLSL
+Near-zero operating cost. No token. No speculation.
 
 ---
 
-## Slide 9: Roadmap
+## Slide 8: Roadmap
 
 > ROADMAP
 
 ### From hackathon to platform.
 
 **Phase 1: DONE**
-Ship-ready demo, Seeker native, On-chain program
+Ship-ready demo, Seeker native, on-chain Anchor program, real-time multiplayer
 
 **Phase 2: Launch**
-dApp Store launch, Real DeFi yield (Drift/Kamino), Referral system
+Community testing (mtnDAO, College.xyz, Network School), dApp Store launch, DeFi yield integration, referral system
 
 **Phase 3: Growth**
-AI Agent API (the tower becomes programmable infrastructure), MONO LST, Seeker token integration
+AI Agent API, MONO LST, Seeker token integration
 
 **Phase 4: Scale**
-Multi-tower worlds, Seasonal events, Tower SDK
+Protocol towers (white-label), seasonal events
 
-Phase 1 is **done**. Phase 2 starts at dApp Store launch.
+Phase 1 is **done**. Community testing starts now.
 
 ---
 
-## Slide 10: The Builder
+## Slide 9: The Builder
 
 > THE BUILDER
 
 ### One dev. Full stack.
 
 **Hunter**
-Solo Builder. Anchorage, Alaska. No tech hub. No team.
+Solo builder from Anchorage, Alaska. Shipped in 4 weeks from mtnDAO at Mountain View.
 
-Built the entire stack in 6 weeks: Anchor smart contracts, 3D rendering engine, real-time multiplayer, custom GLSL shaders, and a production deploy on Railway.
+Smart contracts, 3D rendering engine, real-time multiplayer, custom GLSL shaders, and a production deploy. All solo.
 
-- Rust / Anchor
-- React Native
-- Three.js / GLSL
-- Colyseus
+| 4 | Live | 100% |
+|---|------|------|
+| Weeks to ship | On Solana devnet | Self-custodied |
 
-> "Full-stack Solana game: smart contracts, 3D engine, multiplayer. Shipped solo."
+Tech: Anchor/Rust · React Native · Three.js/GLSL · Colyseus Multiplayer
 
 ---
 
-## Slide 11: Close
+## Slide 10: Close
 
 ### THE MONOLITH
 
-The first idle game on Solana. Built solo in six weeks.
+Your stake has never felt this alive.
 
 Solana Seeker Native · On-chain USDC · Open Source
 
+<!-- QR CODE: link to latest APK -->
+<!-- Tower background canvas (same as slide 3) -->
+
 - GitHub: github.com/epicexcelsior/monolith
 - Twitter: @exce1
-- Live on Seeker
 - Solana Mobile Hackathon 2026
-- Built on Solana

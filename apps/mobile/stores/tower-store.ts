@@ -83,7 +83,7 @@ export interface DemoBlock {
   name?: string;
   style?: number; // 0=Default, 1=Holographic, 2=Neon, 3=Matte, 4=Glass, 5=Fire, 6=Ice
   textureId?: number; // 0=None, 1=Bricks, 2=Circuits, 3=Scales, 4=Camo, 5=Marble, 6=Carbon
-  imageIndex?: number; // 0=None, 1-5=atlas slot (solana, dogecoin, quicknode, toly, mike)
+  imageIndex?: number; // 0=None, 1-6=atlas slot (solana, radiants, quicknode, toly, mike, solanamobile)
   imageUrl?: string; // User-uploaded image URL (Supabase Storage)
   personality?: number; // 0=Happy, 1=Cool, 2=Sleepy, 3=Fierce, 4=Derp. undefined=hash
   lastChargeTime?: number;

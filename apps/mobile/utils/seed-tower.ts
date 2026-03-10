@@ -429,8 +429,8 @@ export function generateSeedTower(seed: number = _config.seed): DemoBlock[] {
         lastStreakDate = d.toISOString().slice(0, 10);
       }
 
-      // 75% of owned blocks get a demo image (1-5)
-      const imageIndex = rng() < 0.75 ? Math.floor(rng() * 5) + 1 : 0;
+      // 75% of owned blocks get a demo image (1-6)
+      const imageIndex = rng() < 0.75 ? Math.floor(rng() * 6) + 1 : 0;
 
       blocks.push({
         id: `block-${layer}-${i}`,

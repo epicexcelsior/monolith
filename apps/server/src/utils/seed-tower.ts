@@ -246,8 +246,8 @@ export function seedTower(blocks: MapSchema<BlockSchema>): void {
         block.appearance.name = persona.name;
         block.appearance.color = persona.color;
 
-        // 75% of owned blocks get a demo image (slots 1-5)
-        block.imageIndex = rng() < 0.75 ? Math.floor(rng() * 5) + 1 : 0;
+        // 75% of owned blocks get a demo image (slots 1-6)
+        block.imageIndex = rng() < 0.75 ? Math.floor(rng() * 6) + 1 : 0;
       }
 
       blocks.set(blockId, block);

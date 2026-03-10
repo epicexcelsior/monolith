@@ -57,10 +57,10 @@ function manualBase64Decode(b64: string): Uint8Array {
 function createTestAtlas(): { data: Uint8Array; width: number; height: number } {
   const size = 64; // 64x64, 2x2 grid of 32x32 each
   const data = new Uint8Array(size * size * 4);
-  // Colors: slot 1=blue (Solana), slot 2=gold (Doge), slot 3=purple (QN), slot 4=green (Toly)
+  // Colors: slot 1=blue (Solana), slot 2=teal (Radiants), slot 3=purple (QN), slot 4=green (Toly)
   const colors = [
     [100, 80, 255, 255],  // slot 1: blue-purple
-    [255, 200, 50, 255],  // slot 2: gold
+    [50, 200, 180, 255],  // slot 2: teal
     [150, 50, 255, 255],  // slot 3: purple
     [50, 200, 100, 255],  // slot 4: green
   ];
@@ -141,8 +141,9 @@ export { ATLAS_COLS, ATLAS_ROWS };
 /** Demo image names mapped to atlas slot indices (1-based) */
 export const DEMO_IMAGES: Record<string, number> = {
   solana: 1,
-  dogecoin: 2,
+  radiants: 2,
   quicknode: 3,
   toly: 4,
   mike: 5,
+  solanamobile: 6,
 };

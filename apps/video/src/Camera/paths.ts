@@ -256,6 +256,42 @@ export const artOrbit: CameraPath = (progress) => {
   };
 };
 
+// ─── Pitch Deck Slide 3: Cinematic Spin-In ──────────────────────────────────
+/**
+ * pitchDeckSpinIn — Matches the pitch deck slide 3 camera exactly.
+ * Low-angle cinematic spin-in: starts far (radius 55), zooms to 22 with
+ * easeOutExpo, spinning 1.8π radians, then slow auto-orbit.
+ * Duration: 20 seconds.
+ */
+function easeOutExpo(x: number): number {
+  return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+}
+
+export const pitchDeckSpinIn: CameraPath = (progress) => {
+  const totalSeconds = 20;
+  const time = progress * totalSeconds;
+
+  const introDur = 5.0;
+  const introT = Math.min(time / introDur, 1);
+  const introE = easeOutExpo(introT);
+  const introSpin = (1 - introE) * Math.PI * 1.8;
+  const autoOrbit = time * 0.015;
+  const camAngle = 0.6 + autoOrbit + introSpin;
+
+  const camRStart = 55, camREnd = 22;
+  const camR = camRStart + (camREnd - camRStart) * introE;
+  const introY = (1 - introE) * 8;
+
+  return {
+    position: [
+      Math.sin(camAngle) * camR,
+      introY,
+      Math.cos(camAngle) * camR,
+    ],
+    lookAt: [0, TOWER_HEIGHT * 0.35, 0],
+  };
+};
+
 // ─── Legacy paths (used by SpiralReveal / OrbitPunch / DollyParallax) ────────
 
 export const spiralAscend: CameraPath = (progress) => {

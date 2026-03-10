@@ -6,10 +6,13 @@ import { DollyParallax } from "./Scenes/DollyParallax";
 import { ShowcaseDemo } from "./Scenes/ShowcaseDemo";
 import { ArtPiece } from "./Scenes/ArtPiece";
 import { BonkTower } from "./Scenes/BonkTower";
+import { PitchBackground } from "./Scenes/PitchBackground";
 
 const FPS = 30;
 const WIDTH = 1080;
 const HEIGHT = 1920;
+const LANDSCAPE_WIDTH = 1920;
+const LANDSCAPE_HEIGHT = 1080;
 
 // ShowcaseDemo: S0(30)+S1(120)+S2(105)+S3(105)+S4(120)+S5(105)+S6(180) - (5*10+20) = 765-70 = 695
 const SHOWCASE_FRAMES = 695;
@@ -64,6 +67,14 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={WIDTH}
         height={HEIGHT}
+      />
+      <Composition
+        id="PitchBackground"
+        component={PitchBackground}
+        durationInFrames={20 * FPS}
+        fps={FPS}
+        width={LANDSCAPE_WIDTH}
+        height={LANDSCAPE_HEIGHT}
       />
     </Folder>
   );
