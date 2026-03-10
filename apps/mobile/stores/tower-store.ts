@@ -86,6 +86,7 @@ export interface DemoBlock {
   imageIndex?: number; // 0=None, 1-5=atlas slot (solana, dogecoin, quicknode, toly, mike)
   imageUrl?: string; // User-uploaded image URL (Supabase Storage)
   personality?: number; // 0=Happy, 1=Cool, 2=Sleepy, 3=Fierce, 4=Derp. undefined=hash
+  lastCelebratedTier?: number; // Tracks last tier we showed celebration for
   lastChargeTime?: number;
   streak?: number;
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
@@ -395,8 +396,9 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     const TIER_STYLES = [0, 0, 8, 7, 9];
     const autoStyle = newEvolutionTier >= 2 ? TIER_STYLES[newEvolutionTier] ?? 0 : undefined;
 
-    // Detect evolution tier-up
-    const evolved = newEvolutionTier > oldEvolutionTier;
+    // Detect evolution tier-up (dedup: only fire when tier exceeds last celebrated)
+    const lastCelebrated = block.lastCelebratedTier ?? 0;
+    const evolved = newEvolutionTier > lastCelebrated;
 
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
@@ -411,6 +413,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             bestStreak: newBestStreak,
             evolutionTier: newEvolutionTier,
             ...(autoStyle !== undefined && { style: autoStyle }),
+            ...(evolved && { lastCelebratedTier: newEvolutionTier }),
           }
           : b,
       ),
