@@ -1,13 +1,46 @@
-# The Monolith
+<p align="center">
+  <img src="apps/web/og-image.png" alt="The Monolith — a glowing 3D tower of staked blocks" width="100%" />
+</p>
 
-**r/Place meets DeFi -- in 3D.**
-
-Stake USDC to claim a glowing block on a massive shared tower. Every block has a face -- a **Spark** -- that reacts to how you take care of it. Come back daily to charge it, customize it, and compete for the skyline. Neglect it and someone else takes it.
-
-Built natively for the Solana Seeker.
+<h1 align="center">The Monolith</h1>
 
 <p align="center">
-  <a href="TESTING.md"><strong>Try it now -- Android APK</strong></a>
+  <strong>r/Place meets DeFi -- in 3D.</strong><br/>
+  Stake USDC. Claim a block. Keep it alive.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Solana-Devnet-9945FF?style=for-the-badge&logo=solana&logoColor=white" alt="Solana" />
+  <img src="https://img.shields.io/badge/Expo_54-React_Native-000020?style=for-the-badge&logo=expo&logoColor=white" alt="Expo" />
+  <img src="https://img.shields.io/badge/Three.js-R3F-black?style=for-the-badge&logo=threedotjs&logoColor=white" alt="Three.js" />
+  <img src="https://img.shields.io/badge/Anchor-0.31-5C4EE5?style=for-the-badge" alt="Anchor" />
+  <img src="https://img.shields.io/badge/TypeScript-Strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/tests-320%2B_passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/platform-Android_%7C_Seeker-34A853?style=flat-square&logo=android&logoColor=white" alt="Platform" />
+  <img src="https://img.shields.io/badge/server-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white" alt="Railway" />
+  <img src="https://img.shields.io/badge/database-Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
+</p>
+
+---
+
+Every block on the tower is a real USDC stake on Solana. Every block has a face -- a **Spark** -- that reacts to how you take care of it. Charge it daily and it glows, evolves, climbs the leaderboard. Neglect it and someone else claims it.
+
+The core loop takes **30 seconds a day**. That's the point.
+
+---
+
+## Try It
+
+<p align="center">
+  <img src="pitch/qr-code.png" alt="Scan to install" width="200" />
+</p>
+
+<p align="center">
+  <strong>Scan with your Android phone</strong><br/>
+  or <a href="TESTING.md">follow the install guide</a>
 </p>
 
 ---
@@ -21,24 +54,34 @@ FEEL  ->  Watch the glow burst, haptic feedback, rank change
 DONE  ->  Close the app, come back tomorrow
 ```
 
-The core loop takes 30 seconds a day. That's the point.
-
 ## What's Built
 
-- **3D Tower** -- 650+ blocks rendered via InstancedMesh with custom GLSL shaders at 60 FPS on mobile
-- **On-Chain Staking** -- USDC vault on Solana devnet (Anchor program with deposit/withdraw/transfer)
-- **Spark System** -- Every block has a living face that evolves through 5 tiers (Spark > Ember > Flame > Blaze > Beacon)
-- **Charge Ritual** -- Daily tap with streak multipliers, visual decay states, and energy feedback
-- **Block Customization** -- 16 colors, 48 emoji, 11 animated GLSL styles, 7 textures
-- **Real-Time Multiplayer** -- Server-authoritative game logic via Colyseus, live state sync across devices
-- **Social** -- Poke other players, push notifications, Tapestry on-chain profiles
-- **Leaderboards** -- Skyline, Brightest, Streaks, XP rankings via MagicBlock SOAR
-- **Cinematic Onboarding** -- 9-phase guided flow from first launch to first claim
-- **XP & Progression** -- 10 levels, combo multipliers, 7 achievement types
-- **Push Notifications** -- Decay alerts, poke notifications, streak reminders
-- **Content Engine** -- Remotion pipeline for programmatic marketing videos
+| Feature | Details |
+|---------|---------|
+| **3D Tower** | 650+ blocks via InstancedMesh with custom GLSL shaders at 60 FPS on mobile |
+| **On-Chain Staking** | USDC vault on Solana devnet -- Anchor program with deposit, withdraw, transfer |
+| **Spark System** | Living faces that evolve through 5 tiers: Spark > Ember > Flame > Blaze > Beacon |
+| **Charge Ritual** | Daily tap with streak multipliers, visual decay, energy feedback |
+| **Customization** | 16 colors, 48 emoji, 11 animated GLSL styles, 7 textures |
+| **Multiplayer** | Server-authoritative game logic via Colyseus, real-time sync across devices |
+| **Social** | Poke other players, push notifications, Tapestry on-chain profiles |
+| **Leaderboards** | Skyline, Brightest, Streaks, XP rankings via MagicBlock SOAR |
+| **Onboarding** | 9-phase cinematic flow from first launch to first claim |
+| **XP & Progression** | 10 levels, combo multipliers, 7 achievement types |
+| **Content Engine** | Remotion pipeline for programmatic marketing videos |
 
 ## Tech Stack
+
+<p align="center">
+  <img src="https://img.shields.io/badge/React_Native_0.81-20232A?style=flat-square&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/Three.js-black?style=flat-square&logo=threedotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/GLSL-5586A4?style=flat-square&logo=opengl&logoColor=white" />
+  <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/Zustand-443E38?style=flat-square" />
+  <img src="https://img.shields.io/badge/pnpm-F69220?style=flat-square&logo=pnpm&logoColor=white" />
+</p>
 
 | Layer | Technology |
 |-------|-----------|
@@ -68,12 +111,22 @@ monolith/
 └── tests/                # Anchor integration tests
 ```
 
-**Key architectural decisions:**
+**Key decisions:**
 
 - **USDC on-chain, game state off-chain** -- Ownership and staking verified on Solana. Fast game logic (charge, decay, streaks) runs on Colyseus for instant feedback.
 - **InstancedMesh rendering** -- 650 blocks in 3 draw calls. Custom GLSL with ambient occlusion, subsurface scattering, GGX specular, SDF face rendering, and interior-mapped windows with parallax.
-- **Server-authoritative** -- All game actions validated server-side with Supabase persistence. Clients are display-only.
-- **Fire-and-forget blockchain** -- SOAR scores, Tapestry social actions, and Blinks pokes are non-blocking. The game never waits on a transaction to feel responsive.
+- **Server-authoritative** -- All game actions validated server-side with Supabase persistence.
+- **Fire-and-forget blockchain** -- SOAR scores, Tapestry social, and Blinks pokes are non-blocking. The game never waits on a transaction.
+
+## Solana Integrations
+
+| Integration | What It Does |
+|-------------|-------------|
+| **Anchor Program** | USDC staking vault -- deposit, withdraw, transfer. Program: `Fu76Eq...gwDh` |
+| **Mobile Wallet Adapter** | Native wallet connection via MWA + Seed Vault for Seeker |
+| **Tapestry Protocol** | On-chain social profiles, follows, comments. Cross-app identity. |
+| **MagicBlock SOAR** | On-chain leaderboard + 7 achievement types on claim, charge, poke |
+| **Solana Blinks** | Shareable block action URLs rendered as dial.to cards |
 
 ## Game Mechanics
 
@@ -84,14 +137,6 @@ monolith/
 | **Dormant Reclaim** | Blocks at 0 energy for 3+ days become claimable by others |
 | **Gravity Tax** | Owning adjacent blocks increases decay (anti-monopoly) |
 | **Layer Pricing** | Higher floors cost more to claim (quadratic curve) |
-
-## Solana Integrations
-
-- **Anchor Program** -- USDC staking vault with deposit, withdraw, and transfer instructions. Program ID: `Fu76EqtVLqX2LKCW5ZW8zWBqdgsQTbkvQ9nBDyykgwDh`
-- **Mobile Wallet Adapter** -- Native wallet connection via MWA + Seed Vault support for Seeker
-- **Tapestry Protocol** -- On-chain social profiles, follows, and comments. Cross-app identity.
-- **MagicBlock SOAR** -- On-chain leaderboard and 7 achievement types submitted on claim, charge, and poke actions
-- **Solana Blinks** -- Shareable block action URLs rendered as dial.to cards
 
 ## Testing
 
@@ -117,22 +162,22 @@ Or with a physical device:
 ./dev.sh                      # Sets up ADB, starts server + Expo
 ```
 
-## Documentation
+## Docs
 
 | Document | Contents |
 |----------|----------|
 | [Architecture](docs/ARCHITECTURE.md) | System design, data flow, tech decisions |
 | [Game Design](docs/game-design/GDD.md) | Full game design document |
-| [Spark System](docs/game-design/SPARK_SYSTEM.md) | Spark evolution, faces, and energy mechanics |
+| [Spark System](docs/game-design/SPARK_SYSTEM.md) | Spark evolution, faces, energy mechanics |
 | [Anchor Program](docs/ANCHOR_PROGRAM.md) | Smart contract design and instructions |
 | [Tester Guide](docs/TESTER_GUIDE.md) | How to install and play |
 | [Setup Guide](docs/SETUP.md) | Developer environment setup |
 | [Platform Vision](docs/vision/PLATFORM_VISION.md) | Long-term roadmap |
 
-## Try It
+---
 
-See [TESTING.md](TESTING.md) for install instructions, or scan the QR code there to download the APK directly.
-
-## License
-
-Proprietary. All rights reserved.
+<p align="center">
+  <img src="apps/mobile/assets/icon.png" alt="The Monolith" width="80" />
+  <br/>
+  <sub>Built for the Solana Seeker. Proprietary -- all rights reserved.</sub>
+</p>
