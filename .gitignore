@@ -71,3 +71,8 @@ SECURITY_TODO.md
 
 # Agent working docs
 ralph-spark2.md
+
+# Large media assets (pitch videos, recordings)
+pitch/*.mp4
+pitch/*.mov
+pitch/towerLoad_original.mp4
