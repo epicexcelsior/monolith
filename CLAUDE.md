@@ -10,7 +10,7 @@
 
 ## Claude Code Specific
 
-- **Slash commands**: `/commit`, `/wrapup`, `/context`, `/learn`, `/improve`, `/perf`, `/ui-standards`, `/build`, `/anchor-test`
+- **Slash commands**: `/commit`, `/wrapup`, `/boot`, `/learn`, `/improve`, `/perf`, `/ui-standards`, `/build`, `/anchor-test`
 - **`/wrapup` auto-updates CONTEXT.md** — always use it when finishing work
 - **`/learn` categorizes by topic** — adds lessons to the correct section of docs/LESSONS.md
 - **MEMORY.md** is auto-loaded with high-level project context (200 line limit)
