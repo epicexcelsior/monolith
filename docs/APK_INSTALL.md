@@ -39,7 +39,7 @@ eas build --profile preview --platform android
 Download APK from expo.dev → install via browser on device or `adb install`.
 
 > **Note**: EAS requires `packageManager` in root `package.json` and `.easignore`
-> excluding `android/`, `ios/`, and `.agents/`. See `AGENTS.md` for details.
+> excluding `android/`, `ios/`, and `.agents/`. See `.easignore` for full list.
 
 ## Build Profiles
 
