@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ShareCard from "./ShareCard";
 import ClaimModal from "@/components/ui/ClaimModal";
 import InspectorHeader from "@/components/inspector/InspectorHeader";
-import InspectorStats from "@/components/inspector/InspectorStats";
 import InspectorActions from "@/components/inspector/InspectorActions";
 import InspectorCustomize from "@/components/inspector/InspectorCustomize";
 import InspectorComments from "@/components/inspector/InspectorComments";
@@ -39,7 +38,8 @@ import {
 } from "@/utils/tapestry";
 import { isBotOwner } from "@/utils/seed-tower";
 
-const PANEL_HEIGHT = 420;
+const PANEL_HEIGHT_COMPACT = 280;
+const PANEL_HEIGHT_EXPANDED = 540;
 const DISMISS_THRESHOLD = 80;
 
 export default function BlockInspector() {
@@ -80,12 +80,15 @@ export default function BlockInspector() {
     showSharePrompt,
   } = useBlockActions();
 
-  const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
+  const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT_EXPANDED)).current;
+  const panelHeight = useRef(new Animated.Value(PANEL_HEIGHT_COMPACT)).current;
   const dragOffset = useRef(new Animated.Value(0)).current;
   const shareCardRef = useRef<View>(null);
   const isVisible = selectedBlockId !== null;
 
   const [showCustomize, setShowCustomize] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const isExpanded = showCustomize || showComments;
 
   // ─── Tapestry social state ─────────────────────────────
   const tapestryProfileId = useTapestryStore((s) => s.profileId);
@@ -94,7 +97,6 @@ export default function BlockInspector() {
   const [blockLikeCount, setBlockLikeCount] = useState(0);
   const [blockCommentCount, setBlockCommentCount] = useState(0);
   const [ownerTapestryId, setOwnerTapestryId] = useState<string | null>(null);
-  const [showComments, setShowComments] = useState(false);
 
   // Deterministic content ID — always available for any non-unclaimed block
   const currentBlockContentId = block?.id && !isUnclaimed ? getBlockContentId(block.id) : undefined;
@@ -234,7 +236,7 @@ export default function BlockInspector() {
           if (gesture.dy > DISMISS_THRESHOLD || gesture.vy > 0.4) {
             // Fast slide out then dismiss
             Animated.timing(dragOffset, {
-              toValue: PANEL_HEIGHT,
+              toValue: PANEL_HEIGHT_EXPANDED,
               duration: 150,
               useNativeDriver: true,
             }).start(() => {
@@ -257,7 +259,7 @@ export default function BlockInspector() {
 
   useEffect(() => {
     Animated.spring(slideAnim, {
-      toValue: isVisible ? 0 : PANEL_HEIGHT,
+      toValue: isVisible ? 0 : PANEL_HEIGHT_EXPANDED,
       ...TIMING.spring,
       useNativeDriver: true,
     }).start();
@@ -269,6 +271,16 @@ export default function BlockInspector() {
       dragOffset.setValue(0);
     }
   }, [isVisible, slideAnim, dragOffset, resetPanelState]);
+
+  // Animate panel height when expanding/collapsing
+  useEffect(() => {
+    Animated.spring(panelHeight, {
+      toValue: isExpanded ? PANEL_HEIGHT_EXPANDED : PANEL_HEIGHT_COMPACT,
+      useNativeDriver: false,
+      friction: 8,
+      tension: 65,
+    }).start();
+  }, [isExpanded, panelHeight]);
 
   // Auto-expand customize after claiming
   useEffect(() => {
@@ -288,6 +300,7 @@ export default function BlockInspector() {
           styles.container,
           {
             bottom: 0,
+            height: panelHeight,
             paddingBottom: Math.max(insets.bottom, 8) + SPACING.sm,
             transform: [
               { translateY: Animated.add(slideAnim, dragOffset) },
@@ -315,16 +328,14 @@ export default function BlockInspector() {
             showsVerticalScrollIndicator={false}
             bounces={false}
             nestedScrollEnabled
+            scrollEnabled={isExpanded}
           >
             <View style={styles.fixedSection}>
               <InspectorHeader
                 block={block}
                 isUnclaimed={isUnclaimed}
                 isOwner={isOwner}
-              />
-              <InspectorStats
                 energyPct={energyPct}
-                isUnclaimed={isUnclaimed}
               />
               <InspectorActions
                 block={block}
@@ -454,8 +465,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    minHeight: 180,
-    maxHeight: "50%",
+    overflow: "hidden",
     backgroundColor: COLORS.glassElevated,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,

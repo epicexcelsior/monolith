@@ -66,12 +66,13 @@ export default function FloatingPoints() {
     : lastChargeQuality === "good" ? COLORS.goldLight
     : COLORS.gold;
 
+  // Check if label is evolution context (e.g. "3 more to Ember")
+  const isEvoLabel = lastPointsLabel?.includes("more to") || lastPointsLabel === "FULLY EVOLVED";
+  const isEvolvedLabel = lastPointsLabel?.startsWith("Evolved to");
+
   return (
     <View style={[styles.container, { bottom }]} pointerEvents="none">
       <Animated.View style={[styles.contentColumn, animatedStyle]}>
-        {lastPointsLabel && (
-          <Text style={styles.label}>{lastPointsLabel}</Text>
-        )}
         {lastChargeQuality === "great" && (
           <Text style={styles.luckyLabel}>Lucky!</Text>
         )}
@@ -85,6 +86,15 @@ export default function FloatingPoints() {
             <Text style={styles.combo}>{"\u00D7"}{lastCombo}</Text>
           )}
         </View>
+        {isEvolvedLabel && lastPointsLabel && (
+          <Text style={styles.evolvedLabel}>{lastPointsLabel}</Text>
+        )}
+        {isEvoLabel && lastPointsLabel && (
+          <Text style={styles.evoContext}>{lastPointsLabel}</Text>
+        )}
+        {!isEvoLabel && !isEvolvedLabel && lastPointsLabel && (
+          <Text style={styles.label}>{lastPointsLabel}</Text>
+        )}
       </Animated.View>
     </View>
   );
@@ -140,6 +150,25 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
     letterSpacing: 1.5,
     marginBottom: 2,
+  },
+  evoContext: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 14,
+    color: COLORS.goldLight,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    marginTop: 4,
+  },
+  evolvedLabel: {
+    fontFamily: FONT_FAMILY.headingBlack,
+    fontSize: 16,
+    color: COLORS.blazingLight,
+    textShadowColor: "rgba(255,180,0,0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
+    marginTop: 4,
+    letterSpacing: 1,
   },
   xpSubtext: {
     fontFamily: FONT_FAMILY.bodySemibold,

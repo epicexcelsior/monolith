@@ -239,13 +239,20 @@ export function useBlockActions() {
         const store = usePlayerStore.getState();
         const isFirstToday = store.isFirstChargeToday();
         const pts = isFirstToday ? 50 : 25;
-        // Evolution label takes priority, then reaction label
-        const REACTION_LABELS = ["Happy!", "Surprised!", "Excited!", "Thanks!", "I'm awake!"];
-        const reactionLabel = REACTION_LABELS[Math.floor(Math.random() * 5)];
+        // Evolution context: show charges to next tier
         const evolvedTierName = useTowerStore.getState().justEvolved;
-        const label = evolvedTierName
-          ? `Evolved to ${evolvedTierName}!`
-          : isFirstToday ? "Daily Charge \u2713" : reactionLabel;
+        let label: string;
+        if (evolvedTierName) {
+          label = `Evolved to ${evolvedTierName}!`;
+        } else if (result.nextTierName && result.chargesToNext != null && result.chargesToNext > 0) {
+          label = `${result.chargesToNext} more to ${result.nextTierName}`;
+        } else if (result.nextTierName == null) {
+          label = "FULLY EVOLVED";
+        } else if (isFirstToday) {
+          label = "Daily Charge \u2713";
+        } else {
+          label = "";
+        }
         store.addPoints({
           pointsEarned: pts,
           totalXp: store.xp + pts,

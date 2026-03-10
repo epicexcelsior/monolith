@@ -7,7 +7,7 @@ import type {
   TowerConfig,
   Player,
 } from "@monolith/common";
-import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getEvolutionTierInfo, getStreakMultiplier, isNextDay } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, getStreakMultiplier, isNextDay } from "@monolith/common";
 import type { ChargeQuality } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
 import { useAchievementStore } from "@/stores/achievement-store";
@@ -160,7 +160,7 @@ interface TowerStore {
   initTower: () => Promise<void>;
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
-  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number };
+  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number; chargesToNext?: number; nextTierName?: string | null };
   customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number; imageUrl?: string; personality?: number }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
@@ -425,7 +425,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     if (newStreak >= 7)  useAchievementStore.getState().checkAndUnlock("streak_7");
     if (newStreak >= 14) useAchievementStore.getState().checkAndUnlock("streak_14");
     if (newStreak >= 30) useAchievementStore.getState().checkAndUnlock("streak_30");
-    return { success: true, streak: newStreak, multiplier, chargeAmount, chargeQuality, totalCharges: newTotalCharges, evolutionTier: newEvolutionTier };
+    const nextTierInfo = chargesToNextTier(newTotalCharges, newBestStreak);
+    return { success: true, streak: newStreak, multiplier, chargeAmount, chargeQuality, totalCharges: newTotalCharges, evolutionTier: newEvolutionTier, chargesToNext: nextTierInfo?.needed ?? 0, nextTierName: nextTierInfo?.nextTierName ?? null };
   },
 
   customizeBlock: (blockId, changes) => {
