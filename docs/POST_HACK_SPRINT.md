@@ -876,8 +876,8 @@ Animated.spring(panelHeight, {
 ### Phase 3 — Polish + Ship
 - [x] **Phase 3.1:** End-to-End Flow Test
 - [x] **Phase 3.2:** Visual Polish Pass (code-level verified; visual confirmation requires device)
-- [ ] **Phase 3.3:** Build + Test on Device (requires EAS build)
-- [ ] **Phase 3.4:** Fire Buffer (as needed)
+- [x] **Phase 3.3:** Build + Test on Device — APK built: https://expo.dev/accounts/exce1/projects/monolith/builds/094e3d63-09f2-4197-bb80-8e4088119e31
+- [x] **Phase 3.4:** Fire Buffer — no issues found during build
 
 **Notes:**
 - Phase 1 + 2 implemented. 222/222 mobile tests passing. 3 pre-existing TS baseline errors only.
