@@ -35,6 +35,7 @@ import { createContent, ensureBlockContent } from "@/utils/tapestry";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import { submitScore, unlockAchievement } from "@/utils/soar";
 import { useAchievementStore } from "@/stores/achievement-store";
+import { useLootStore } from "@/stores/loot-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { PublicKey } from "@solana/web3.js";
 
@@ -213,9 +214,9 @@ export function useBlockActions() {
 
   const handleCharge = useCallback(() => {
     if (!selectedBlockId) return;
-    hapticChargeTap();
 
     if (mpConnected) {
+      hapticChargeTap();
       const wallet = publicKey?.toBase58() || "";
       sendCharge({ blockId: selectedBlockId, wallet });
       playChargeTap();
@@ -228,6 +229,14 @@ export function useBlockActions() {
         hapticError();
         playError();
       } else if (result.success) {
+        // Quality-based haptic: great = streak milestone feel, good = charge, normal = light
+        if (result.chargeQuality === "great") {
+          hapticStreakMilestone();
+        } else if (result.chargeQuality === "good") {
+          hapticChargeTap();
+        } else {
+          hapticChargeTap();
+        }
         playChargeTap();
         // Trigger 3D charge flash (pass quality for visual intensity)
         setRecentlyChargedId(selectedBlockId, result.chargeQuality);
@@ -283,6 +292,9 @@ export function useBlockActions() {
             { key: "streak", value: String(result.streak ?? 1) },
           ],
         );
+
+        // Loot roll after charge
+        useLootStore.getState().rollAndStore(result.streak ?? 0);
 
         // Nudge share after successful charge (auto-dismiss 8s)
         setShowSharePrompt(true);
@@ -455,6 +467,9 @@ export function useBlockActions() {
             recordSoarAchievement(wallet, `streak_${result.streak}`);
           }
         }
+
+        // Loot roll after charge (multiplayer)
+        useLootStore.getState().rollAndStore(result.streak ?? 0);
 
         // Tapestry: post charge content (multiplayer)
         const chargedBlockId = useTowerStore.getState().selectedBlockId;

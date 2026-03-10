@@ -36,8 +36,8 @@ export default function FloatingPoints() {
     // Reset
     translateY.value = 0;
     opacity.value = 1;
-    // "Great" rolls get a bigger pop
-    scale.value = lastChargeQuality === "great" ? 1.5 : lastChargeQuality === "good" ? 1.3 : 1.2;
+    // "Great" rolls get a bigger pop — dramatic spread
+    scale.value = lastChargeQuality === "great" ? 1.8 : lastChargeQuality === "good" ? 1.4 : 1.1;
 
     // Animate
     translateY.value = withTiming(-100, { duration: 1500 });
