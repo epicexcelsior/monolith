@@ -875,7 +875,7 @@ Animated.spring(panelHeight, {
 
 ### Phase 3 — Polish + Ship
 - [x] **Phase 3.1:** End-to-End Flow Test
-- [ ] **Phase 3.2:** Visual Polish Pass (requires device testing)
+- [x] **Phase 3.2:** Visual Polish Pass (code-level verified; visual confirmation requires device)
 - [ ] **Phase 3.3:** Build + Test on Device (requires EAS build)
 - [ ] **Phase 3.4:** Fire Buffer (as needed)
 
@@ -883,4 +883,5 @@ Animated.spring(panelHeight, {
 - Phase 1 + 2 implemented. 222/222 mobile tests passing. 3 pre-existing TS baseline errors only.
 - Server: 64/64 tests pass (1 suite pre-existing module resolution failure, not related).
 - Phase 3.1 regression suite verified: all tests pass, TS clean.
-- Phase 3.2/3.3 require physical device testing + EAS APK build — manual steps.
+- Phase 3.2 code-level verified: charge button pulse correct, inspector height animation wired, loot reveal timing has 3.5s delay for evolution, dismiss/equip callback ordering fixed. Visual confirmation items (face LOD, color palette, unclaimed pulse warmth) require device.
+- Phase 3.3/3.4 require physical device testing + EAS APK build — manual steps.

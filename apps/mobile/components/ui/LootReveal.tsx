@@ -68,6 +68,18 @@ export default function LootReveal() {
     return () => clearTimeout(timer);
   }, [pendingReveal, overlayOpacity, flashOpacity, cardScale, cardOpacity]);
 
+  const dismiss = useCallback(() => {
+    overlayOpacity.value = withTiming(0, { duration: 200 });
+    cardScale.value = withTiming(0, { duration: 200 });
+    cardOpacity.value = withTiming(0, { duration: 150 });
+
+    setTimeout(() => {
+      setVisibleItem(null);
+      setShowEquip(false);
+      clearPendingReveal();
+    }, 250);
+  }, [overlayOpacity, cardScale, cardOpacity, clearPendingReveal]);
+
   const handleEquip = useCallback(() => {
     if (!visibleItem) return;
     hapticButtonPress();
@@ -86,19 +98,7 @@ export default function LootReveal() {
     }
 
     dismiss();
-  }, [visibleItem]);
-
-  const dismiss = useCallback(() => {
-    overlayOpacity.value = withTiming(0, { duration: 200 });
-    cardScale.value = withTiming(0, { duration: 200 });
-    cardOpacity.value = withTiming(0, { duration: 150 });
-
-    setTimeout(() => {
-      setVisibleItem(null);
-      setShowEquip(false);
-      clearPendingReveal();
-    }, 250);
-  }, [overlayOpacity, cardScale, cardOpacity, clearPendingReveal]);
+  }, [visibleItem, dismiss]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
