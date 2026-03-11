@@ -13,6 +13,8 @@ import { OnboardingFlow } from "@/components/onboarding";
 import ActionPrompt from "@/components/ui/ActionPrompt";
 import FloatingPoints from "@/components/ui/FloatingPoints";
 import LevelUpCelebration from "@/components/ui/LevelUpCelebration";
+import LootReveal from "@/components/ui/LootReveal";
+import { useLootStore } from "@/stores/loot-store";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
 import ScreenFlash from "@/components/ui/ScreenFlash";
 import HotBlockTicker from "@/components/ui/HotBlockTicker";
@@ -54,8 +56,9 @@ export default function TowerScreen() {
   const [showMyBlocks, setShowMyBlocks] = useState(false);
   const showWalletConnect = useWalletStore((s) => s.showConnectSheet);
 
+  const lootPending = useLootStore((s) => s.pendingReveal) !== null;
   // FloatingNav hides when any overlay/sheet is open — single derived boolean
-  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks;
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending;
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -90,6 +93,7 @@ export default function TowerScreen() {
       }
       await initTower();
       await initOnboarding();
+      useLootStore.getState().hydrate();
     };
     init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,6 +188,9 @@ export default function TowerScreen() {
 
         {/* Level up celebration */}
         <LevelUpCelebration />
+
+        {/* Loot drop reveal */}
+        <LootReveal />
 
         {/* Block Inspector — hidden during onboarding (OnboardingFlow handles its own UI) */}
         {!isOnboarding && <BlockInspector />}

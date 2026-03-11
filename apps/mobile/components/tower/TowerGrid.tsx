@@ -716,7 +716,7 @@ export default function TowerGrid() {
           cf.time += delta;
           const t = cf.time;
           const q = cf.quality; // 0=normal, 1=good, 2=great
-          const flashDuration = q === 2 ? 1.6 : q === 1 ? 1.4 : 1.2;
+          const flashDuration = q === 2 ? 2.0 : q === 1 ? 1.4 : 1.0;
 
           if (t < flashDuration) {
             const block = blockData[cf.blockIndex];
@@ -743,14 +743,14 @@ export default function TowerGrid() {
                 crAttr.needsUpdate = true;
               }
 
-              // Flash color by quality: normal=white-blue, good=warm gold, great=bright gold
+              // Flash color by quality: dramatic spread
               const tempColor = tmpColorRef.current.set(block.ownerColor);
               if (q >= 2) {
-                chargeFlashColorRef.current.set(1.0, 0.85, 0.2); // bright gold
+                chargeFlashColorRef.current.set(1.0, 0.95, 0.5); // bright white-gold (dramatic)
               } else if (q === 1) {
-                chargeFlashColorRef.current.set(1.0, 0.9, 0.5); // warm gold
+                chargeFlashColorRef.current.set(1.0, 0.85, 0.3); // warm gold (noticeable)
               } else {
-                chargeFlashColorRef.current.set(0.8, 0.9, 1.0); // white-blue
+                chargeFlashColorRef.current.set(0.7, 0.8, 1.0); // soft blue-white (subtle)
               }
               const blended = chargeFlashColorRef.current.lerp(tempColor, 1 - intensity);
               colorAttr.array[cf.blockIndex * 3] = blended.r;
