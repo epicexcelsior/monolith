@@ -7,7 +7,7 @@ import type {
   TowerConfig,
   Player,
 } from "@monolith/common";
-import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getEvolutionTierInfo, getStreakMultiplier, isNextDay } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, getStreakMultiplier, isNextDay } from "@monolith/common";
 import type { ChargeQuality } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
 import { useAchievementStore } from "@/stores/achievement-store";
@@ -86,6 +86,7 @@ export interface DemoBlock {
   imageIndex?: number; // 0=None, 1-5=atlas slot (solana, dogecoin, quicknode, toly, mike)
   imageUrl?: string; // User-uploaded image URL (Supabase Storage)
   personality?: number; // 0=Happy, 1=Cool, 2=Sleepy, 3=Fierce, 4=Derp. undefined=hash
+  lastCelebratedTier?: number; // Tracks last tier we showed celebration for
   lastChargeTime?: number;
   streak?: number;
   lastStreakDate?: string; // ISO date string (YYYY-MM-DD)
@@ -159,7 +160,7 @@ interface TowerStore {
   initTower: () => Promise<void>;
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
-  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number };
+  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number; chargesToNext?: number; nextTierName?: string | null };
   customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number; imageUrl?: string; personality?: number }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
@@ -395,8 +396,9 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     const TIER_STYLES = [0, 0, 8, 7, 9];
     const autoStyle = newEvolutionTier >= 2 ? TIER_STYLES[newEvolutionTier] ?? 0 : undefined;
 
-    // Detect evolution tier-up
-    const evolved = newEvolutionTier > oldEvolutionTier;
+    // Detect evolution tier-up (dedup: only fire when tier exceeds last celebrated)
+    const lastCelebrated = block.lastCelebratedTier ?? 0;
+    const evolved = newEvolutionTier > lastCelebrated;
 
     set((state) => ({
       demoBlocks: state.demoBlocks.map((b) =>
@@ -411,6 +413,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             bestStreak: newBestStreak,
             evolutionTier: newEvolutionTier,
             ...(autoStyle !== undefined && { style: autoStyle }),
+            ...(evolved && { lastCelebratedTier: newEvolutionTier }),
           }
           : b,
       ),
@@ -422,7 +425,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     if (newStreak >= 7)  useAchievementStore.getState().checkAndUnlock("streak_7");
     if (newStreak >= 14) useAchievementStore.getState().checkAndUnlock("streak_14");
     if (newStreak >= 30) useAchievementStore.getState().checkAndUnlock("streak_30");
-    return { success: true, streak: newStreak, multiplier, chargeAmount, chargeQuality, totalCharges: newTotalCharges, evolutionTier: newEvolutionTier };
+    const nextTierInfo = chargesToNextTier(newTotalCharges, newBestStreak);
+    return { success: true, streak: newStreak, multiplier, chargeAmount, chargeQuality, totalCharges: newTotalCharges, evolutionTier: newEvolutionTier, chargesToNext: nextTierInfo?.needed ?? 0, nextTierName: nextTierInfo?.nextTierName ?? null };
   },
 
   customizeBlock: (blockId, changes) => {

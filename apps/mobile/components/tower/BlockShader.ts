@@ -733,6 +733,10 @@ const fragmentShader = /* glsl */ `
     // Skip face on bot blocks (have images) and unclaimed blocks (no owner)
     if (vImageIndex < 0.5 && vHasOwner > 0.5) {
       float isVertFace = step(abs(vWorldNormal.y), 0.5);
+      // Only render face on the outward-facing side (away from tower center Y-axis)
+      float outward = dot(normalize(vWorldPos.xz), vWorldNormal.xz);
+      float isFrontFace = step(0.3, outward);
+      isVertFace *= isFrontFace;
       float evo = clamp(vEvolutionTier, 0.0, 4.0);
       // Tier-aware LOD: higher tiers visible from further away
       float lodFar = 48.0 + evo * 4.0;
@@ -1105,7 +1109,7 @@ const fragmentShader = /* glsl */ `
     // vLocalPos is raw box-space coords: ranges ~[-0.4, 0.4]
     vec3 lp = abs(vLocalPos);
     float halfExt = 0.4;    // half-extent of block geometry
-    float edgeW = 0.035;    // edge line width
+    float edgeW = 0.06;     // edge line width (softer edges for unclaimed)
 
     // Each axis: 1.0 when near the face boundary, 0.0 in the interior
     float eX = smoothstep(halfExt - edgeW, halfExt, lp.x);
@@ -1122,10 +1126,10 @@ const fragmentShader = /* glsl */ `
     float fZ = smoothstep(halfExt - faceEdgeW, halfExt, lp.z);
     float faceOutline = max(fX, max(fY, fZ)) * 0.3; // subtle face borders
 
-    float edgeGlow = max(wireframe, faceOutline);
+    float edgeGlow = max(wireframe * 0.6, faceOutline * 0.15);
 
-    // ── Dark glass interior with subtle inner warmth ──
-    vec3 glassBase = vec3(0.16, 0.12, 0.09);
+    // ── Warm glass interior — inviting, like empty lanterns ──
+    vec3 glassBase = vec3(0.22, 0.17, 0.13);
     // Face shading so it reads as 3D
     glassBase += vec3(0.04, 0.03, 0.02) * max(0.0, N.y);
     glassBase += vec3(0.03, 0.02, 0.01) * max(0.0, dot(N, normalize(vec3(0.4, 0.6, -0.3))));
@@ -1134,13 +1138,13 @@ const fragmentShader = /* glsl */ `
     float dormantWarmth = 0.06 + 0.04 * vLayerNorm;
     glassBase += vec3(0.18, 0.10, 0.04) * dormantWarmth;
 
-    // Gentle breathing pulse — the tower is alive even where unclaimed
-    float dormantPulse = 0.9 + 0.1 * sin(uTime * 0.4 + vInstanceOffset * 1.5);
+    // Warm breathing pulse — the tower is alive even where unclaimed
+    float dormantPulse = 0.88 + 0.12 * sin(uTime * 0.6 + vInstanceOffset * 2.0);
     glassBase *= dormantPulse;
 
-    // ── Amber edge color — height-graded ──
-    vec3 edgeColorLow = vec3(0.55, 0.28, 0.10);   // warm amber
-    vec3 edgeColorHigh = vec3(0.75, 0.55, 0.18);   // pale gold
+    // ── Warm gold edge color — height-graded ──
+    vec3 edgeColorLow = vec3(0.65, 0.45, 0.18);   // warm gold
+    vec3 edgeColorHigh = vec3(0.85, 0.68, 0.28);   // bright gold
     vec3 edgeColor = mix(edgeColorLow, edgeColorHigh, vLayerNorm);
 
     // Compose: dark glass + glowing edges

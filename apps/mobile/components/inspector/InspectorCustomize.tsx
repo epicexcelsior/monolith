@@ -46,35 +46,15 @@ export default function InspectorCustomize({
       {isPostClaim && (
         <View style={styles.encourageContainer}>
           <Text style={styles.encourageHeading}>Make it yours!</Text>
-          <Text style={styles.encourageSubtext}>Pick a color and emoji for your Spark</Text>
+          <Text style={styles.encourageSubtext}>Pick a face and color for your Spark</Text>
         </View>
       )}
 
-      {/* COLOR — primary section, pastel row + vibrant row */}
-      <Text style={styles.sectionLabel}>COLOR</Text>
-      <View style={styles.colorGrid}>
-        {BLOCK_COLORS.map((color) => (
-          <TouchableOpacity
-            key={color}
-            style={[
-              styles.colorCell,
-              { backgroundColor: color },
-              block.ownerColor === color && styles.colorCellSelected,
-            ]}
-            onPress={() => {
-              onColorChange(color);
-              hapticButtonPress();
-            }}
-          >
-            {block.ownerColor === color && <Text style={styles.check}>✓</Text>}
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* FACE — personality choice */}
+      {/* FACE — personality choice (first for prominence) */}
       {onPersonalityChange && (
         <>
           <Text style={styles.sectionLabel}>FACE</Text>
+          <Text style={styles.sectionSubtitle}>Your Spark's personality</Text>
           <View style={styles.personalityRow}>
             {PERSONALITIES.map((p, i) => (
               <TouchableOpacity
@@ -95,6 +75,27 @@ export default function InspectorCustomize({
           </View>
         </>
       )}
+
+      {/* COLOR */}
+      <Text style={styles.sectionLabel}>COLOR</Text>
+      <View style={styles.colorGrid}>
+        {BLOCK_COLORS.map((color) => (
+          <TouchableOpacity
+            key={color}
+            style={[
+              styles.colorCell,
+              { backgroundColor: color },
+              block.ownerColor === color && styles.colorCellSelected,
+            ]}
+            onPress={() => {
+              onColorChange(color);
+              hapticButtonPress();
+            }}
+          >
+            {block.ownerColor === color && <Text style={styles.check}>✓</Text>}
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {/* NAME — text identity */}
       <Text style={styles.sectionLabel}>NAME</Text>
@@ -247,29 +248,36 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     marginTop: SPACING.sm,
   },
+  sectionSubtitle: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
   personalityCell: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: RADIUS.sm,
     backgroundColor: COLORS.bgMuted,
     borderWidth: 2,
     borderColor: "transparent",
+    minHeight: 56,
   },
   personalityCellSelected: {
     borderColor: COLORS.goldAccent,
-    backgroundColor: "rgba(212, 175, 85, 0.10)",
+    backgroundColor: "rgba(212, 175, 85, 0.15)",
   },
   personalityKaomoji: {
     fontFamily: FONT_FAMILY.mono,
-    fontSize: 14,
+    fontSize: 18,
     color: COLORS.text,
   },
   personalityLabel: {
     fontFamily: FONT_FAMILY.body,
-    fontSize: 10,
+    fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
   },
 });

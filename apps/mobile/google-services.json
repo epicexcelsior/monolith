@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "805124087681",
+    "project_id": "monolith-802a5",
+    "storage_bucket": "monolith-802a5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:805124087681:android:2a96fa1f58748008b35280",
+        "android_client_info": {
+          "package_name": "com.monolith.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJ7TH6fQFKi-ze1HfwL1mlKmsj6QxVJvw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

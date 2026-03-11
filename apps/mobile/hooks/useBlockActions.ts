@@ -35,6 +35,7 @@ import { createContent, ensureBlockContent } from "@/utils/tapestry";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import { submitScore, unlockAchievement } from "@/utils/soar";
 import { useAchievementStore } from "@/stores/achievement-store";
+import { useLootStore } from "@/stores/loot-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { PublicKey } from "@solana/web3.js";
 
@@ -213,9 +214,9 @@ export function useBlockActions() {
 
   const handleCharge = useCallback(() => {
     if (!selectedBlockId) return;
-    hapticChargeTap();
 
     if (mpConnected) {
+      hapticChargeTap();
       const wallet = publicKey?.toBase58() || "";
       sendCharge({ blockId: selectedBlockId, wallet });
       playChargeTap();
@@ -228,6 +229,14 @@ export function useBlockActions() {
         hapticError();
         playError();
       } else if (result.success) {
+        // Quality-based haptic: great = streak milestone feel, good = charge, normal = light
+        if (result.chargeQuality === "great") {
+          hapticStreakMilestone();
+        } else if (result.chargeQuality === "good") {
+          hapticChargeTap();
+        } else {
+          hapticChargeTap();
+        }
         playChargeTap();
         // Trigger 3D charge flash (pass quality for visual intensity)
         setRecentlyChargedId(selectedBlockId, result.chargeQuality);
@@ -239,13 +248,20 @@ export function useBlockActions() {
         const store = usePlayerStore.getState();
         const isFirstToday = store.isFirstChargeToday();
         const pts = isFirstToday ? 50 : 25;
-        // Evolution label takes priority, then reaction label
-        const REACTION_LABELS = ["Happy!", "Surprised!", "Excited!", "Thanks!", "I'm awake!"];
-        const reactionLabel = REACTION_LABELS[Math.floor(Math.random() * 5)];
+        // Evolution context: show charges to next tier
         const evolvedTierName = useTowerStore.getState().justEvolved;
-        const label = evolvedTierName
-          ? `Evolved to ${evolvedTierName}!`
-          : isFirstToday ? "Daily Charge \u2713" : reactionLabel;
+        let label: string;
+        if (evolvedTierName) {
+          label = `Evolved to ${evolvedTierName}!`;
+        } else if (result.nextTierName && result.chargesToNext != null && result.chargesToNext > 0) {
+          label = `${result.chargesToNext} more to ${result.nextTierName}`;
+        } else if (result.nextTierName == null) {
+          label = "FULLY EVOLVED";
+        } else if (isFirstToday) {
+          label = "Daily Charge \u2713";
+        } else {
+          label = "";
+        }
         store.addPoints({
           pointsEarned: pts,
           totalXp: store.xp + pts,
@@ -276,6 +292,9 @@ export function useBlockActions() {
             { key: "streak", value: String(result.streak ?? 1) },
           ],
         );
+
+        // Loot roll after charge
+        useLootStore.getState().rollAndStore(result.streak ?? 0);
 
         // Nudge share after successful charge (auto-dismiss 8s)
         setShowSharePrompt(true);
@@ -448,6 +467,9 @@ export function useBlockActions() {
             recordSoarAchievement(wallet, `streak_${result.streak}`);
           }
         }
+
+        // Loot roll after charge (multiplayer)
+        useLootStore.getState().rollAndStore(result.streak ?? 0);
 
         // Tapestry: post charge content (multiplayer)
         const chargedBlockId = useTowerStore.getState().selectedBlockId;

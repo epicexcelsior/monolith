@@ -254,12 +254,7 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
         ))}
       </View>
 
-      {/* SOAR on-chain verification badge */}
-      {activeTab === "xp" && SOAR_ENABLED && (
-        <View style={styles.soarBadge}>
-          <Text style={styles.soarBadgeText}>Verified on Solana via SOAR</Text>
-        </View>
-      )}
+      {/* SOAR badge hidden — reduces visual noise on leaderboard */}
 
       {/* Social tab — social stats + tower activity */}
       {activeTab === "social" && (

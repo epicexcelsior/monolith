@@ -170,18 +170,6 @@ export default function InspectorActions({
               </>
             )}
           </Animated.View>
-          {/* Streak info */}
-          <View style={styles.streakBadge}>
-            {streak > 0 ? (
-              <Text style={styles.streakBadgeText}>
-                {"\uD83D\uDD25"} {streak}-day streak {multiplier > 1 ? `\u00B7 ${multiplier}\u00D7` : ""}
-              </Text>
-            ) : (
-              <Text style={styles.streakHintText}>
-                Charge daily to keep your Spark alive
-              </Text>
-            )}
-          </View>
           <Button
             title={cooldownText || "\u26A1 CHARGE"}
             variant="primary"
@@ -189,17 +177,6 @@ export default function InspectorActions({
             onPress={onCharge}
             disabled={!!cooldownText}
             pulsing={!cooldownText}
-          />
-          <Text style={styles.chargeExplainer}>
-            Energy decays daily. 0% for 3 days = anyone can reclaim it.
-          </Text>
-          {/* Prominent share CTA — highlighted after charge */}
-          <Button
-            title={showSharePrompt ? "Share Your Block!" : "Share Your Block"}
-            variant="gold"
-            size="md"
-            onPress={() => { hapticButtonPress(); playButtonTap(); onShare(); }}
-            pulsing={!!showSharePrompt}
           />
           <View style={styles.actionRow}>
             <TouchableOpacity
@@ -209,6 +186,12 @@ export default function InspectorActions({
               <Text style={styles.actionChipText}>
                 {showCustomize ? "Done" : "Customize"}
               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionChip, showSharePrompt && styles.actionChipActive]}
+              onPress={() => { hapticButtonPress(); playButtonTap(); onShare(); }}
+            >
+              <Text style={styles.actionChipText}>Share</Text>
             </TouchableOpacity>
             {blockContentId != null && (
               <TouchableOpacity
@@ -220,12 +203,6 @@ export default function InspectorActions({
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.actionChip}
-              onPress={() => { hapticButtonPress(); playButtonTap(); onTweet(); }}
-            >
-              <Text style={styles.actionChipText}>Tweet</Text>
-            </TouchableOpacity>
           </View>
         </>
       )}
