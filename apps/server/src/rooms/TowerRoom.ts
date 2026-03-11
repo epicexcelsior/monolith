@@ -27,6 +27,35 @@ import {
   shouldNotifyEnergyLow,
 } from "../utils/notifications.js";
 
+// ─── Input Validation ────────────────────────────────────
+const BLOCK_ID_RE = /^block-\d+-\d+$/;
+const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const MAX_NAME_LENGTH = 30;
+const MAX_EMOJI_LENGTH = 4;
+const HTML_TAG_RE = /<[^>]*>/;
+
+function isValidBlockId(id: unknown): id is string {
+  return typeof id === "string" && BLOCK_ID_RE.test(id);
+}
+function isValidColor(c: unknown): c is string {
+  return typeof c === "string" && COLOR_RE.test(c);
+}
+function isValidName(n: unknown): n is string {
+  return typeof n === "string" && n.length <= MAX_NAME_LENGTH && !HTML_TAG_RE.test(n);
+}
+function isValidEmoji(e: unknown): e is string {
+  return typeof e === "string" && e.length <= MAX_EMOJI_LENGTH;
+}
+function isValidStyle(s: unknown): s is number {
+  return typeof s === "number" && Number.isInteger(s) && s >= 0 && s <= 10;
+}
+function isValidTextureId(t: unknown): t is number {
+  return typeof t === "number" && Number.isInteger(t) && t >= 0 && t <= 6;
+}
+function isValidPersonality(p: unknown): p is number {
+  return typeof p === "number" && Number.isInteger(p) && p >= -1 && p <= 4;
+}
+
 // Game constants (match client)
 const DECAY_AMOUNT = 1;
 const DECAY_INTERVAL_MS = 60_000;
@@ -118,6 +147,23 @@ export function getActiveRoom(): TowerRoom | null {
   return activeRoom;
 }
 
+/** One-time upload tokens: token → { wallet, blockId, expires } */
+const uploadTokens = new Map<string, { wallet: string; blockId: string; expires: number }>();
+const UPLOAD_TOKEN_TTL_MS = 60_000; // 60 seconds
+
+export function validateUploadToken(token: string, blockId: string): string | null {
+  const entry = uploadTokens.get(token);
+  if (!entry) return null;
+  uploadTokens.delete(token); // one-time use
+  if (Date.now() > entry.expires) return null;
+  if (entry.blockId !== blockId) return null;
+  return entry.wallet;
+}
+
+function generateToken(): string {
+  return require("crypto").randomBytes(24).toString("base64url");
+}
+
 export class TowerRoom extends Room<TowerRoomState> {
   private decayInterval!: ReturnType<typeof setInterval>;
   private broadcastInterval!: ReturnType<typeof setInterval>;
@@ -128,6 +174,11 @@ export class TowerRoom extends Room<TowerRoomState> {
   private chargesToday = 0;
   private lastResetDate = new Date().toISOString().slice(0, 10);
   private decayTickCounter = 0;
+
+  /** Get the verified wallet address bound to this client session (set on join). */
+  private getSessionWallet(client: Client): string | null {
+    return (client as any)._wallet || null;
+  }
 
   async onCreate() {
     activeRoom = this;
@@ -254,6 +305,21 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("claim", async (client: Client, msg: ClaimMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+        if (msg.color !== undefined && !isValidColor(msg.color)) {
+          client.send("error", { message: "Invalid color" });
+          return;
+        }
+
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+
         const block = this.state.blocks.get(msg.blockId);
         if (!block) {
           client.send("error", { message: "Block not found" });
@@ -270,7 +336,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         const wasReclaim = isDormant(block);
         const previousOwner = block.owner;
 
-        block.owner = msg.wallet;
+        block.owner = wallet;
         block.ownerColor = msg.color;
         block.energy = MAX_ENERGY;
         block.stakedAmount = msg.amount;
@@ -282,9 +348,9 @@ export class TowerRoom extends Room<TowerRoomState> {
         this.recomputeStats();
 
         // XP computation
-        const player = await this.getOrCreatePlayer(msg.wallet);
+        const player = await this.getOrCreatePlayer(wallet);
         const isFirstBlock = player.totalClaims === 0;
-        const comboCount = incrementCombo(msg.wallet);
+        const comboCount = incrementCombo(wallet);
         const pointsEarned = computeXp("claim", { isFirstBlock, comboCount: comboCount - 1 });
         player.xp += pointsEarned;
         player.totalClaims++;
@@ -294,18 +360,18 @@ export class TowerRoom extends Room<TowerRoomState> {
 
         // Persist (fire-and-forget, errors logged internally)
         upsertBlock(blockToRow(block));
-        updatePlayerXp(msg.wallet, player.xp, player.level, {
+        updatePlayerXp(wallet, player.xp, player.level, {
           total_claims: player.totalClaims,
           combo_best: Math.max(player.comboBest, comboCount),
         });
-        insertEvent(wasReclaim ? "reclaim" : "claim", msg.blockId, msg.wallet, {
+        insertEvent(wasReclaim ? "reclaim" : "claim", msg.blockId, wallet, {
           pointsEarned,
           layer: block.layer,
           index: block.index,
         });
 
         if (levelUp) {
-          insertEvent("level_up", undefined, msg.wallet, {
+          insertEvent("level_up", undefined, wallet, {
             newLevel: player.level,
           });
         }
@@ -347,7 +413,7 @@ export class TowerRoom extends Room<TowerRoomState> {
             neighbor &&
             neighbor.owner &&
             !isBotOwner(neighbor.owner) &&
-            neighbor.owner !== msg.wallet
+            neighbor.owner !== wallet
           ) {
             sendPlayerNotification(
               neighbor.owner,
@@ -359,7 +425,7 @@ export class TowerRoom extends Room<TowerRoomState> {
           }
         }
 
-        console.log(`[TowerRoom] ${msg.wallet.slice(0, 8)}... ${wasReclaim ? "reclaimed" : "claimed"} ${msg.blockId}`);
+        console.log(`[TowerRoom] ${wallet.slice(0, 8)}... ${wasReclaim ? "reclaimed" : "claimed"} ${msg.blockId}`);
       } catch (err) {
         console.error("[TowerRoom] Claim error:", err);
         client.send("error", { message: "Claim failed" });
@@ -368,6 +434,17 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("charge", async (client: Client, msg: ChargeMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+
         const block = this.state.blocks.get(msg.blockId);
         if (!block) {
           client.send("error", { message: "Block not found" });
@@ -375,7 +452,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         // Ownership enforcement
-        if (msg.wallet && block.owner !== msg.wallet) {
+        if (block.owner !== wallet) {
           client.send("error", { message: "Not your block" });
           return;
         }
@@ -423,7 +500,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         this.chargesToday++;
 
         // XP computation
-        const wallet = msg.wallet || block.owner;
+        // wallet already extracted from session above
         const player = await this.getOrCreatePlayer(wallet);
         const comboCount = incrementCombo(wallet);
         const pointsEarned = computeXp("charge", {
@@ -482,6 +559,47 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("customize", async (client: Client, msg: CustomizeMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
+        const changes = msg.changes;
+        if (!changes || typeof changes !== "object") {
+          client.send("error", { message: "Missing changes" });
+          return;
+        }
+        if (changes.color !== undefined && !isValidColor(changes.color)) {
+          client.send("error", { message: "Invalid color" });
+          return;
+        }
+        if (changes.emoji !== undefined && !isValidEmoji(changes.emoji)) {
+          client.send("error", { message: "Invalid emoji" });
+          return;
+        }
+        if (changes.name !== undefined && !isValidName(changes.name)) {
+          client.send("error", { message: "Invalid name (max 30 chars, no HTML)" });
+          return;
+        }
+        if (changes.style !== undefined && !isValidStyle(changes.style)) {
+          client.send("error", { message: "Invalid style" });
+          return;
+        }
+        if (changes.textureId !== undefined && !isValidTextureId(changes.textureId)) {
+          client.send("error", { message: "Invalid textureId" });
+          return;
+        }
+        if (changes.personality !== undefined && !isValidPersonality(changes.personality)) {
+          client.send("error", { message: "Invalid personality" });
+          return;
+        }
+
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+
         const block = this.state.blocks.get(msg.blockId);
         if (!block) {
           client.send("error", { message: "Block not found" });
@@ -489,12 +607,10 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         // Ownership enforcement
-        if (msg.wallet && block.owner !== msg.wallet) {
+        if (block.owner !== wallet) {
           client.send("error", { message: "Not your block" });
           return;
         }
-
-        const changes = msg.changes;
         if (changes.color !== undefined) {
           block.ownerColor = changes.color;
           block.appearance.color = changes.color;
@@ -506,7 +622,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         if (changes.personality !== undefined) block.appearance.personality = changes.personality;
 
         // No XP for customization — was farmable by repeated changes
-        insertEvent("customize", msg.blockId, msg.wallet || block.owner);
+        insertEvent("customize", msg.blockId, wallet);
         client.send("customize_result", { success: true });
 
         // Persist block (fire-and-forget)
@@ -525,6 +641,17 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("poke", async (client: Client, msg: PokeMessage) => {
       try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+
         const block = this.state.blocks.get(msg.blockId);
         if (!block) {
           client.send("error", { message: "Block not found" });
@@ -537,13 +664,13 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         // Cannot poke own block
-        if (block.owner === msg.wallet) {
+        if (block.owner === wallet) {
           client.send("error", { message: "You can't poke your own block" });
           return;
         }
 
         // Cooldown: 1 poke per block per 24h per poker
-        const cooldownKey = `${msg.wallet}:${msg.blockId}`;
+        const cooldownKey = `${wallet}:${msg.blockId}`;
         const lastPoke = this.pokeCooldowns.get(cooldownKey);
         const now = Date.now();
         const POKE_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -562,16 +689,16 @@ export class TowerRoom extends Room<TowerRoomState> {
         this.pokeCooldowns.set(cooldownKey, now);
 
         // XP for poker (15 XP)
-        const player = await this.getOrCreatePlayer(msg.wallet);
-        const comboCount = incrementCombo(msg.wallet);
+        const player = await this.getOrCreatePlayer(wallet);
+        const comboCount = incrementCombo(wallet);
         const pointsEarned = 15;
         player.xp += pointsEarned;
         const oldLevel = player.level;
         player.level = computeLevel(player.xp);
         const levelUp = player.level > oldLevel;
 
-        updatePlayerXp(msg.wallet, player.xp, player.level);
-        insertEvent("poke", msg.blockId, msg.wallet, {
+        updatePlayerXp(wallet, player.xp, player.level);
+        insertEvent("poke", msg.blockId, wallet, {
           targetOwner: block.owner,
           energyAdded: energyBoost,
         });
@@ -598,8 +725,8 @@ export class TowerRoom extends Room<TowerRoomState> {
         });
 
         // Send poke_received to pokee if online
-        const pokerPlayer = this.players.get(msg.wallet);
-        const pokerName = pokerPlayer?.skrName || pokerPlayer?.username || msg.wallet.slice(0, 8) + "...";
+        const pokerPlayer = this.players.get(wallet);
+        const pokerName = pokerPlayer?.skrName || pokerPlayer?.username || wallet.slice(0, 8) + "...";
 
         // Find pokee's client
         for (const otherClient of this.clients) {
@@ -619,11 +746,11 @@ export class TowerRoom extends Room<TowerRoomState> {
             "poke",
             "You got poked!",
             `${pokerName} poked your block on floor ${block.layer + 1}! +${energyBoost}% energy`,
-            { blockId: block.id, from: msg.wallet },
+            { blockId: block.id, from: wallet },
           );
         }
 
-        console.log(`[TowerRoom] ${msg.wallet.slice(0, 8)}... poked ${msg.blockId} (owner: ${block.owner.slice(0, 8)}...)`);
+        console.log(`[TowerRoom] ${wallet.slice(0, 8)}... poked ${msg.blockId} (owner: ${block.owner.slice(0, 8)}...)`);
       } catch (err) {
         console.error("[TowerRoom] Poke error:", err);
         client.send("error", { message: "Poke failed" });
@@ -632,8 +759,14 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("set_username", async (client: Client, msg: { wallet: string; username: string }) => {
       try {
-        if (!msg.wallet || !msg.username) {
-          client.send("error", { message: "Wallet and username required" });
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+
+        if (!msg.username) {
+          client.send("error", { message: "Username required" });
           return;
         }
 
@@ -650,26 +783,26 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         // Check in-memory for duplicate (quick check before Supabase)
-        for (const [wallet, playerState] of this.players) {
-          if (wallet !== msg.wallet && playerState.username?.toLowerCase() === username.toLowerCase()) {
+        for (const [existingWallet, playerState] of this.players) {
+          if (existingWallet !== wallet && playerState.username?.toLowerCase() === username.toLowerCase()) {
             client.send("error", { message: "Username already taken" });
             return;
           }
         }
 
         // Persist to Supabase
-        const result = await setPlayerUsername(msg.wallet, username);
+        const result = await setPlayerUsername(wallet, username);
         if (!result.success) {
           client.send("error", { message: result.error || "Failed to set username" });
           return;
         }
 
         // Update in-memory state
-        const player = await this.getOrCreatePlayer(msg.wallet);
+        const player = await this.getOrCreatePlayer(wallet);
         player.username = username;
 
         client.send("username_result", { success: true, username });
-        console.log(`[TowerRoom] ${msg.wallet.slice(0, 8)}... set username to "${username}"`);
+        console.log(`[TowerRoom] ${wallet.slice(0, 8)}... set username to "${username}"`);
       } catch (err) {
         console.error("[TowerRoom] set_username error:", err);
         client.send("error", { message: "Failed to set username" });
@@ -690,11 +823,41 @@ export class TowerRoom extends Room<TowerRoomState> {
 
     this.onMessage("register_push_token", (client: Client, msg: { wallet: string; token: string }) => {
       try {
-        if (!msg.wallet || !msg.token) return;
-        upsertPushToken(msg.wallet, msg.token);
-        console.log(`[TowerRoom] Push token registered for ${msg.wallet.slice(0, 8)}...`);
+        const wallet = this.getSessionWallet(client);
+        if (!wallet || !msg.token) return;
+        upsertPushToken(wallet, msg.token);
+        console.log(`[TowerRoom] Push token registered for ${wallet.slice(0, 8)}...`);
       } catch (err) {
         console.error("[TowerRoom] register_push_token error:", err);
+      }
+    });
+
+    this.onMessage("request_upload_token", (client: Client, msg: { blockId: string }) => {
+      try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+        const block = this.state.blocks.get(msg.blockId);
+        if (!block) {
+          client.send("error", { message: "Block not found" });
+          return;
+        }
+        if (block.owner !== wallet) {
+          client.send("error", { message: "Not your block" });
+          return;
+        }
+        const token = generateToken();
+        uploadTokens.set(token, { wallet, blockId: msg.blockId, expires: Date.now() + UPLOAD_TOKEN_TTL_MS });
+        client.send("upload_token", { token, blockId: msg.blockId });
+      } catch (err) {
+        console.error("[TowerRoom] request_upload_token error:", err);
+        client.send("error", { message: "Failed to generate upload token" });
       }
     });
 

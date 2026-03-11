@@ -58,18 +58,19 @@ pub mod monolith {
         user_deposit.amount = user_deposit
             .amount
             .checked_add(amount)
-            .unwrap();
+            .ok_or(MonolithError::ArithmeticOverflow)?;
         user_deposit.last_deposit_at = Clock::get()?.unix_timestamp;
 
         // Update tower totals
         let tower = &mut ctx.accounts.tower_state;
         if is_new_user {
-            tower.total_users = tower.total_users.checked_add(1).unwrap();
+            tower.total_users = tower.total_users.checked_add(1)
+                .ok_or(MonolithError::ArithmeticOverflow)?;
         }
         tower.total_deposited = tower
             .total_deposited
             .checked_add(amount)
-            .unwrap();
+            .ok_or(MonolithError::ArithmeticOverflow)?;
 
         Ok(())
     }
@@ -105,14 +106,14 @@ pub mod monolith {
         user_deposit.amount = user_deposit
             .amount
             .checked_sub(amount)
-            .unwrap();
+            .ok_or(MonolithError::InsufficientBalance)?;
 
         // Update tower totals
         let tower = &mut ctx.accounts.tower_state;
         tower.total_deposited = tower
             .total_deposited
             .checked_sub(amount)
-            .unwrap();
+            .ok_or(MonolithError::ArithmeticOverflow)?;
 
         Ok(())
     }
@@ -188,6 +189,9 @@ pub struct Deposit<'info> {
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = usdc_mint.key() == tower_state.usdc_mint @ MonolithError::InvalidMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
 
     #[account(mut)]
@@ -211,6 +215,7 @@ pub struct Withdraw<'info> {
         mut,
         seeds = [b"deposit", user.key().as_ref()],
         bump = user_deposit.bump,
+        constraint = user_deposit.owner == user.key() @ MonolithError::InsufficientBalance,
     )]
     pub user_deposit: Account<'info, UserDeposit>,
 
@@ -230,6 +235,9 @@ pub struct Withdraw<'info> {
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = usdc_mint.key() == tower_state.usdc_mint @ MonolithError::InvalidMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
 
     #[account(mut)]

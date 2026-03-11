@@ -4,9 +4,10 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { createServer } from "http";
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import path from "path";
 import { GAME_SERVER_PORT } from "@monolith/common";
-import { TowerRoom, getActiveRoom, serializeBlock, blockToRow } from "./rooms/TowerRoom.js";
+import { TowerRoom, getActiveRoom, serializeBlock, blockToRow, validateUploadToken } from "./rooms/TowerRoom.js";
 import { getRecentEvents, getTopPlayers, initSupabase, upsertBlock, uploadBlockImage } from "./utils/supabase.js";
 import blinksRouter from "./routes/blinks.js";
 
@@ -37,13 +38,17 @@ app.use(blinksRouter);
 // Global CORS for all other routes
 app.use(cors());
 
+// Rate limiters
+const readLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false });
+const writeLimiter = rateLimit({ windowMs: 60_000, max: 5, standardHeaders: true, legacyHeaders: false });
+
 // Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Tower info (REST)
-app.get("/api/tower", async (_req, res) => {
+app.get("/api/tower", readLimiter, async (_req, res) => {
   try {
     const rooms = await matchMaker.query({ name: "tower" });
     const totalClients = rooms.reduce((sum: number, r: any) => sum + (r.clients || 0), 0);
@@ -57,7 +62,7 @@ app.get("/api/tower", async (_req, res) => {
 });
 
 // Recent events
-app.get("/api/events", async (req, res) => {
+app.get("/api/events", readLimiter, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
     const events = await getRecentEvents(limit);
@@ -69,7 +74,7 @@ app.get("/api/events", async (req, res) => {
 });
 
 // XP Leaderboard
-app.get("/api/leaderboard", async (req, res) => {
+app.get("/api/leaderboard", readLimiter, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
     const players = await getTopPlayers(limit);
@@ -81,13 +86,13 @@ app.get("/api/leaderboard", async (req, res) => {
 });
 
 // Block image upload
-app.post("/api/blocks/:blockId/image", async (req, res) => {
+app.post("/api/blocks/:blockId/image", writeLimiter, async (req, res) => {
   try {
-    const { blockId } = req.params;
-    const { wallet, image } = req.body;
+    const blockId = req.params.blockId as string;
+    const { wallet, image, uploadToken } = req.body;
 
-    if (!blockId || !wallet || !image || typeof image !== "string") {
-      res.status(400).json({ error: "Missing blockId, wallet, or image" });
+    if (!blockId || !image || typeof image !== "string") {
+      res.status(400).json({ error: "Missing blockId or image" });
       return;
     }
 
@@ -103,7 +108,8 @@ app.post("/api/blocks/:blockId/image", async (req, res) => {
       return;
     }
 
-    // Verify ownership via active room
+    // Authenticate: require a one-time upload token (issued via WS)
+    // Falls back to wallet-based ownership check for backward compatibility
     const room = getActiveRoom();
     if (!room) {
       res.status(503).json({ error: "Game room not ready" });
@@ -114,8 +120,26 @@ app.post("/api/blocks/:blockId/image", async (req, res) => {
       res.status(404).json({ error: "Block not found" });
       return;
     }
-    if (block.owner !== wallet) {
-      res.status(403).json({ error: "Not your block" });
+
+    if (uploadToken) {
+      const tokenWallet = validateUploadToken(uploadToken, blockId);
+      if (!tokenWallet) {
+        res.status(403).json({ error: "Invalid or expired upload token" });
+        return;
+      }
+      if (block.owner !== tokenWallet) {
+        res.status(403).json({ error: "Not your block" });
+        return;
+      }
+    } else if (wallet) {
+      // Legacy path — unauthenticated wallet check (log warning)
+      console.warn(`[API] Image upload using unauthenticated wallet field for ${blockId} — migrate to upload tokens`);
+      if (block.owner !== wallet) {
+        res.status(403).json({ error: "Not your block" });
+        return;
+      }
+    } else {
+      res.status(400).json({ error: "Missing uploadToken or wallet" });
       return;
     }
 
