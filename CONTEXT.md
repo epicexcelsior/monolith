@@ -55,7 +55,12 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
 - **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast, share button)
 - **Breathing blocks** (energy-tiered aura: blazing warm gold pulse, thriving amber, fading anxious flicker, dying cold sparks, dead dark)
-- **Spark faces** (kawaii SDF faces on all vertical faces — energy-driven expressions, adaptive contrast (bioluminescent on dark blocks), sleeping face on dead blocks, programmatic variety (5 eye shapes × 4 mouth styles per block via hash), evolution tier face progression (Spark→Ember→Flame→Blaze→Beacon adds blush/brows/halo), tier-aware LOD (Beacon visible from 54 units, Spark from 38))
+- **Spark faces** (kawaii SDF faces on outward-facing side only — energy-driven expressions, adaptive contrast (bioluminescent on dark blocks), sleeping face on dead blocks, programmatic variety (5 eye shapes × 4 mouth styles per block via hash), evolution tier face progression (Spark→Ember→Flame→Blaze→Beacon adds blush/brows/halo), tier-aware LOD (Beacon visible from 54 units, Spark from 38))
+- **Loot drop system** (gacha-style cosmetic drops on charge — 12 items across 4 rarity tiers: common colors, rare emojis/effects, epic/legendary styles — 30% base drop rate with streak multiplier, full-screen reveal overlay with rarity flash + equip button, client-side inventory persisted to expo-secure-store)
+- **Compact inspector** (~280px default, expandable to ~540px — block visible behind panel, smooth spring animation, scroll gating)
+- **Evolution celebration dedup** (lastCelebratedTier per block — each tier celebration fires exactly once)
+- **Charge quality amplification** (normal/good/great rolls feel dramatically different — flash duration/color spread, haptic intensity, FloatingPoints scale)
+- **Unclaimed block warm pulse** (golden 0.6Hz shimmer instead of harsh dark glass — inviting "claim me" lanterns)
 - **Spark Dev Panel** (`__DEV__` only: floating panel with energy slider + evolution tier + eye/mouth variant selectors + shuffle button for testing all face variations live)
 - **Charge bounce** (squash-and-stretch on charge flash — 0.1s squash → 0.15s stretch → 0.25s settle, volume-preserving, bottom-anchored)
 - **Enhanced share flow** (prominent gold Share button for owners, post-charge share nudge 8s pulse, achievement share, improved ShareCard with evo tier + streak badge)
@@ -127,7 +132,8 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/UsernameModal.tsx` | Set display name modal |
 | `apps/mobile/components/ui/SparkDevSlider.tsx` | Dev-only face testing panel (energy slider + tier + eye/mouth variant pickers) |
 | `apps/mobile/components/ui/ConnectionBanner.tsx` | Connection status indicator |
-| `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions |
+| `apps/mobile/components/ui/FloatingPoints.tsx` | "+25 XP" floating animation after actions (evolution context labels) |
+| `apps/mobile/components/ui/LootReveal.tsx` | Gacha-style loot reveal overlay (rarity flash, card bounce, equip) |
 | `apps/mobile/components/ui/LevelUpCelebration.tsx` | Full-screen level-up overlay + haptic |
 | `apps/mobile/components/ui/XPBar.tsx` | XP progress bar component |
 | `apps/mobile/components/ErrorBoundary.tsx` | React error boundary for crash recovery |
@@ -147,6 +153,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/stores/poke-store.ts` | Poke cooldown tracking |
 | `apps/mobile/stores/achievement-store.ts` | Achievement unlocks (7 types, SecureStore persistence) |
 | `apps/mobile/stores/activity-store.ts` | Real-time activity events (wired to multiplayer) |
+| `apps/mobile/stores/loot-store.ts` | Loot inventory (Zustand + expo-secure-store, rollAndStore, pendingReveal) |
 | `apps/mobile/stores/tapestry-store.ts` | Tapestry social state (profile, social counts) |
 | `apps/mobile/utils/tapestry.ts` | Tapestry API wrapper (profiles, follows, content, likes, comments, activity feed) |
 | `apps/mobile/utils/soar.ts` | SOAR on-chain leaderboard/achievements wrapper (fire-and-forget, feature-flagged) |
@@ -172,6 +179,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/assets/sfx/` | WAV files: 3 Kenney CC0 + 9 synthesized (A Dorian palette) |
 | `scripts/generate-sounds.js` | Node.js WAV synthesizer — re-run to regenerate hero sounds |
 | `apps/mobile/constants/theme.ts` | Colors, glass styles, typography |
+| `apps/mobile/constants/loot-table.ts` | 12 loot items, rarity tiers, weighted rollLoot() function |
 | `apps/mobile/constants/network.ts` | GAME_SERVER_URL from env |
 | `apps/mobile/app.json` | EAS project config, expo-updates URL |
 | `apps/mobile/eas.json` | Build profiles (dev/preview/prod) + Supabase env vars |
@@ -385,6 +393,8 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 ---
 
 ## Recent Changes
+
+- **2026-03-10**: **Post-hack "Make It Click" sprint** — 3 phases, 13 sub-tasks. Phase 1: front-face-only rendering, evolution celebration dedup (lastCelebratedTier), compact inspector (280→540px animated), progression messaging in FloatingPoints ("3 more to Ember"), face picker prominence, SOAR badge hidden, unclaimed block warm golden pulse. Phase 2: loot drop system (12 items, 4 rarity tiers, gacha reveal overlay, expo-secure-store persistence), charge quality amplification (flash/haptic/scale spread). Phase 3: regression verified (222/222 tests), visual polish, APK built. New files: loot-table.ts, loot-store.ts, LootReveal.tsx.
 
 - **2026-03-10**: Documentation cleanup for hackathon submission — archived 27 internal docs (sprint plans, roadmaps, scorecards, pitch internals, old marketing) to `archive/`, deleted 6 temporal files (outdated guides, old hackathon materials). Visual README overhaul (hero banner from og-image, shields.io tech badges, QR code for APK install, feature tables). New EAS cloud APK build (`4k3G64YyQ8NCJ7RgxA4RT6.apk`) + local release APK. TESTING.md APK link updated. Judge-facing docs are clean: root has 4 files, docs/ has 17 quality files, pitch/ has deck + media only.
 

@@ -314,21 +314,6 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginTop: SPACING.xs,
   },
-  streakBadge: {
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.goldSubtle,
-    alignItems: "center",
-  },
-  streakBadgeText: {
-    ...TEXT.bodySm,
-    fontFamily: FONT_FAMILY.bodySemibold,
-    color: COLORS.gold,
-  },
-  streakHintText: {
-    ...TEXT.caption,
-  },
   actionRow: {
     flexDirection: "row",
     gap: SPACING.xs,
@@ -479,10 +464,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 11,
     color: COLORS.goldAccent,
-  },
-  chargeExplainer: {
-    ...TEXT.caption,
-    textAlign: "center",
   },
   premiumBadge: {
     fontFamily: FONT_FAMILY.bodySemibold,

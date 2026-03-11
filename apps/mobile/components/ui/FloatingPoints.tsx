@@ -170,13 +170,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: 1,
   },
-  xpSubtext: {
-    fontFamily: FONT_FAMILY.bodySemibold,
-    fontSize: 13,
-    color: COLORS.textMuted,
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    marginTop: 2,
-  },
 });
