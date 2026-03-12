@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   View,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Text,
@@ -10,6 +11,7 @@ import {
 import { Canvas } from "@react-three/fiber/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConfiguratorScene } from "./ConfiguratorScene";
+import { ConfiguratorControls } from "./ConfiguratorControls";
 import { useConfiguratorState } from "./useConfiguratorState";
 import { hapticConfiguratorOpen, hapticConfiguratorSave } from "@/utils/haptics";
 import { playBlockDeselect } from "@/utils/audio";
@@ -22,7 +24,7 @@ interface Props {
 
 export function BlockConfigurator({ blockId, onClose }: Props) {
   const insets = useSafeAreaInsets();
-  const { block, preview, save, discard, hasChanges } = useConfiguratorState(blockId);
+  const { block, preview, updatePreview, save, discard, hasChanges } = useConfiguratorState(blockId);
 
   // Entrance animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -114,10 +116,20 @@ export function BlockConfigurator({ blockId, onClose }: Props) {
         </TouchableOpacity>
       </View>
 
-      {/* Bottom info — placeholder for Phase 3 controls */}
-      <View style={[styles.bottomInfo, { paddingBottom: insets.bottom + SPACING.md }]}>
-        <Text style={styles.blockName}>{block.name || `Block ${block.layer}-${block.index}`}</Text>
-        <Text style={styles.hint}>Drag to rotate. Controls coming soon.</Text>
+      {/* Bottom controls */}
+      <View style={[styles.controlsContainer, { paddingBottom: insets.bottom + SPACING.md }]}>
+        <ScrollView
+          style={styles.controlsScroll}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <ConfiguratorControls
+            preview={preview}
+            onColorChange={(color) => updatePreview({ color })}
+            onStyleChange={(style) => updatePreview({ style })}
+            onNameChange={(name) => updatePreview({ name })}
+          />
+        </ScrollView>
       </View>
     </Animated.View>
   );
@@ -133,7 +145,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a0c14",
   },
   canvasContainer: {
-    flex: 1,
+    height: "40%",
   },
   canvas: {
     flex: 1,
@@ -170,23 +182,13 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: 0.5,
   },
-  bottomInfo: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    paddingHorizontal: SPACING.lg,
+  controlsContainer: {
+    flex: 1,
+    backgroundColor: "rgba(10, 12, 20, 0.95)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
-  blockName: {
-    fontFamily: FONT_FAMILY.headingSemibold,
-    fontSize: 16,
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  hint: {
-    fontFamily: FONT_FAMILY.body,
-    fontSize: 13,
-    color: COLORS.textMuted,
+  controlsScroll: {
+    flex: 1,
   },
 });
