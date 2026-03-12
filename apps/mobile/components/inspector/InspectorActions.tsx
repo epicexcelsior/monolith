@@ -8,7 +8,7 @@ import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import { truncateAddress, formatUsdc } from "@/hooks/useBlockActions";
 import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, ACTIVE_EVOLUTION_TIERS } from "@monolith/common";
-import type { DemoBlock } from "@/stores/tower-store";
+import { useTowerStore, type DemoBlock } from "@/stores/tower-store";
 
 interface InspectorActionsProps {
   block: DemoBlock;
@@ -25,10 +25,8 @@ interface InspectorActionsProps {
   onClaim: () => void;
   onCharge: () => void;
   onPoke: () => void;
-  onCustomizeToggle: () => void;
   onShare: () => void;
   onTweet: () => void;
-  showCustomize: boolean;
   isOnboarding?: boolean;
   showSharePrompt?: boolean;
   // Tapestry social
@@ -61,10 +59,8 @@ export default function InspectorActions({
   onClaim,
   onCharge,
   onPoke,
-  onCustomizeToggle,
   onShare,
   onTweet,
-  showCustomize,
   isOnboarding,
   showSharePrompt,
   tapestryProfileId,
@@ -181,11 +177,13 @@ export default function InspectorActions({
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.actionChip}
-              onPress={() => { onCustomizeToggle(); hapticButtonPress(); playButtonTap(); }}
+              onPress={() => {
+                useTowerStore.getState().setConfiguratorBlockId(block.id);
+                hapticButtonPress();
+                playButtonTap();
+              }}
             >
-              <Text style={styles.actionChipText}>
-                {showCustomize ? "Done" : "Customize"}
-              </Text>
+              <Text style={styles.actionChipText}>Customize</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionChip, showSharePrompt && styles.actionChipActive]}

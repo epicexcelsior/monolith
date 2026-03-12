@@ -179,6 +179,7 @@ function CameraRig({
 }) {
   const { camera } = useThree();
   const selectedBlockId = useTowerStore((s) => s.selectedBlockId);
+  const configuratorBlockId = useTowerStore((s) => s.configuratorBlockId);
   const getDemoBlockById = useTowerStore((s) => s.getDemoBlockById);
   const setFocusedLayer = useTowerStore((s) => s.setFocusedLayer);
   const setZoomTier = useTowerStore((s) => s.setZoomTier);
@@ -209,6 +210,7 @@ function CameraRig({
   const transitionBlendRef = useRef(0);
 
   useFrame((_, delta) => {
+    if (configuratorBlockId) return; // pause tower when configurator active
     const cs = cameraState.current;
     const now = performance.now() / 1000;
     const idleTime = now - lastTouchTime.current;

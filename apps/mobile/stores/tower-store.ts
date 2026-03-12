@@ -135,6 +135,7 @@ interface TowerStore {
   /** @deprecated Use block.personality instead */
   devFaceOverride: number;
   justEvolved: string | null; // tier name when evolution just happened (cleared by consumer)
+  configuratorBlockId: string | null;
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks: Block[]) => void;
@@ -155,6 +156,7 @@ interface TowerStore {
   setMultiplayerMode: (enabled: boolean) => void;
   setRevealProgress: (progress: number) => void;
   setRevealComplete: (complete: boolean) => void;
+  setConfiguratorBlockId: (id: string | null) => void;
 
   // ─── Game Actions ─────────────────────────
   initTower: () => Promise<void>;
@@ -227,6 +229,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   revealComplete: false,
   devFaceOverride: -1,
   justEvolved: null,
+  configuratorBlockId: null,
 
   // ─── Actions ──────────────────────────────
   setBlocks: (blocks) => set({ blocks }),
@@ -260,6 +263,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
   setMultiplayerMode: (enabled) => set({ multiplayerMode: enabled }),
   setRevealProgress: (progress) => set({ revealProgress: progress }),
   setRevealComplete: (complete) => set({ revealComplete: complete }),
+  setConfiguratorBlockId: (id) => set({ configuratorBlockId: id }),
 
   // ─── Game Actions ─────────────────────────
 

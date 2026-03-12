@@ -15,7 +15,6 @@ import ShareCard from "./ShareCard";
 import ClaimModal from "@/components/ui/ClaimModal";
 import InspectorHeader from "@/components/inspector/InspectorHeader";
 import InspectorActions from "@/components/inspector/InspectorActions";
-import InspectorCustomize from "@/components/inspector/InspectorCustomize";
 import InspectorComments from "@/components/inspector/InspectorComments";
 import { useBlockActions } from "@/hooks/useBlockActions";
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, TIMING } from "@/constants/theme";
@@ -86,9 +85,11 @@ export default function BlockInspector() {
   const shareCardRef = useRef<View>(null);
   const isVisible = selectedBlockId !== null;
 
-  const [showCustomize, setShowCustomize] = useState(false);
+  // Hide inspector when configurator is open
+  const configuratorBlockId = useTowerStore((s) => s.configuratorBlockId);
+
   const [showComments, setShowComments] = useState(false);
-  const isExpanded = showCustomize || showComments;
+  const isExpanded = showComments;
 
   // ─── Tapestry social state ─────────────────────────────
   const tapestryProfileId = useTapestryStore((s) => s.profileId);
@@ -265,7 +266,6 @@ export default function BlockInspector() {
     }).start();
 
     if (!isVisible) {
-      setShowCustomize(false);
       setShowComments(false);
       resetPanelState();
       dragOffset.setValue(0);
@@ -282,13 +282,15 @@ export default function BlockInspector() {
     }).start();
   }, [isExpanded, panelHeight]);
 
-  // Auto-expand customize after claiming
+  // Auto-open configurator after claiming
+  const setConfiguratorBlockId = useTowerStore((s) => s.setConfiguratorBlockId);
   useEffect(() => {
     if (recentlyClaimedId && selectedBlockId && recentlyClaimedId === selectedBlockId) {
-      setShowCustomize(true);
+      setConfiguratorBlockId(selectedBlockId);
     }
-  }, [recentlyClaimedId, selectedBlockId]);
+  }, [recentlyClaimedId, selectedBlockId, setConfiguratorBlockId]);
 
+  if (configuratorBlockId) return null;
   if (!block && !isVisible) return null;
 
   return (
@@ -353,10 +355,8 @@ export default function BlockInspector() {
                 onClaim={isOnboardingClaim ? handleOnboardingClaim : () => setShowClaimModal(true)}
                 onCharge={handleCharge}
                 onPoke={handlePoke}
-                onCustomizeToggle={() => { setShowCustomize(!showCustomize); setShowComments(false); hapticButtonPress(); playButtonTap(); }}
                 onShare={() => handleShare(block, shareCardRef)}
                 onTweet={() => handleTweet(block)}
-                showCustomize={showCustomize}
                 showSharePrompt={showSharePrompt}
                 tapestryProfileId={showSocial ? tapestryProfileId : null}
                 blockContentId={currentBlockContentId ?? null}
@@ -365,27 +365,13 @@ export default function BlockInspector() {
                 likeCount={blockLikeCount}
                 commentCount={blockCommentCount}
                 showComments={showComments}
-                onCommentsToggle={() => { setShowComments(!showComments); setShowCustomize(false); hapticButtonPress(); playButtonTap(); }}
+                onCommentsToggle={() => { setShowComments(!showComments); hapticButtonPress(); playButtonTap(); }}
                 onFollow={handleTapestryFollow}
                 onUnfollow={handleTapestryUnfollow}
                 onLike={handleTapestryLike}
                 onUnlike={handleTapestryUnlike}
               />
             </View>
-
-            {showCustomize && isOwner && (
-              <InspectorCustomize
-                block={block}
-                onColorChange={handleColorChange}
-                onEmojiChange={handleEmojiChange}
-                onStyleChange={handleStyleChange}
-                onTextureChange={handleTextureChange}
-                onNameSubmit={handleNameSubmit}
-                onPersonalityChange={handlePersonalityChange}
-                onImageUpload={handleImageUpload}
-                isPostClaim={recentlyClaimedId === selectedBlockId}
-              />
-            )}
 
             {showComments && currentBlockContentId && (
               <InspectorComments

@@ -374,6 +374,20 @@ export const BLOCK_TEXTURES = [
   { id: 6, label: "Carbon", icon: "⬛" },
 ] as const;
 
+export const BLOCK_STYLE_LABELS = [
+  { id: 0, name: "Default", description: "Clean solid color" },
+  { id: 1, name: "Holographic", description: "Rainbow sheen" },
+  { id: 2, name: "Neon", description: "Bright glow edges" },
+  { id: 3, name: "Matte", description: "Flat finish" },
+  { id: 4, name: "Glass", description: "Transparent shine" },
+  { id: 5, name: "Fire", description: "Warm flames" },
+  { id: 6, name: "Ice", description: "Frozen crystal" },
+  { id: 7, name: "Lava", description: "Flowing magma" },
+  { id: 8, name: "Aurora", description: "Northern lights" },
+  { id: 9, name: "Crystal", description: "Gem facets" },
+  { id: 10, name: "Nature", description: "Organic growth" },
+] as const;
+
 // ─── Customization Unlock Tiers ──────────────────────────
 // Streak-gated unlocks. Higher streaks unlock more customization.
 // Colors: first 8 = base, last 8 = premium (indices into BLOCK_COLORS)

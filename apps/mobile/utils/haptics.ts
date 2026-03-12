@@ -167,3 +167,23 @@ export function hapticError() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
     );
 }
+
+/** Color wheel scrub — ultra-light selection tick */
+export function hapticColorScrub() {
+    safeHaptic(() => Haptics.selectionAsync());
+}
+
+/** Style card tap — medium satisfying press */
+export function hapticStyleSelect() {
+    safeHaptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
+}
+
+/** Configurator save — success confirmation */
+export function hapticConfiguratorSave() {
+    safeHaptic(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
+}
+
+/** Configurator open — light entrance */
+export function hapticConfiguratorOpen() {
+    safeHaptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+}

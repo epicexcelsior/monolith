@@ -618,5 +618,6 @@ export function useBlockActions() {
     handleImageUpload,
     resetPanelState,
     canPoke,
+    applyCustomize,
   };
 }

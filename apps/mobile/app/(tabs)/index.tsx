@@ -30,6 +30,7 @@ import SettingsSheet from "@/components/ui/SettingsSheet";
 import TopHUD from "@/components/ui/TopHUD";
 import SparkDevSlider from "@/components/ui/SparkDevSlider";
 import WalletConnectSheet from "@/components/ui/WalletConnectSheet";
+import { BlockConfigurator } from "@/components/configurator/BlockConfigurator";
 import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useMultiplayerStore, onPlayerSync, onServerError } from "@/stores/multiplayer-store";
@@ -55,10 +56,12 @@ export default function TowerScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMyBlocks, setShowMyBlocks] = useState(false);
   const showWalletConnect = useWalletStore((s) => s.showConnectSheet);
+  const configuratorBlockId = useTowerStore((s) => s.configuratorBlockId);
+  const setConfiguratorBlockId = useTowerStore((s) => s.setConfiguratorBlockId);
 
   const lootPending = useLootStore((s) => s.pendingReveal) !== null;
   // FloatingNav hides when any overlay/sheet is open — single derived boolean
-  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending;
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || !!configuratorBlockId;
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -194,6 +197,14 @@ export default function TowerScreen() {
 
         {/* Block Inspector — hidden during onboarding (OnboardingFlow handles its own UI) */}
         {!isOnboarding && <BlockInspector />}
+
+        {/* Block Configurator — full-screen isolated 3D customizer */}
+        {configuratorBlockId && (
+          <BlockConfigurator
+            blockId={configuratorBlockId}
+            onClose={() => setConfiguratorBlockId(null)}
+          />
+        )}
 
         {/* Onboarding — inside wrapper so it hides during claim celebration */}
         {initialized && isOnboarding && <OnboardingFlow />}
