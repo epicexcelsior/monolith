@@ -78,10 +78,11 @@ export async function initAudio(): Promise<void> {
         await loadPlayer("toggle",        require("../assets/sfx/toggle.wav"));
 
         // Feedback tier (~-8dB)
-        await loadPlayer("chargeTap",  require("../assets/sfx/charge-tap.wav"));
-        await loadPlayer("customize",  require("../assets/sfx/customize.wav"));
-        await loadPlayer("error",      require("../assets/sfx/error.wav"));
-        await loadPlayer("pokeSend",   require("../assets/sfx/poke-send.wav"));
+        await loadPlayer("chargeTap",       require("../assets/sfx/charge-tap.wav"));
+        await loadPlayer("customize",       require("../assets/sfx/customize.wav"));
+        await loadPlayer("configuratorSave", require("../assets/sfx/configurator-save.wav"));
+        await loadPlayer("error",           require("../assets/sfx/error.wav"));
+        await loadPlayer("pokeSend",        require("../assets/sfx/poke-send.wav"));
 
         // Notification tier (~-6dB)
         await loadPlayer("pokeReceive", require("../assets/sfx/poke-receive.wav"));
@@ -156,6 +157,8 @@ export function playButtonTap()     { play("buttonTap"); }
 export function playChargeTap()     { play("chargeTap"); }
 /** Stamp + crystal ping on customization */
 export function playCustomize()     { play("customize"); }
+/** Rising major-3rd: configurator save confirmation */
+export function playConfiguratorSave() { play("configuratorSave"); }
 /** Descending minor-3rd for errors */
 export function playError()         { play("error"); }
 /** Glass tap when poking another player's block */

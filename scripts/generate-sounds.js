@@ -564,6 +564,31 @@ function genButtonTap() {
   return trim(s);
 }
 
+// ─── Configurator Save ──────────────────────────────────────────────────────
+/**
+ * configurator-save.wav — Satisfying completion tone.
+ * Rising major 3rd (A4→C#5) with soft pad tail. ~200ms.
+ * Signals "your changes are saved — nice".
+ */
+function genConfiguratorSave() {
+  const dur = 0.22;
+  const s = buf(dur);
+  for (let i = 0; i < s.length; i++) {
+    const t = i / SR;
+    const p = t / dur;
+    // Rising pitch: A4(440) → C#5(554) — major 3rd, satisfying resolve
+    const freq = 440 + (554 - 440) * Math.min(p * 3, 1); // fast rise then hold
+    const env = adsr(t, 0.008, 0.04, 0.6, 0.08, dur);
+    // Crystal sine + FM shimmer
+    s[i] = sin(freq, t) * env * 0.5
+         + fm(freq, freq * 1.5, 0.3, t) * env * 0.2
+         + sin(freq * 2, t) * env * 0.08; // octave shimmer
+  }
+  reverb(s, 18, -20);
+  normalize(s, 0.38); // feedback volume tier
+  return trim(s);
+}
+
 // ─── Generate all ────────────────────────────────────────────────────────────
 
 console.log("Generating The Monolith sound effects (A Dorian crystal identity)...\n");
@@ -580,6 +605,7 @@ writeWav("streak-milestone.wav", genStreakMilestone());
 writeWav("level-up.wav",         genLevelUp());
 writeWav("tower-rise.wav",      genTowerRise());
 writeWav("sheet-open.wav",      genSheetOpen());
+writeWav("configurator-save.wav", genConfiguratorSave());
 
 // Kenney-replaceable — synth fallback if file doesn't already exist
 const kenney = [

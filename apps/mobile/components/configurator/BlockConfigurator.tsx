@@ -14,7 +14,7 @@ import { ConfiguratorScene } from "./ConfiguratorScene";
 import { ConfiguratorControls } from "./ConfiguratorControls";
 import { useConfiguratorState } from "./useConfiguratorState";
 import { hapticConfiguratorOpen, hapticConfiguratorSave } from "@/utils/haptics";
-import { playBlockDeselect } from "@/utils/audio";
+import { playBlockDeselect, playConfiguratorSave } from "@/utils/audio";
 import { COLORS, SPACING, RADIUS, FONT_FAMILY } from "@/constants/theme";
 
 interface Props {
@@ -44,6 +44,7 @@ export function BlockConfigurator({ blockId, onClose }: Props) {
       if (shouldSave && hasChanges) {
         save();
         hapticConfiguratorSave();
+        playConfiguratorSave();
       } else {
         discard();
         playBlockDeselect();
