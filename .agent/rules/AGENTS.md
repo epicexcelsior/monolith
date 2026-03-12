@@ -79,7 +79,6 @@ When starting a session, use the **context** workflow — it loads CONTEXT.md an
 | `docs/LESSONS.md` | Technical lessons indexed by topic |
 | `docs/ARCHITECTURE.md` | System design, tech decisions, game mechanics |
 | `docs/game-design/GDD.md` | Game Design Document (canonical) |
-| `docs/design/UI_SYSTEM.md` | Solarpunk design system spec |
 | `docs/MULTIPLAYER_DEPLOYMENT.md` | Colyseus + Railway setup |
 | `docs/ANCHOR_PROGRAM.md` | On-chain program details |
 | `docs/SOLANA_MOBILE.md` | MWA integration patterns |

@@ -357,7 +357,6 @@ npx supabase db push   # linked to pscgsbdznfitscxflxrm
 | `docs/ARCHITECTURE.md` | System design, tech decisions, game mechanics |
 | `docs/game-design/GDD.md` | Game Design Document (canonical) |
 | `docs/game-design/SPARK_SYSTEM.md` | Spark System PRD — living faces, expressions, evolution roadmap |
-| `docs/design/UI_SYSTEM.md` | Solarpunk design system spec |
 | `docs/design/GACHA_VISION.md` | Loot drop / gacha design vision (post-testing) |
 | `docs/MULTIPLAYER_DEPLOYMENT.md` | Colyseus + Railway setup |
 | `docs/TESTER_GUIDE.md` | Tester onboarding: install, get tokens, how to play |
