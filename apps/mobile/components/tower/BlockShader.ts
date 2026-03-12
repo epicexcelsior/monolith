@@ -1102,14 +1102,14 @@ const fragmentShader = /* glsl */ `
     // Evolution shimmer particles
     color += vec3(1.0, 0.95, 0.8) * evoShimmer;
 
-    // ─── Dead blocks: dark glass with glowing amber edges ──
+    // ─── Dead blocks: frosted glass with cool blue edges ──
     float deadMask = smoothstep(0.0, 0.06, energy);
 
     // ── Edge detection from local box position ──
     // vLocalPos is raw box-space coords: ranges ~[-0.4, 0.4]
     vec3 lp = abs(vLocalPos);
     float halfExt = 0.4;    // half-extent of block geometry
-    float edgeW = 0.06;     // edge line width (softer edges for unclaimed)
+    float edgeW = 0.08;     // edge line width (softer edges for frosted look)
 
     // Each axis: 1.0 when near the face boundary, 0.0 in the interior
     float eX = smoothstep(halfExt - edgeW, halfExt, lp.x);
@@ -1120,39 +1120,46 @@ const fragmentShader = /* glsl */ `
     float wireframe = max(eX * eY, max(eY * eZ, eX * eZ));
 
     // Also add single-axis face borders (softer, wider) for the face outlines
-    float faceEdgeW = 0.06;
+    float faceEdgeW = 0.07;
     float fX = smoothstep(halfExt - faceEdgeW, halfExt, lp.x);
     float fY = smoothstep(halfExt - faceEdgeW, halfExt, lp.y);
     float fZ = smoothstep(halfExt - faceEdgeW, halfExt, lp.z);
     float faceOutline = max(fX, max(fY, fZ)) * 0.3; // subtle face borders
 
-    float edgeGlow = max(wireframe * 0.6, faceOutline * 0.15);
+    float edgeGlow = max(wireframe * 0.4, faceOutline * 0.20);
 
-    // ── Warm glass interior — inviting, like empty lanterns ──
-    vec3 glassBase = vec3(0.22, 0.17, 0.13);
-    // Face shading so it reads as 3D
-    glassBase += vec3(0.04, 0.03, 0.02) * max(0.0, N.y);
-    glassBase += vec3(0.03, 0.02, 0.01) * max(0.0, dot(N, normalize(vec3(0.4, 0.6, -0.3))));
+    // ── Frosted glass interior — elegant, cool, inviting ──
+    vec3 glassBase = vec3(0.10, 0.12, 0.16);  // cool blue-gray
+    // Face shading for 3D depth
+    glassBase += vec3(0.02, 0.02, 0.03) * max(0.0, N.y);
+    glassBase += vec3(0.01, 0.02, 0.02) * max(0.0, dot(N, normalize(vec3(0.4, 0.6, -0.3))));
 
-    // Subtle height-based ambient warmth — unclaimed blocks glow faintly near the base
-    float dormantWarmth = 0.06 + 0.04 * vLayerNorm;
-    glassBase += vec3(0.18, 0.10, 0.04) * dormantWarmth;
+    // Subtle height-based cool glow — higher blocks catch more "sky light"
+    float frostGlow = 0.04 + 0.03 * vLayerNorm;
+    glassBase += vec3(0.04, 0.06, 0.10) * frostGlow;
 
-    // Warm breathing pulse — the tower is alive even where unclaimed
-    float dormantPulse = 0.88 + 0.12 * sin(uTime * 0.6 + vInstanceOffset * 2.0);
-    glassBase *= dormantPulse;
+    // Interior frost noise — visual depth without UV complexity
+    float frostNoise = sin(vLocalPos.x * 12.0 + uTime * 0.2) * sin(vLocalPos.y * 10.0 + vInstanceOffset) * 0.02;
+    glassBase += vec3(0.06, 0.08, 0.12) * max(0.0, frostNoise);
 
-    // ── Warm gold edge color — height-graded ──
-    vec3 edgeColorLow = vec3(0.65, 0.45, 0.18);   // warm gold
-    vec3 edgeColorHigh = vec3(0.85, 0.68, 0.28);   // bright gold
+    // Gentle breathing pulse — slower and subtler than warm version
+    float frostPulse = 0.92 + 0.08 * sin(uTime * 0.4 + vInstanceOffset * 2.0);
+    glassBase *= frostPulse;
+
+    // ── Cool white-blue edge color — height-graded ──
+    vec3 edgeColorLow = vec3(0.25, 0.35, 0.50);   // steel blue
+    vec3 edgeColorHigh = vec3(0.40, 0.50, 0.65);   // ice blue
     vec3 edgeColor = mix(edgeColorLow, edgeColorHigh, vLayerNorm);
 
-    // Compose: dark glass + glowing edges
+    // Compose: frosted glass + soft glowing edges
     vec3 deadColor = glassBase + edgeColor * edgeGlow;
 
-    // Fresnel rim — amber glow at viewing angle edges
-    float rimPulse = 0.85 + 0.15 * sin(uTime * 0.6 + vInstanceOffset * 2.0);
-    deadColor += vec3(0.18, 0.10, 0.04) * fresnel * 0.7 * rimPulse;
+    // Fresnel rim — cool blue glow at viewing angle edges
+    float rimPulse = 0.90 + 0.10 * sin(uTime * 0.4 + vInstanceOffset * 2.0);
+    deadColor += vec3(0.06, 0.10, 0.18) * fresnel * 0.6 * rimPulse;
+
+    // Inner scatter — view-angle dependent cool glow (frosted glass refraction feel)
+    deadColor += vec3(0.04, 0.07, 0.12) * fresnel * fresnel * 0.5;
 
     // Dormant blocks (has owner, 0 energy, NOT bot): desaturate + dark overlay
     float isDormant = (1.0 - deadMask) * vHasOwner * (1.0 - vIsBot);
