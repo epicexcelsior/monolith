@@ -486,6 +486,16 @@ const flashColor = chargeFlashColorRef.current.set(0.8, 0.9, 1.0);
 
 ## Deployment & DevOps
 
+### EAS Build Fingerprint Changes Block OTA Updates (2026-03-12)
+**Problem**: Two consecutive EAS builds (March 9 at `bc7e918`, March 10 at `987c7c6`) had different fingerprints because `google-services.json` was added as a tracked native asset. Testers who installed the March 9 APK could not receive OTA updates targeting the March 10 build's runtime. The APK link in TESTING.md was pointing to the older build.
+**Solution**: Always update the APK download link and QR code when a build has a new fingerprint. Check fingerprints with `eas build:list`. If fingerprints differ, testers MUST reinstall (OTA won't bridge the gap). Regenerate QR codes with `python3 -c "import qrcode; qrcode.make('URL').save('path')"`.
+**Key Insight**: Any native-level change (new asset, dependency, app.json config) creates a new fingerprint. OTA only works within the same fingerprint. When distributing to testers, always verify the APK link matches the latest successful build.
+
+### GitHub Releases as Primary Tester Distribution (2026-03-12)
+**Problem**: Tester docs were scattered across TESTING.md (install), TESTER_GUIDE.md (gameplay), and README.md (overview). Testers had to navigate the repo to find the right file. Too much information upfront for early "does this idea work?" validation.
+**Solution**: Create a GitHub Release (`gh release create <tag> --prerelease -F notes.md`) as the single shareable link. Release contains: hero image, QR code for instant APK install, wallet setup, 5 things to try, 4 focused feedback questions. TESTING.md becomes a slim quick-start that points to the release. TESTER_GUIDE.md stays as the deep reference.
+**Key Insight**: For early-stage testing, optimize for one shareable link with a 2-minute path from "what is this?" to playing. GitHub Releases are the standard, versioned, and keep everything (download, context, bug reporting) in one place. Feature checklists come later.
+
 ### REST Endpoints Need Room-Available Guards (2026-03-01)
 **Problem**: The `POST /api/blocks/:blockId/image` endpoint only checked block ownership when `getActiveRoom()` returned non-null. If the room wasn't ready yet, the upload proceeded without any ownership verification — anyone could upload images to any block.
 **Solution**: Treat `!room` as 503 Service Unavailable, rejecting the request. Also sanitize the `blockId` URL parameter with `/^[\w-]+$/` since it becomes a Supabase Storage file path.
@@ -680,6 +690,11 @@ const animateClose = useCallback(() => {
 ---
 
 ## Development Workflow
+
+### gh release create Uses -n/--notes or -F/--notes-file, Not --body (2026-03-12)
+**Problem**: `gh release create` with `--body` flag fails. The GitHub CLI uses different flag names than `gh pr create`.
+**Solution**: Use `-n "notes"` for inline text or `-F file.md` for file-based notes. Write notes to a temp file first for complex markdown (heredocs in shell can mangle formatting).
+**Key Insight**: `gh pr create` uses `--body`, but `gh release create` uses `--notes`/`-n`. Always check `gh <command> --help` before assuming flag names carry over between subcommands.
 
 ### CWD Drift Breaks Git Commands After Subpackage Work (2026-02-25)
 **Problem**: Running tests or tsc from `apps/mobile/` leaves the shell CWD in a subpackage. Subsequent `git add docs/LESSONS.md` fails with "pathspec did not match" because the path is relative to repo root, not the current directory.
