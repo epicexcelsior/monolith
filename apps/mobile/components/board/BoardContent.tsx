@@ -17,9 +17,10 @@ import { isBotOwner } from "@/utils/seed-tower";
 import { GAME_SERVER_URL } from "@/constants/network";
 import { useTapestryStore } from "@/stores/tapestry-store";
 import { SOAR_ENABLED } from "@/services/soar-constants";
+import { useMultiplayerStore } from "@/stores/multiplayer-store";
 
 // ─── Types ─────────────────────────────────────────────
-type LeaderboardTab = "skyline" | "brightest" | "streak" | "social" | "xp";
+type LeaderboardTab = "skyline" | "brightest" | "streak" | "social" | "xp" | "floors";
 
 interface LeaderboardEntry {
   rank: number;
@@ -66,6 +67,7 @@ const LEADERBOARD_TABS: { key: LeaderboardTab; label: string }[] = [
   { key: "skyline", label: "Skyline" },
   { key: "brightest", label: "Brightest" },
   { key: "streak", label: "Streaks" },
+  { key: "floors", label: "Floors" },
   { key: "social", label: "Social" },
 ];
 
@@ -198,7 +200,24 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
   // Tapestry social
   const tapestryProfileId = useTapestryStore((s) => s.profileId);
   const socialCounts = useTapestryStore((s) => s.socialCounts);
+  const weeklyFloorCharges = useMultiplayerStore((s) => s.weeklyFloorCharges);
   const userAddress = publicKey?.toBase58() ?? null;
+
+  // Floor leaderboard data — sorted by charges descending
+  const floorData = useMemo(() => {
+    const playerLayers = new Set<number>();
+    if (userAddress) {
+      demoBlocks.forEach((b) => { if (b.owner === userAddress) playerLayers.add(b.layer); });
+    }
+    const floors = Object.entries(weeklyFloorCharges)
+      .map(([layer, charges]) => ({
+        layer: parseInt(layer, 10),
+        charges: charges as number,
+        isPlayerFloor: playerLayers.has(parseInt(layer, 10)),
+      }))
+      .sort((a, b) => b.charges - a.charges);
+    return floors;
+  }, [weeklyFloorCharges, demoBlocks, userAddress]);
 
   useEffect(() => {
     if (activeTab !== "xp") return;
@@ -296,8 +315,37 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
         </View>
       )}
 
-      {/* Leaderboard entries (hidden on social tab) */}
-      {activeTab !== "social" && (
+      {/* Floors tab — weekly floor charge competition */}
+      {activeTab === "floors" && (
+        <View style={styles.leaderboardList}>
+          <Text style={styles.floorHeader}>This Week's Floor Race</Text>
+          <Text style={styles.floorSubheader}>Resets Monday UTC</Text>
+          {floorData.length === 0 ? (
+            <Text style={styles.emptyListText}>No charges this week yet</Text>
+          ) : (
+            floorData.map((floor, i) => (
+              <Animated.View
+                key={floor.layer}
+                entering={FadeInDown.delay(100 + i * 40).duration(200)}
+                style={[styles.leaderboardRow, floor.isPlayerFloor && styles.leaderboardRowYou]}
+              >
+                <Text style={[styles.rankCol, i === 0 && styles.rankColTop]}>
+                  {i === 0 ? "👑" : `${i + 1}`}
+                </Text>
+                <Text style={[styles.addressCol, floor.isPlayerFloor && styles.addressColYou]} numberOfLines={1}>
+                  Floor {floor.layer + 1}{floor.isPlayerFloor ? " (yours)" : ""}
+                </Text>
+                <Text style={[styles.valueCol, floor.isPlayerFloor && styles.valueColYou]}>
+                  {floor.charges} charge{floor.charges !== 1 ? "s" : ""}
+                </Text>
+              </Animated.View>
+            ))
+          )}
+        </View>
+      )}
+
+      {/* Leaderboard entries (hidden on social + floors tabs) */}
+      {activeTab !== "social" && activeTab !== "floors" && (
         <View style={styles.leaderboardList}>
           {leaderboardData.length === 0 && (
             <Text style={styles.emptyListText}>No data yet</Text>
@@ -325,8 +373,8 @@ export default function BoardContent({ onSelectBlock }: BoardContentProps) {
         </View>
       )}
 
-      {/* Activity feed (hidden on social tab) */}
-      {activeTab !== "social" && activityFeed.length > 0 && (
+      {/* Activity feed (hidden on social + floors tabs) */}
+      {activeTab !== "social" && activeTab !== "floors" && activityFeed.length > 0 && (
         <View style={styles.activitySection}>
           <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
           {activityFeed.map((item) => (
@@ -438,4 +486,19 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
 
+  // ─── Floor leaderboard ────────────────────
+  floorHeader: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 16,
+    color: COLORS.inspectorText,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  floorSubheader: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 11,
+    color: COLORS.inspectorTextSecondary,
+    textAlign: "center",
+    marginBottom: SPACING.md,
+  },
 });
