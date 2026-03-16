@@ -1045,14 +1045,14 @@ Track completion here. Update after each task commit.
 
 ### Pass 1: Security + Polish + Free-to-Play
 
-- [ ] **1.1** Wallet Signature Verification —
-- [ ] **1.2** Inspector Dark Mode —
-- [ ] **1.3** Celebration Tap-to-Skip —
-- [ ] **1.4** Camera Tutorial in Onboarding —
-- [ ] **2.1** Ghost Blocks (Free Entry) —
-- [ ] **2.2** Ghost Onboarding Flow —
-- [ ] **2.3** Notification Strategy Overhaul —
-- [ ] **2.4** Phase 1-2 Integration Verification —
+- [x] **1.1** Wallet Signature Verification — e2dc7f6
+- [x] **1.2** Inspector Dark Mode — 6220d5e
+- [x] **1.3** Celebration Tap-to-Skip — dc7bf7b
+- [x] **1.4** Camera Tutorial in Onboarding — 712f3c7
+- [x] **2.1** Ghost Blocks (Free Entry) — dc80117
+- [x] **2.2** Ghost Onboarding Flow — 44e6b83
+- [x] **2.3** Notification Strategy Overhaul — 9ae0b57
+- [x] **2.4** Phase 1-2 Integration Verification — verified (222 mobile + 77 server tests pass, TS clean)
 
 ### Pass 2: Social + Distribution + Depth
 
