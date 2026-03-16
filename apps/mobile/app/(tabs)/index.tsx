@@ -40,6 +40,8 @@ import WhileAwayModal from "@/components/ui/WhileAwayModal";
 import { useQuestStore } from "@/stores/quest-store";
 import QuestPanel from "@/components/ui/QuestPanel";
 import EventBanner from "@/components/ui/EventBanner";
+import { useLoginStore } from "@/stores/login-store";
+import LoginCalendar from "@/components/ui/LoginCalendar";
 import { useWalletStore } from "@/stores/wallet-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { COLORS } from "@/constants/theme";
@@ -69,8 +71,10 @@ export default function TowerScreen() {
   const closeQuestPanel = useQuestStore((s) => s.closeQuestPanel);
   const awaySummary = useSessionStore((s) => s.awaySummary);
   const dismissAwaySummary = useSessionStore((s) => s.dismissAwaySummary);
+  const showLoginCalendar = useLoginStore((s) => s.showCalendar);
+  const dismissLoginCalendar = useLoginStore((s) => s.dismissCalendar);
   // FloatingNav hides when any overlay/sheet is open — single derived boolean
-  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || showAwaySummary || isQuestPanelOpen;
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || showAwaySummary || isQuestPanelOpen || showLoginCalendar;
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -134,10 +138,21 @@ export default function TowerScreen() {
       await initTower();
       await initOnboarding();
       useLootStore.getState().hydrate();
+      await useLoginStore.getState().hydrate();
     };
     init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Show login calendar when onboarding is done and today not yet collected
+  useEffect(() => {
+    if (initialized && !isOnboarding) {
+      const loginStore = useLoginStore.getState();
+      if (loginStore.shouldShowCalendar()) {
+        useLoginStore.setState({ showCalendar: true });
+      }
+    }
+  }, [initialized, isOnboarding]);
 
   // Animate UI hide/show during cinematic mode (claim celebration)
   useEffect(() => {
@@ -308,6 +323,9 @@ export default function TowerScreen() {
       {showAwaySummary && awaySummary && (
         <WhileAwayModal awaySummary={awaySummary} onDismiss={dismissAwaySummary} />
       )}
+
+      {/* Daily Login Calendar — shown on app open when today not yet collected */}
+      <LoginCalendar visible={showLoginCalendar} onClose={dismissLoginCalendar} />
 
       {/* Quest Panel — slide-up daily quests */}
       <QuestPanel visible={isQuestPanelOpen} onClose={closeQuestPanel} />
