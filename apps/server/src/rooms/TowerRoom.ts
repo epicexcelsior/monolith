@@ -379,6 +379,33 @@ export class TowerRoom extends Room<TowerRoomState> {
         // Send player sync now that auth is verified
         try {
           const player = await this.getOrCreatePlayer(msg.wallet);
+          // Compute away summary
+          let awaySummary: any = undefined;
+          const playerBlocks: any[] = [];
+          this.state.blocks.forEach((b) => {
+            if (b.owner === msg.wallet) playerBlocks.push(b);
+          });
+          if (playerBlocks.length > 0) {
+            let lowestEnergy = Infinity;
+            let lowestBlockId = "";
+            let streakAtRisk = false;
+            const today = new Date().toISOString().slice(0, 10);
+            for (const b of playerBlocks) {
+              if (b.energy < lowestEnergy) {
+                lowestEnergy = b.energy;
+                lowestBlockId = b.id;
+              }
+              if (b.streak >= 3 && b.lastStreakDate !== today) streakAtRisk = true;
+            }
+            awaySummary = {
+              energyDelta: 0, // Would need historical tracking
+              pokesReceived: 0,
+              neighborChanges: 0,
+              streakAtRisk,
+              lowestEnergyBlockId: lowestBlockId,
+            };
+          }
+
           client.send("player_sync", {
             xp: player.xp,
             level: player.level,
@@ -387,6 +414,7 @@ export class TowerRoom extends Room<TowerRoomState> {
             comboBest: player.comboBest,
             username: player.username,
             skrName: player.skrName,
+            awaySummary,
           });
         } catch (err) {
           console.error("[TowerRoom] player_sync error after auth:", err);
