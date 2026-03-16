@@ -61,6 +61,32 @@ app.get("/api/tower", readLimiter, async (_req, res) => {
   }
 });
 
+// Tower blocks (for web viewer)
+app.get("/api/tower/blocks", readLimiter, (_req, res) => {
+  try {
+    const room = getActiveRoom();
+    if (!room) { res.json([]); return; }
+    const blocks: any[] = [];
+    (room as any).state.blocks.forEach((b: any) => {
+      blocks.push({
+        id: b.id,
+        layer: b.layer,
+        index: b.index,
+        energy: b.energy,
+        ownerColor: b.ownerColor,
+        emoji: b.appearance?.emoji || "",
+        name: b.appearance?.name || "",
+        isGhost: b.isGhost || false,
+        ownerName: b.appearance?.name || "",
+      });
+    });
+    res.json(blocks);
+  } catch (err) {
+    console.error("[API] /api/tower/blocks error:", err);
+    res.json([]);
+  }
+});
+
 // Recent events
 app.get("/api/events", readLimiter, async (req, res) => {
   try {
