@@ -93,7 +93,33 @@ export const DROP_RATES = {
   legendary: 0.015,
 } as const;
 
-export function rollLoot(streak: number = 0): LootItem | null {
+/** Pity system — guaranteed drops after N charges without rarity */
+export const PITY = {
+  EPIC_GUARANTEE: 30,       // Guaranteed epic every 30 charges without one
+  LEGENDARY_GUARANTEE: 100, // Guaranteed legendary every 100 charges without one
+};
+
+/** Collection milestones with rewards */
+export const COLLECTION_MILESTONES = [
+  { id: "10_unique", name: "Collector", count: 10, reward: { type: "xp" as const, amount: 100 } },
+  { id: "25_unique", name: "Hoarder", count: 25, reward: { type: "xp" as const, amount: 250 } },
+];
+
+export function rollLoot(
+  streak: number = 0,
+  chargesSinceEpic: number = 0,
+  chargesSinceLegendary: number = 0,
+): LootItem | null {
+  // Pity system: force rarity if counter exceeded
+  if (chargesSinceLegendary >= PITY.LEGENDARY_GUARANTEE) {
+    const legendaries = LOOT_TABLE.filter((item) => item.rarity === "legendary");
+    return legendaries[Math.floor(Math.random() * legendaries.length)] ?? null;
+  }
+  if (chargesSinceEpic >= PITY.EPIC_GUARANTEE) {
+    const epics = LOOT_TABLE.filter((item) => item.rarity === "epic");
+    return epics[Math.floor(Math.random() * epics.length)] ?? null;
+  }
+
   const multiplier = Math.min(2.0, 1 + streak * 0.05);
   const roll = Math.random();
 
