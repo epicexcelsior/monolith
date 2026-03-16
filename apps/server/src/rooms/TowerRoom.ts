@@ -29,6 +29,13 @@ import {
   consumeNonce,
   verifyWalletSignature,
 } from "../utils/auth.js";
+import {
+  recordLayerCharge,
+  checkWeeklyReset,
+  getFloorLeaderboard,
+  getWinningFloor,
+  getWeeklyCharges,
+} from "../utils/floor-competition.js";
 
 // ─── Input Validation ────────────────────────────────────
 const BLOCK_ID_RE = /^block-\d+-\d+$/;
@@ -305,6 +312,12 @@ export class TowerRoom extends Room<TowerRoomState> {
         if (today !== this.lastResetDate) {
           this.chargesToday = 0;
           this.lastResetDate = today;
+        }
+
+        // Weekly floor competition reset (Monday UTC)
+        const weeklyWinner = checkWeeklyReset();
+        if (weeklyWinner) {
+          this.broadcast("floor_winner", weeklyWinner);
         }
       } catch (err) {
         console.error("[TowerRoom] Decay tick error:", err);
@@ -800,6 +813,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         // Evolution tier never regresses (ratchet)
         block.evolutionTier = Math.max(block.evolutionTier, getEvolutionTier(block.totalCharges, block.bestStreak));
         this.chargesToday++;
+        recordLayerCharge(block.layer);
 
         // Pact bonus: if both pact partners charged today, award bonus energy to each
         this.pacts.forEach((pact) => {
@@ -1139,6 +1153,17 @@ export class TowerRoom extends Room<TowerRoomState> {
       }
     });
 
+    this.onMessage("get_floor_leaderboard", (client: Client) => {
+      try {
+        client.send("floor_leaderboard", {
+          leaderboard: getFloorLeaderboard(),
+          lastWeekWinner: getWinningFloor(),
+        });
+      } catch (err) {
+        console.error("[TowerRoom] get_floor_leaderboard error:", err);
+      }
+    });
+
     this.onMessage("register_push_token", (client: Client, msg: { wallet: string; token: string }) => {
       try {
         const wallet = this.getSessionWallet(client);
@@ -1352,6 +1377,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         chargesToday: this.chargesToday,
       },
       tick: this.state.tick,
+      weeklyFloorCharges: getWeeklyCharges(),
     };
   }
 
