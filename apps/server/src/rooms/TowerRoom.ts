@@ -36,6 +36,10 @@ import {
   getWinningFloor,
   getWeeklyCharges,
 } from "../utils/floor-competition.js";
+import {
+  checkQuestProgress,
+  getQuestState,
+} from "../utils/quests.js";
 
 // ─── Input Validation ────────────────────────────────────
 const BLOCK_ID_RE = /^block-\d+-\d+$/;
@@ -857,6 +861,18 @@ export class TowerRoom extends Room<TowerRoomState> {
         });
         insertEvent("charge", msg.blockId, wallet);
 
+        // Quest progress
+        const questResult = checkQuestProgress(wallet, "charge");
+        if (chargeQuality === "great") checkQuestProgress(wallet, "great_charge");
+        if (block.energy >= MAX_ENERGY) checkQuestProgress(wallet, "full_charge");
+        if (newStreak > 0 && block.lastStreakDate === today) checkQuestProgress(wallet, "streak");
+        if (questResult.xpEarned > 0) {
+          player.xp += questResult.xpEarned;
+          player.level = computeLevel(player.xp);
+        }
+        // Send quest update
+        client.send("quest_update", { quests: getQuestState(wallet) });
+
         if (levelUp) {
           insertEvent("level_up", undefined, wallet, {
             newLevel: player.level,
@@ -955,6 +971,8 @@ export class TowerRoom extends Room<TowerRoomState> {
 
         // No XP for customization — was farmable by repeated changes
         insertEvent("customize", msg.blockId, wallet);
+        checkQuestProgress(wallet, "customize");
+        client.send("quest_update", { quests: getQuestState(wallet) });
         client.send("customize_result", { success: true });
 
         // Persist block (fire-and-forget)
@@ -1034,6 +1052,10 @@ export class TowerRoom extends Room<TowerRoomState> {
           targetOwner: block.owner,
           energyAdded: energyBoost,
         });
+
+        // Quest progress
+        checkQuestProgress(wallet, "poke");
+        client.send("quest_update", { quests: getQuestState(wallet) });
 
         // Persist block
         upsertBlock(blockToRow(block));
@@ -1150,6 +1172,16 @@ export class TowerRoom extends Room<TowerRoomState> {
       } catch (err) {
         console.error("[TowerRoom] get_leaderboard error:", err);
         client.send("leaderboard_snapshot", { tab: msg.tab || "xp", entries: [] });
+      }
+    });
+
+    this.onMessage("get_quests", (client: Client) => {
+      try {
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) { client.send("error", { message: "Not authenticated" }); return; }
+        client.send("quest_update", { quests: getQuestState(wallet) });
+      } catch (err) {
+        console.error("[TowerRoom] get_quests error:", err);
       }
     });
 
