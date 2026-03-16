@@ -472,6 +472,12 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         usernameResultCallback?.(data);
       });
 
+      room.onMessage("quest_update", (data: { quests: any[] }) => {
+        // Lazy import to avoid circular deps
+        const { useQuestStore } = require("@/stores/quest-store");
+        useQuestStore.getState().setQuests(data.quests);
+      });
+
       room.onMessage("error", (data: { message: string }) => {
         errorCallback?.(data);
       });

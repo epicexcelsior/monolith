@@ -37,6 +37,8 @@ import { useMultiplayerStore, onPlayerSync, onServerError } from "@/stores/multi
 import { usePlayerStore } from "@/stores/player-store";
 import { useSessionStore } from "@/stores/session-store";
 import WhileAwayModal from "@/components/ui/WhileAwayModal";
+import { useQuestStore } from "@/stores/quest-store";
+import QuestPanel from "@/components/ui/QuestPanel";
 import { useWalletStore } from "@/stores/wallet-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { COLORS } from "@/constants/theme";
@@ -62,10 +64,12 @@ export default function TowerScreen() {
 
   const lootPending = useLootStore((s) => s.pendingReveal) !== null;
   const showAwaySummary = useSessionStore((s) => s.showAwaySummary);
+  const isQuestPanelOpen = useQuestStore((s) => s.isQuestPanelOpen);
+  const closeQuestPanel = useQuestStore((s) => s.closeQuestPanel);
   const awaySummary = useSessionStore((s) => s.awaySummary);
   const dismissAwaySummary = useSessionStore((s) => s.dismissAwaySummary);
   // FloatingNav hides when any overlay/sheet is open — single derived boolean
-  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || showAwaySummary;
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || showAwaySummary || isQuestPanelOpen;
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -270,6 +274,9 @@ export default function TowerScreen() {
       {showAwaySummary && awaySummary && (
         <WhileAwayModal awaySummary={awaySummary} onDismiss={dismissAwaySummary} />
       )}
+
+      {/* Quest Panel — slide-up daily quests */}
+      <QuestPanel visible={isQuestPanelOpen} onClose={closeQuestPanel} />
 
     </View>
   );
