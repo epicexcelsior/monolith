@@ -36,8 +36,8 @@ export default function FloatingPoints() {
     // Reset
     translateY.value = 0;
     opacity.value = 1;
-    // "Great" rolls get a bigger pop — dramatic spread
-    scale.value = lastChargeQuality === "great" ? 1.8 : lastChargeQuality === "good" ? 1.4 : 1.1;
+    // Quality-based pop — "perfect" gets the biggest spread
+    scale.value = lastChargeQuality === "perfect" ? 2.0 : lastChargeQuality === "great" ? 1.8 : lastChargeQuality === "good" ? 1.4 : 1.1;
 
     // Animate
     translateY.value = withTiming(-100, { duration: 1500 });
@@ -62,7 +62,8 @@ export default function FloatingPoints() {
   const bottom = hasInspector ? 340 : 200;
 
   // Quality-based text color
-  const qualityColor = lastChargeQuality === "great" ? COLORS.blazingLight
+  const qualityColor = lastChargeQuality === "perfect" ? COLORS.blazingLight
+    : lastChargeQuality === "great" ? COLORS.blazingLight
     : lastChargeQuality === "good" ? COLORS.goldLight
     : COLORS.gold;
 
@@ -73,6 +74,9 @@ export default function FloatingPoints() {
   return (
     <View style={[styles.container, { bottom }]} pointerEvents="none">
       <Animated.View style={[styles.contentColumn, animatedStyle]}>
+        {lastChargeQuality === "perfect" && (
+          <Text style={styles.luckyLabel}>PERFECT!</Text>
+        )}
         {lastChargeQuality === "great" && (
           <Text style={styles.luckyLabel}>Lucky!</Text>
         )}

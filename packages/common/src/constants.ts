@@ -118,7 +118,7 @@ export const CHARGE_BRACKETS = [
   { min: 31, max: 35, weight: 10, quality: "great" as const },  // Great ("Lucky!") — 10%
 ] as const;
 
-export type ChargeQuality = "normal" | "good" | "great";
+export type ChargeQuality = "normal" | "good" | "great" | "perfect";
 
 /** Pre-computed total weight (CHARGE_BRACKETS is const) */
 const CHARGE_TOTAL_WEIGHT = CHARGE_BRACKETS.reduce((s, b) => s + b.weight, 0);
@@ -497,6 +497,16 @@ export function getLayerTierLabel(layer: number): string {
   if (ratio < 0.66) return "Mid Tower";
   return "Penthouse";
 }
+
+// ─── Charge Window (Timing Mechanic) ─────────────────────
+/** Timing minigame config: ring contracts over DURATION_MS, tap precision → quality bracket */
+export const CHARGE_WINDOW = {
+  DURATION_MS: 1500,
+  PERFECT_RADIUS: 0.08,
+  GREAT_RADIUS: 0.25,
+  GOOD_RADIUS: 0.55,
+  ENABLED: true,
+} as const;
 
 // ─── Network ──────────────────────────────────────────────
 /** Default Solana RPC endpoint */

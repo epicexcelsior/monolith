@@ -212,7 +212,7 @@ export function useBlockActions() {
   // Handle charge
   const setRecentlyChargedId = useTowerStore((s) => s.setRecentlyChargedId);
 
-  const handleCharge = useCallback(() => {
+  const handleCharge = useCallback((qualityOverride?: import("@monolith/common").ChargeQuality) => {
     if (!selectedBlockId) return;
 
     if (mpConnected) {
@@ -221,7 +221,7 @@ export function useBlockActions() {
       sendCharge({ blockId: selectedBlockId, wallet });
       playChargeTap();
     } else {
-      const result = chargeBlock(selectedBlockId);
+      const result = chargeBlock(selectedBlockId, qualityOverride);
       if (!result.success && result.cooldownRemaining) {
         const secs = Math.ceil(result.cooldownRemaining / 1000);
         setCooldownText(`Wait ${secs}s`);
@@ -229,11 +229,11 @@ export function useBlockActions() {
         hapticError();
         playError();
       } else if (result.success) {
-        // Quality-based haptic: great = streak milestone feel, good = charge, normal = light
-        if (result.chargeQuality === "great") {
+        // Quality-based haptic: perfect = milestone, great = milestone, good/normal = charge tap
+        if (result.chargeQuality === "perfect") {
           hapticStreakMilestone();
-        } else if (result.chargeQuality === "good") {
-          hapticChargeTap();
+        } else if (result.chargeQuality === "great") {
+          hapticStreakMilestone();
         } else {
           hapticChargeTap();
         }

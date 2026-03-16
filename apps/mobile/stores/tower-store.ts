@@ -162,7 +162,7 @@ interface TowerStore {
   initTower: () => Promise<void>;
   persistBlocks: () => Promise<void>;
   claimBlock: (blockId: string, wallet: string, amount: number, color: string) => void;
-  chargeBlock: (blockId: string) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number; chargesToNext?: number; nextTierName?: string | null };
+  chargeBlock: (blockId: string, qualityOverride?: ChargeQuality) => { success: boolean; cooldownRemaining?: number; streak?: number; multiplier?: number; chargeAmount?: number; chargeQuality?: ChargeQuality; totalCharges?: number; evolutionTier?: number; chargesToNext?: number; nextTierName?: string | null };
   customizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; textureId?: number; imageUrl?: string; personality?: number }) => void;
   decayTick: () => void;
   startDecayLoop: () => () => void;
@@ -352,7 +352,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     if (ownedCount >= 3) useAchievementStore.getState().checkAndUnlock("multi_block");
   },
 
-  chargeBlock: (blockId) => {
+  chargeBlock: (blockId, qualityOverride) => {
     const block = get().demoBlocks.find((b) => b.id === blockId);
     if (!block) return { success: false };
 
@@ -385,8 +385,24 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
     }
 
     const multiplier = getStreakMultiplier(newStreak);
-    // Variable charge: random 15-35 base, then multiplied by streak
-    const { amount: baseAmount, quality: chargeQuality } = rollChargeAmount();
+    // Variable charge: quality override from timing window, or random 15-35 base
+    let baseAmount: number;
+    let chargeQuality: ChargeQuality;
+    if (qualityOverride === "perfect") {
+      baseAmount = 40;
+      chargeQuality = "perfect";
+    } else if (qualityOverride === "great") {
+      baseAmount = 31 + Math.floor(Math.random() * 5); // 31-35
+      chargeQuality = "great";
+    } else if (qualityOverride === "good") {
+      baseAmount = 26 + Math.floor(Math.random() * 5); // 26-30
+      chargeQuality = "good";
+    } else {
+      // No override or "normal" — use existing RNG
+      const roll = rollChargeAmount();
+      baseAmount = roll.amount;
+      chargeQuality = roll.quality;
+    }
     const chargeAmount = Math.round(baseAmount * multiplier);
     const newTotalCharges = (block.totalCharges ?? 0) + 1;
     const newBestStreak = Math.max(block.bestStreak ?? 0, newStreak);

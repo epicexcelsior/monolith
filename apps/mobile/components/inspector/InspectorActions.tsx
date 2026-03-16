@@ -1,13 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { COLORS, SPACING, RADIUS, FONT_FAMILY, TEXT } from "@/constants/theme";
 import { useWalletStore } from "@/stores/wallet-store";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import ChargeWindow from "@/components/ui/ChargeWindow";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import { truncateAddress, formatUsdc } from "@/hooks/useBlockActions";
-import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, ACTIVE_EVOLUTION_TIERS } from "@monolith/common";
+import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, ACTIVE_EVOLUTION_TIERS, CHARGE_WINDOW } from "@monolith/common";
+import type { ChargeQuality } from "@monolith/common";
 import type { DemoBlock } from "@/stores/tower-store";
 
 interface InspectorActionsProps {
@@ -23,7 +25,7 @@ interface InspectorActionsProps {
   multiplier: number;
   canPoke: (blockId: string) => boolean;
   onClaim: () => void;
-  onCharge: () => void;
+  onCharge: (qualityOverride?: ChargeQuality) => void;
   onPoke: () => void;
   onCustomizeToggle: () => void;
   onShare: () => void;
@@ -105,6 +107,26 @@ export default function InspectorActions({
     }
   }, [isCloseToEvolving, pulseAnim]);
 
+  // ─── Charge Window state ───────────────────────────────
+  const [showChargeWindow, setShowChargeWindow] = useState(false);
+
+  const handleChargePress = useCallback(() => {
+    if (CHARGE_WINDOW.ENABLED) {
+      setShowChargeWindow(true);
+    } else {
+      onCharge();
+    }
+  }, [onCharge]);
+
+  const handleChargeWindowResolve = useCallback((quality: ChargeQuality) => {
+    setShowChargeWindow(false);
+    onCharge(quality);
+  }, [onCharge]);
+
+  const handleChargeWindowCancel = useCallback(() => {
+    setShowChargeWindow(false);
+  }, []);
+
   return (
     <View style={styles.ctaSection}>
       {isUnclaimed && (
@@ -181,10 +203,16 @@ export default function InspectorActions({
             title={cooldownText || "\u26A1 CHARGE"}
             variant="primary"
             size="lg"
-            onPress={onCharge}
+            onPress={handleChargePress}
             disabled={!!cooldownText}
             pulsing={!cooldownText}
           />
+          {showChargeWindow && (
+            <ChargeWindow
+              onResolve={handleChargeWindowResolve}
+              onCancel={handleChargeWindowCancel}
+            />
+          )}
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.actionChip}
