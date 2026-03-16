@@ -20,7 +20,24 @@ export type NotificationType =
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_BATCH_SIZE = 100;
-const THROTTLE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+const THROTTLE_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 hours (was 30 min)
+const DAILY_NOTIF_CAP = 3;
+
+// ─── Daily Notification Cap ──────────────────────────────
+const dailyNotifCount = new Map<string, number>();
+let lastCapResetDate = new Date().toISOString().slice(0, 10);
+
+function checkAndIncrementDailyCap(wallet: string): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== lastCapResetDate) {
+    dailyNotifCount.clear();
+    lastCapResetDate = today;
+  }
+  const count = dailyNotifCount.get(wallet) ?? 0;
+  if (count >= DAILY_NOTIF_CAP) return false;
+  dailyNotifCount.set(wallet, count + 1);
+  return true;
+}
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -106,6 +123,9 @@ export function sendPlayerNotification(
   data?: Record<string, unknown>,
 ): void {
   if (!wallet) return;
+
+  // Daily cap check (in-memory, resets at UTC midnight)
+  if (!checkAndIncrementDailyCap(wallet)) return;
 
   const client = getClient();
 

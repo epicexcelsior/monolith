@@ -23,8 +23,6 @@ import { upsertPushToken } from "../utils/push-tokens.js";
 import { resolveSkrName } from "../utils/skr-resolver.js";
 import {
   sendPlayerNotification,
-  isBlockDormant,
-  shouldNotifyEnergyLow,
 } from "../utils/notifications.js";
 import {
   generateNonce,
@@ -180,7 +178,6 @@ export class TowerRoom extends Room<TowerRoomState> {
   private pokeCooldowns = new Map<string, number>(); // key: "${poker}:${blockId}" → timestamp
   private chargesToday = 0;
   private lastResetDate = new Date().toISOString().slice(0, 10);
-  private decayTickCounter = 0;
 
   /** Get the verified wallet address bound to this client session (set on join). */
   private getSessionWallet(client: Client): string | null {
@@ -254,28 +251,58 @@ export class TowerRoom extends Room<TowerRoomState> {
     // Start bot simulation
     this.stopBotSim = startBotSimulation(this.state.blocks);
 
-    // Start decay loop
+    // Start decay loop with state-transition notifications
     this.decayInterval = setInterval(() => {
       try {
+        const today = new Date().toISOString().slice(0, 10);
+
         this.state.blocks.forEach((block) => {
-          if (block.owner) {
-            const decay = block.isGhost ? DECAY_AMOUNT * GHOST_DECAY_MULTIPLIER : DECAY_AMOUNT;
-            block.energy = Math.max(0, block.energy - decay);
+          if (!block.owner || isBotOwner(block.owner)) return;
+
+          const prevEnergy = block.energy;
+          const decay = block.isGhost ? DECAY_AMOUNT * GHOST_DECAY_MULTIPLIER : DECAY_AMOUNT;
+          block.energy = Math.max(0, block.energy - decay);
+
+          // State-transition: crossed 20% threshold (fading)
+          if (prevEnergy > 20 && block.energy <= 20 && block.energy > 0) {
+            sendPlayerNotification(
+              block.owner,
+              "energy_low",
+              "Your block is fading!",
+              `Block on floor ${block.layer + 1} is at ${Math.round(block.energy)}% energy. Charge it!`,
+              { blockId: block.id },
+            );
+          }
+
+          // State-transition: block just hit 0 (dormant)
+          if (prevEnergy > 0 && block.energy === 0) {
+            sendPlayerNotification(
+              block.owner,
+              "block_dormant",
+              "Your block went dormant!",
+              `Your block on floor ${block.layer + 1} lost all energy. Charge it before someone reclaims it!`,
+              { blockId: block.id },
+            );
+          }
+
+          // Streak reminder: once per day after 18:00 UTC
+          const hour = new Date().getUTCHours();
+          if (hour >= 18 && block.streak >= 3 && block.lastStreakDate && block.lastStreakDate !== today) {
+            sendPlayerNotification(
+              block.owner,
+              "streak_reminder",
+              "Keep your streak alive!",
+              `Your ${block.streak}-day streak on floor ${block.layer + 1} is at risk!`,
+              { blockId: block.id },
+            );
           }
         });
         this.state.tick++;
 
         // Reset daily counter at UTC midnight
-        const today = new Date().toISOString().slice(0, 10);
         if (today !== this.lastResetDate) {
           this.chargesToday = 0;
           this.lastResetDate = today;
-        }
-
-        // Hourly notification check (every 60 decay ticks = ~1 hour at 60s interval)
-        this.decayTickCounter++;
-        if (this.decayTickCounter % 60 === 0) {
-          this.runHourlyNotificationCheck();
         }
       } catch (err) {
         console.error("[TowerRoom] Decay tick error:", err);
@@ -1222,53 +1249,6 @@ export class TowerRoom extends Room<TowerRoomState> {
   private broadcastFullState() {
     this.recomputeStats();
     this.broadcast("tower_state", this.buildFullState());
-  }
-
-  /** Run hourly notification checks (energy low, dormant, streak reminder) */
-  private runHourlyNotificationCheck(): void {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const now = Date.now();
-
-      this.state.blocks.forEach((block) => {
-        if (!block.owner || isBotOwner(block.owner)) return;
-
-        // Energy low notification
-        if (shouldNotifyEnergyLow(block.energy)) {
-          sendPlayerNotification(
-            block.owner,
-            "energy_low",
-            "Your block is fading!",
-            `Block on floor ${block.layer + 1} is at ${block.energy}% energy. Charge it before it goes dormant!`,
-            { blockId: block.id, layer: block.layer, index: block.index },
-          );
-        }
-
-        // Dormant notification (energy 0, crossed threshold in this hour window)
-        if (block.lastChargeTime && isBlockDormant(block.energy, block.lastChargeTime, now)) {
-          sendPlayerNotification(
-            block.owner,
-            "block_dormant",
-            "Your block went dormant!",
-            `Your block on floor ${block.layer + 1} has been dormant for 3 days and can now be reclaimed by anyone.`,
-            { blockId: block.id },
-          );
-        }
-
-        // Streak reminder (streak >= 3, not charged today)
-        if (block.streak >= 3 && block.lastStreakDate && block.lastStreakDate !== today) {
-          sendPlayerNotification(
-            block.owner,
-            "streak_reminder",
-            "Keep your streak alive!",
-            `Your ${block.streak}-day streak on floor ${block.layer + 1} is at risk! Charge your block today.`,
-            { blockId: block.id },
-          );
-        }
-      });
-    } catch (err) {
-      console.error("[TowerRoom] Hourly notification check error:", err);
-    }
   }
 
   private recomputeStats() {
