@@ -26,6 +26,11 @@ import {
   isBlockDormant,
   shouldNotifyEnergyLow,
 } from "../utils/notifications.js";
+import {
+  generateNonce,
+  consumeNonce,
+  verifyWalletSignature,
+} from "../utils/auth.js";
 
 // ─── Input Validation ────────────────────────────────────
 const BLOCK_ID_RE = /^block-\d+-\d+$/;
@@ -293,6 +298,52 @@ export class TowerRoom extends Room<TowerRoomState> {
     }, PERSISTENCE_INTERVAL_MS);
 
     // ─── Message Handlers ─────────────────────────
+
+    this.onMessage("auth_response", async (client: Client, msg: { wallet: string; signature: number[] }) => {
+      try {
+        if (!msg.wallet || !msg.signature) {
+          client.send("auth_failure", { message: "Missing wallet or signature" });
+          return;
+        }
+
+        const nonce = consumeNonce(client.sessionId);
+        if (!nonce) {
+          client.send("auth_failure", { message: "Nonce expired or already used" });
+          return;
+        }
+
+        const signature = new Uint8Array(msg.signature);
+        if (!verifyWalletSignature(msg.wallet, nonce, signature)) {
+          client.send("auth_failure", { message: "Invalid signature" });
+          return;
+        }
+
+        // Auth verified — bind wallet to session
+        (client as any)._wallet = msg.wallet;
+        client.send("auth_success", { wallet: msg.wallet });
+
+        // Send player sync now that auth is verified
+        try {
+          const player = await this.getOrCreatePlayer(msg.wallet);
+          client.send("player_sync", {
+            xp: player.xp,
+            level: player.level,
+            totalClaims: player.totalClaims,
+            totalCharges: player.totalCharges,
+            comboBest: player.comboBest,
+            username: player.username,
+            skrName: player.skrName,
+          });
+        } catch (err) {
+          console.error("[TowerRoom] player_sync error after auth:", err);
+        }
+
+        console.log(`[TowerRoom] Wallet verified: ${msg.wallet.slice(0, 8)}...`);
+      } catch (err) {
+        console.error("[TowerRoom] auth_response error:", err);
+        client.send("auth_failure", { message: "Authentication failed" });
+      }
+    });
 
     this.onMessage("request_state", (client: Client) => {
       try {
@@ -865,31 +916,14 @@ export class TowerRoom extends Room<TowerRoomState> {
   }
 
   async onJoin(client: Client, options?: { wallet?: string }) {
-    // Store wallet on client for poke_received targeting
-    if (options?.wallet) {
-      (client as any)._wallet = options.wallet;
-    }
-
-    // Send full tower state
+    // Send full tower state (read-only, no auth required)
     client.send("tower_state", this.buildFullState());
     this.recomputeStats();
 
-    // Send player sync if wallet provided
+    // If wallet provided, send auth challenge (don't trust wallet directly)
     if (options?.wallet) {
-      try {
-        const player = await this.getOrCreatePlayer(options.wallet);
-        client.send("player_sync", {
-          xp: player.xp,
-          level: player.level,
-          totalClaims: player.totalClaims,
-          totalCharges: player.totalCharges,
-          comboBest: player.comboBest,
-          username: player.username,
-          skrName: player.skrName,
-        });
-      } catch (err) {
-        console.error("[TowerRoom] player_sync error:", err);
-      }
+      const nonce = generateNonce(client.sessionId);
+      client.send("auth_challenge", { nonce });
     }
 
     console.log(`[TowerRoom] Client joined: ${client.sessionId}, sent ${this.state.blocks.size} blocks`);

@@ -6,7 +6,7 @@ import type { DemoBlock } from "@/stores/tower-store";
 import { useActivityStore } from "@/stores/activity-store";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ActivityEvent, ChargeQuality } from "@monolith/common";
 import { registerForPushNotifications } from "@/utils/notifications";
-import { useWalletStore } from "@/stores/wallet-store";
+import { useWalletStore, signAuthMessage } from "@/stores/wallet-store";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playPokeReceive } from "@/utils/audio";
 import {
@@ -470,6 +470,37 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
 
       room.onMessage("error", (data: { message: string }) => {
         errorCallback?.(data);
+      });
+
+      // ─── Auth challenge/response flow ────
+      room.onMessage("auth_challenge", async (data: { nonce: string }) => {
+        try {
+          const walletAddress = useWalletStore.getState().publicKey?.toBase58();
+          if (!walletAddress) {
+            if (__DEV__) console.warn("[Multiplayer] Auth challenge received but no wallet connected");
+            return;
+          }
+
+          const signature = await signAuthMessage(data.nonce);
+          if (signature && room) {
+            room.send("auth_response", {
+              wallet: walletAddress,
+              signature: Array.from(signature),
+            });
+          } else {
+            if (__DEV__) console.warn("[Multiplayer] Failed to sign auth message");
+          }
+        } catch (err) {
+          if (__DEV__) console.warn("[Multiplayer] Auth challenge error:", err);
+        }
+      });
+
+      room.onMessage("auth_success", (data: { wallet: string }) => {
+        if (__DEV__) console.log(`[Multiplayer] Authenticated as ${data.wallet.slice(0, 8)}...`);
+      });
+
+      room.onMessage("auth_failure", (data: { message: string }) => {
+        if (__DEV__) console.warn("[Multiplayer] Auth failed:", data.message);
       });
 
       room.onError((code, message) => {

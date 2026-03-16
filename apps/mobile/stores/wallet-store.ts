@@ -121,3 +121,53 @@ export function useTruncatedAddress(): string | null {
   const base58 = publicKey.toBase58();
   return `${base58.slice(0, 4)}...${base58.slice(-4)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Auth Message Signing — used for server wallet verification
+// ---------------------------------------------------------------------------
+
+/**
+ * Sign a message with the connected wallet via MWA.
+ * Uses cached auth token for seamless re-authorization (no user prompt).
+ *
+ * @param message - The string to sign (typically a nonce from the server)
+ * @returns The Ed25519 signature as Uint8Array, or null if signing fails
+ */
+export async function signAuthMessage(message: string): Promise<Uint8Array | null> {
+  const state = useWalletStore.getState();
+  if (!state.isConnected || !state.base64Address || !state.authToken) return null;
+
+  try {
+    const { transact } = await import(
+      "@solana-mobile/mobile-wallet-adapter-protocol-web3js"
+    );
+    const { APP_IDENTITY } = await import("@/services/mwa");
+
+    const messageBytes = new TextEncoder().encode(message);
+    const transactOptions = state.walletUriBase
+      ? { baseUri: state.walletUriBase }
+      : undefined;
+
+    const signedPayloads = await transact(async (wallet: any) => {
+      // Reauthorize with cached token (seamless, no user approval)
+      await wallet.reauthorize({
+        auth_token: state.authToken,
+        identity: APP_IDENTITY,
+      });
+
+      // Sign the auth message
+      const result = await wallet.signMessages({
+        addresses: [state.base64Address],
+        payloads: [messageBytes],
+      });
+
+      return result;
+    }, transactOptions);
+
+    // signMessages returns Uint8Array[]
+    return signedPayloads?.[0] ?? null;
+  } catch (err) {
+    console.warn("[WalletStore] signAuthMessage failed:", err);
+    return null;
+  }
+}

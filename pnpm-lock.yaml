@@ -277,6 +277,9 @@ importers:
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
+      tweetnacl:
+        specifier: ^1.0.3
+        version: 1.0.3
     devDependencies:
       '@colyseus/testing':
         specifier: ^0.15.4

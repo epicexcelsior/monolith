@@ -21,7 +21,8 @@
     "dotenv": "^16.4.0",
     "express": "^4.21.0",
     "express-rate-limit": "^8.3.0",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@colyseus/testing": "^0.15.4",
