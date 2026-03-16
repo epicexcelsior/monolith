@@ -498,6 +498,14 @@ export function getLayerTierLabel(layer: number): string {
   return "Penthouse";
 }
 
+// ─── Prestige / Ascension System ─────────────────────────
+/** Beacon-tier players can reset evolution and climb again with permanent bonuses. */
+export const ASCENSION = {
+  REQUIRED_TIER: 4,                   // Must be Beacon (tier 4) to ascend
+  MAX_ASCENSIONS: 10,                 // Cap at 10 ascensions
+  CHARGE_EFFICIENCY_BONUS: 0.05,      // +5% per ascension (multiplicative)
+} as const;
+
 // ─── Charge Window (Timing Mechanic) ─────────────────────
 /** Timing minigame config: ring contracts over DURATION_MS, tap precision → quality bracket */
 export const CHARGE_WINDOW = {
@@ -507,6 +515,20 @@ export const CHARGE_WINDOW = {
   GOOD_RADIUS: 0.55,
   ENABLED: true,
 } as const;
+
+// ─── Daily Login Calendar ─────────────────────────────────
+/** 7-day rolling login reward cycle. Missing a day does NOT reset. */
+export const LOGIN_REWARDS = [
+  { day: 1, type: "xp" as const, amount: 5, label: "5 XP" },
+  { day: 2, type: "xp" as const, amount: 10, label: "10 XP" },
+  { day: 3, type: "loot" as const, rarity: "common" as const, label: "Common Loot" },
+  { day: 4, type: "xp" as const, amount: 15, label: "15 XP" },
+  { day: 5, type: "freeze" as const, amount: 1, label: "Streak Freeze" },
+  { day: 6, type: "xp" as const, amount: 25, label: "25 XP" },
+  { day: 7, type: "loot" as const, rarity: "rare" as const, label: "Rare Loot" },
+] as const;
+
+export type LoginReward = (typeof LOGIN_REWARDS)[number];
 
 // ─── Network ──────────────────────────────────────────────
 /** Default Solana RPC endpoint */

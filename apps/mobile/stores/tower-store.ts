@@ -7,7 +7,7 @@ import type {
   TowerConfig,
   Player,
 } from "@monolith/common";
-import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, getStreakMultiplier, isNextDay } from "@monolith/common";
+import { DEFAULT_TOWER_CONFIG, MAX_ENERGY, rollChargeAmount, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, getStreakMultiplier, isNextDay, ASCENSION } from "@monolith/common";
 import type { ChargeQuality } from "@monolith/common";
 import { generateSeedTower, startBotSimulation as startBotSim, isBotOwner, getBotConfig } from "@/utils/seed-tower";
 import { useAchievementStore } from "@/stores/achievement-store";
@@ -95,6 +95,7 @@ export interface DemoBlock {
   evolutionTier?: number;    // 0-4 (Spark, Ember, Flame, Blaze, Beacon) — denormalized from getEvolutionTier()
   isGhost?: boolean;         // true = free ghost block (limited power)
   ghostClaimedAt?: number;   // timestamp for honeymoon period (first 3 days)
+  ascensionCount?: number;   // 0-10 prestige resets (permanent charge efficiency bonus)
 }
 
 /** Mutable ref state for claim celebration, readable by useFrame loops */
@@ -403,7 +404,8 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
       baseAmount = roll.amount;
       chargeQuality = roll.quality;
     }
-    const chargeAmount = Math.round(baseAmount * multiplier);
+    const ascensionBonus = 1 + (block.ascensionCount ?? 0) * ASCENSION.CHARGE_EFFICIENCY_BONUS;
+    const chargeAmount = Math.round(baseAmount * multiplier * ascensionBonus);
     const newTotalCharges = (block.totalCharges ?? 0) + 1;
     const newBestStreak = Math.max(block.bestStreak ?? 0, newStreak);
     // Evolution tier never regresses (ratchet)

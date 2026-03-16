@@ -40,6 +40,7 @@ export class BlockSchema extends Schema {
   isGhost: boolean = false;   // true = free ghost block (limited power)
   ghostClaimedAt: number = 0; // timestamp for honeymoon period
   freezes: number = 0;        // streak freezes available (max 2)
+  ascensionCount: number = 0; // prestige resets (0-10, permanent charge bonus)
   appearance: BlockAppearanceSchema = new BlockAppearanceSchema();
 }
 
@@ -61,6 +62,7 @@ defineTypes(BlockSchema, {
   isGhost: "boolean",
   ghostClaimedAt: "number",
   freezes: "uint8",
+  ascensionCount: "uint8",
   appearance: BlockAppearanceSchema,
 });
 

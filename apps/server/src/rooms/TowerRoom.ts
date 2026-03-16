@@ -1,7 +1,7 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS, GHOST_HONEYMOON_DAYS, INITIAL_STREAK_FREEZES, MAX_PACTS_PER_BLOCK, PACT_BONUS_ENERGY, PACT_REQUEST_EXPIRY_MS, PACT_MISS_LIMIT, STREAK_FREEZE_EARN_INTERVAL, STREAK_FREEZE_MAX } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS, GHOST_HONEYMOON_DAYS, INITIAL_STREAK_FREEZES, MAX_PACTS_PER_BLOCK, PACT_BONUS_ENERGY, PACT_REQUEST_EXPIRY_MS, PACT_MISS_LIMIT, STREAK_FREEZE_EARN_INTERVAL, STREAK_FREEZE_MAX, ASCENSION } from "@monolith/common";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality, Pact } from "@monolith/common";
 import {
   loadPlayerBlocks,
@@ -111,6 +111,7 @@ export function serializeBlock(block: BlockSchema, ownerName?: string) {
     evolutionTier: block.evolutionTier,
     isGhost: block.isGhost || false,
     freezes: block.freezes || 0,
+    ascensionCount: block.ascensionCount || 0,
     appearance: {
       color: block.appearance.color,
       emoji: block.appearance.emoji,
@@ -870,10 +871,11 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         const multiplier = getStreakMultiplier(newStreak);
-        // Variable charge: random 15-35 base, then multiplied by streak + event bonus
+        // Variable charge: random 15-35 base, then multiplied by streak + event bonus + ascension
         const { amount: baseAmount, quality: chargeQuality } = rollChargeAmount();
         const eventMultiplier = getChargeEventMultiplier();
-        const chargeAmount = Math.round(baseAmount * multiplier * eventMultiplier);
+        const ascensionBonus = 1 + (block.ascensionCount || 0) * ASCENSION.CHARGE_EFFICIENCY_BONUS;
+        const chargeAmount = Math.round(baseAmount * multiplier * eventMultiplier * ascensionBonus);
 
         // Honeymoon: ghost blocks in first 3 days use MAX_ENERGY cap
         const ghostInHoneymoon = block.isGhost && block.ghostClaimedAt &&
@@ -975,6 +977,91 @@ export class TowerRoom extends Room<TowerRoomState> {
       } catch (err) {
         console.error("[TowerRoom] Charge error:", err);
         client.send("error", { message: "Charge failed" });
+      }
+    });
+
+    this.onMessage("ascend", async (client: Client, msg: { blockId: string }) => {
+      try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+
+        const block = this.state.blocks.get(msg.blockId);
+        if (!block) {
+          client.send("error", { message: "Block not found" });
+          return;
+        }
+
+        if (block.owner !== wallet) {
+          client.send("error", { message: "Not your block" });
+          return;
+        }
+
+        if (block.evolutionTier !== ASCENSION.REQUIRED_TIER) {
+          client.send("error", { message: "Must be Beacon tier to ascend" });
+          return;
+        }
+
+        if (block.ascensionCount >= ASCENSION.MAX_ASCENSIONS) {
+          client.send("error", { message: "Maximum ascensions reached" });
+          return;
+        }
+
+        // Reset evolution, preserve identity + streak data
+        block.evolutionTier = 0;
+        block.totalCharges = 0;
+        block.ascensionCount++;
+        // Preserve: bestStreak, streak, energy, customization, freezes
+
+        // XP award: 500 per ascension
+        const player = await this.getOrCreatePlayer(wallet);
+        const ascensionXp = 500;
+        player.xp += ascensionXp;
+        const oldLevel = player.level;
+        player.level = computeLevel(player.xp);
+        const levelUp = player.level > oldLevel;
+
+        // Persist (fire-and-forget)
+        upsertBlock(blockToRow(block));
+        updatePlayerXp(wallet, player.xp, player.level);
+        insertEvent("ascend", msg.blockId, wallet, {
+          ascensionCount: block.ascensionCount,
+          pointsEarned: ascensionXp,
+        });
+
+        if (levelUp) {
+          insertEvent("level_up", undefined, wallet, {
+            newLevel: player.level,
+          });
+        }
+
+        client.send("ascend_result", {
+          success: true,
+          blockId: msg.blockId,
+          ascensionCount: block.ascensionCount,
+          pointsEarned: ascensionXp,
+          totalXp: player.xp,
+          level: player.level,
+          levelUp,
+        });
+
+        // Broadcast to ALL clients with eventType
+        this.broadcast("block_update", {
+          ...serializeBlock(block, this.getOwnerName(block.owner)),
+          eventType: "ascend",
+        });
+
+        console.log(`[TowerRoom] ${wallet.slice(0, 8)}... ascended ${msg.blockId} (ascension #${block.ascensionCount})`);
+      } catch (err) {
+        console.error("[TowerRoom] Ascend error:", err);
+        client.send("error", { message: "Ascend failed" });
       }
     });
 
