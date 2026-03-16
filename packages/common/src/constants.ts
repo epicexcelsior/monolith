@@ -29,6 +29,12 @@ export const MAX_ENTROPY_MULTIPLIER = 3.0;
 /** Minimum stake amount in USDC (6 decimals) to claim a block */
 export const MIN_STAKE_USDC = 10_000_000; // 10 USDC
 
+// ─── Streak Freeze ──────────────────────────────────────
+/** Earn 1 freeze per 7-day streak milestone */
+export const STREAK_FREEZE_EARN_INTERVAL = 7;
+/** Max stored freezes */
+export const STREAK_FREEZE_MAX = 2;
+
 // ─── Neighbor Pacts ──────────────────────────────────────
 /** Max pacts per block */
 export const MAX_PACTS_PER_BLOCK = 2;

@@ -1,7 +1,7 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS, MAX_PACTS_PER_BLOCK, PACT_BONUS_ENERGY, PACT_REQUEST_EXPIRY_MS, PACT_MISS_LIMIT } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS, MAX_PACTS_PER_BLOCK, PACT_BONUS_ENERGY, PACT_REQUEST_EXPIRY_MS, PACT_MISS_LIMIT, STREAK_FREEZE_EARN_INTERVAL, STREAK_FREEZE_MAX } from "@monolith/common";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality, Pact } from "@monolith/common";
 import {
   loadPlayerBlocks,
@@ -105,6 +105,7 @@ export function serializeBlock(block: BlockSchema, ownerName?: string) {
     bestStreak: block.bestStreak,
     evolutionTier: block.evolutionTier,
     isGhost: block.isGhost || false,
+    freezes: block.freezes || 0,
     appearance: {
       color: block.appearance.color,
       emoji: block.appearance.emoji,
@@ -792,6 +793,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         const currentStreak = block.streak || 0;
 
         let newStreak: number;
+        let freezeUsed = false;
         if (lastStreakDate === today) {
           newStreak = currentStreak;
         } else if (lastStreakDate && isNextDay(new Date(lastStreakDate).getTime(), now)) {
@@ -799,7 +801,28 @@ export class TowerRoom extends Room<TowerRoomState> {
         } else if (lastStreakDate === "") {
           newStreak = 1;
         } else {
-          newStreak = 1;
+          // Gap day — try streak freeze
+          if (block.freezes > 0) {
+            block.freezes--;
+            newStreak = currentStreak; // keep streak, don't increment
+            freezeUsed = true;
+            client.send("streak_freeze_used", {
+              blockId: msg.blockId,
+              streak: currentStreak,
+              freezesRemaining: block.freezes,
+            });
+          } else {
+            newStreak = 1;
+          }
+        }
+
+        // Award streak freeze at 7-day milestones
+        if (newStreak > 0 && newStreak % STREAK_FREEZE_EARN_INTERVAL === 0 && lastStreakDate !== today) {
+          block.freezes = Math.min(block.freezes + 1, STREAK_FREEZE_MAX);
+          client.send("streak_freeze_earned", {
+            blockId: msg.blockId,
+            freezes: block.freezes,
+          });
         }
 
         const multiplier = getStreakMultiplier(newStreak);
