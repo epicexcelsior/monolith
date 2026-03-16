@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: COLORS.inspectorTextSecondary,
     marginTop: SPACING.md,
   },
   colorGrid: {
@@ -199,15 +199,15 @@ const styles = StyleSheet.create({
   },
   nameInput: {
     flex: 1,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.inspectorBgMuted,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontFamily: FONT_FAMILY.mono,
     fontSize: 13,
-    color: COLORS.text,
+    color: COLORS.inspectorText,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.inspectorBorder,
   },
   nameButton: {
     backgroundColor: COLORS.gold,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.inspectorBgMuted,
   },
   emojiCellSelected: {
     borderWidth: 2,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontFamily: FONT_FAMILY.body,
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: COLORS.inspectorTextSecondary,
     marginTop: 2,
   },
   personalityCell: {
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.inspectorBgMuted,
     borderWidth: 2,
     borderColor: "transparent",
     minHeight: 56,
@@ -272,12 +272,12 @@ const styles = StyleSheet.create({
   personalityKaomoji: {
     fontFamily: FONT_FAMILY.mono,
     fontSize: 18,
-    color: COLORS.text,
+    color: COLORS.inspectorText,
   },
   personalityLabel: {
     fontFamily: FONT_FAMILY.body,
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: COLORS.inspectorTextSecondary,
     marginTop: 2,
   },
 });

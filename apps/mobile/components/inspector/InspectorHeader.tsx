@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   blockName: {
     fontFamily: FONT_FAMILY.headingSemibold,
     fontSize: 16,
-    color: COLORS.text,
+    color: COLORS.inspectorText,
     flexShrink: 1,
   },
   statsRow: {
@@ -119,5 +119,6 @@ const styles = StyleSheet.create({
   ownerLabel: {
     ...TEXT.caption,
     fontFamily: FONT_FAMILY.mono,
+    color: COLORS.inspectorTextSecondary,
   },
 });

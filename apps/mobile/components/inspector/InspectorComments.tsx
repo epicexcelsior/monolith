@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: FONT_FAMILY.bodyBold,
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: COLORS.inspectorTextSecondary,
     letterSpacing: 2,
     textTransform: "uppercase",
     marginBottom: SPACING.xs,
@@ -138,13 +138,14 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...TEXT.caption,
+    color: COLORS.inspectorTextSecondary,
     textAlign: "center",
     paddingVertical: SPACING.md,
   },
   commentRow: {
     paddingVertical: SPACING.xs,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.inspectorBorder,
   },
   commentHeader: {
     flexDirection: "row",
@@ -155,14 +156,15 @@ const styles = StyleSheet.create({
   commentAuthor: {
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 12,
-    color: COLORS.text,
+    color: COLORS.inspectorText,
   },
   commentTime: {
     ...TEXT.caption,
+    color: COLORS.inspectorTextSecondary,
   },
   commentText: {
     ...TEXT.bodySm,
-    color: COLORS.textSecondary,
+    color: COLORS.inspectorTextSecondary,
   },
   inputRow: {
     flexDirection: "row",
@@ -174,13 +176,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: FONT_FAMILY.body,
     fontSize: 13,
-    color: COLORS.text,
-    backgroundColor: COLORS.bgMuted,
+    color: COLORS.inspectorText,
+    backgroundColor: COLORS.inspectorBgMuted,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.inspectorBorder,
   },
   sendButton: {
     paddingHorizontal: SPACING.md,

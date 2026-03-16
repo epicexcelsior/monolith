@@ -90,6 +90,13 @@ export const COLORS = {
   hudHandle: "rgba(255, 255, 255, 0.30)",
   hudPillBg: "rgba(0, 0, 0, 0.55)",
   textShadowDark: "rgba(0, 0, 0, 0.9)",
+
+  // ─── Inspector (dark glass on 3D scene) ──
+  inspectorBg: "rgba(10, 12, 20, 0.85)",
+  inspectorBgMuted: "rgba(15, 18, 30, 0.70)",
+  inspectorBorder: "rgba(255, 255, 255, 0.06)",
+  inspectorText: "rgba(255, 255, 255, 0.90)",
+  inspectorTextSecondary: "rgba(255, 255, 255, 0.55)",
 } as const;
 
 // ─────────────────────────────────────────────
@@ -205,6 +212,13 @@ export const GLASS_STYLE = {
     borderColor: COLORS.glassBorder,
     borderCurve: "continuous",
     boxShadow: SHADOW.glassInset,
+  } as ViewStyle,
+
+  /** Dark glass for block inspector over 3D scene */
+  inspector: {
+    backgroundColor: COLORS.inspectorBg,
+    borderColor: COLORS.inspectorBorder,
+    borderWidth: 1,
   } as ViewStyle,
 } as const;
 

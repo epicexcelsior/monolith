@@ -322,10 +322,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 6, // 6px: visually balanced, not a token multiple
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.inspectorBgMuted,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.inspectorBorder,
   },
   actionChipActive: {
     backgroundColor: COLORS.goldSubtle,
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   actionChipText: {
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: COLORS.inspectorTextSecondary,
     letterSpacing: 0.3,
   },
   otherOwnerRow: {
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.inspectorBgMuted,
     borderRadius: RADIUS.sm,
   },
   ownerDot: {
@@ -354,11 +354,12 @@ const styles = StyleSheet.create({
   otherOwnerText: {
     ...TEXT.bodySm,
     fontFamily: FONT_FAMILY.bodySemibold,
-    color: COLORS.text,
+    color: COLORS.inspectorText,
     flex: 1,
   },
   stakedText: {
     ...TEXT.monoSm,
+    color: COLORS.inspectorTextSecondary,
   },
   pokeRow: {
     gap: SPACING.xs,
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
   priceText: {
     fontFamily: FONT_FAMILY.mono,
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: COLORS.inspectorTextSecondary,
   },
   evolutionCard: {
     backgroundColor: COLORS.goldSubtle,
@@ -407,12 +408,12 @@ const styles = StyleSheet.create({
   evolutionProgressText: {
     fontFamily: FONT_FAMILY.mono,
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: COLORS.inspectorTextSecondary,
   },
   evolutionStreakReq: {
     fontFamily: FONT_FAMILY.mono,
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: COLORS.inspectorTextSecondary,
   },
   evolutionTierLabel: {
     fontFamily: FONT_FAMILY.headingSemibold,
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
   evolutionBar: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.inspectorBgMuted,
     overflow: "hidden" as const,
   },
   evolutionBarFill: {
@@ -457,7 +458,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.bgMuted,
+    backgroundColor: COLORS.inspectorBgMuted,
     overflow: "hidden" as const,
   },
   otherEvoMax: {
