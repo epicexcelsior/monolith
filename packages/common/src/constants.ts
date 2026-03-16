@@ -29,6 +29,16 @@ export const MAX_ENTROPY_MULTIPLIER = 3.0;
 /** Minimum stake amount in USDC (6 decimals) to claim a block */
 export const MIN_STAKE_USDC = 10_000_000; // 10 USDC
 
+// ─── Neighbor Pacts ──────────────────────────────────────
+/** Max pacts per block */
+export const MAX_PACTS_PER_BLOCK = 2;
+/** Bonus energy for both partners when both charge on same day */
+export const PACT_BONUS_ENERGY = 5;
+/** Pact request expires after 24h */
+export const PACT_REQUEST_EXPIRY_MS = 24 * 60 * 60 * 1000;
+/** Consecutive missed days before pact breaks */
+export const PACT_MISS_LIMIT = 2;
+
 // ─── Ghost Blocks (Free-to-Play) ─────────────────────────
 /** Max ghost blocks per wallet/session */
 export const GHOST_BLOCK_LIMIT = 1;

@@ -1,8 +1,8 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS } from "@monolith/common";
-import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS, MAX_PACTS_PER_BLOCK, PACT_BONUS_ENERGY, PACT_REQUEST_EXPIRY_MS, PACT_MISS_LIMIT } from "@monolith/common";
+import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality, Pact } from "@monolith/common";
 import {
   loadPlayerBlocks,
   upsertBlock,
@@ -176,6 +176,8 @@ export class TowerRoom extends Room<TowerRoomState> {
   private stopBotSim!: () => void;
   private players = new Map<string, PlayerState>();
   private pokeCooldowns = new Map<string, number>(); // key: "${poker}:${blockId}" → timestamp
+  private pacts = new Map<string, Pact>(); // key: sorted pair of block IDs
+  private pactRequests = new Map<string, { from: string; to: string; fromOwner: string; toOwner: string; expires: number }>();
   private chargesToday = 0;
   private lastResetDate = new Date().toISOString().slice(0, 10);
 
@@ -639,6 +641,98 @@ export class TowerRoom extends Room<TowerRoomState> {
       }
     });
 
+    this.onMessage("pact_request", (client: Client, msg: { blockId: string; targetBlockId: string }) => {
+      try {
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) { client.send("error", { message: "Not authenticated" }); return; }
+        if (!isValidBlockId(msg.blockId) || !isValidBlockId(msg.targetBlockId)) {
+          client.send("error", { message: "Invalid block ID" }); return;
+        }
+
+        const myBlock = this.state.blocks.get(msg.blockId);
+        const targetBlock = this.state.blocks.get(msg.targetBlockId);
+        if (!myBlock || !targetBlock) { client.send("error", { message: "Block not found" }); return; }
+        if (myBlock.owner !== wallet) { client.send("error", { message: "Not your block" }); return; }
+        if (!targetBlock.owner || isBotOwner(targetBlock.owner)) { client.send("error", { message: "Target has no player owner" }); return; }
+
+        // Check adjacency (same layer, adjacent index)
+        if (myBlock.layer !== targetBlock.layer || Math.abs(myBlock.index - targetBlock.index) > 1) {
+          client.send("error", { message: "Blocks must be adjacent" }); return;
+        }
+
+        // Check pact limits
+        const pactKey = [msg.blockId, msg.targetBlockId].sort().join(":");
+        if (this.pacts.has(pactKey)) { client.send("error", { message: "Pact already exists" }); return; }
+
+        let myPactCount = 0;
+        this.pacts.forEach((p) => { if (p.blockA === msg.blockId || p.blockB === msg.blockId) myPactCount++; });
+        if (myPactCount >= MAX_PACTS_PER_BLOCK) { client.send("error", { message: "Max pacts reached" }); return; }
+
+        this.pactRequests.set(pactKey, {
+          from: msg.blockId, to: msg.targetBlockId,
+          fromOwner: wallet, toOwner: targetBlock.owner,
+          expires: Date.now() + PACT_REQUEST_EXPIRY_MS,
+        });
+
+        // Notify target owner if online
+        for (const otherClient of this.clients) {
+          if ((otherClient as any)._wallet === targetBlock.owner) {
+            otherClient.send("pact_request_received", {
+              fromBlockId: msg.blockId, targetBlockId: msg.targetBlockId,
+              fromOwner: this.getOwnerName(wallet) || wallet.slice(0, 8) + "...",
+            });
+          }
+        }
+
+        client.send("pact_request_sent", { success: true });
+      } catch (err) {
+        console.error("[TowerRoom] pact_request error:", err);
+        client.send("error", { message: "Pact request failed" });
+      }
+    });
+
+    this.onMessage("pact_accept", (client: Client, msg: { blockId: string; fromBlockId: string }) => {
+      try {
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) { client.send("error", { message: "Not authenticated" }); return; }
+
+        const pactKey = [msg.blockId, msg.fromBlockId].sort().join(":");
+        const request = this.pactRequests.get(pactKey);
+        if (!request || Date.now() > request.expires) {
+          this.pactRequests.delete(pactKey);
+          client.send("error", { message: "Pact request expired" }); return;
+        }
+
+        const block = this.state.blocks.get(msg.blockId);
+        if (!block || block.owner !== wallet) { client.send("error", { message: "Not your block" }); return; }
+
+        this.pactRequests.delete(pactKey);
+
+        const pact: Pact = {
+          id: pactKey,
+          blockA: request.from, blockB: request.to,
+          ownerA: request.fromOwner, ownerB: wallet,
+          createdAt: Date.now(),
+          lastBothChargedDate: "",
+          consecutiveMisses: 0,
+        };
+        this.pacts.set(pactKey, pact);
+
+        // Notify both parties
+        client.send("pact_formed", { pact });
+        for (const otherClient of this.clients) {
+          if ((otherClient as any)._wallet === request.fromOwner) {
+            otherClient.send("pact_formed", { pact });
+          }
+        }
+
+        console.log(`[TowerRoom] Pact formed: ${request.from} ↔ ${request.to}`);
+      } catch (err) {
+        console.error("[TowerRoom] pact_accept error:", err);
+        client.send("error", { message: "Pact accept failed" });
+      }
+    });
+
     this.onMessage("charge", async (client: Client, msg: ChargeMessage) => {
       try {
         if (!isValidBlockId(msg.blockId)) {
@@ -706,6 +800,22 @@ export class TowerRoom extends Room<TowerRoomState> {
         // Evolution tier never regresses (ratchet)
         block.evolutionTier = Math.max(block.evolutionTier, getEvolutionTier(block.totalCharges, block.bestStreak));
         this.chargesToday++;
+
+        // Pact bonus: if both pact partners charged today, award bonus energy to each
+        this.pacts.forEach((pact) => {
+          if (pact.blockA !== msg.blockId && pact.blockB !== msg.blockId) return;
+          const partnerBlockId = pact.blockA === msg.blockId ? pact.blockB : pact.blockA;
+          const partnerBlock = this.state.blocks.get(partnerBlockId);
+          if (partnerBlock?.lastStreakDate === today && pact.lastBothChargedDate !== today) {
+            pact.lastBothChargedDate = today;
+            pact.consecutiveMisses = 0;
+            // Award bonus to both blocks
+            const cap = block.isGhost ? GHOST_CHARGE_CAP : MAX_ENERGY;
+            block.energy = Math.min(cap, block.energy + PACT_BONUS_ENERGY);
+            const partnerCap = partnerBlock.isGhost ? GHOST_CHARGE_CAP : MAX_ENERGY;
+            partnerBlock.energy = Math.min(partnerCap, partnerBlock.energy + PACT_BONUS_ENERGY);
+          }
+        });
 
         // XP computation
         // wallet already extracted from session above

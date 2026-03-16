@@ -198,6 +198,24 @@ export interface PokeMessage {
   wallet: string;
 }
 
+/** Pact between two adjacent block owners */
+export interface Pact {
+  id: string;
+  blockA: string;
+  blockB: string;
+  ownerA: string;
+  ownerB: string;
+  createdAt: number;
+  lastBothChargedDate: string;
+  consecutiveMisses: number;
+}
+
+/** Pact-related messages */
+export interface PactMessage {
+  blockId: string;
+  targetBlockId: string;
+}
+
 /** Activity event for real-time feed */
 export interface ActivityEvent {
   id: string;
