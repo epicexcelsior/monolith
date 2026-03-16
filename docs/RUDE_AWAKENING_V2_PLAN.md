@@ -1122,12 +1122,12 @@ Track completion here. Update after each task commit.
 - [x] **2** Quest Panel + Streak Counter in TopHUD — 8fe815a
 - [x] **3** Event Banner — 84d342a
 - [x] **4** Onboarding Trim (10→7) + Spark Naming — dc6f7af
-- [ ] **5** Ghost Block Economy Rebalance
-- [ ] **6** Streak Dead Zone Fix + Free Day-1 Freeze
-- [ ] **7** Charge Window (Timing Mechanic)
-- [ ] **8** Quick-Charge Shortcut + Auto-Hide HUD
-- [ ] **9** Floor Leaderboard UI
-- [ ] **10** Pass 1 Integration Verification
+- [x] **5** Ghost Block Economy Rebalance — a049a5f
+- [x] **6** Streak Dead Zone Fix + Free Day-1 Freeze — a049a5f
+- [x] **7** Charge Window (Timing Mechanic) — df4c669
+- [x] **8** Quick-Charge Shortcut + Auto-Hide HUD — c44eb6f
+- [x] **9** Floor Leaderboard UI — 8891da1
+- [x] **10** Pass 1 Integration Verification — 241 mobile tests, 77 server tests pass
 
 ### Pass 2: Endgame + Monetization + Production
 
