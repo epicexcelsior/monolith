@@ -61,8 +61,8 @@ export default function LootReveal() {
       cardScale.value = withDelay(500, withSpring(1, { damping: 12, stiffness: 200 }));
       cardOpacity.value = withDelay(500, withTiming(1, { duration: 200 }));
 
-      // Show equip after card lands
-      setTimeout(() => runOnJS(setShowEquip)(true), 1200);
+      // Show equip after card lands (reduced from 1200ms for snappier feel)
+      setTimeout(() => runOnJS(setShowEquip)(true), 600);
     }, delay);
 
     return () => clearTimeout(timer);

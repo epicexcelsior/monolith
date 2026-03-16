@@ -5,14 +5,15 @@
  * Auto-clears after 3.2s.
  */
 
-import React, { useEffect } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useCallback, useRef } from "react";
+import { StyleSheet, Text, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSequence,
   withTiming,
   withDelay,
+  runOnJS,
 } from "react-native-reanimated";
 import { useTowerStore } from "@/stores/tower-store";
 import { COLORS, FONT_FAMILY } from "@/constants/theme";
@@ -22,13 +23,23 @@ import { playLevelUp } from "@/utils/audio";
 export default function LevelUpCelebration() {
   const justEvolved = useTowerStore((s) => s.justEvolved);
   const clearJustEvolved = useTowerStore((s) => s.clearJustEvolved);
+  const showTimeRef = useRef<number>(0);
 
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
   const bgOpacity = useSharedValue(0);
 
+  const dismiss = useCallback(() => {
+    // Fast fade out, then clear
+    opacity.value = withTiming(0, { duration: 200 });
+    bgOpacity.value = withTiming(0, { duration: 200 });
+    setTimeout(() => clearJustEvolved(), 220);
+  }, [opacity, bgOpacity, clearJustEvolved]);
+
   useEffect(() => {
     if (justEvolved == null) return;
+
+    showTimeRef.current = Date.now();
 
     // Haptic + SFX
     hapticLevelUp();
@@ -48,13 +59,19 @@ export default function LevelUpCelebration() {
       withDelay(2000, withTiming(0, { duration: 800 })),
     );
 
-    // Auto-clear after 3.2s
+    // Auto-clear after 3.2s (fallback)
     const timer = setTimeout(() => {
       clearJustEvolved();
     }, 3200);
 
     return () => clearTimeout(timer);
   }, [justEvolved, scale, opacity, bgOpacity, clearJustEvolved]);
+
+  const handleTap = useCallback(() => {
+    // Only allow dismiss after 1s (let user see the impact moment)
+    if (Date.now() - showTimeRef.current < 1000) return;
+    dismiss();
+  }, [dismiss]);
 
   const contentStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -68,11 +85,13 @@ export default function LevelUpCelebration() {
   if (justEvolved == null) return null;
 
   return (
-    <Animated.View style={[styles.overlay, bgStyle]} pointerEvents="none">
-      <Animated.View style={[styles.content, contentStyle]}>
-        <Text style={styles.subtitle}>YOUR SPARK EVOLVED TO</Text>
-        <Text style={styles.tierText}>{justEvolved.toUpperCase()}</Text>
-      </Animated.View>
+    <Animated.View style={[styles.overlay, bgStyle]} pointerEvents="auto">
+      <Pressable style={styles.pressArea} onPress={handleTap}>
+        <Animated.View style={[styles.content, contentStyle]}>
+          <Text style={styles.subtitle}>YOUR SPARK EVOLVED TO</Text>
+          <Text style={styles.tierText}>{justEvolved.toUpperCase()}</Text>
+        </Animated.View>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -84,6 +103,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 200,
+  },
+  pressArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
   },
   content: {
     alignItems: "center",

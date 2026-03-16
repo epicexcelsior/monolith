@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   Animated,
+  Pressable,
 } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
@@ -37,6 +38,7 @@ import { usePlayerStore } from "@/stores/player-store";
 import { useWalletStore } from "@/stores/wallet-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { COLORS } from "@/constants/theme";
+import { cancelCelebration } from "@/hooks/useClaimCelebration";
 
 export default function TowerScreen() {
   const initTower = useTowerStore((s) => s.initTower);
@@ -211,6 +213,14 @@ export default function TowerScreen() {
         <PokeReceivedToast />
       </Animated.View>
       </Reanimated.View>
+      )}
+
+      {/* Cinematic tap-to-skip overlay — outside animated wrapper so it receives touch */}
+      {cinematicMode && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={cancelCelebration}
+        />
       )}
 
       {/* Floating Nav Pills — always above tower, replaces tab bar */}

@@ -10,6 +10,11 @@ let _celebrationCleanupTimer: ReturnType<typeof setTimeout> | null = null;
 let _inspectorReopenTimer: ReturnType<typeof setTimeout> | null = null;
 let _soundDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Module-level celebration tracking for cancel support
+let _celebrationStartTime: number | null = null;
+let _celebrationBlockId: string | undefined = undefined;
+let _hapticTimers: ReturnType<typeof setTimeout>[] = [];
+
 /**
  * useClaimCelebration — Orchestrator for the block claim celebration.
  *
@@ -71,9 +76,16 @@ export function useClaimCelebration() {
     selectBlock(null);
     setCinematicMode(true);
 
+    // Track module-level for cancel support
+    _celebrationStartTime = celebrationRef.current.startTime;
+    _celebrationBlockId = blockId;
+
     // Haptic chain
     const timers = hapticClaimCelebration(isFirstClaim);
-    if (timers) hapticTimersRef.current = timers;
+    if (timers) {
+      hapticTimersRef.current = timers;
+      _hapticTimers = timers;
+    }
 
     // Celebration SFX — audio has 2.5s internal buildup matching CLAIM_IMPACT_OFFSET_SECS.
     // CLAIM_SOUND_DELAY is 0 (play immediately) so audio climax lands on visual impact.
@@ -126,4 +138,41 @@ export function useClaimCelebration() {
   }, [setCinematicMode, setClaimCelebrationRef, selectBlock]);
 
   return { triggerCelebration };
+}
+
+/**
+ * Cancel an in-progress claim celebration (tap-to-skip).
+ * Only callable after 2s of celebration start (let user see the impact).
+ * Importable from anywhere — works with module-level state.
+ */
+export function cancelCelebration(): void {
+  // Gate: only callable after 2s
+  if (_celebrationStartTime != null) {
+    const elapsed = performance.now() / 1000 - _celebrationStartTime;
+    if (elapsed < 2) return;
+  } else {
+    return; // No celebration in progress
+  }
+
+  // Clear all timers
+  for (const t of _hapticTimers) clearTimeout(t);
+  _hapticTimers = [];
+  if (_cinematicEndTimer) { clearTimeout(_cinematicEndTimer); _cinematicEndTimer = null; }
+  if (_celebrationCleanupTimer) { clearTimeout(_celebrationCleanupTimer); _celebrationCleanupTimer = null; }
+  if (_inspectorReopenTimer) { clearTimeout(_inspectorReopenTimer); _inspectorReopenTimer = null; }
+  if (_soundDelayTimer) { clearTimeout(_soundDelayTimer); _soundDelayTimer = null; }
+
+  _celebrationStartTime = null;
+
+  // Exit cinematic mode
+  useTowerStore.getState().setCinematicMode(false);
+
+  // Re-select the block if we have one
+  if (_celebrationBlockId) {
+    const blockId = _celebrationBlockId;
+    _celebrationBlockId = undefined;
+    setTimeout(() => {
+      useTowerStore.getState().selectBlock(blockId);
+    }, 300);
+  }
 }
