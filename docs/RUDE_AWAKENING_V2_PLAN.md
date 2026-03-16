@@ -1118,10 +1118,10 @@ Track completion here. Update after each task commit.
 
 ### Pass 1: Ship Mid-Game + Fix Core Loop
 
-- [ ] **1** While You Were Away Modal
-- [ ] **2** Quest Panel + Streak Counter in TopHUD
-- [ ] **3** Event Banner
-- [ ] **4** Onboarding Trim (10→6) + Spark Naming
+- [x] **1** While You Were Away Modal — c441f1f
+- [x] **2** Quest Panel + Streak Counter in TopHUD — 8fe815a
+- [x] **3** Event Banner — 84d342a
+- [x] **4** Onboarding Trim (10→7) + Spark Naming — dc6f7af
 - [ ] **5** Ghost Block Economy Rebalance
 - [ ] **6** Streak Dead Zone Fix + Free Day-1 Freeze
 - [ ] **7** Charge Window (Timing Mechanic)

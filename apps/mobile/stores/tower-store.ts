@@ -94,6 +94,7 @@ export interface DemoBlock {
   bestStreak?: number;       // all-time best streak (never decreases)
   evolutionTier?: number;    // 0-4 (Spark, Ember, Flame, Blaze, Beacon) — denormalized from getEvolutionTier()
   isGhost?: boolean;         // true = free ghost block (limited power)
+  ghostClaimedAt?: number;   // timestamp for honeymoon period (first 3 days)
 }
 
 /** Mutable ref state for claim celebration, readable by useFrame loops */
@@ -526,10 +527,11 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             ...b,
             owner: "__ghost__",
             ownerColor: "#FFB800",
-            energy: 60, // Start at 60% so charge step is meaningful
+            energy: 70, // Start at ghost cap (was 60) — matches GHOST_CHARGE_CAP
             stakedAmount: 1,
             streak: 1,
             personality: 0, // Default to Happy
+            ghostClaimedAt: Date.now(),
           }
           : b,
       ),

@@ -1,7 +1,7 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS, MAX_PACTS_PER_BLOCK, PACT_BONUS_ENERGY, PACT_REQUEST_EXPIRY_MS, PACT_MISS_LIMIT, STREAK_FREEZE_EARN_INTERVAL, STREAK_FREEZE_MAX } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS, GHOST_HONEYMOON_DAYS, INITIAL_STREAK_FREEZES, MAX_PACTS_PER_BLOCK, PACT_BONUS_ENERGY, PACT_REQUEST_EXPIRY_MS, PACT_MISS_LIMIT, STREAK_FREEZE_EARN_INTERVAL, STREAK_FREEZE_MAX } from "@monolith/common";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality, Pact } from "@monolith/common";
 import {
   loadPlayerBlocks,
@@ -279,7 +279,10 @@ export class TowerRoom extends Room<TowerRoomState> {
           if (!block.owner || isBotOwner(block.owner)) return;
 
           const prevEnergy = block.energy;
-          const decay = block.isGhost ? DECAY_AMOUNT * GHOST_DECAY_MULTIPLIER : DECAY_AMOUNT;
+          // Honeymoon: ghost blocks in first 3 days use 1x decay (same as staked)
+          const inHoneymoon = block.isGhost && block.ghostClaimedAt &&
+            (Date.now() - block.ghostClaimedAt) < GHOST_HONEYMOON_DAYS * 86_400_000;
+          const decay = block.isGhost && !inHoneymoon ? DECAY_AMOUNT * GHOST_DECAY_MULTIPLIER : DECAY_AMOUNT;
           block.energy = Math.max(0, block.energy - decay);
 
           // State-transition: crossed 20% threshold (fading)
@@ -477,6 +480,7 @@ export class TowerRoom extends Room<TowerRoomState> {
         block.lastChargeTime = Date.now();
         block.streak = 0;
         block.lastStreakDate = "";
+        block.freezes = INITIAL_STREAK_FREEZES; // Free freeze on first claim
         block.appearance.color = msg.color;
 
         this.recomputeStats();
@@ -611,6 +615,8 @@ export class TowerRoom extends Room<TowerRoomState> {
         block.streak = 0;
         block.lastStreakDate = "";
         block.isGhost = true;
+        block.ghostClaimedAt = Date.now();
+        block.freezes = INITIAL_STREAK_FREEZES; // Free freeze on first claim
         if (msg.color) block.appearance.color = msg.color;
 
         this.recomputeStats();
@@ -869,7 +875,10 @@ export class TowerRoom extends Room<TowerRoomState> {
         const eventMultiplier = getChargeEventMultiplier();
         const chargeAmount = Math.round(baseAmount * multiplier * eventMultiplier);
 
-        const energyCap = block.isGhost ? GHOST_CHARGE_CAP : MAX_ENERGY;
+        // Honeymoon: ghost blocks in first 3 days use MAX_ENERGY cap
+        const ghostInHoneymoon = block.isGhost && block.ghostClaimedAt &&
+          (Date.now() - block.ghostClaimedAt) < GHOST_HONEYMOON_DAYS * 86_400_000;
+        const energyCap = block.isGhost && !ghostInHoneymoon ? GHOST_CHARGE_CAP : MAX_ENERGY;
         block.energy = Math.min(energyCap, block.energy + chargeAmount);
         block.lastChargeTime = now;
         block.streak = newStreak;
@@ -890,9 +899,11 @@ export class TowerRoom extends Room<TowerRoomState> {
             pact.lastBothChargedDate = today;
             pact.consecutiveMisses = 0;
             // Award bonus to both blocks
-            const cap = block.isGhost ? GHOST_CHARGE_CAP : MAX_ENERGY;
-            block.energy = Math.min(cap, block.energy + PACT_BONUS_ENERGY);
-            const partnerCap = partnerBlock.isGhost ? GHOST_CHARGE_CAP : MAX_ENERGY;
+            const pactCapBlock = block.isGhost && !ghostInHoneymoon ? GHOST_CHARGE_CAP : MAX_ENERGY;
+            block.energy = Math.min(pactCapBlock, block.energy + PACT_BONUS_ENERGY);
+            const pPartnerHoneymoon = partnerBlock.isGhost && partnerBlock.ghostClaimedAt &&
+              (Date.now() - partnerBlock.ghostClaimedAt) < GHOST_HONEYMOON_DAYS * 86_400_000;
+            const partnerCap = partnerBlock.isGhost && !pPartnerHoneymoon ? GHOST_CHARGE_CAP : MAX_ENERGY;
             partnerBlock.energy = Math.min(partnerCap, partnerBlock.energy + PACT_BONUS_ENERGY);
           }
         });

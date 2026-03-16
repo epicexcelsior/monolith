@@ -48,12 +48,14 @@ export const PACT_MISS_LIMIT = 2;
 // ─── Ghost Blocks (Free-to-Play) ─────────────────────────
 /** Max ghost blocks per wallet/session */
 export const GHOST_BLOCK_LIMIT = 1;
-/** Ghost blocks decay at 2x rate */
-export const GHOST_DECAY_MULTIPLIER = 2.0;
-/** Ghost blocks can only charge up to 50% */
-export const GHOST_CHARGE_CAP = 50;
+/** Ghost blocks decay at 1.5x rate (was 2.0 — net positive from Day 1) */
+export const GHOST_DECAY_MULTIPLIER = 1.5;
+/** Ghost blocks can charge up to 70% (was 50 — can reach "thriving" state) */
+export const GHOST_CHARGE_CAP = 70;
 /** Ghost blocks can only be claimed on the bottom 6 layers */
 export const GHOST_BLOCK_LAYERS = [0, 1, 2, 3, 4, 5];
+/** First 3 days: ghost blocks behave like staked (1x decay, 100 cap) */
+export const GHOST_HONEYMOON_DAYS = 3;
 
 // ─── Energy → Visual State Thresholds ─────────────────────
 export const ENERGY_THRESHOLDS = {
@@ -65,21 +67,35 @@ export const ENERGY_THRESHOLDS = {
 } as const;
 
 // ─── Streak System ───────────────────────────────────────
-/** Streak multiplier tiers — shared between client and server */
+/** Streak multiplier tiers — shared between client and server.
+ *  Dead zone Day 7-29 filled with intermediate values per Game Designer agent. */
 export function getStreakMultiplier(streak: number): number {
   if (streak >= 30) return 3.0;
+  if (streak >= 21) return 2.5;
+  if (streak >= 14) return 2.25;
+  if (streak >= 10) return 2.1;
   if (streak >= 7) return 2.0;
   if (streak >= 5) return 1.75;
   if (streak >= 3) return 1.5;
   return 1.0;
 }
 
+/** Streak milestone days for UI celebrations + notification triggers */
+export const STREAK_MILESTONES = [3, 7, 10, 14, 21, 30, 50, 100];
+
+/** Free streak freeze granted on first block claim (removes Day 1 catch-22) */
+export const INITIAL_STREAK_FREEZES = 1;
+
 /** Returns the next milestone day for streak display */
 export function getNextStreakMilestone(streak: number): number {
   if (streak < 3) return 3;
   if (streak < 7) return 7;
+  if (streak < 10) return 10;
   if (streak < 14) return 14;
+  if (streak < 21) return 21;
   if (streak < 30) return 30;
+  if (streak < 50) return 50;
+  if (streak < 100) return 100;
   return streak + 1;
 }
 

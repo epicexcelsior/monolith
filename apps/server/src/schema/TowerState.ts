@@ -38,6 +38,7 @@ export class BlockSchema extends Schema {
   bestStreak: number = 0;     // all-time best streak (never decreases)
   evolutionTier: number = 0;  // 0-4 (Spark, Ember, Flame, Blaze, Beacon)
   isGhost: boolean = false;   // true = free ghost block (limited power)
+  ghostClaimedAt: number = 0; // timestamp for honeymoon period
   freezes: number = 0;        // streak freezes available (max 2)
   appearance: BlockAppearanceSchema = new BlockAppearanceSchema();
 }
@@ -58,6 +59,7 @@ defineTypes(BlockSchema, {
   bestStreak: "uint16",
   evolutionTier: "uint8",
   isGhost: "boolean",
+  ghostClaimedAt: "number",
   freezes: "uint8",
   appearance: BlockAppearanceSchema,
 });

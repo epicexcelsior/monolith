@@ -73,7 +73,7 @@ beforeEach(() => {
 
 describe("tower-store ghost block actions", () => {
     describe("ghostClaimBlock", () => {
-        it("should claim a block with __ghost__ owner and 60% energy", () => {
+        it("should claim a block with __ghost__ owner and 70% energy", () => {
             useTowerStore.getState().ghostClaimBlock("block-5-3");
 
             const block = useTowerStore
@@ -81,7 +81,7 @@ describe("tower-store ghost block actions", () => {
                 .demoBlocks.find((b) => b.id === "block-5-3");
             expect(block).toBeDefined();
             expect(block!.owner).toBe("__ghost__");
-            expect(block!.energy).toBe(60); // 60% so charge step is meaningful
+            expect(block!.energy).toBe(70); // matches GHOST_CHARGE_CAP (was 60)
             expect(block!.ownerColor).toBe("#FFB800");
             expect(block!.stakedAmount).toBe(1.0);
             expect(block!.streak).toBe(1);
@@ -105,7 +105,7 @@ describe("tower-store ghost block actions", () => {
 
     describe("ghostChargeBlock", () => {
         it("should increase energy by 25", () => {
-            // Set up a ghost block (starts at 60% energy)
+            // Set up a ghost block (starts at 70% energy)
             useTowerStore.getState().ghostClaimBlock("block-5-3");
 
             const result = useTowerStore.getState().ghostChargeBlock("block-5-3");
@@ -115,7 +115,7 @@ describe("tower-store ghost block actions", () => {
             const block = useTowerStore
                 .getState()
                 .demoBlocks.find((b) => b.id === "block-5-3");
-            expect(block!.energy).toBe(85); // 60 + 25
+            expect(block!.energy).toBe(95); // 70 + 25
         });
 
         it("should not exceed max energy", () => {
@@ -146,7 +146,7 @@ describe("tower-store ghost block actions", () => {
             const block = useTowerStore
                 .getState()
                 .demoBlocks.find((b) => b.id === "block-5-3");
-            expect(block!.energy).toBe(30); // 60 - 30
+            expect(block!.energy).toBe(40); // 70 - 30
         });
 
         it("should default to 50 decay", () => {
@@ -156,7 +156,7 @@ describe("tower-store ghost block actions", () => {
             const block = useTowerStore
                 .getState()
                 .demoBlocks.find((b) => b.id === "block-5-3");
-            expect(block!.energy).toBe(10); // 60 - 50
+            expect(block!.energy).toBe(20); // 70 - 50
         });
 
         it("should not go below 0", () => {
