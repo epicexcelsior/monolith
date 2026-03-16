@@ -40,6 +40,10 @@ import {
   checkQuestProgress,
   getQuestState,
 } from "../utils/quests.js";
+import {
+  getCurrentEvent,
+  getChargeEventMultiplier,
+} from "../utils/weekly-events.js";
 
 // ─── Input Validation ────────────────────────────────────
 const BLOCK_ID_RE = /^block-\d+-\d+$/;
@@ -826,9 +830,10 @@ export class TowerRoom extends Room<TowerRoomState> {
         }
 
         const multiplier = getStreakMultiplier(newStreak);
-        // Variable charge: random 15-35 base, then multiplied by streak
+        // Variable charge: random 15-35 base, then multiplied by streak + event bonus
         const { amount: baseAmount, quality: chargeQuality } = rollChargeAmount();
-        const chargeAmount = Math.round(baseAmount * multiplier);
+        const eventMultiplier = getChargeEventMultiplier();
+        const chargeAmount = Math.round(baseAmount * multiplier * eventMultiplier);
 
         const energyCap = block.isGhost ? GHOST_CHARGE_CAP : MAX_ENERGY;
         block.energy = Math.min(energyCap, block.energy + chargeAmount);
@@ -1433,6 +1438,7 @@ export class TowerRoom extends Room<TowerRoomState> {
       },
       tick: this.state.tick,
       weeklyFloorCharges: getWeeklyCharges(),
+      activeEvent: getCurrentEvent(),
     };
   }
 
