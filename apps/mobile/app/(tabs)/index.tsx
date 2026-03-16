@@ -35,6 +35,8 @@ import { useTowerStore } from "@/stores/tower-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useMultiplayerStore, onPlayerSync, onServerError } from "@/stores/multiplayer-store";
 import { usePlayerStore } from "@/stores/player-store";
+import { useSessionStore } from "@/stores/session-store";
+import WhileAwayModal from "@/components/ui/WhileAwayModal";
 import { useWalletStore } from "@/stores/wallet-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { COLORS } from "@/constants/theme";
@@ -59,8 +61,11 @@ export default function TowerScreen() {
   const showWalletConnect = useWalletStore((s) => s.showConnectSheet);
 
   const lootPending = useLootStore((s) => s.pendingReveal) !== null;
+  const showAwaySummary = useSessionStore((s) => s.showAwaySummary);
+  const awaySummary = useSessionStore((s) => s.awaySummary);
+  const dismissAwaySummary = useSessionStore((s) => s.dismissAwaySummary);
   // FloatingNav hides when any overlay/sheet is open — single derived boolean
-  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending;
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || showAwaySummary;
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -77,6 +82,10 @@ export default function TowerScreen() {
   useEffect(() => {
     onPlayerSync((data) => {
       usePlayerStore.getState().setFromServer(data);
+      // Show away summary if server included one
+      if (data.awaySummary) {
+        useSessionStore.getState().setAwaySummary(data.awaySummary);
+      }
     });
     onServerError((error) => {
       showStatusToast(error.message || "Server error", "error");
@@ -256,6 +265,11 @@ export default function TowerScreen() {
 
       {/* Wallet connect sheet */}
       <WalletConnectSheet />
+
+      {/* While You Were Away modal — shown on return after 4+ hours */}
+      {showAwaySummary && awaySummary && (
+        <WhileAwayModal awaySummary={awaySummary} onDismiss={dismissAwaySummary} />
+      )}
 
     </View>
   );
