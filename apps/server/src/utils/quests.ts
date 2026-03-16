@@ -3,7 +3,7 @@
  * Tracks daily quest progress per wallet.
  */
 
-import { pickDailyQuests, type QuestDef } from "@monolith/common/quest-defs";
+import { pickDailyQuests, type QuestDef } from "@monolith/common";
 
 interface QuestProgress {
   questId: string;
