@@ -19,6 +19,7 @@ import { SECURE_STORE_KEYS } from "@/services/mwa";
  */
 export type OnboardingPhase =
     | "cinematic"
+    | "cameraTutorial"
     | "title"
     | "claim"
     | "celebration"
@@ -30,6 +31,7 @@ export type OnboardingPhase =
 
 const PHASE_ORDER: OnboardingPhase[] = [
     "cinematic",
+    "cameraTutorial",
     "title",
     "claim",
     "celebration",

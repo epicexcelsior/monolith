@@ -74,7 +74,7 @@ describe("onboarding-store", () => {
         it("should transition through all phases in order", () => {
             const { advancePhase } = useOnboardingStore.getState();
             const expectedPhases = [
-                "cinematic", "title", "claim", "celebration",
+                "cinematic", "cameraTutorial", "title", "claim", "celebration",
                 "customize", "charge", "poke", "wallet", "done",
             ];
 
@@ -180,7 +180,7 @@ describe("onboarding-store", () => {
     describe("isOnboarding", () => {
         it("should return true for all phases except done", () => {
             const phases = [
-                "cinematic", "title", "claim", "celebration",
+                "cinematic", "cameraTutorial", "title", "claim", "celebration",
                 "customize", "charge", "poke", "wallet",
             ] as const;
             for (const p of phases) {

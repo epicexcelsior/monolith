@@ -20,6 +20,7 @@ import { useClaimCelebration } from "@/hooks/useClaimCelebration";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "@/components/ui/Button";
 import StepCard from "@/components/ui/StepCard";
+import CameraTutorial from "./CameraTutorial";
 
 /**
  * OnboardingFlow — 60-second first session: jaw-dropping immersion → intuitive game entry.
@@ -307,6 +308,11 @@ export default function OnboardingFlow() {
 
             {/* ─── CINEMATIC ──────────────────────── */}
             {/* No UI during cinematic — pure camera spectacle */}
+
+            {/* ─── CAMERA TUTORIAL ─────────────────── */}
+            {phase === "cameraTutorial" && (
+                <CameraTutorial onComplete={advancePhase} />
+            )}
 
             {/* ─── TITLE ──────────────────────────── */}
             <TitleReveal
