@@ -50,6 +50,7 @@ interface OnboardingStore {
     // State
     phase: OnboardingPhase;
     ghostBlockId: string | null;
+    ghostMode: boolean;
     initialized: boolean;
 
     // Derived
@@ -60,6 +61,7 @@ interface OnboardingStore {
     advancePhase: () => void;
     skipToPhase: (phase: OnboardingPhase) => void;
     setGhostBlock: (blockId: string) => void;
+    setGhostMode: (val: boolean) => void;
     skipOnboarding: () => void;
     completeOnboarding: () => void;
     resetOnboarding: () => Promise<void>;
@@ -68,6 +70,7 @@ interface OnboardingStore {
 export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
     phase: "cinematic",
     ghostBlockId: null,
+    ghostMode: false,
     initialized: false,
 
     isOnboarding: () => get().phase !== "done",
@@ -108,6 +111,8 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
 
     setGhostBlock: (blockId) => set({ ghostBlockId: blockId }),
 
+    setGhostMode: (val) => set({ ghostMode: val }),
+
     skipOnboarding: () => {
         set({ phase: "done", ghostBlockId: null });
         SecureStore.setItemAsync(ONBOARDING_KEY, "true").catch(() => { });
@@ -122,6 +127,6 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
         try {
             await SecureStore.deleteItemAsync(ONBOARDING_KEY);
         } catch { }
-        set({ phase: "cinematic", ghostBlockId: null, initialized: true });
+        set({ phase: "cinematic", ghostBlockId: null, ghostMode: false, initialized: true });
     },
 }));

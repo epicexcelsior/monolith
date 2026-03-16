@@ -512,27 +512,27 @@ export default function OnboardingFlow() {
                 <View style={[styles.stepCardContainer, { bottom: Math.max(insets.bottom, 12) + SPACING.md }]}>
                     <StepCard
                         title="Take care of your Spark!"
-                        subtitle={"Connect a wallet to stake real USDC\nand compete on the leaderboard."}
+                        subtitle={"Your ghost block is free to play.\nConnect a wallet for full power."}
                         step={currentStep}
                         totalSteps={TOTAL_STEPS}
                     >
                         <View style={styles.walletButtons}>
                             <Button
-                                title="CONNECT WALLET"
+                                title="START PLAYING"
                                 variant="primary"
                                 size="lg"
-                                onPress={handleConnectWallet}
+                                onPress={handlePlayDemo}
                             />
                             <Button
-                                title="PLAY DEMO →"
-                                variant="ghost"
-                                size="sm"
-                                onPress={handlePlayDemo}
+                                title="CONNECT WALLET"
+                                variant="secondary"
+                                size="md"
+                                onPress={handleConnectWallet}
                             />
                         </View>
 
                         <Text style={styles.walletHint}>
-                            Seed Vault · Phantom · Solflare
+                            Wallet optional · Stake later for full power
                         </Text>
                     </StepCard>
                 </View>
