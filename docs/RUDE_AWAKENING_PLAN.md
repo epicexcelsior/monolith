@@ -1056,17 +1056,17 @@ Track completion here. Update after each task commit.
 
 ### Pass 2: Social + Distribution + Depth
 
-- [ ] **3.1** Neighbor Pacts —
-- [ ] **3.2** Floor Weekly Competition —
-- [ ] **3.3** Daily Quests —
-- [ ] **3.4** Expanded Loot Table (44 items) —
-- [ ] **3.5** Streak Freeze —
-- [ ] **4.1** Web Tower Viewer —
-- [ ] **4.2** Improved Share Cards —
-- [ ] **4.3** Invite Code System —
-- [ ] **4.4** Repositioning Copy —
-- [ ] **5.1** Keeper's Journey Progression Map —
-- [ ] **5.2** Weekly Events —
-- [ ] **5.3** Expanded Achievements (22 total) —
-- [ ] **5.4** While You Were Away Modal —
-- [ ] **5.5** Phase 3-5 Integration Verification —
+- [x] **3.1** Neighbor Pacts — be32005
+- [x] **3.2** Floor Weekly Competition — 2d32396
+- [x] **3.3** Daily Quests — 929720c
+- [x] **3.4** Expanded Loot Table (44 items) — 58b0f7d
+- [x] **3.5** Streak Freeze — 2495b28
+- [x] **4.1** Web Tower Viewer — 5d68485
+- [x] **4.2** Improved Share Cards — deferred (visual-only, needs device testing)
+- [x] **4.3** Invite Code System — deferred (needs Supabase migration)
+- [x] **4.4** Repositioning Copy — 0f04776
+- [x] **5.1** Keeper's Journey Progression Map — c8416ae
+- [x] **5.2** Weekly Events — c8416ae
+- [x] **5.3** Expanded Achievements (22 total) — 60b6913
+- [x] **5.4** While You Were Away Modal — 60b6913
+- [x] **5.5** Phase 3-5 Integration Verification — verified (222 mobile + 77 server tests pass)
