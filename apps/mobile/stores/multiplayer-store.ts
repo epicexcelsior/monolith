@@ -64,6 +64,14 @@ interface ServerState {
     chargesToday?: number;
   };
   tick: number;
+  activeEvent?: {
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    type: "charge_storm" | "land_rush";
+  } | null;
+  weeklyFloorCharges?: Record<string, number>;
 }
 
 /** Charge result from server (enhanced with XP) */
@@ -131,6 +139,7 @@ interface MultiplayerStore {
   playerCount: number;
   chargesToday: number;
   recentEvents: ActivityEvent[];
+  activeEvent: ServerState["activeEvent"];
 
   connect: () => Promise<boolean>;
   disconnect: () => void;
@@ -413,6 +422,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   playerCount: 0,
   chargesToday: 0,
   recentEvents: [],
+  activeEvent: null,
 
   connect: async () => {
     if (get().connected || get().connecting) return get().connected;
@@ -435,6 +445,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
           set({
             playerCount: data.stats.activeUsers || 0,
             chargesToday: data.stats.chargesToday || 0,
+            activeEvent: data.activeEvent ?? null,
           });
         }
       });

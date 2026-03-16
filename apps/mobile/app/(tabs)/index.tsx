@@ -39,6 +39,7 @@ import { useSessionStore } from "@/stores/session-store";
 import WhileAwayModal from "@/components/ui/WhileAwayModal";
 import { useQuestStore } from "@/stores/quest-store";
 import QuestPanel from "@/components/ui/QuestPanel";
+import EventBanner from "@/components/ui/EventBanner";
 import { useWalletStore } from "@/stores/wallet-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { COLORS } from "@/constants/theme";
@@ -186,6 +187,9 @@ export default function TowerScreen() {
 
             {/* Connection status */}
             <ConnectionBanner />
+
+            {/* Event banner — gold pill for active/upcoming weekly events */}
+            <EventBanner />
 
             {/* Dev-only energy scrubber for Spark face testing — hidden during demo recording */}
             {__DEV__ && false && <SparkDevSlider />}
