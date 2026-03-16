@@ -1,7 +1,7 @@
 import { Room, Client } from "colyseus";
 import { TowerRoomState, BlockSchema } from "../schema/TowerState.js";
 import { seedTower, startBotSimulation, isBotOwner } from "../utils/seed-tower.js";
-import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE } from "@monolith/common";
+import { MAX_ENERGY, rollChargeAmount, getEvolutionTier, getStreakMultiplier, isNextDay, TESTING_MODE, GHOST_BLOCK_LIMIT, GHOST_DECAY_MULTIPLIER, GHOST_CHARGE_CAP, GHOST_BLOCK_LAYERS } from "@monolith/common";
 import type { ClaimMessage, ChargeMessage, CustomizeMessage, PokeMessage, ChargeQuality } from "@monolith/common";
 import {
   loadPlayerBlocks,
@@ -95,6 +95,7 @@ export function serializeBlock(block: BlockSchema, ownerName?: string) {
     totalCharges: block.totalCharges,
     bestStreak: block.bestStreak,
     evolutionTier: block.evolutionTier,
+    isGhost: block.isGhost || false,
     appearance: {
       color: block.appearance.color,
       emoji: block.appearance.emoji,
@@ -123,6 +124,7 @@ export function blockToRow(block: BlockSchema) {
     total_charges: block.totalCharges,
     best_streak: block.bestStreak,
     evolution_tier: block.evolutionTier,
+    is_ghost: block.isGhost || false,
     appearance: {
       color: block.appearance.color,
       emoji: block.appearance.emoji,
@@ -257,7 +259,8 @@ export class TowerRoom extends Room<TowerRoomState> {
       try {
         this.state.blocks.forEach((block) => {
           if (block.owner) {
-            block.energy = Math.max(0, block.energy - DECAY_AMOUNT);
+            const decay = block.isGhost ? DECAY_AMOUNT * GHOST_DECAY_MULTIPLIER : DECAY_AMOUNT;
+            block.energy = Math.max(0, block.energy - decay);
           }
         });
         this.state.tick++;
@@ -483,6 +486,132 @@ export class TowerRoom extends Room<TowerRoomState> {
       }
     });
 
+    this.onMessage("ghost_claim", async (client: Client, msg: { blockId: string; color?: string }) => {
+      try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
+        const block = this.state.blocks.get(msg.blockId);
+        if (!block) {
+          client.send("error", { message: "Block not found" });
+          return;
+        }
+
+        // Ghost blocks only on eligible layers
+        if (!GHOST_BLOCK_LAYERS.includes(block.layer)) {
+          client.send("error", { message: "Ghost blocks only on bottom 6 layers" });
+          return;
+        }
+
+        // Block must be unclaimed, bot-owned, or dormant
+        const canClaim = !block.owner || isBotOwner(block.owner) || isDormant(block);
+        if (!canClaim) {
+          client.send("error", { message: "Block already claimed" });
+          return;
+        }
+
+        // Check ghost limit per session (use wallet if available, else sessionId)
+        const wallet = this.getSessionWallet(client) || client.sessionId;
+        let ghostCount = 0;
+        this.state.blocks.forEach((b) => {
+          if (b.isGhost && b.owner === wallet) ghostCount++;
+        });
+        if (ghostCount >= GHOST_BLOCK_LIMIT) {
+          client.send("error", { message: `Max ${GHOST_BLOCK_LIMIT} ghost block(s)` });
+          return;
+        }
+
+        block.owner = wallet;
+        block.ownerColor = msg.color || "#00ffff";
+        block.energy = GHOST_CHARGE_CAP;
+        block.stakedAmount = 0;
+        block.lastChargeTime = Date.now();
+        block.streak = 0;
+        block.lastStreakDate = "";
+        block.isGhost = true;
+        if (msg.color) block.appearance.color = msg.color;
+
+        this.recomputeStats();
+
+        // Persist
+        upsertBlock(blockToRow(block));
+        insertEvent("claim", msg.blockId, wallet, { ghost: true });
+
+        client.send("claim_result", {
+          success: true,
+          blockId: msg.blockId,
+          pointsEarned: 10,
+          combo: 1,
+          totalXp: 10,
+          level: 1,
+          levelUp: false,
+        });
+
+        this.broadcast("block_update", {
+          ...serializeBlock(block),
+          eventType: "claim",
+        });
+
+        console.log(`[TowerRoom] Ghost claim: ${wallet.slice(0, 8)}... claimed ${msg.blockId}`);
+      } catch (err) {
+        console.error("[TowerRoom] ghost_claim error:", err);
+        client.send("error", { message: "Ghost claim failed" });
+      }
+    });
+
+    this.onMessage("upgrade_ghost", async (client: Client, msg: { blockId: string; amount: number }) => {
+      try {
+        if (!isValidBlockId(msg.blockId)) {
+          client.send("error", { message: "Invalid blockId" });
+          return;
+        }
+
+        const wallet = this.getSessionWallet(client);
+        if (!wallet) {
+          client.send("error", { message: "Not authenticated" });
+          return;
+        }
+
+        const block = this.state.blocks.get(msg.blockId);
+        if (!block) {
+          client.send("error", { message: "Block not found" });
+          return;
+        }
+
+        if (block.owner !== wallet) {
+          client.send("error", { message: "Not your block" });
+          return;
+        }
+
+        if (!block.isGhost) {
+          client.send("error", { message: "Block is not a ghost block" });
+          return;
+        }
+
+        // Upgrade: remove ghost flag, set staked amount, restore full energy cap
+        block.isGhost = false;
+        block.stakedAmount = msg.amount || 0;
+        block.energy = MAX_ENERGY;
+
+        upsertBlock(blockToRow(block));
+        insertEvent("upgrade_ghost", msg.blockId, wallet);
+
+        client.send("upgrade_result", { success: true, blockId: msg.blockId });
+
+        this.broadcast("block_update", {
+          ...serializeBlock(block, this.getOwnerName(block.owner)),
+          eventType: "claim",
+        });
+
+        console.log(`[TowerRoom] Ghost upgraded: ${wallet.slice(0, 8)}... upgraded ${msg.blockId}`);
+      } catch (err) {
+        console.error("[TowerRoom] upgrade_ghost error:", err);
+        client.send("error", { message: "Upgrade failed" });
+      }
+    });
+
     this.onMessage("charge", async (client: Client, msg: ChargeMessage) => {
       try {
         if (!isValidBlockId(msg.blockId)) {
@@ -540,7 +669,8 @@ export class TowerRoom extends Room<TowerRoomState> {
         const { amount: baseAmount, quality: chargeQuality } = rollChargeAmount();
         const chargeAmount = Math.round(baseAmount * multiplier);
 
-        block.energy = Math.min(MAX_ENERGY, block.energy + chargeAmount);
+        const energyCap = block.isGhost ? GHOST_CHARGE_CAP : MAX_ENERGY;
+        block.energy = Math.min(energyCap, block.energy + chargeAmount);
         block.lastChargeTime = now;
         block.streak = newStreak;
         block.lastStreakDate = today;

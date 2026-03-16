@@ -34,6 +34,9 @@ export interface Block {
   /** Visual state derived from energy level */
   state: BlockState;
 
+  /** Whether this is a ghost block (free claim, limited power) */
+  isGhost?: boolean;
+
   /** Custom appearance set by owner */
   appearance: BlockAppearance;
 

@@ -137,6 +137,13 @@ export default function InspectorActions({
 
       {isOwner && (
         <>
+          {/* Ghost block indicator + upgrade CTA */}
+          {block.isGhost && (
+            <View style={styles.ghostBadgeRow}>
+              <Badge label="GHOST" color={COLORS.inspectorTextSecondary} />
+              <Text style={styles.ghostHint}>Upgrade for full power</Text>
+            </View>
+          )}
           {/* Evolution progress card — ABOVE charge button */}
           <Animated.View style={[styles.evolutionCard, isCloseToEvolving && { transform: [{ scale: pulseAnim }] }]}>
             {isMaxTier ? (
@@ -465,6 +472,16 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bodySemibold,
     fontSize: 11,
     color: COLORS.goldAccent,
+  },
+  ghostBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  ghostHint: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 12,
+    color: COLORS.inspectorTextSecondary,
   },
   premiumBadge: {
     fontFamily: FONT_FAMILY.bodySemibold,

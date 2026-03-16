@@ -10,7 +10,7 @@ import {
 import { COLORS, SPACING, FONT_FAMILY, RADIUS, TEXT } from "@/constants/theme";
 import Input from "./Input";
 import Button from "./Button";
-import { BLOCK_COLORS, getLayerMinPrice, getLayerTierLabel } from "@monolith/common";
+import { BLOCK_COLORS, getLayerMinPrice, getLayerTierLabel, GHOST_BLOCK_LAYERS } from "@monolith/common";
 import { hapticButtonPress, hapticError } from "@/utils/haptics";
 import { playButtonTap, playError } from "@/utils/audio";
 
@@ -20,6 +20,7 @@ interface ClaimModalProps {
   layer: number;
   index: number;
   onClaim: (amount: number, color: string) => Promise<void>;
+  onGhostClaim?: (color: string) => void;
   onClose: () => void;
 }
 
@@ -29,8 +30,10 @@ export default function ClaimModal({
   layer,
   index,
   onClaim,
+  onGhostClaim,
   onClose,
 }: ClaimModalProps) {
+  const isGhostEligible = GHOST_BLOCK_LAYERS.includes(layer);
   const minPrice = getLayerMinPrice(layer);
   const tierLabel = getLayerTierLabel(layer);
   const [amount, setAmount] = useState(minPrice.toFixed(2));
@@ -95,6 +98,31 @@ export default function ClaimModal({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* Ghost claim option — free on eligible layers */}
+            {isGhostEligible && onGhostClaim && (
+              <View style={styles.ghostSection}>
+                <Button
+                  title="FREE CLAIM"
+                  variant="secondary"
+                  size="lg"
+                  onPress={() => {
+                    hapticButtonPress();
+                    playButtonTap();
+                    onGhostClaim(selectedColor);
+                    onClose();
+                  }}
+                />
+                <Text style={styles.ghostHint}>
+                  Try free — lower energy cap, faster decay
+                </Text>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+              </View>
+            )}
+
             {/* Amount input */}
             <Input
               label="STAKE AMOUNT"
@@ -248,5 +276,31 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: SPACING.sm,
+  },
+  ghostSection: {
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  ghostHint: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: 12,
+    color: COLORS.textMuted,
+    textAlign: "center",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  dividerText: {
+    fontFamily: FONT_FAMILY.bodySemibold,
+    fontSize: 12,
+    color: COLORS.textMuted,
   },
 });

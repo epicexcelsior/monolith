@@ -29,6 +29,16 @@ export const MAX_ENTROPY_MULTIPLIER = 3.0;
 /** Minimum stake amount in USDC (6 decimals) to claim a block */
 export const MIN_STAKE_USDC = 10_000_000; // 10 USDC
 
+// ─── Ghost Blocks (Free-to-Play) ─────────────────────────
+/** Max ghost blocks per wallet/session */
+export const GHOST_BLOCK_LIMIT = 1;
+/** Ghost blocks decay at 2x rate */
+export const GHOST_DECAY_MULTIPLIER = 2.0;
+/** Ghost blocks can only charge up to 50% */
+export const GHOST_CHARGE_CAP = 50;
+/** Ghost blocks can only be claimed on the bottom 6 layers */
+export const GHOST_BLOCK_LAYERS = [0, 1, 2, 3, 4, 5];
+
 // ─── Energy → Visual State Thresholds ─────────────────────
 export const ENERGY_THRESHOLDS = {
   blazing: 80, // 80-100: Brilliant glow + particles

@@ -37,6 +37,7 @@ export class BlockSchema extends Schema {
   totalCharges: number = 0;   // cumulative charges (drives evolution)
   bestStreak: number = 0;     // all-time best streak (never decreases)
   evolutionTier: number = 0;  // 0-4 (Spark, Ember, Flame, Blaze, Beacon)
+  isGhost: boolean = false;   // true = free ghost block (limited power)
   appearance: BlockAppearanceSchema = new BlockAppearanceSchema();
 }
 
@@ -55,6 +56,7 @@ defineTypes(BlockSchema, {
   totalCharges: "uint16",
   bestStreak: "uint16",
   evolutionTier: "uint8",
+  isGhost: "boolean",
   appearance: BlockAppearanceSchema,
 });
 

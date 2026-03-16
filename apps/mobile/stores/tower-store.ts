@@ -93,6 +93,7 @@ export interface DemoBlock {
   totalCharges?: number;     // cumulative charges (drives evolution)
   bestStreak?: number;       // all-time best streak (never decreases)
   evolutionTier?: number;    // 0-4 (Spark, Ember, Flame, Blaze, Beacon) — denormalized from getEvolutionTier()
+  isGhost?: boolean;         // true = free ghost block (limited power)
 }
 
 /** Mutable ref state for claim celebration, readable by useFrame loops */

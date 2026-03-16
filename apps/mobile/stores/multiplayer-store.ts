@@ -41,6 +41,7 @@ interface ServerBlock {
   totalCharges: number;
   bestStreak: number;
   evolutionTier: number;
+  isGhost?: boolean;
   appearance: {
     color: string;
     emoji: string;
@@ -138,6 +139,8 @@ interface MultiplayerStore {
   sendCustomize: (msg: CustomizeMessage) => void;
   sendPoke: (msg: PokeMessage) => void;
   sendSetUsername: (msg: { wallet: string; username: string }) => void;
+  sendGhostClaim: (msg: { blockId: string; color?: string }) => void;
+  sendUpgradeGhost: (msg: { blockId: string; amount: number }) => void;
 }
 
 // Module-level refs
@@ -230,6 +233,7 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     totalCharges: block.totalCharges ?? 0,
     bestStreak: block.bestStreak ?? 0,
     evolutionTier: block.evolutionTier ?? 0,
+    isGhost: block.isGhost || false,
     personality: block.appearance?.personality != null && block.appearance.personality >= 0 ? block.appearance.personality : undefined,
   };
 }
@@ -558,6 +562,8 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   sendCustomize: (msg) => room?.send("customize", msg),
   sendPoke: (msg) => room?.send("poke", msg),
   sendSetUsername: (msg) => room?.send("set_username", msg),
+  sendGhostClaim: (msg: { blockId: string; color?: string }) => room?.send("ghost_claim", msg),
+  sendUpgradeGhost: (msg: { blockId: string; amount: number }) => room?.send("upgrade_ghost", msg),
 }));
 
 /** Exponential backoff reconnect */
