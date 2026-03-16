@@ -183,7 +183,7 @@ interface TowerStore {
   ghostClaimBlock: (blockId: string) => void;
   ghostChargeBlock: (blockId: string) => { success: boolean; chargeAmount?: number };
   ghostDecayBlock: (blockId: string, amount?: number) => void;
-  ghostCustomizeBlock: (blockId: string, changes: { color?: string; emoji?: string; style?: number; personality?: number }) => void;
+  ghostCustomizeBlock: (blockId: string, changes: { color?: string; emoji?: string; name?: string; style?: number; personality?: number }) => void;
   clearGhostBlock: () => void;
 
   // ─── Computed ─────────────────────────────
@@ -570,6 +570,7 @@ export const useTowerStore = create<TowerStore>((set, get) => ({
             ...b,
             ...(changes.color !== undefined && { ownerColor: changes.color }),
             ...(changes.emoji !== undefined && { emoji: changes.emoji }),
+            ...(changes.name !== undefined && { name: changes.name }),
             ...(changes.style !== undefined && { style: changes.style }),
             ...(changes.personality !== undefined && { personality: changes.personality }),
           }

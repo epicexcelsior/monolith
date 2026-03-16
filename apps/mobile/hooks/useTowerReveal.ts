@@ -6,8 +6,8 @@
  *   Phase A — Build reveal (3s): Blocks scale up layer by layer, camera sweeps 72°
  *   Phase B — Cinematic orbit (5s): Smooth ~300° orbit showing the full tower
  *
- * When both complete, sets `revealComplete = true` and advances onboarding
- * from `cinematic` → `title`.
+ * When both complete, sets `revealComplete = true`. OnboardingFlow handles
+ * the remaining intro UI (camera tutorial overlay + GET STARTED CTA).
  *
  * All math pre-allocated in refs (no `new` in useFrame).
  */
@@ -154,8 +154,8 @@ export function useTowerReveal(
     // Phase A complete — ensure progress is at 1
     setRevealProgress(1);
 
-    // If not in cinematic onboarding phase, skip orbit and finish
-    if (onboardingPhase !== "cinematic") {
+    // If not in intro onboarding phase, skip orbit and finish
+    if (onboardingPhase !== "intro") {
       setRevealComplete(true);
       doneRef.current = true;
       return;
@@ -188,12 +188,10 @@ export function useTowerReveal(
     cs.lookAt.set(0, OVERVIEW_LOOKAT_Y * lookAtYMul, 0);
     cs.targetLookAt.set(0, OVERVIEW_LOOKAT_Y * lookAtYMul, 0);
 
-    // Complete orbit
+    // Complete orbit — don't advance phase; OnboardingFlow shows CTA
     if (orbitRawT >= 1) {
       setRevealComplete(true);
       doneRef.current = true;
-      // Advance onboarding: cinematic → title
-      advancePhase();
     }
   });
 

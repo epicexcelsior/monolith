@@ -5,44 +5,49 @@ import { SECURE_STORE_KEYS } from "@/services/mwa";
 // ─── Types ────────────────────────────────────────────────
 
 /**
- * Onboarding phases — the full immersive first-60-seconds flow:
+ * Onboarding phases — trimmed from 10 to 7 for faster time-to-value:
  *
- *   cinematic   → Camera fly-around showing the tower (5-8s, no UI)
- *   title       → "MONOLITH" overlay with GET STARTED CTA
+ *   intro       → Cinematic orbit + camera tutorial overlay + "GET STARTED" CTA (~15s)
  *   claim       → Dedicated CLAIM THIS BLOCK button (no BlockInspector)
  *   celebration → VFX plays out, no UI — pure spectacle
- *   customize   → Color + emoji picker
+ *   customize   → Spark naming + color + emoji picker
  *   charge      → Charge tutorial — teach the daily loop
- *   poke        → Optional poke prompt (dismissible)
  *   wallet      → Wallet connect card (dismissible)
  *   done        → Onboarding finished, never shown again
+ *
+ * Removed: cameraTutorial (merged into intro), title (merged into intro), poke (moved to post-onboarding contextual prompt)
  */
 export type OnboardingPhase =
-    | "cinematic"
-    | "cameraTutorial"
-    | "title"
+    | "intro"
     | "claim"
     | "celebration"
     | "customize"
     | "charge"
-    | "poke"
     | "wallet"
     | "done";
 
 const PHASE_ORDER: OnboardingPhase[] = [
-    "cinematic",
-    "cameraTutorial",
-    "title",
+    "intro",
     "claim",
     "celebration",
     "customize",
     "charge",
-    "poke",
     "wallet",
     "done",
 ];
 
 const ONBOARDING_KEY = SECURE_STORE_KEYS.HAS_COMPLETED_ONBOARDING;
+
+// ─── Random Spark names ────────────────────────────────────
+const SPARK_NAMES = [
+    "Luna", "Blaze", "Pixel", "Nova", "Ember", "Cosmo",
+    "Nimbus", "Flick", "Spark", "Glo", "Puff", "Zest",
+    "Mochi", "Zippy", "Wisp", "Dusk",
+];
+
+export function getRandomSparkName(): string {
+    return SPARK_NAMES[Math.floor(Math.random() * SPARK_NAMES.length)];
+}
 
 // ─── Store ────────────────────────────────────────────────
 
@@ -52,6 +57,7 @@ interface OnboardingStore {
     ghostBlockId: string | null;
     ghostMode: boolean;
     initialized: boolean;
+    sparkName: string | null;
 
     // Derived
     isOnboarding: () => boolean;
@@ -62,16 +68,18 @@ interface OnboardingStore {
     skipToPhase: (phase: OnboardingPhase) => void;
     setGhostBlock: (blockId: string) => void;
     setGhostMode: (val: boolean) => void;
+    setSparkName: (name: string) => void;
     skipOnboarding: () => void;
     completeOnboarding: () => void;
     resetOnboarding: () => Promise<void>;
 }
 
 export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
-    phase: "cinematic",
+    phase: "intro",
     ghostBlockId: null,
     ghostMode: false,
     initialized: false,
+    sparkName: null,
 
     isOnboarding: () => get().phase !== "done",
 
@@ -81,10 +89,10 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
             if (val === "true") {
                 set({ phase: "done", initialized: true });
             } else {
-                set({ phase: "cinematic", initialized: true });
+                set({ phase: "intro", initialized: true });
             }
         } catch {
-            set({ phase: "cinematic", initialized: true });
+            set({ phase: "intro", initialized: true });
         }
     },
 
@@ -113,6 +121,8 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
 
     setGhostMode: (val) => set({ ghostMode: val }),
 
+    setSparkName: (name) => set({ sparkName: name }),
+
     skipOnboarding: () => {
         set({ phase: "done", ghostBlockId: null });
         SecureStore.setItemAsync(ONBOARDING_KEY, "true").catch(() => { });
@@ -127,6 +137,6 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
         try {
             await SecureStore.deleteItemAsync(ONBOARDING_KEY);
         } catch { }
-        set({ phase: "cinematic", ghostBlockId: null, ghostMode: false, initialized: true });
+        set({ phase: "intro", ghostBlockId: null, ghostMode: false, sparkName: null, initialized: true });
     },
 }));
