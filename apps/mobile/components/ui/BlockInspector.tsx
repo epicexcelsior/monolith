@@ -65,6 +65,7 @@ export default function BlockInspector() {
     isOnboardingClaim,
     handleOnboardingClaim,
     handleClaim,
+    handleGhostClaim,
     handleCharge,
     handlePoke,
     handleDismiss,
@@ -406,6 +407,7 @@ export default function BlockInspector() {
           layer={block.layer}
           index={block.index}
           onClaim={handleClaim}
+          onGhostClaim={handleGhostClaim}
           onClose={() => setShowClaimModal(false)}
         />
       )}

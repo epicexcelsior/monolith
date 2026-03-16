@@ -1,7 +1,7 @@
 /**
  * Loot Drop System — cosmetic rewards on charge.
  *
- * 44 items across 4 rarity tiers. 35% base drop rate.
+ * 43 items across 4 rarity tiers. 35% base drop rate.
  * Streak multiplier increases odds up to 2x.
  * Client-side only — no server changes needed.
  */
@@ -33,7 +33,7 @@ export const LOOT_TABLE: LootItem[] = [
   { id: "color_dustyblue", name: "Dusty Blue", rarity: "common", type: "color", value: "#6C9BCF", description: "Faded denim sky" },
   { id: "color_marigold", name: "Marigold", rarity: "common", type: "color", value: "#EAA221", description: "Sunny marigold bloom" },
 
-  // ─── Rare (14: 4 colors + 6 emojis + 4 effects) ─────
+  // ─── Rare (18: 4 colors + 8 emojis + 6 effects) ─────
   { id: "color_holographic", name: "Holographic", rarity: "rare", type: "color", value: "#E0E0FF", description: "Iridescent shimmer" },
   { id: "color_oilslick", name: "Oil Slick", rarity: "rare", type: "color", value: "#2D1B4E", description: "Dark rainbow sheen" },
   { id: "color_sunsetgrad", name: "Sunset Gradient", rarity: "rare", type: "color", value: "#FF6B35", description: "Warm gradient blend" },
@@ -44,12 +44,17 @@ export const LOOT_TABLE: LootItem[] = [
   { id: "emoji_moon", name: "Moon", rarity: "rare", type: "emoji", value: "\u{1F319}", description: "Crescent moon glow" },
   { id: "emoji_dragon", name: "Dragon", rarity: "rare", type: "emoji", value: "\u{1F409}", description: "Ancient guardian" },
   { id: "emoji_crystal", name: "Crystal Ball", rarity: "rare", type: "emoji", value: "\u{1F52E}", description: "See the future" },
+  { id: "emoji_alien", name: "Alien", rarity: "rare", type: "emoji", value: "\u{1F47D}", description: "Not from around here" },
+  { id: "emoji_robot", name: "Robot", rarity: "rare", type: "emoji", value: "\u{1F916}", description: "Beep boop" },
+  { id: "emoji_unicorn", name: "Unicorn", rarity: "rare", type: "emoji", value: "\u{1F984}", description: "Magical creature" },
   { id: "effect_warm", name: "Warm Aura", rarity: "rare", type: "effect", value: "warm_aura", description: "Warm particle ring" },
   { id: "effect_frost", name: "Frost Aura", rarity: "rare", type: "effect", value: "frost_aura", description: "Cool blue glow ring" },
   { id: "effect_cherry", name: "Cherry Blossom", rarity: "rare", type: "effect", value: "cherry_blossom", description: "Floating pink petals" },
   { id: "effect_electric", name: "Electric Arc", rarity: "rare", type: "effect", value: "electric_arc", description: "Crackling electricity" },
+  { id: "effect_smoke", name: "Smoke Trail", rarity: "rare", type: "effect", value: "smoke_trail", description: "Wispy smoke tendrils" },
+  { id: "effect_ripple", name: "Water Ripple", rarity: "rare", type: "effect", value: "water_ripple", description: "Gentle water rings" },
 
-  // ─── Epic (7: 2 emojis + 3 effects + 2 styles) ──────
+  // ─── Epic (8: 2 emojis + 4 effects + 2 styles) ──────
   { id: "emoji_phoenix", name: "Phoenix", rarity: "epic", type: "emoji", value: "\u{1F985}", description: "Rise from the ashes" },
   { id: "emoji_blackhole", name: "Black Hole", rarity: "epic", type: "emoji", value: "\u{1F573}\u{FE0F}", description: "Infinite gravity" },
   { id: "effect_shimmer", name: "Gold Shimmer", rarity: "epic", type: "effect", value: "gold_shimmer", description: "Your block shimmers gold" },
@@ -57,11 +62,13 @@ export const LOOT_TABLE: LootItem[] = [
   { id: "effect_gravity", name: "Gravity Field", rarity: "epic", type: "effect", value: "gravity_field", description: "Warped space around you" },
   { id: "effect_firering", name: "Fire Ring", rarity: "epic", type: "effect", value: "fire_ring", description: "Blazing ring of fire" },
   { id: "style_geometric", name: "Sacred Geometry", rarity: "epic", type: "style", value: "9", description: "Geometric pattern overlay" },
+  { id: "style_hexgrid", name: "Hex Grid", rarity: "epic", type: "style", value: "10", description: "Tessellated hexagonal mesh" },
 
-  // ─── Legendary (3: 2 effects + 1 style) ──────────────
+  // ─── Legendary (4: 2 effects + 2 styles) ─────────────
   { id: "style_phoenix", name: "Phoenix Style", rarity: "legendary", type: "style", value: "7", description: "Animated fire pattern" },
   { id: "style_constellation", name: "Constellation", rarity: "legendary", type: "style", value: "8", description: "Star field pattern" },
   { id: "effect_cosmic", name: "Cosmic Void", rarity: "legendary", type: "effect", value: "cosmic_void", description: "Swirling cosmic energy" },
+  { id: "effect_solarflare", name: "Solar Flare", rarity: "legendary", type: "effect", value: "solar_flare", description: "Erupting plasma tendrils" },
 ];
 
 export const RARITY_COLORS: Record<LootRarity, string> = {

@@ -28,6 +28,7 @@ import {
   generateNonce,
   consumeNonce,
   verifyWalletSignature,
+  removeNonce,
 } from "../utils/auth.js";
 import {
   recordLayerCharge,
@@ -715,8 +716,13 @@ export class TowerRoom extends Room<TowerRoomState> {
         if (this.pacts.has(pactKey)) { client.send("error", { message: "Pact already exists" }); return; }
 
         let myPactCount = 0;
-        this.pacts.forEach((p) => { if (p.blockA === msg.blockId || p.blockB === msg.blockId) myPactCount++; });
+        let targetPactCount = 0;
+        this.pacts.forEach((p) => {
+          if (p.blockA === msg.blockId || p.blockB === msg.blockId) myPactCount++;
+          if (p.blockA === msg.targetBlockId || p.blockB === msg.targetBlockId) targetPactCount++;
+        });
         if (myPactCount >= MAX_PACTS_PER_BLOCK) { client.send("error", { message: "Max pacts reached" }); return; }
+        if (targetPactCount >= MAX_PACTS_PER_BLOCK) { client.send("error", { message: "Target block at max pacts" }); return; }
 
         this.pactRequests.set(pactKey, {
           from: msg.blockId, to: msg.targetBlockId,
@@ -1311,6 +1317,7 @@ export class TowerRoom extends Room<TowerRoomState> {
 
   async onLeave(client: Client, consented: boolean) {
     console.log(`[TowerRoom] Client leaving: ${client.sessionId} (consented: ${consented})`);
+    removeNonce(client.sessionId);
     this.recomputeStats();
     if (!consented) {
       try {

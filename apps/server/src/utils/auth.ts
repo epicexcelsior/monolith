@@ -18,6 +18,15 @@ import { PublicKey } from "@solana/web3.js";
 
 const nonceStore = new Map<string, { nonce: string; expires: number }>();
 const NONCE_TTL_MS = 60_000; // 60 seconds
+const CLEANUP_INTERVAL_MS = 5 * 60_000; // Sweep expired nonces every 5 min
+
+// Periodic cleanup to prevent memory leak from orphaned nonces
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of nonceStore) {
+    if (now > entry.expires) nonceStore.delete(key);
+  }
+}, CLEANUP_INTERVAL_MS).unref();
 
 /**
  * Generate a cryptographic nonce for a session.
@@ -39,6 +48,11 @@ export function consumeNonce(sessionId: string): string | null {
   nonceStore.delete(sessionId);
   if (Date.now() > entry.expires) return null;
   return entry.nonce;
+}
+
+/** Remove nonce for a disconnected session */
+export function removeNonce(sessionId: string): void {
+  nonceStore.delete(sessionId);
 }
 
 // ─── Signature Verification ─────────────────────────────
