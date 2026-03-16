@@ -75,6 +75,30 @@ export default function TowerScreen() {
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
 
+  // Auto-hide HUD: fade out HotBlockTicker + MyBlockFAB after 5s inactivity
+  const hudOpacity = useRef(new Animated.Value(1)).current;
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hudVisibleRef = useRef(true);
+
+  const showHud = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (!hudVisibleRef.current) {
+      hudVisibleRef.current = true;
+      Animated.timing(hudOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    }
+    hideTimerRef.current = setTimeout(() => {
+      hudVisibleRef.current = false;
+      Animated.timing(hudOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+    }, 5000);
+  };
+
+  // Start auto-hide timer on mount
+  useEffect(() => {
+    showHud();
+    return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const multiplayerConnected = useMultiplayerStore((s) => s.connected);
 
   // Onboarding state
@@ -158,8 +182,8 @@ export default function TowerScreen() {
       <StatusBar style="light" />
       <ScreenFlash />
 
-      {/* 3D Tower (full screen) */}
-      <View style={styles.canvasContainer}>
+      {/* 3D Tower (full screen) — touch resets auto-hide timer */}
+      <View style={styles.canvasContainer} onTouchStart={showHud}>
         <TowerScene />
         <LoadingScreen visible={!initialized} />
       </View>
@@ -217,8 +241,12 @@ export default function TowerScreen() {
         {/* Onboarding — inside wrapper so it hides during claim celebration */}
         {initialized && isOnboarding && <OnboardingFlow />}
 
-        {/* Hot block ticker — bottom-right, notable blocks needing attention */}
-        {initialized && !isOnboarding && <HotBlockTicker />}
+        {/* Hot block ticker — bottom-right, auto-hides after 5s inactivity */}
+        {initialized && !isOnboarding && (
+          <Animated.View style={{ opacity: hudOpacity }} pointerEvents="box-none">
+            <HotBlockTicker />
+          </Animated.View>
+        )}
 
         {/* Achievement toast — slides in from top, auto-dismisses */}
         <AchievementToast />
@@ -247,11 +275,13 @@ export default function TowerScreen() {
         visible={revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen}
       />
 
-      {/* My Blocks FAB — quick access to owned blocks */}
-      <MyBlockFAB
-        visible={revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen}
-        onOpenPanel={() => setShowMyBlocks(true)}
-      />
+      {/* My Blocks FAB — quick access to owned blocks, auto-hides after 5s */}
+      <Animated.View style={{ opacity: hudOpacity }} pointerEvents="box-none">
+        <MyBlockFAB
+          visible={revealComplete && !isOnboarding && !cinematicMode && !anyOverlayOpen}
+          onOpenPanel={() => setShowMyBlocks(true)}
+        />
+      </Animated.View>
 
       {/* My Blocks panel — opened by FAB for multi-block owners */}
       <MyBlocksPanel
