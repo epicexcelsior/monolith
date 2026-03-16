@@ -51,7 +51,8 @@ interface ServerBlock {
     imageUrl?: string;
     personality?: number;
   };
-  eventType?: "claim" | "charge" | "customize" | "poke";
+  ascensionCount?: number;
+  eventType?: "claim" | "charge" | "customize" | "poke" | "ascend";
 }
 
 interface ServerState {
@@ -244,6 +245,7 @@ function serverBlockToDemo(block: ServerBlock): DemoBlock {
     bestStreak: block.bestStreak ?? 0,
     evolutionTier: block.evolutionTier ?? 0,
     isGhost: block.isGhost || false,
+    ascensionCount: block.ascensionCount ?? 0,
     personality: block.appearance?.personality != null && block.appearance.personality >= 0 ? block.appearance.personality : undefined,
   };
 }
