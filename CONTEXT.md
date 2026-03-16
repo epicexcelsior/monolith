@@ -1,7 +1,7 @@
 # Monolith — Project Context
 
 > **Living state document.** Auto-updated by `/wrapup` workflow.
-> **Last updated:** 2026-03-10
+> **Last updated:** 2026-03-16
 
 ## What Is This?
 
@@ -22,7 +22,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Spark faces** (kawaii SDF faces — energy-driven expressions, adaptive contrast, sleeping on dead, 5 eye x 4 mouth variety via hash, evolution tier progression, tier-aware LOD)
 - **Breathing blocks** (energy-tiered aura: blazing/thriving/fading/dying/dead — warm-to-cold tint)
 - **4 animated block styles** (Lava, Aurora, Crystal, Nature — GLSL, styles 7-10)
-- **Immersive onboarding** (9-phase: cinematic orbit → title → claim → celebration → customize → charge → poke → wallet → done)
+- **Immersive onboarding** (10-phase: cinematic → camera tutorial → title → claim → celebration → customize → charge → poke → wallet → done)
 - **XP system** (levels, FloatingPoints, LevelUpCelebration, XPBar, combo up to 3x, 10 levels, demo mode XP)
 - **Colyseus multiplayer** (server-authoritative, JSON messages, Railway) + Supabase persistence (blocks, players, events)
 - **Wallet + on-chain** (MWA connect, USDC vault deposit/withdraw devnet, layer-based pricing quadratic curve)
@@ -33,13 +33,13 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **Dormant block reclaim** ("RECLAIM" CTA on blocks at 0 energy 3+ days)
 - **Sound effects + haptics** (16 sounds, A Dorian identity, 8.5s tower-rise pad, wired to all interactions)
 - **Enhanced share flow** (gold Share button, post-charge nudge, achievement share, ShareCard with evo tier + streak badge)
-- **Push notifications** (hourly decay check, poke alerts — server handler + expo-notifications)
+- **Push notifications** (state-transition triggers: energy<20%, dormant, streak risk — 4h throttle, 3/day cap per wallet)
 - **HotBlockTicker** (bottom-right mini-cards for dying/fading/claimable/streak blocks — per-type colors, tap to inspect, 2 cards max, 5s scan)
 - **Layer-based pricing** (quadratic curve: Layer 0 = $0.10, Layer 24 = $1.00, tier badges in ClaimModal + InspectorActions)
-- **AchievementToast** (7 achievements, persisted to SecureStore, slide-in toast, share button)
+- **AchievementToast** (22 achievements, persisted to SecureStore, slide-in toast, share button)
 - **Breathing blocks** (energy-tiered aura: blazing warm gold pulse, thriving amber, fading anxious flicker, dying cold sparks, dead dark)
 - **Spark faces** (kawaii SDF faces on outward-facing side only — energy-driven expressions, adaptive contrast (bioluminescent on dark blocks), sleeping face on dead blocks, programmatic variety (5 eye shapes × 4 mouth styles per block via hash), evolution tier face progression (Spark→Ember→Flame→Blaze→Beacon adds blush/brows/halo), tier-aware LOD (Beacon visible from 54 units, Spark from 38))
-- **Loot drop system** (gacha-style cosmetic drops on charge — 12 items across 4 rarity tiers: common colors, rare emojis/effects, epic/legendary styles — 30% base drop rate with streak multiplier, full-screen reveal overlay with rarity flash + equip button, client-side inventory persisted to expo-secure-store)
+- **Loot drop system** (gacha-style cosmetic drops on charge — 43 items across 4 rarity tiers: 12 common colors, 18 rare items, 8 epic, 4 legendary — 35% base drop rate with streak multiplier, full-screen reveal overlay with rarity flash + equip button, client-side inventory persisted to expo-secure-store)
 - **Compact inspector** (~280px default, expandable to ~540px — block visible behind panel, smooth spring animation, scroll gating)
 - **Evolution celebration dedup** (lastCelebratedTier per block — each tier celebration fires exactly once)
 - **Charge quality amplification** (normal/good/great rolls feel dramatically different — flash duration/color spread, haptic intensity, FloatingPoints scale)
@@ -53,20 +53,38 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 - **UI overhaul** — tower reveal animation, FloatingNav pills (replaced tab bar), TopHUD, BoardSheet/SettingsSheet bottom panels, WalletConnectSheet card, BlockInspector split into sub-components, swipe-to-dismiss everywhere, dead code cleanup
 - **EAS Update / OTA** (expo-updates configured, channel: preview)
 - **Ownership enforcement** (can't charge/customize another player's block)
-- **REST endpoints** (GET /api/events, GET /api/leaderboard)
+- **REST endpoints** (GET /api/events, GET /api/leaderboard, GET /api/tower/blocks)
 - **Server hardening** (try/catch all handlers, error messages to client)
 - **Tapestry social layer** (on-chain profiles, follow/like/comment, deterministic block content IDs, activity feed tab, comments in inspector, namespace isolation — client-side only, fire-and-forget)
 - **Solana Blinks** (shareable poke URLs via memo transactions — dial.to cards, actions.json discovery, Alchemy devnet RPC, swappable via BLINKS_RPC_URL env var, in-game poke effects: block shake/bounce/flash + gold toast + SFX + haptic + push notification)
 - **MagicBlock SOAR** (on-chain leaderboard + 7 achievements via `@magicblock-labs/soar-sdk` — fire-and-forget score submission on claim/charge/poke, auto-register on wallet connect via MWA, authority-signed score/achievement txs, feature-flagged `SOAR_ENABLED`, active on devnet)
+- **Wallet signature verification** (Ed25519 nonce auth via tweetnacl — server challenges on join, client signs via MWA, write ops require verified wallet)
+- **Inspector dark mode** (dark glass theme on 3D background — inspectorBg/inspectorText tokens, gold accents preserved)
+- **Celebration tap-to-skip** (LevelUpCelebration + cinematic mode dismissible by tap, 1-2s gate)
+- **Camera tutorial** (3-step onboarding coach marks: swipe, pinch, layer scrubber — auto-advance 4s or tap)
+- **Ghost blocks (free-to-play)** (claim free on bottom 6 layers — 2x decay, 50 energy cap, 1 per session, upgradeable to staked)
+- **Ghost-first onboarding** (wallet optional — "START PLAYING" primary CTA, ghost block path)
+- **Neighbor pacts** (bilateral streak bonds — +5 energy when both charge same day, max 2 per block, breaks after 2 consecutive misses)
+- **Floor weekly competition** (weekly charge tracking per layer, Monday UTC reset, floor_winner broadcast)
+- **Daily quests** (7-quest pool, 3 picked per wallet per day, deterministic hash — charge/poke/customize/streak triggers, XP rewards)
+- **Streak freeze** (earned at 7-day milestones, max 2 stored — consumed on gap day to save streak)
+- **Weekly events** (Charge Storm 1.5x on odd weeks + Land Rush 50% off on even weeks, Saturday UTC)
+- **Progression map** (15 milestones: First Claim → Legend, derived from player/tower stores)
+- **Session tracking** (last session timestamp for "While You Were Away" summaries)
 
 ### Mocked / Stubbed
 - Activity feed on Board tab falls back to generated data when server has no events
 
 ### Not Started
-- Guided onboarding camera flight
 - Demo video / pitch deck — **Remotion system built** (`apps/video/`), 23s ShowcaseDemo renders
 - Gravity Tax implementation
 - Lighthouse glow radius mechanic
+- Invite code system (needs Supabase migration)
+- While You Were Away modal (store + server done, UI component pending)
+- Quest panel UI component
+- Progression map UI component
+- Floor leaderboard UI component
+- Event banner UI component
 
 ---
 
@@ -101,8 +119,9 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/components/ui/BottomPanel.tsx` | Reusable glass slide-up panel with swipe dismiss |
 | `apps/mobile/components/board/BoardContent.tsx` | Leaderboard + activity feed content |
 | `apps/mobile/components/settings/SettingsContent.tsx` | Profile + settings content |
-| `apps/mobile/hooks/useBlockActions.ts` | Block action handlers (claim/charge/poke/customize) |
-| `apps/mobile/hooks/useClaimCelebration.ts` | Claim celebration orchestrator (timers, cinematic mode, inspector reopen) |
+| `apps/mobile/components/onboarding/CameraTutorial.tsx` | 3-step camera gesture coach marks (swipe/pinch/scrubber) |
+| `apps/mobile/hooks/useBlockActions.ts` | Block action handlers (claim/ghostClaim/charge/poke/customize) |
+| `apps/mobile/hooks/useClaimCelebration.ts` | Claim celebration orchestrator (timers, cinematic mode, tap-to-skip) |
 | `apps/mobile/constants/ClaimEffectConfig.ts` | Claim celebration tuning (shake, zoom, camera, haptics, particles) |
 | `apps/mobile/hooks/useTowerReveal.ts` | Tower build-up reveal + cinematic orbit animation |
 | `apps/mobile/components/ui/LayerIndicator.tsx` | Floor scrubber / layer nav |
@@ -129,11 +148,13 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | File | Purpose |
 |------|---------|
 | `apps/mobile/stores/tower-store.ts` | Block data, selection, charge, decay loop, recentlyChargedId, recentlyPokedId |
-| `apps/mobile/stores/multiplayer-store.ts` | Colyseus connection, state sync, recentEvents, chargesToday |
+| `apps/mobile/stores/multiplayer-store.ts` | Colyseus connection, state sync, auth challenge/response, ghost/pact messages |
 | `apps/mobile/stores/player-store.ts` | XP, level, combo, lastPointsEarned, levelUp state |
-| `apps/mobile/stores/wallet-store.ts` | Wallet connection + balance |
-| `apps/mobile/stores/onboarding-store.ts` | 9-phase onboarding state machine |
+| `apps/mobile/stores/wallet-store.ts` | Wallet connection + balance + signAuthMessage utility |
+| `apps/mobile/stores/onboarding-store.ts` | 10-phase onboarding state machine (with cameraTutorial + ghostMode) |
 | `apps/mobile/stores/poke-store.ts` | Poke cooldown tracking |
+| `apps/mobile/stores/progression-store.ts` | 15-milestone Keeper's Journey derived from player/tower state |
+| `apps/mobile/stores/session-store.ts` | Session timestamps for "While You Were Away" summaries |
 | `apps/mobile/stores/achievement-store.ts` | Achievement unlocks (7 types, SecureStore persistence) |
 | `apps/mobile/stores/activity-store.ts` | Real-time activity events (wired to multiplayer) |
 | `apps/mobile/stores/loot-store.ts` | Loot inventory (Zustand + expo-secure-store, rollAndStore, pendingReveal) |
@@ -162,7 +183,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | `apps/mobile/assets/sfx/` | WAV files: 3 Kenney CC0 + 9 synthesized (A Dorian palette) |
 | `scripts/generate-sounds.js` | Node.js WAV synthesizer — re-run to regenerate hero sounds |
 | `apps/mobile/constants/theme.ts` | Colors, glass styles, typography |
-| `apps/mobile/constants/loot-table.ts` | 12 loot items, rarity tiers, weighted rollLoot() function |
+| `apps/mobile/constants/loot-table.ts` | 43 loot items, 4 rarity tiers, weighted rollLoot() function |
 | `apps/mobile/constants/network.ts` | GAME_SERVER_URL from env |
 | `apps/mobile/app.json` | EAS project config, expo-updates URL |
 | `apps/mobile/eas.json` | Build profiles (dev/preview/prod) + Supabase env vars |
@@ -171,10 +192,14 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | File | Purpose |
 |------|---------|
 | `apps/server/src/index.ts` | Colyseus server entrypoint + REST endpoints |
-| `apps/server/src/rooms/TowerRoom.ts` | Game room: claims, decay, XP, persistence, ownership enforcement |
+| `apps/server/src/rooms/TowerRoom.ts` | Game room: claims, ghost claims, decay, XP, pacts, quests, auth, persistence |
+| `apps/server/src/utils/auth.ts` | Wallet signature verification (nonce + Ed25519 via tweetnacl) |
 | `apps/server/src/utils/supabase.ts` | Supabase client + CRUD helpers (fire-and-forget writes) |
 | `apps/server/src/utils/xp.ts` | XP computation, level thresholds, combo tracking |
-| `apps/server/src/utils/notifications.ts` | Push notification helpers (Expo push API) |
+| `apps/server/src/utils/notifications.ts` | Push notifications (state-transition triggers, 4h throttle, 3/day cap) |
+| `apps/server/src/utils/quests.ts` | Daily quest progress tracking per wallet |
+| `apps/server/src/utils/floor-competition.ts` | Weekly floor charge competition + Monday reset |
+| `apps/server/src/utils/weekly-events.ts` | Rotating Saturday events (Charge Storm / Land Rush) |
 | `apps/server/src/routes/blinks.ts` | Solana Blinks routes (actions.json, GET metadata, POST poke tx) |
 | `apps/server/src/utils/memo-tx.ts` | RPC connection + unsigned memo transaction builder |
 | `apps/server/src/utils/blink-poke.ts` | Apply Blink poke to live TowerRoom (energy boost, broadcast, push notif) |
@@ -184,6 +209,7 @@ The Monolith is **r/Place meets DeFi in 3D**. Stake USDC, claim a glowing block 
 | File | Purpose |
 |------|---------|
 | `packages/common/src/layout.ts` | Tower geometry / block position math |
+| `packages/common/src/quest-defs.ts` | Quest pool (7 quests) + deterministic daily picker |
 | `packages/common/src/constants.ts` | Shared tower dimensions, limits, layer pricing, customization tiers, streak system, variable charge brackets, evolution tiers |
 | `packages/common/src/types.ts` | Shared TypeScript types (ClaimMessage, ChargeMessage, ActivityEvent) |
 

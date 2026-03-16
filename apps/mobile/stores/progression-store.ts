@@ -54,7 +54,6 @@ interface ProgressionStore {
 function gatherPlayerData(): PlayerData {
   const player = usePlayerStore.getState();
   const blocks = useTowerStore.getState().demoBlocks;
-  const wallet = null; // Would use wallet store in real usage
 
   let blocksOwned = 0;
   let maxEvolutionTier = 0;
