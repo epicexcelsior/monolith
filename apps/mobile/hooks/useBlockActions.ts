@@ -611,6 +611,11 @@ export function useBlockActions() {
       const { sendGhostClaim } = useMultiplayerStore.getState();
       sendGhostClaim({ blockId: selectedBlockId, color });
     }, [selectedBlockId]),
+    handleAscend: useCallback(() => {
+      if (!selectedBlockId) return;
+      const { sendAscend } = useMultiplayerStore.getState();
+      sendAscend({ blockId: selectedBlockId });
+    }, [selectedBlockId]),
     handleCharge,
     handlePoke,
     handleDismiss,

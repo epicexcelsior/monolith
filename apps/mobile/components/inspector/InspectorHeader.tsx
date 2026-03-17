@@ -31,10 +31,18 @@ export default function InspectorHeader({ block, isUnclaimed, isOwner, energyPct
             {block.name || `L${block.layer} / B${block.index}`}
           </Text>
           {!isUnclaimed && (
-            <Badge
-              label={tierInfo.name.toUpperCase()}
-              color={COLORS.goldAccent}
-            />
+            <>
+              <Badge
+                label={tierInfo.name.toUpperCase()}
+                color={COLORS.goldAccent}
+              />
+              {(block.ascensionCount ?? 0) > 0 && (
+                <Text style={styles.ascensionStars}>
+                  {"⭐".repeat(Math.min(block.ascensionCount!, 5))}
+                  {(block.ascensionCount ?? 0) > 5 ? `+${(block.ascensionCount ?? 0) - 5}` : ""}
+                </Text>
+              )}
+            </>
           )}
         </View>
         <View style={styles.statsRow}>
@@ -120,5 +128,9 @@ const styles = StyleSheet.create({
     ...TEXT.caption,
     fontFamily: FONT_FAMILY.mono,
     color: COLORS.inspectorTextSecondary,
+  },
+  ascensionStars: {
+    fontSize: 10,
+    marginLeft: 2,
   },
 });

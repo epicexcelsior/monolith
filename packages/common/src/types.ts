@@ -219,7 +219,7 @@ export interface PactMessage {
 /** Activity event for real-time feed */
 export interface ActivityEvent {
   id: string;
-  type: "claim" | "charge" | "customize" | "poke";
+  type: "claim" | "charge" | "customize" | "poke" | "ascend";
   blockId: string;
   owner: string;
   ownerColor?: string;

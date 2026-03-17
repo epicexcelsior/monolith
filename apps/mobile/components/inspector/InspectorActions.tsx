@@ -8,7 +8,7 @@ import ChargeWindow from "@/components/ui/ChargeWindow";
 import { hapticButtonPress } from "@/utils/haptics";
 import { playButtonTap } from "@/utils/audio";
 import { truncateAddress, formatUsdc } from "@/hooks/useBlockActions";
-import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, ACTIVE_EVOLUTION_TIERS, CHARGE_WINDOW } from "@monolith/common";
+import { getLayerMinPrice, getLayerTierLabel, getEvolutionTier, getEvolutionTierInfo, chargesToNextTier, ACTIVE_EVOLUTION_TIERS, CHARGE_WINDOW, ASCENSION } from "@monolith/common";
 import type { ChargeQuality } from "@monolith/common";
 import type { DemoBlock } from "@/stores/tower-store";
 
@@ -46,6 +46,7 @@ interface InspectorActionsProps {
   onUnfollow?: () => void;
   onLike?: () => void;
   onUnlike?: () => void;
+  onAscend?: () => void;
 }
 
 export default function InspectorActions({
@@ -81,6 +82,7 @@ export default function InspectorActions({
   onUnfollow,
   onLike,
   onUnlike,
+  onAscend,
 }: InspectorActionsProps) {
 
   // Evolution progress (computed once, used in owner + other-player sections)
@@ -170,8 +172,18 @@ export default function InspectorActions({
           <Animated.View style={[styles.evolutionCard, isCloseToEvolving && { transform: [{ scale: pulseAnim }] }]}>
             {isMaxTier ? (
               <View style={styles.evolutionFullyEvolved}>
-                <Text style={styles.evolutionFullyEvolvedText}>FULLY EVOLVED</Text>
+                <Text style={styles.evolutionFullyEvolvedText}>
+                  {(block.ascensionCount ?? 0) > 0 ? `ASCENSION ${block.ascensionCount}` : "FULLY EVOLVED"}
+                </Text>
                 <Text style={styles.evolutionTierLabel}>{evolutionTierInfo.name}</Text>
+                {onAscend && (block.ascensionCount ?? 0) < ASCENSION.MAX_ASCENSIONS && (
+                  <TouchableOpacity
+                    style={styles.ascendButton}
+                    onPress={() => { onAscend(); hapticButtonPress(); playButtonTap(); }}
+                  >
+                    <Text style={styles.ascendButtonText}>ASCEND</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
               <>
@@ -465,6 +477,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.goldAccent,
     letterSpacing: 1,
+  },
+  ascendButton: {
+    marginTop: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: COLORS.goldSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.goldAccent,
+  },
+  ascendButtonText: {
+    fontFamily: FONT_FAMILY.headingSemibold,
+    fontSize: 11,
+    color: COLORS.goldLight,
+    letterSpacing: 1.5,
   },
   evolutionBar: {
     height: 6,

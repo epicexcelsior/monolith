@@ -66,6 +66,7 @@ export default function BlockInspector() {
     handleOnboardingClaim,
     handleClaim,
     handleGhostClaim,
+    handleAscend,
     handleCharge,
     handlePoke,
     handleDismiss,
@@ -371,6 +372,7 @@ export default function BlockInspector() {
                 onUnfollow={handleTapestryUnfollow}
                 onLike={handleTapestryLike}
                 onUnlike={handleTapestryUnlike}
+                onAscend={handleAscend}
               />
             </View>
 
