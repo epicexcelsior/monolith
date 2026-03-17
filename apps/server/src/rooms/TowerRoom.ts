@@ -45,6 +45,11 @@ import {
   getCurrentEvent,
   getChargeEventMultiplier,
 } from "../utils/weekly-events.js";
+import {
+  getCurrentSeason,
+  computeSeasonLevel,
+  computeSeasonLevelXp,
+} from "../utils/seasons.js";
 
 // ─── Input Validation ────────────────────────────────────
 const BLOCK_ID_RE = /^block-\d+-\d+$/;
@@ -162,6 +167,7 @@ interface PlayerState {
   comboBest: number;
   username: string | null;
   skrName: string | null;
+  seasonXP: number;
 }
 
 /** Active room reference for Blink pokes to access directly */
@@ -944,9 +950,20 @@ export class TowerRoom extends Room<TowerRoomState> {
         if (questResult.xpEarned > 0) {
           player.xp += questResult.xpEarned;
           player.level = computeLevel(player.xp);
+          // Season XP from quest completion
+          player.seasonXP += questResult.xpEarned;
         }
         // Send quest update
         client.send("quest_update", { quests: getQuestState(wallet) });
+
+        // Season XP — 10 per charge
+        player.seasonXP += 10;
+        const season = getCurrentSeason();
+        client.send("season_update", {
+          seasonXP: player.seasonXP,
+          seasonLevel: computeSeasonLevel(player.seasonXP, season.xpPerLevel),
+          seasonLevelXP: computeSeasonLevelXp(player.seasonXP, season.xpPerLevel),
+        });
 
         if (levelUp) {
           insertEvent("level_up", undefined, wallet, {
@@ -1217,6 +1234,15 @@ export class TowerRoom extends Room<TowerRoomState> {
         checkQuestProgress(wallet, "poke");
         client.send("quest_update", { quests: getQuestState(wallet) });
 
+        // Season XP — 5 per poke
+        player.seasonXP += 5;
+        const pokeSeason = getCurrentSeason();
+        client.send("season_update", {
+          seasonXP: player.seasonXP,
+          seasonLevel: computeSeasonLevel(player.seasonXP, pokeSeason.xpPerLevel),
+          seasonLevelXP: computeSeasonLevelXp(player.seasonXP, pokeSeason.xpPerLevel),
+        });
+
         // Persist block
         upsertBlock(blockToRow(block));
 
@@ -1454,6 +1480,7 @@ export class TowerRoom extends Room<TowerRoomState> {
       comboBest: row.combo_best,
       username: row.username ?? null,
       skrName: null,
+      seasonXP: 0,
     };
     this.players.set(wallet, player);
 

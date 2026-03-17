@@ -42,6 +42,8 @@ import QuestPanel from "@/components/ui/QuestPanel";
 import EventBanner from "@/components/ui/EventBanner";
 import { useLoginStore } from "@/stores/login-store";
 import LoginCalendar from "@/components/ui/LoginCalendar";
+import { useSeasonStore } from "@/stores/season-store";
+import SeasonPassPanel from "@/components/ui/SeasonPassPanel";
 import { useWalletStore } from "@/stores/wallet-store";
 import { showStatusToast } from "@/stores/status-toast-store";
 import { COLORS } from "@/constants/theme";
@@ -73,8 +75,10 @@ export default function TowerScreen() {
   const dismissAwaySummary = useSessionStore((s) => s.dismissAwaySummary);
   const showLoginCalendar = useLoginStore((s) => s.showCalendar);
   const dismissLoginCalendar = useLoginStore((s) => s.dismissCalendar);
+  const showSeasonPass = useSeasonStore((s) => s.showSeasonPass);
+  const closeSeasonPass = useSeasonStore((s) => s.closeSeasonPass);
   // FloatingNav hides when any overlay/sheet is open — single derived boolean
-  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || showAwaySummary || isQuestPanelOpen || showLoginCalendar;
+  const anyOverlayOpen = !!selectedBlockId || showBoard || showSettings || showWalletConnect || showMyBlocks || lootPending || showAwaySummary || isQuestPanelOpen || showLoginCalendar || showSeasonPass;
 
   // Animated value for cinematic UI hide — slides down + fades on enter, reverses on exit
   const cinematicAnim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = hidden
@@ -329,6 +333,9 @@ export default function TowerScreen() {
 
       {/* Quest Panel — slide-up daily quests */}
       <QuestPanel visible={isQuestPanelOpen} onClose={closeQuestPanel} />
+
+      {/* Season Pass — progression tracks */}
+      <SeasonPassPanel visible={showSeasonPass} onClose={closeSeasonPass} />
 
     </View>
   );

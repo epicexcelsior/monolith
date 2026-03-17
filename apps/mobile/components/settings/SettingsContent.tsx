@@ -18,6 +18,7 @@ import { hapticButtonPress, setHapticsEnabled, isHapticsEnabled } from "@/utils/
 import { playButtonTap, playToggle, setMuted, isMuted } from "@/utils/audio";
 import { getClusterName } from "@/services/mwa";
 import { useTapestryStore } from "@/stores/tapestry-store";
+import { useSeasonStore } from "@/stores/season-store";
 
 interface SettingsContentProps {
   onClose?: () => void;
@@ -185,6 +186,18 @@ export default function SettingsContent({ onClose }: SettingsContentProps) {
       {/* Actions */}
       <View style={styles.section}>
         <TouchableOpacity
+          style={[styles.actionButton, styles.seasonButton]}
+          onPress={() => {
+            hapticButtonPress();
+            playButtonTap();
+            useSeasonStore.getState().openSeasonPass();
+            onClose?.();
+          }}
+        >
+          <Text style={styles.seasonButtonText}>Season Pass</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => { hapticButtonPress(); playButtonTap(); router.push("/faucet" as any); }}
         >
@@ -315,5 +328,11 @@ const styles = StyleSheet.create({
   actionButtonText: { fontFamily: FONT_FAMILY.bodySemibold, fontSize: 14, color: COLORS.textOnDark },
   dangerButton: { backgroundColor: "rgba(196, 64, 42, 0.15)" },
   dangerText: { color: COLORS.error },
+  seasonButton: {
+    backgroundColor: COLORS.goldSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.goldAccentDim,
+  },
+  seasonButtonText: { fontFamily: FONT_FAMILY.headingSemibold, fontSize: 14, color: COLORS.goldLight },
 
 });

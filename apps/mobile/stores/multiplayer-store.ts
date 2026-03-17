@@ -152,6 +152,7 @@ interface MultiplayerStore {
   sendSetUsername: (msg: { wallet: string; username: string }) => void;
   sendGhostClaim: (msg: { blockId: string; color?: string }) => void;
   sendUpgradeGhost: (msg: { blockId: string; amount: number }) => void;
+  sendAscend: (msg: { blockId: string }) => void;
 }
 
 // Module-level refs
@@ -494,6 +495,28 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         useQuestStore.getState().setQuests(data.quests);
       });
 
+      room.onMessage("ascend_result", (data: any) => {
+        if (data.success && data.pointsEarned) {
+          const { usePlayerStore } = require("@/stores/player-store");
+          usePlayerStore.getState().addPoints({
+            pointsEarned: data.pointsEarned,
+            totalXp: data.totalXp,
+            level: data.level,
+            levelUp: data.levelUp,
+            label: `Ascension #${data.ascensionCount}!`,
+          });
+        }
+      });
+
+      room.onMessage("season_update", (data: { seasonXP: number; seasonLevel: number; seasonLevelXP: number }) => {
+        const { useSeasonStore } = require("@/stores/season-store");
+        useSeasonStore.getState().setSeasonData({
+          seasonXP: data.seasonXP,
+          seasonLevel: data.seasonLevel,
+          seasonLevelXP: data.seasonLevelXP,
+        });
+      });
+
       room.onMessage("error", (data: { message: string }) => {
         errorCallback?.(data);
       });
@@ -586,6 +609,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   sendSetUsername: (msg) => room?.send("set_username", msg),
   sendGhostClaim: (msg: { blockId: string; color?: string }) => room?.send("ghost_claim", msg),
   sendUpgradeGhost: (msg: { blockId: string; amount: number }) => room?.send("upgrade_ghost", msg),
+  sendAscend: (msg: { blockId: string }) => room?.send("ascend", msg),
 }));
 
 /** Exponential backoff reconnect */

@@ -1131,10 +1131,10 @@ Track completion here. Update after each task commit.
 
 ### Pass 2: Endgame + Monetization + Production
 
-- [ ] **11** Prestige / Ascension System
-- [ ] **12** Daily Login Calendar
+- [x] **11** Prestige / Ascension System — 2d7ee30, ae93c8b
+- [x] **12** Daily Login Calendar — add39c8
 - [ ] **13** Season Pass Infrastructure
-- [ ] **14** Loot Pity System + Collection Milestones
+- [x] **14** Loot Pity System + Collection Milestones — 4fe986d
 - [ ] **15** Persist In-Memory State to Supabase
 - [ ] **16** Security Fixes + WebSocket Rate Limiting
 - [ ] **17** CI Pipeline (GitHub Actions)
