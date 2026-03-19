@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://expo.dev/artifacts/eas/4k3G64YyQ8NCJ7RgxA4RT6.apk">
+  <a href="https://expo.dev/artifacts/eas/29DyQzPgjq24rXPCTxpKCn.apk">
     Download APK from Expo
   </a>
 </p>
